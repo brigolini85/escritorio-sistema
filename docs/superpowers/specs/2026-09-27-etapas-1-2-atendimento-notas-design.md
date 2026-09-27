@@ -66,7 +66,7 @@ Todas as tabelas com dado de cliente têm `cliente_id` e RLS habilitado. O traba
 - `conversas`: contato, cliente em foco, estado (`agente` | `humano`), setor, atendente
 - `mensagens`: conversa, **cliente** (a empresa a que aquela mensagem se refere, gravada no momento), direção, autor (`cliente` | `agente` | `atendente` | `sistema`), tipo (texto, áudio, imagem, documento), conteúdo, transcrição, arquivo (Supabase Storage), id do provedor (único, para não processar duas vezes), status de envio (`pendente` | `enviada` | `falhou`)
 - `chamados`: número sequencial, cliente, conversa, setor, responsável, título, resumo, status (`aberto` | `em_andamento` | `aguardando_cliente` | `concluido`), `fora_do_contrato`, origem
-- `chamado_eventos`: histórico (criação, transferência, nota interna, conclusão)
+- `chamado_eventos`: cliente, histórico (criação, transferência, nota interna, conclusão)
 
 **Cadastros comerciais**
 - `compradores_grupos`: cliente, nome, apelidos, status de revisão (`a_revisar` | `aprovado`)
@@ -75,7 +75,7 @@ Todas as tabelas com dado de cliente têm `cliente_id` e RLS habilitado. O traba
 - `precos`: cliente, grupo, produto, valor, vigente desde/até, origem (`importacao` | `whatsapp` | `painel`), quem alterou (contato ou usuário), status (`vigente` | `aguardando_aprovacao_equipe` | `recusado`). O preço vigente é o registro `vigente` sem "vigente até"; os anteriores formam o histórico
 
 **Notas**
-- `pedidos_nota`: cliente, conversa, contato solicitante, tipo (`venda` | `devolucao`), unidade, chave da nota referenciada (devolução), número do espelho, versão do espelho, chave de idempotência (única), status (seção 6.7), travas acionadas, id no Bling, número, chave de acesso, totais com impostos calculados pelo Bling, dados de frete/pagamento, PDF, XML, erro
+- `pedidos_nota`: cliente, conversa, contato solicitante, tipo (`venda` | `devolucao`), unidade, chave da nota referenciada (devolução), número do espelho, versão do espelho, código de confirmação vigente (espelho travado), chave de idempotência (única), status (seção 6.7), `exclusao_bling_pendente`, travas acionadas, id no Bling, número, chave de acesso, totais com impostos calculados pelo Bling, dados de frete/pagamento, PDF, XML, erro
 - `pedido_itens`: cliente, produto, quantidade, valor unitário, origem do preço (`tabela` | `nota_referenciada`)
 - `espelhos`: cliente, pedido, versão, texto enviado, id da mensagem de envio, enviado em, aprovado em, mensagem que aprovou
 
@@ -91,10 +91,12 @@ Todas as tabelas com dado de cliente têm `cliente_id` e RLS habilitado. O traba
 - Atendente:
   - Conversas: as que têm chamado aberto ou concluído em um de seus setores, ou das quais é o atendente. Vê o histórico completo da conversa (a equipe interna é de confiança; a restrição é entre setores, não dentro da conversa)
   - `mensagens`, `espelhos`, `pedidos_nota`, `pedido_itens`, `decisoes_agente` e arquivos do Storage (PDF, XML, áudio, anexos): herdam a regra da conversa ou do chamado a que pertencem
+  - Quem tem a permissão `emitir_notas` vê **todos** os `pedidos_nota`, `pedido_itens` e `espelhos`, mesmo fora do setor Fiscal
   - Clientes e cadastros comerciais: leitura, com edição conforme as permissões extras
   - Configurações, usuários, integrações e auditoria: sem acesso
+  - Mudanças de estado de pedidos e aprovação de reajustes: nunca por escrita direta do navegador; somente por ações do servidor que verificam a permissão
 - Conversas atendidas apenas pelo agente, sem chamado, ficam visíveis somente ao administrador
-- Toda tabela com dado de cliente tem `cliente_id` próprio (não herdado da conversa), para que o futuro perfil Cliente filtre por empresa mesmo quando um contato fala por duas empresas
+- Toda tabela com dado de cliente tem `cliente_id` próprio (não herdado da conversa), para que o futuro perfil Cliente filtre por empresa mesmo quando um contato fala por duas empresas. **Exceções:** `contatos` (ligados a empresas pela tabela `contato_clientes`) e `conversas` (um contato pode falar por várias empresas; o futuro perfil Cliente verá só as mensagens com o seu `cliente_id`)
 
 ## 5. Painel
 
@@ -109,11 +111,11 @@ Todas as tabelas com dado de cliente têm `cliente_id` e RLS habilitado. O traba
 
 **Notas:** pedidos em andamento, aguardando liberação da equipe (modo supervisionado, com botão Emitir), exceções (produto novo, rejeição fiscal, denegada, envio do PDF falhou), reajustes aguardando aprovação, notas emitidas com PDF/XML.
 
-**Início:** chamados abertos por setor, sem responsável, notas do dia, alertas. Botão **Pausar agente** (geral ou por cliente), visível só ao administrador: com o agente pausado, nenhuma nota é emitida, e as mensagens novas vão direto para a fila humana com uma resposta padrão.
+**Início:** chamados abertos por setor, sem responsável, notas do dia, alertas. Botão **Pausar agente** (geral ou por cliente), visível só ao administrador: com o agente pausado, nenhuma **nova** transmissão de nota é iniciada (tarefas já em `emitindo` terminam, para não deixar nota em estado incerto), e as mensagens novas vão direto para a fila humana com uma resposta padrão.
 
 **Configurações** (administrador): usuários, setores e descrições de assuntos, serviços, respostas prontas (FAQ aprovada), integrações (status e reconexão do WhatsApp e do Bling por cliente), regras de natureza de operação e padrões de NF-e por cliente, mensagens padrão, horários e feriados, limites das travas, retenção, teto de gasto com IA.
 
-**Alerta de fila:** conversa ou chamado sem responsável há mais de X minutos (configurável) gera aviso para o setor e o administrador.
+**Alerta de fila:** conversa ou chamado sem responsável há mais de X minutos (configurável) gera aviso **no painel** para o setor e o administrador.
 
 ## 6. Fluxo do agente
 
@@ -122,7 +124,8 @@ Todas as tabelas com dado de cliente têm `cliente_id` e RLS habilitado. O traba
 2. Mensagens de grupos são ignoradas.
 3. Toda mensagem que o sistema envia é gravada como `pendente` **antes** do envio. Ao receber um evento "enviada por mim", o trabalhador aguarda alguns segundos e procura uma mensagem do sistema com o mesmo id do provedor. Se não houver, alguém respondeu pelo celular, e a conversa passa ao estado `humano` (o atendente pode usar "Devolver ao agente" no painel). A forma exata de distinguir mensagens da API e do celular depende da verificação V2.
 4. Áudio → transcrição. Imagem/PDF → leitura pelo Claude. **Conteúdo de anexos, transcrições e textos encaminhados é tratado como dado, nunca como instrução** para o agente.
-5. Se a conversa estiver no estado `humano`, a mensagem é gravada e exibida ao atendente, e o agente não responde. **Exceção:** aprovações de espelho (`SIM <número>`) e confirmações de reajuste continuam sendo detectadas pelo código, para o pedido não expirar em silêncio. O atendente vê o aviso no painel.
+5. Se a conversa estiver no estado `humano`, a mensagem é gravada e exibida ao atendente, e o agente não responde. **Exceção:** aprovações de espelho (`SIM <número>` e `CONFIRMO E<código>`) e confirmações de reajuste (`CONFIRMO R<código>`) continuam sendo detectadas pelo código, para o pedido não expirar em silêncio. O atendente vê o aviso no painel.
+6. O telefone do dono (e de qualquer usuário do painel) é marcado como **interno**: o agente ignora respostas desses números aos alertas.
 
 ### 6.2 Identificação
 - Telefone → contato → empresa(s). Com mais de uma empresa, o agente pergunta qual.
@@ -147,13 +150,13 @@ Fora do horário, notas seguem normalmente. Para demandas de pessoa, o agente in
 1. **Comprador:** encontra o grupo pelos nomes e apelidos. Com várias unidades, pergunta qual e usa as referências da resposta (cidade, bairro, endereço, final do CNPJ, apelidos). Continua perguntando até haver uma única unidade compatível. Uma referência nova confirmada é salva como apelido da unidade.
 2. **Comprador inexistente:** fluxo 6.5.
 3. **Itens:** associa cada item a um produto do catálogo (descrição, código, apelidos). Item ambíguo → pergunta. Produto inexistente → chamado Fiscal ("cadastrar produto"), cliente avisado, e o pedido fica em `aguardando_equipe`, retomado quando o produto for cadastrado.
-4. **Preço (venda):** preenchido pelo código a partir da tabela vigente do grupo. A IA não fornece preço. Produto sem preço para o grupo → pergunta ao cliente e segue o fluxo 6.6. O pedido fica em `aguardando_equipe` até o preço estar vigente (imediato em `automatico`; após aprovação da equipe em `supervisionado`).
+4. **Preço (venda):** preenchido pelo código a partir da tabela vigente do grupo. A IA não fornece preço. Produto sem preço para o grupo → pergunta ao cliente e segue o fluxo 6.6 (se o contato não tiver `pode_atualizar_preco`, abre chamado Fiscal e a equipe cadastra o preço pelo painel). O pedido fica em `aguardando_equipe` até o preço estar vigente (imediato em `automatico`; após aprovação da equipe em `supervisionado`).
 5. **Devolução:** exige a **chave da nota original**, localizada no Bling pelo número informado e confirmada com o cliente. Valores unitários e tributos são **copiados da nota original**, nunca da tabela atual. A quantidade devolvida não pode passar da original menos as devoluções já feitas. A nota sai com finalidade de devolução e a chave referenciada. **Quais devoluções a indústria emite** (por exemplo, retorno de comprador não contribuinte) e quais são emitidas pelo próprio comprador é regra definida pelo setor Fiscal antes da etapa 2 (seção 12). Caso fora da regra → chamado Fiscal.
 6. **"Igual à última":** repete os itens da última **venda autorizada pelo sistema** para aquela unidade, com os preços vigentes da tabela. Se não houver, pergunta os itens.
 7. **Natureza de operação:** o código determina se a operação é interna ou interestadual (UF da indústria × UF da unidade) e verifica a situação da IE do destinatário **em toda emissão**, não só no cadastro. A natureza vem de `regras_natureza`. Combinação sem regra → chamado Fiscal.
 8. **Frete, pagamento e informações complementares:** vêm dos padrões do cliente, e podem ser alterados no pedido se o cliente informar.
-9. **Travas** (limites configuráveis): valor total acima de N vezes a média do grupo, ou quantidade acima de N vezes o máximo histórico do produto → aviso à equipe, e o espelho passa a exigir `CONFIRMO <código>` em vez de `SIM <número>`. **Sem histórico** (grupo ou produto sem notas anteriores), a trava dispara sempre.
-10. **Espelho** com número **sequencial por cliente** e versão, mostrando o total **incluindo impostos** quando o Bling permitir o cálculo prévio (ver 6.7):
+9. **Travas** (limites configuráveis): valor total acima de N vezes a média do grupo, ou quantidade acima de N vezes o máximo histórico do produto → aviso à equipe, e o espelho passa a pedir `CONFIRMO E<código>`. Nesse espelho, `SIM` (com ou sem número) **não aprova**. O código é novo a cada versão, e todas as regras do item 11 valem para ele. Prefixos: `E` para espelho travado, `R` para reajuste (6.6), para que um código nunca sirva no lugar do outro. **Sem histórico** (grupo ou produto sem notas anteriores), a trava dispara sempre.
+10. **Espelho** com número **sequencial por cliente**, **fixo durante toda a vida do pedido** (correções e retomadas geram só uma nova versão), mostrando o total **incluindo impostos** quando o Bling permitir o cálculo prévio (ver 6.7):
     ```
     Espelho #17 (versão 1) – confira a nota:
     Destinatário: Hortsul Ltda – Itabira/MG (CNPJ ...)
@@ -173,13 +176,15 @@ Fora do horário, notas seguem normalmente. Para demandas de pessoa, o agente in
     - Áudio, imagem e texto de anexo **nunca** aprovam
     - Quem aprova precisa ter `pode_pedir_nota` para o **cliente do pedido**, não para o cliente em foco na conversa
     - Depois de aprovado, o pedido **não pode mais ser editado pelo agente nem pelo cliente**
-12. **Sem resposta:** lembrete após 2h. No fim do dia, um espelho **ainda não aprovado** expira, e o cliente é avisado. Pedidos em `aguardando_liberacao`, `aguardando_equipe` ou `bloqueado_emissao` não expiram; ficam no painel e entram no resumo diário. Nada é emitido sem aprovação.
+12. **Sem resposta:** lembrete após 2h. No fim do dia, um pedido em `rascunho` (cliente parou de responder a uma pergunta do agente) ou com espelho **ainda não aprovado** expira, e o cliente é avisado. Pedidos em `aguardando_liberacao`, `aguardando_equipe` ou `bloqueado_emissao` não expiram; ficam no painel e entram no resumo diário. Nada é emitido sem aprovação.
 13. **Cliente desiste** ("cancela esse pedido") antes da transmissão → `cancelado_pelo_cliente`.
 14. **Vários pedidos em uma mensagem:** um pedido e um espelho para cada.
 15. **Após aprovação:**
     - `supervisionado`: vai para `aguardando_liberacao` no painel, e a emissão ocorre quando alguém da equipe clica em Emitir
     - `automatico`: segue direto para a emissão
-16. **Visibilidade para a equipe:** todo pedido que entra em `aguardando_liberacao`, `aguardando_equipe` ou `bloqueado_emissao` abre (ou atualiza) um chamado no setor Fiscal, para que os atendentes desse setor o vejam pelo RLS. As ações **Emitir** e **Cancelar pedido** no painel exigem a permissão extra `emitir_notas`.
+16. **Visibilidade para a equipe:** todo pedido que entra em `aguardando_liberacao`, `aguardando_equipe`, `bloqueado_emissao`, `rejeitada` (fiscal), `denegada` ou `autorizada_envio_falhou`, ou que fica em `emitindo` por mais de ~30 min, abre (ou atualiza) um chamado no setor Fiscal. O chamado é concluído automaticamente quando o pedido chega a um estado final.
+17. **Ações da equipe sobre pedidos:** **Emitir**, **Cancelar pedido**, **Liberar nova tentativa** e **Vincular nota** exigem a permissão `emitir_notas`; **Aprovar reajuste** exige `editar_precos`. Toda mudança de estado é feita pelo servidor, nunca por alteração direta do navegador no banco.
+18. **Bling fora do ar ao montar o espelho** (fluxo preferencial): o pedido fica em `rascunho` com novas tentativas. Após ~30 min, o cliente é avisado e abre chamado.
 
 ### 6.5 Comprador novo
 1. O agente pede o CNPJ, caso não tenha vindo no pedido.
@@ -194,8 +199,8 @@ Fora do horário, notas seguem normalmente. Para demandas de pessoa, o agente in
 - Só contatos com `pode_atualizar_preco` para aquele cliente.
 - O agente só **propõe**. O código gera a pergunta com um código de confirmação: *"Confirma: Produto X para o grupo Hortsul passa de R$ 45,00 para R$ 48,00 a partir de agora? Responda CONFIRMO R12."*
 - A confirmação é detectada **pelo código**: a mensagem inteira precisa ser exatamente `CONFIRMO <código>` (o código é **sempre** obrigatório), enviada pelo mesmo contato, na mesma conversa, depois da pergunta, e nunca por áudio ou anexo. A IA não consegue confirmar um reajuste.
-- Variação acima do limite configurado (padrão 20%) → segunda pergunta com **novo código** + aviso à equipe.
-- Um espelho já enviado mantém o preço com que foi enviado. O reajuste vale para pedidos criados depois dele.
+- Variação acima do limite configurado (padrão 20%) → segunda pergunta com **novo código** + aviso à equipe. **Sem preço anterior** (produto novo para o grupo), é tratado como acima do limite.
+- Um espelho já enviado mantém o preço com que foi enviado. O reajuste vale para pedidos criados depois dele **e** para pedidos em `rascunho` ou `aguardando_equipe` que aguardavam aquele preço.
 - Cliente em `supervisionado`: o novo preço fica `aguardando_aprovacao_equipe` e só vale depois que a equipe aprova no painel. Em `automatico`, vale após a confirmação.
 - Grava o novo preço, fecha o anterior e registra quem pediu e quando.
 
@@ -204,22 +209,23 @@ Fora do horário, notas seguem normalmente. Para demandas de pessoa, o agente in
 
 | De | Para |
 |---|---|
-| `rascunho` | `aguardando_aprovacao`, `aguardando_equipe`, `cancelado_pelo_cliente`, `cancelado_pela_equipe` |
+| `rascunho` | `aguardando_aprovacao`, `aguardando_equipe`, `expirado`, `cancelado_pelo_cliente`, `cancelado_pela_equipe` |
 | `aguardando_equipe` | `rascunho` (retomado), `cancelado_pelo_cliente`, `cancelado_pela_equipe` |
 | `aguardando_aprovacao` | `aprovado`, `rascunho` (correção, nova versão), `expirado`, `cancelado_pelo_cliente`, `cancelado_pela_equipe` |
 | `aprovado` | `aguardando_liberacao` (supervisionado), `emitindo` (automático), `cancelado_pelo_cliente`, `cancelado_pela_equipe` |
 | `aguardando_liberacao` | `emitindo` (equipe clicou), `cancelado_pelo_cliente`, `cancelado_pela_equipe` |
 | `emitindo` | `autorizada`, `rejeitada`, `denegada`, `bloqueado_emissao` |
-| `rejeitada` | `emitindo` (após correção cadastral da **mesma** nota no Bling), `bloqueado_emissao` |
+| `rejeitada` | `emitindo` (após correção cadastral da **mesma** nota no Bling, somente se natureza, tributos e total continuarem iguais aos do espelho aprovado), `bloqueado_emissao` (qualquer outro caso) |
 | `bloqueado_emissao` | `emitindo` (equipe liberou nova tentativa), `autorizada` (equipe vinculou manualmente uma nota já autorizada), `cancelado_pela_equipe` |
 | `autorizada` | `concluida` (PDF entregue), `autorizada_envio_falhou` |
 | `autorizada_envio_falhou` | `concluida` (reenvio bem-sucedido ou entrega manual registrada) |
 
-- **`aguardando_equipe`** existe **só antes da aprovação** (produto novo, preço aguardando aprovação, regra de natureza faltando). Ao ser retomado, volta a `rascunho`, e um novo espelho é enviado.
+- **`aguardando_equipe`** existe **só antes da aprovação** (produto novo, preço aguardando aprovação, regra de natureza faltando). Ao ser retomado, volta a `rascunho`, e uma nova **versão** do mesmo espelho é enviada.
+- **Vincular nota manualmente** (`bloqueado_emissao` → `autorizada`): antes de concluir, o sistema exclui a nota pendente no Bling que carrega a referência do pedido, e só conclui após confirmar a exclusão. Isso evita que alguém a transmita depois e gere uma nota duplicada.
 - **`bloqueado_emissao`** existe **só depois da aprovação** (resposta incerta do Bling, rejeição fiscal, situação que a equipe precisa resolver). Um pedido nesse estado **nunca volta a ser editável**.
 - **Credencial do Bling expirada ou Bling fora do ar** mantêm o pedido em `emitindo`, com nova tentativa agendada. Depois de ~30 min sem sucesso, abre chamado, mas o estado continua `emitindo`.
 - **`denegada`** (IE irregular do destinatário): chamado Fiscal imediato. O número da nota fica queimado e a situação precisa de tratamento humano.
-- **Cancelamento e expiração:** toda transição para `cancelado_*` ou `expirado` exclui a nota pendente no Bling, se existir. Se a exclusão falhar, o sistema alerta, e o pedido só é considerado encerrado após a exclusão ser confirmada. Não é possível cancelar a partir de `emitindo`, porque a nota pode já estar na SEFAZ; cancelamento de nota autorizada é chamado para a equipe (fora do escopo).
+- **Cancelamento e expiração:** a transição para `cancelado_*` ou `expirado` é imediata. Se houver nota pendente no Bling, o campo `exclusao_bling_pendente` do pedido fica verdadeiro até a exclusão ser confirmada; a tarefa diária tenta de novo e alerta enquanto não conseguir. Não é possível cancelar a partir de `emitindo`, porque a nota pode já estar na SEFAZ; cancelamento de nota autorizada é chamado para a equipe (fora do escopo).
 
 **Cálculo dos impostos para o espelho:**
 - **Preferencial:** criar a NF-e no Bling como **pendente (sem transmitir)** ao montar o espelho, para que o próprio Bling calcule impostos e total. Correções atualizam essa nota pendente
@@ -230,13 +236,13 @@ Fora do horário, notas seguem normalmente. Para demandas de pessoa, o agente in
 1. A chave de idempotência é derivada do pedido (cliente + número do espelho) e é gravada no pedido **antes** de qualquer chamada de criação ao Bling.
 2. A chave é enviada no campo de referência pesquisável da nota no Bling (definido na V1).
 3. Após criar, o id do Bling é gravado no pedido. Se o processo cair entre a criação e a gravação, a recuperação busca no Bling **somente pela referência**, ignorando notas já vinculadas a outro pedido. O código nunca cria uma segunda nota para uma referência que já existe no Bling.
-4. Uma tarefa diária exclui notas pendentes no Bling cuja referência pertença a pedidos cancelados ou expirados, e alerta sobre notas pendentes sem pedido correspondente.
+4. Uma tarefa diária exclui notas pendentes no Bling cuja referência pertença a pedidos cancelados, expirados ou vinculados manualmente a outra nota, e alerta sobre notas pendentes **com o prefixo de referência do sistema** sem pedido correspondente. Notas feitas à mão no Bling, sem esse prefixo, são ignoradas.
 
 **Passos da emissão** (tarefa na fila):
 1. Pedidos aprovados não mudam (6.4, item 11).
 2. Garante a nota pendente no Bling (retomando pela referência, se necessário). Na alternativa sem rascunho prévio, cria aqui.
 3. Transmite e consulta o status até a autorização. Resposta incerta que a recuperação pela referência não resolva → `bloqueado_emissao`.
-4. Rejeição por dado cadastral: corrige a **mesma** nota e retransmite, sem criar outra.
+4. Rejeição por dado cadastral: corrige a **mesma** nota e retransmite, sem criar outra, **apenas se** natureza, tributos e total continuarem iguais aos do espelho aprovado. Se a correção mudar qualquer um deles (por exemplo, a IE corrigida muda o tipo de contribuinte), → `bloqueado_emissao`.
 5. Baixa o PDF e o XML, guarda no Storage, envia o PDF ao cliente e registra.
 
 ### 6.8 Ferramentas do agente
@@ -280,7 +286,7 @@ Toda chamada de ferramenta e sua justificativa ficam registradas em `decisoes_ag
 | Fila parada ou WhatsApp sem eventos | O trabalhador registra um sinal de vida da fila e da conexão da Z-API a cada minuto. O monitor externo verifica esse sinal, e não só se o servidor responde |
 | Banco indisponível | Novas tentativas. Mensagens recebidas preservadas (ver item V2 da seção 11) |
 | Publicação de nova versão durante uma emissão | O trabalhador encerra com calma: para de pegar tarefas novas e termina a atual. Tarefa interrompida volta à fila e é retomada pelo id do Bling gravado |
-| Gasto com IA perto do teto | Alerta ao dono em 80%. Ao atingir o teto, o agente pausa e as mensagens vão para a fila humana |
+| Gasto com IA perto do teto | Alerta ao dono em 80%. Ao atingir o teto, **só as chamadas à IA** são suspensas: mensagens novas vão para a fila humana com resposta padrão, mas a detecção de aprovações (feita por código) e as emissões já aprovadas continuam. É diferente do botão Pausar agente |
 
 **Canais de alerta:**
 - **Críticos** (WhatsApp desconectado, número bloqueado, sistema fora, fila parada, nota em `bloqueado_emissao` ou `denegada`): **e-mail** + painel. Nunca dependem do WhatsApp, porque os avisos ao dono saem pelo próprio número do escritório
@@ -288,7 +294,7 @@ Toda chamada de ferramenta e sua justificativa ficam registradas em `decisoes_ag
 
 **Limite de envio:** mensagens iniciadas pelo sistema (lembretes, alertas) respeitam um limite por minuto, para reduzir o risco de bloqueio na Z-API.
 
-**Resumo diário às 18h** no WhatsApp do dono: notas emitidas, chamados por setor, exceções pendentes, saúde das integrações.
+**Resumo diário às 18h** no WhatsApp do dono e por e-mail: notas emitidas, chamados por setor, exceções pendentes, saúde das integrações.
 
 ## 9. Segurança e LGPD
 - RLS em todas as tabelas. Chave de serviço apenas no trabalhador
@@ -309,7 +315,7 @@ Toda chamada de ferramenta e sua justificativa ficam registradas em `decisoes_ag
 **Testes automáticos** (rodam no GitHub antes de qualquer publicação):
 - Regras: seleção de unidade, preço vigente, natureza de operação por UF e IE, travas (inclusive sem histórico), detecção de aprovação e de confirmação de reajuste (ordem das mensagens, versão, permissão por cliente), devolução (valores da nota original, limite de quantidade), idempotência e retomada, todas as transições da máquina de estados, RLS por perfil em todas as tabelas e buckets
 - Integração com as implementações falsas de Z-API, Bling, Claude, transcrição e CNPJ/IE, incluindo falhas simuladas (queda depois de criar a nota e antes de gravar o id, webhook "enviada por mim" chegando antes do id, renovação simultânea do token)
-- **Cenários de conversa:** conjunto de pedidos realistas ("emite pra hortsul itabira 10 cx do A", áudios transcritos, pedidos ambíguos, SIM antes de uma correção, "sim" respondendo a outra pergunta, "SIM 17, mas troca...", pedidos idênticos na mesma mensagem, instruções escondidas em PDFs e fichas, tentativas de burlar preço), verificando as ferramentas chamadas e o resultado. O conjunto cresce com cada erro encontrado em produção
+- **Cenários de conversa:** conjunto de pedidos realistas ("emite pra hortsul itabira 10 cx do A", áudios transcritos, pedidos ambíguos, SIM antes de uma correção, "sim" respondendo a outra pergunta, "SIM 17, mas troca...", SIM em espelho travado, código de reajuste usado num espelho, pedidos idênticos na mesma mensagem, instruções escondidas em PDFs e fichas, tentativas de burlar preço), verificando as ferramentas chamadas e o resultado. O conjunto cresce com cada erro encontrado em produção
 
 **Ambientes:**
 - Homologação: projeto Supabase separado + serviços separados no Easypanel + número de WhatsApp de teste
