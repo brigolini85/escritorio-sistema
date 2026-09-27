@@ -1,0 +1,12 @@
+{
+  "name": "@escritorio/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": { ".": "./src/index.ts", "./teste": "./test/limpar.ts" },
+  "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
+  "dependencies": { "@escritorio/core": "workspace:*", "@supabase/supabase-js": "^2.47.0" },
+  "devDependencies": { "dotenv": "^16.4.0", "pg": "^8.13.0", "@types/pg": "^8.11.0" }
+}
