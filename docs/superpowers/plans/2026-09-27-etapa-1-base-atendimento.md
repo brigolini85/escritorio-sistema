@@ -25,7 +25,10 @@
 - O agente só responde sozinho saudações, agradecimentos, status de chamado e perguntas cobertas pelas respostas prontas; qualquer dúvida técnica vira chamado.
 - Retenção: conversas, mensagens, anexos e decisões do agente por **1 ano**.
 - Alertas críticos (WhatsApp desconectado, sistema/fila parados) vão **só por e-mail + painel**.
+- O limitador de envio vale só para mensagens de autor `sistema` (avisos, alertas, resumo); respostas do agente e da equipe não esperam.
 - Todo commit termina com a linha `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+
+**Fica para o plano da etapa 2:** a cópia periódica dos arquivos do Storage para um segundo local (o spec exige por causa dos XML das notas, que só existem na etapa 2).
 
 ## Review Focus
 
@@ -321,6 +324,8 @@ jobs:
       - run: pnpm test
 ```
 
+(Na Task 7 o job `testes` passa a rodar `pnpm --filter @escritorio/core test` e `pnpm --filter @escritorio/painel test` — os testes unitários que não precisam de banco.)
+
 - [ ] **Step 7: Commit**
 
 ```bash
@@ -360,17 +365,17 @@ create extension if not exists pgtap with schema extensions;
 select plan(8);
 
 insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-00000000000a', 'admin@teste.com'),
-  ('00000000-0000-0000-0000-00000000000b', 'ana@teste.com'),
-  ('00000000-0000-0000-0000-00000000000c', 'ex@teste.com'),
-  ('00000000-0000-0000-0000-00000000000d', 'bia@teste.com');
+  ('00000000-0000-0000-0000-00000000000a', 'admin@pgtap.local'),
+  ('00000000-0000-0000-0000-00000000000b', 'ana@pgtap.local'),
+  ('00000000-0000-0000-0000-00000000000c', 'ex@pgtap.local'),
+  ('00000000-0000-0000-0000-00000000000d', 'bia@pgtap.local');
 insert into public.usuarios (id, nome, email, papel) values
-  ('00000000-0000-0000-0000-00000000000a', 'Admin', 'admin@teste.com', 'admin'),
-  ('00000000-0000-0000-0000-00000000000b', 'Ana', 'ana@teste.com', 'atendente');
+  ('00000000-0000-0000-0000-00000000000a', 'Admin', 'admin@pgtap.local', 'admin'),
+  ('00000000-0000-0000-0000-00000000000b', 'Ana', 'ana@pgtap.local', 'atendente');
 insert into public.usuarios (id, nome, email, papel, ativo) values
-  ('00000000-0000-0000-0000-00000000000c', 'Ex', 'ex@teste.com', 'atendente', false);
+  ('00000000-0000-0000-0000-00000000000c', 'Ex', 'ex@pgtap.local', 'atendente', false);
 insert into public.usuarios (id, nome, email, papel, permissoes) values
-  ('00000000-0000-0000-0000-00000000000d', 'Bia', 'bia@teste.com', 'atendente', '{editar_clientes}');
+  ('00000000-0000-0000-0000-00000000000d', 'Bia', 'bia@pgtap.local', 'atendente', '{editar_clientes}');
 insert into public.clientes (razao_social, cnpj) values ('Indústria X', '11222333000181');
 
 set local role authenticated;
@@ -657,13 +662,13 @@ create extension if not exists pgtap with schema extensions;
 select plan(7);
 
 insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-00000000000a', 'admin@teste.com'),
-  ('00000000-0000-0000-0000-00000000000b', 'ana@teste.com'),
-  ('00000000-0000-0000-0000-00000000000e', 'caio@teste.com');
+  ('00000000-0000-0000-0000-00000000000a', 'admin@pgtap.local'),
+  ('00000000-0000-0000-0000-00000000000b', 'ana@pgtap.local'),
+  ('00000000-0000-0000-0000-00000000000e', 'caio@pgtap.local');
 insert into public.usuarios (id, nome, email, papel) values
-  ('00000000-0000-0000-0000-00000000000a', 'Admin', 'admin@teste.com', 'admin'),
-  ('00000000-0000-0000-0000-00000000000b', 'Ana', 'ana@teste.com', 'atendente'),
-  ('00000000-0000-0000-0000-00000000000e', 'Caio', 'caio@teste.com', 'atendente');
+  ('00000000-0000-0000-0000-00000000000a', 'Admin', 'admin@pgtap.local', 'admin'),
+  ('00000000-0000-0000-0000-00000000000b', 'Ana', 'ana@pgtap.local', 'atendente'),
+  ('00000000-0000-0000-0000-00000000000e', 'Caio', 'caio@pgtap.local', 'atendente');
 insert into public.usuario_setores (usuario_id, setor_id)
   select '00000000-0000-0000-0000-00000000000b', id from public.setores where nome = 'Fiscal';
 insert into public.usuario_setores (usuario_id, setor_id)
@@ -712,11 +717,11 @@ create extension if not exists pgtap with schema extensions;
 select plan(9);
 
 insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-00000000000b', 'ana@teste.com'),
-  ('00000000-0000-0000-0000-00000000000e', 'caio@teste.com');
+  ('00000000-0000-0000-0000-00000000000b', 'ana@pgtap.local'),
+  ('00000000-0000-0000-0000-00000000000e', 'caio@pgtap.local');
 insert into public.usuarios (id, nome, email, papel) values
-  ('00000000-0000-0000-0000-00000000000b', 'Ana', 'ana@teste.com', 'atendente'),
-  ('00000000-0000-0000-0000-00000000000e', 'Caio', 'caio@teste.com', 'atendente');
+  ('00000000-0000-0000-0000-00000000000b', 'Ana', 'ana@pgtap.local', 'atendente'),
+  ('00000000-0000-0000-0000-00000000000e', 'Caio', 'caio@pgtap.local', 'atendente');
 insert into public.usuario_setores (usuario_id, setor_id)
   select '00000000-0000-0000-0000-00000000000b', id from public.setores where nome = 'Fiscal';
 insert into public.usuario_setores (usuario_id, setor_id)
@@ -926,15 +931,20 @@ create policy leitura_admin on public.auditoria_acessos for select to authentica
 create policy leitura_admin on public.sinais_vida for select to authenticated using (eh_admin());
 create policy leitura on public.alertas for select to authenticated
   using (eh_admin() or (setor_id is not null and setor_id in (select meus_setores())));
-create policy marcar_lido on public.alertas for update to authenticated
-  using (eh_admin() or (setor_id is not null and setor_id in (select meus_setores())))
-  with check (eh_admin() or (setor_id is not null and setor_id in (select meus_setores())));
 
 -- Navegador nunca escreve direto nestas tabelas: só pelas RPCs abaixo
 revoke insert, update, delete on public.conversas, public.mensagens, public.chamados,
   public.chamado_eventos, public.decisoes_agente, public.uso_ia, public.auditoria_acessos,
   public.sinais_vida from authenticated, anon;
-revoke insert, delete on public.alertas from authenticated, anon;
+revoke insert, update, delete on public.alertas from authenticated, anon;
+
+-- Marcar alerta como lido: só preenche lido_em, e só em alerta visível ao usuário
+create function public.marcar_alerta_lido(p_alerta uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update alertas set lido_em = now()
+  where id = p_alerta and (eh_admin() or (setor_id is not null and setor_id in (select meus_setores())));
+end $$;
 
 -- RPCs do painel
 create function public.assumir_conversa(p_conversa uuid) returns void
@@ -1301,7 +1311,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Produces: `criarClienteServico(url: string, chave: string): Db`; `criarRepos(db: Db)`; `type Repos = ReturnType<typeof criarRepos>`; tipos `Db`, `Conversa`, `Mensagem`, `Chamado`, `ContatoEncontrado`, `EmpresaDoContato`, `Configuracoes`, `NovaMensagemEntrada`, `NovoChamado`. Para testes: `limparBanco(): Promise<void>` exportado por `@escritorio/db/teste`.
 
 Métodos de `Repos` (todos `async`):
-`buscarContato(telefone) → ContatoEncontrado | null` · `ehTelefoneInterno(telefone) → boolean` · `obterOuCriarConversa(telefone, contatoId) → Conversa` · `obterConversa(id) → Conversa` · `atualizarConversa(id, patch)` · `inserirMensagemEntrada(m) → { id, duplicada }` · `mensagensNaoProcessadas(conversaId) → Mensagem[]` · `atualizarMensagem(id, patch)` · `marcarProcessadas(ids)` · `historico(conversaId, limite) → Mensagem[]` (mais antiga primeiro) · `criarSaidaPendente(m) → id` · `inserirSaidaExterna(m) → id` · `marcarEnviada(id, idProvedor)` · `marcarFalha(id)` · `obterMensagem(id) → Mensagem` · `mensagemPorIdProvedor(id) → Mensagem | null` · `saidaPendenteComConteudo(conversaId, texto) → Mensagem | null` · `abrirChamado(c) → { id, numero }` · `chamadosAbertosDaConversa(conversaId) → Chamado[]` · `chamadosAbertosDoCliente(clienteId) → (Chamado & { setor_nome: string | null })[]` · `registrarDecisao(d)` · `registrarUsoIa(u)` · `custoIaDoMes(mes) → number` · `obterConfiguracoes() → Configuracoes` · `marcarAlertaIa80(mes)` · `setoresAtivos()` · `respostasProntas()` · `responsaveisDoCliente(clienteId) → { setorId, usuarioId }[]` · `servicosDoCliente(clienteId) → string[]` · `registrarAlerta(a)` · `alertaRecente(mensagem, minutos) → boolean` · `registrarSinalVida(componente)` · `sinaisVida() → Record<string, Date>` · `chamadosSemResponsavelParaAlertar(minutos) → Chamado[]` · `marcarAlertadoFila(ids)` · `resumoDoDia(inicio: Date) → { abertosPorSetor: { setor: string; total: number }[]; concluidosHoje: number; semResponsavel: number }`.
+`buscarContato(telefone) → ContatoEncontrado | null` · `ehTelefoneInterno(telefone) → boolean` · `obterOuCriarConversa(telefone, contatoId) → Conversa` · `obterConversa(id) → Conversa` · `atualizarConversa(id, patch)` · `inserirMensagemEntrada(m) → { id, duplicada }` · `mensagensNaoProcessadas(conversaId) → Mensagem[]` · `atualizarMensagem(id, patch)` · `marcarProcessadas(ids)` · `historico(conversaId, limite) → Mensagem[]` (mais antiga primeiro) · `criarSaidaPendente(m) → id` · `inserirSaidaExterna(m) → id` · `marcarEnviada(id, idProvedor)` · `marcarFalha(id)` · `obterMensagem(id) → Mensagem` · `mensagemPorIdProvedor(id) → Mensagem | null` · `saidaPendenteComConteudo(conversaId, texto) → Mensagem | null` · `abrirChamado(c) → { id, numero }` · `chamadosAbertosDaConversa(conversaId) → Chamado[]` · `chamadosAbertosDoCliente(clienteId) → (Chamado & { setor_nome: string | null })[]` · `registrarDecisao(d)` · `registrarUsoIa(u)` · `custoIaDoMes(mes) → number` · `obterConfiguracoes() → Configuracoes` · `marcarAlertaIa80(mes)` · `setoresAtivos()` · `respostasProntas()` · `responsaveisDoCliente(clienteId) → { setorId, usuarioId }[]` · `servicosDoCliente(clienteId) → string[]` · `registrarAlerta(a)` · `alertaRecente(mensagem, minutos) → boolean` · `registrarSinalVida(componente)` · `sinaisVida() → Record<string, Date>` · `chamadosSemResponsavelParaAlertar(minutos) → Chamado[]` · `marcarAlertadoFila(ids)` · `contarDecisoesDesde(conversaId, desdeIso) → number` · `respostasPendentesAntigas(minutos) → string[]` (ids de respostas de atendente ainda pendentes) · `resumoDoDia(inicio: Date) → { abertosPorSetor: { setor: string; total: number }[]; concluidosHoje: number; semResponsavel: number }`.
 
 - [ ] **Step 1: Pacote e script de ambiente local**
 
@@ -1758,6 +1768,20 @@ export function criarRepos(db: Db) {
         .is('alertado_fila_em', null).lt('criado_em', limite), 'chamadosSemResponsavelParaAlertar');
     },
 
+    async contarDecisoesDesde(conversaId: string, desdeIso: string): Promise<number> {
+      const r = await db.from('decisoes_agente').select('id', { count: 'exact', head: true })
+        .eq('conversa_id', conversaId).gte('criado_em', desdeIso);
+      if (r.error) throw new Error(`contarDecisoesDesde: ${r.error.message}`);
+      return r.count ?? 0;
+    },
+
+    async respostasPendentesAntigas(minutos: number): Promise<string[]> {
+      const limite = new Date(Date.now() - minutos * 60_000).toISOString();
+      const linhas = checar(await db.from('mensagens').select('id').eq('autor', 'atendente').eq('status_envio', 'pendente')
+        .lt('criado_em', limite), 'respostasPendentesAntigas');
+      return linhas.map((l) => l.id);
+    },
+
     async marcarAlertadoFila(ids: string[]): Promise<void> {
       if (ids.length === 0) return;
       checar(await db.from('chamados').update({ alertado_fila_em: new Date().toISOString() }).in('id', ids), 'marcarAlertadoFila');
@@ -1871,6 +1895,7 @@ export class CanalFalso implements CanalWhatsApp { enviados: { telefone: string;
     "@anthropic-ai/sdk": "^0.110.0",
     "@escritorio/core": "workspace:*",
     "@escritorio/db": "workspace:*",
+    "@supabase/supabase-js": "^2.47.0",
     "fastify": "^5.2.0",
     "nodemailer": "^6.9.0",
     "pg-boss": "^10.1.0",
@@ -1907,7 +1932,7 @@ No job `banco` do CI, acrescentar depois dos testes do `@escritorio/db`:
 ```yaml
       - run: pnpm --filter @escritorio/trabalhador test
 ```
-e no job `testes`, trocar `pnpm test` por `pnpm --filter @escritorio/core test` (os demais pacotes precisam do banco local e rodam no job `banco`).
+e no job `testes`, trocar `pnpm test` por `pnpm --filter @escritorio/core test && pnpm --filter @escritorio/painel test --passWithNoTests` (os testes unitários sem banco; os demais pacotes precisam do banco local e rodam no job `banco`).
 
 - [ ] **Step 2: Fixtures sintéticas no formato documentado da Z-API**
 
@@ -2348,7 +2373,7 @@ export function lerConfig(env?: NodeJS.ProcessEnv): Config;
 // fila.ts
 export const FILAS: { processarConversa: 'processar-conversa'; verificarEnviadaPorMim: 'verificar-enviada-por-mim';
   enviarMensagem: 'enviar-mensagem'; batimento: 'batimento'; alertaFila: 'alerta-fila'; resumoDiario: 'resumo-diario';
-  limpezaRetencao: 'limpeza-retencao' };
+  limpezaRetencao: 'limpeza-retencao'; removerArquivos: 'remover-arquivos' };
 export interface Fila { enviar(nome: string, dados: object, opcoes?: { startAfter?: number; singletonKey?: string }): Promise<void> }
 export const ESPERA_AGRUPAMENTO_SEGUNDOS = 8;
 export function agendarProcessamento(fila: Fila, conversaId: string): Promise<void>;
@@ -2533,6 +2558,7 @@ export const FILAS = {
   alertaFila: 'alerta-fila',
   resumoDiario: 'resumo-diario',
   limpezaRetencao: 'limpeza-retencao',
+  removerArquivos: 'remover-arquivos',
 } as const;
 
 export interface Fila {
@@ -2553,6 +2579,7 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   // "stately": no máximo um job por estado e por singletonKey — um aguardando e um em execução por conversa.
   await boss.createQueue(FILAS.processarConversa, { name: FILAS.processarConversa, policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
   await boss.createQueue(FILAS.enviarMensagem, { name: FILAS.enviarMensagem, retryLimit: 5, retryDelay: 10, retryBackoff: true });
+  await boss.createQueue(FILAS.removerArquivos, { name: FILAS.removerArquivos, retryLimit: 10, retryDelay: 60, retryBackoff: true });
   for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao]) {
     await boss.createQueue(nome, { name: nome, retryLimit: 2 });
   }
@@ -2592,7 +2619,14 @@ function segredoConfere(recebido: string, esperado: string): boolean {
 }
 
 export function criarServidor(d: DepsServidor): FastifyInstance {
-  const app = Fastify({ logger: { level: 'info' }, bodyLimit: 1_000_000 });
+  const app = Fastify({
+    bodyLimit: 1_000_000,
+    logger: {
+      level: 'info',
+      // O segredo do webhook faz parte da URL: nunca vai para o log.
+      serializers: { req: (req) => ({ method: req.method, url: req.url.replace(/\/webhook\/zapi\/[^/?]+/, '/webhook/zapi/***') }) },
+    },
+  });
 
   app.post<{ Params: { segredo: string } }>('/webhook/zapi/:segredo', async (req, rep) => {
     if (!segredoConfere(req.params.segredo, d.segredo)) return rep.code(401).send();
@@ -2664,7 +2698,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 export class LimitadorEnvio { constructor(maxPorMinuto: number, agora?: () => number, dormir?: (ms: number) => Promise<void>); aguardar(): Promise<void> }
 export type DepsEnvio = { repos: Repos; canal: CanalWhatsApp; limitador: LimitadorEnvio; midia: ArmazenamentoMidia };
 export function enviarDoSistema(d: DepsEnvio, p: { conversaId: string; telefone: string; clienteId: string | null; autor: 'agente' | 'sistema'; texto: string }): Promise<string>;
-export function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string): Promise<void>;
+export function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string, ultimaTentativa?: boolean): Promise<void>;
 export function verificarEnviadaPorMim(d: DepsEnvio, m: MensagemRecebida): Promise<'do-sistema' | 'humano'>;
 ```
 
@@ -2729,6 +2763,17 @@ describe('enviarMensagemDoPainel', () => {
     expect(canal.enviados).toEqual([{ telefone: '5531999990001', texto: 'Segue a guia' }]);
     expect((await repos.obterMensagem(m!.id)).status_envio).toBe('enviada');
   });
+  it('falha antes da última tentativa continua pendente e a nova tentativa envia', async () => {
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    const { data: m } = await db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'saida', autor: 'atendente',
+      tipo: 'texto', conteudo: 'Segue a guia', status_envio: 'pendente' }).select().single();
+    canal.falharEnvio = true;
+    await expect(enviarMensagemDoPainel(d, m!.id, false)).rejects.toThrow();
+    expect((await repos.obterMensagem(m!.id)).status_envio).toBe('pendente');
+    canal.falharEnvio = false;
+    await enviarMensagemDoPainel(d, m!.id, true);
+    expect((await repos.obterMensagem(m!.id)).status_envio).toBe('enviada');
+  });
 });
 
 describe('verificarEnviadaPorMim', () => {
@@ -2788,13 +2833,16 @@ export class LimitadorEnvio {
 
 export type DepsEnvio = { repos: Repos; canal: CanalWhatsApp; limitador: LimitadorEnvio; midia: ArmazenamentoMidia };
 
-/** Grava a mensagem como pendente ANTES de enviar, para reconhecer o eco "enviada por mim". */
+/**
+ * Grava a mensagem como pendente ANTES de enviar, para reconhecer o eco "enviada por mim".
+ * O limitador vale só para mensagens de autor "sistema" (avisos, alertas, resumo) — respostas do agente não esperam.
+ */
 export async function enviarDoSistema(
   d: DepsEnvio,
   p: { conversaId: string; telefone: string; clienteId: string | null; autor: 'agente' | 'sistema'; texto: string },
 ): Promise<string> {
   const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: p.autor, conteudo: p.texto });
-  await d.limitador.aguardar();
+  if (p.autor === 'sistema') await d.limitador.aguardar();
   try {
     const { idProvedor } = await d.canal.enviarTexto(p.telefone, p.texto);
     await d.repos.marcarEnviada(id, idProvedor);
@@ -2805,11 +2853,11 @@ export async function enviarDoSistema(
   }
 }
 
-export async function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string): Promise<void> {
+/** Nova tentativa aceita "falhou"; a mensagem só fica "falhou" de vez na última tentativa da fila. */
+export async function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string, ultimaTentativa = true): Promise<void> {
   const m = await d.repos.obterMensagem(mensagemId);
-  if (m.status_envio !== 'pendente' || m.autor !== 'atendente') return;
+  if (m.autor !== 'atendente' || (m.status_envio !== 'pendente' && m.status_envio !== 'falhou')) return;
   const conversa = await d.repos.obterConversa(m.conversa_id);
-  await d.limitador.aguardar();
   try {
     let idProvedor: string | null = null;
     if (m.conteudo) idProvedor = (await d.canal.enviarTexto(conversa.telefone, m.conteudo)).idProvedor;
@@ -2819,7 +2867,7 @@ export async function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string): 
     }
     await d.repos.marcarEnviada(m.id, idProvedor ?? `sem-id-${m.id}`);
   } catch (e) {
-    await d.repos.marcarFalha(m.id);
+    if (ultimaTentativa) await d.repos.marcarFalha(m.id);
     throw e;
   }
 }
@@ -3039,8 +3087,9 @@ describe('executarAgente', () => {
   it('com uma empresa só, abre o chamado para o responsável do cliente naquele setor', async () => {
     const { conversa, empresas } = await contatoComEmpresas(['Indústria X']);
     const fiscal = await setorId('Fiscal');
-    const { data: u } = await db.auth.admin.createUser({ email: 'ana@teste.com', password: 'senha-forte-123', email_confirm: true });
-    await db.from('usuarios').insert({ id: u.user!.id, nome: 'Ana', email: 'ana@teste.com' });
+    const emailAna = `ana-${crypto.randomUUID()}@teste.local`;
+    const { data: u } = await db.auth.admin.createUser({ email: emailAna, password: 'senha-forte-123', email_confirm: true });
+    await db.from('usuarios').insert({ id: u.user!.id, nome: 'Ana', email: emailAna });
     await db.from('cliente_responsaveis').insert({ cliente_id: empresas[0]!.id, setor_id: fiscal, usuario_id: u.user!.id });
     const ia = new IaRoteirizada([
       usarFerramentas({ nome: 'abrir_chamado', entrada: { setor_id: fiscal, titulo: 'Guia DAS setembro', resumo: 'Pediu a guia do DAS de setembro', fora_do_contrato: false } }),
@@ -3508,7 +3557,7 @@ export async function executarAgente(d: DepsAgente, ctx: ContextoAgente, conteud
   for (let i = 0; i < MAX_ITERACOES; i++) {
     const r = await d.ia.criar({
       model: ctx.config.modeloConversa,
-      max_tokens: 4096,
+      max_tokens: 16000,
       system,
       tools: FERRAMENTAS,
       messages,
@@ -3710,10 +3759,27 @@ describe('processarConversa', () => {
     expect(await repos.mensagensNaoProcessadas(conversa.id)).toHaveLength(0);
   });
 
+  it('atendente assume enquanto o agente processa: o sistema não manda aviso nem abre triagem', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
+    await receber(conversa.id, 'M1', 'oi');
+    const iaQueAssume = {
+      recebidos: [] as unknown[],
+      async criar() {
+        await repos.atualizarConversa(conversa.id, { estado: 'humano' });   // atendente clicou em Assumir
+        return usarFerramentas({ nome: 'responder', entrada: { texto: 'Olá!' } });
+      },
+    };
+    const d = { ...deps(respondeOi()), ia: iaQueAssume as never };
+    expect(await processarConversa(d, conversa.id, false)).toBe('humano');
+    expect(canal.enviados).toHaveLength(0);
+    expect((await db.from('chamados').select('*')).data).toHaveLength(0);
+  });
+
   it('avisa o dono uma vez por mês quando o gasto passa de 80% do teto', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await db.from('configuracoes').update({ teto_ia_usd: 1 }).eq('id', 1);
-    await repos.registrarUsoIa({ conversaId: null, modelo: 'claude-sonnet-5', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd: 0.79 });
+    await repos.registrarUsoIa({ conversaId: null, modelo: 'claude-sonnet-5', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd: 0.81 });
     await receber(conversa.id, 'M1', 'oi');
     await processarConversa(deps(respondeOi()), conversa.id, false);
     await receber(conversa.id, 'M2', 'e aí?');
@@ -3799,9 +3865,16 @@ async function encaminharParaHumano(d: DepsProcessamento, conversa: Conversa, mo
     const ultimas = await d.repos.historico(conversa.id, 5);
     const jaAvisado = ultimas.some((m) => m.direcao === 'saida' && m.conteudo === textoCliente);
     if (!jaAvisado) {
-      await enviarDoSistema(d.envio, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: conversa.cliente_em_foco, autor: 'sistema', texto: textoCliente });
+      // Falha de envio aqui não relança o job: relançar repetiria ferramentas já executadas (chamado duplicado).
+      await enviarDoSistema(d.envio, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: conversa.cliente_em_foco, autor: 'sistema', texto: textoCliente })
+        .catch((e) => console.error('[encaminhar] aviso ao cliente não enviado', e));
     }
   }
+}
+
+/** Se um atendente assumiu durante o processamento, o sistema não fala mais nada com o cliente. */
+async function assumidaPorHumano(d: DepsProcessamento, conversaId: string): Promise<boolean> {
+  return (await d.repos.obterConversa(conversaId)).estado === 'humano';
 }
 
 export async function processarConversa(d: DepsProcessamento, conversaId: string, ultimaTentativa: boolean): Promise<DesfechoProcessamento> {
@@ -3848,20 +3921,31 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
   }
 
   const historico = (await d.repos.historico(conversaId, TAMANHO_HISTORICO + novas.length)).filter((m) => !ids.includes(m.id)).slice(-TAMANHO_HISTORICO);
-  const novasAtualizadas = await d.repos.mensagensNaoProcessadas(conversaId);
+  // Só as mensagens deste lote (já com transcrição): as que chegarem durante o processamento ficam para o próximo job.
   let desfecho: DesfechoProcessamento = 'agente';
+  let agenteAgiu = false;
   try {
-    const r = await executarAgente(d, ctx, montarConteudoUsuario(ctx, historico, novasAtualizadas, anexos));
+    const r = await executarAgente(d, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
+    agenteAgiu = true;
     if (r.status === 'escalar') {
-      const respondeu = (await d.repos.historico(conversaId, 3)).some((m) => m.autor === 'agente' && m.direcao === 'saida' && !ids.includes(m.id));
-      await encaminharParaHumano(d, conversa, `Agente encaminhou: ${r.motivo}`, respondeu ? null : config.mensagens.ia_indisponivel ?? null);
-      desfecho = 'escalado';
+      if (await assumidaPorHumano(d, conversaId)) {
+        desfecho = 'humano';
+      } else {
+        const respondeu = (await d.repos.historico(conversaId, 3)).some((m) => m.autor === 'agente' && m.direcao === 'saida' && !ids.includes(m.id));
+        await encaminharParaHumano(d, conversa, `Agente encaminhou: ${r.motivo}`, respondeu ? null : config.mensagens.ia_indisponivel ?? null);
+        desfecho = 'escalado';
+      }
     }
   } catch (e) {
-    if (erroTemporarioIa(e) && !ultimaTentativa) throw e;
+    // Só relança (nova tentativa) se a IA falhou antes de qualquer ação; depois disso, relançar repetiria ferramentas.
+    if (!agenteAgiu && erroTemporarioIa(e) && !ultimaTentativa && (await d.repos.contarDecisoesDesde(conversaId, novas[0]!.criado_em)) === 0) throw e;
     console.error('[agente] falha', e);
-    await encaminharParaHumano(d, conversa, 'Falha no agente de IA', config.mensagens.ia_indisponivel ?? null);
-    desfecho = 'escalado';
+    if (await assumidaPorHumano(d, conversaId)) {
+      desfecho = 'humano';
+    } else {
+      await encaminharParaHumano(d, conversa, 'Falha no agente de IA', config.mensagens.ia_indisponivel ?? null);
+      desfecho = 'escalado';
+    }
   }
   await d.repos.marcarProcessadas(ids);
 
@@ -3898,7 +3982,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Create: `apps/painel/src/middleware.ts`, `apps/painel/src/lib/sessao.ts`, `apps/painel/src/lib/menu.ts`
 - Create: `apps/painel/src/app/entrar/page.tsx`, `apps/painel/src/app/entrar/acoes.ts`, `apps/painel/src/app/auth/confirm/route.ts`, `apps/painel/src/app/definir-senha/page.tsx`, `apps/painel/src/app/(painel)/layout.tsx`, `apps/painel/src/app/(painel)/inicio/page.tsx` (provisório; completado na Task 16)
 - Test: `apps/painel/src/lib/menu.test.ts`, `apps/painel/e2e/apoio.ts`, `apps/painel/e2e/login.spec.ts`
-- Modify: `.env.example` (acrescentar `PAINEL_URL=http://localhost:3000`), `.github/workflows/ci.yml` (e2e do painel)
+- Modify: `.env.example` (acrescentar `PAINEL_URL=http://localhost:3000`), `.github/workflows/ci.yml` (e2e do painel), `supabase/config.toml` (seção `[auth]`)
+- Create: `supabase/templates/convite.html`
 
 **Interfaces:**
 - Consumes: tabelas e RLS das Tasks 3–4; `Database` de `@escritorio/db`.
@@ -4316,6 +4401,29 @@ export default async function LayoutPainel({ children }: { children: ReactNode }
 }
 ```
 
+**Convite por e-mail.** O e-mail padrão do Supabase manda os tokens depois de `#` na URL, que o servidor não enxerga. Por isso o convite usa um modelo próprio que leva `token_hash` para `/auth/confirm`, e a URL precisa estar na lista permitida. Em `supabase/config.toml`, ajustar a seção `[auth]`:
+```toml
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/confirm"]
+enable_signup = false
+
+[auth.email.template.invite]
+subject = "Seu acesso ao painel do escritório"
+content_path = "./supabase/templates/convite.html"
+```
+
+`supabase/templates/convite.html`:
+```html
+<h2>Você foi convidado para o painel do escritório</h2>
+<p>Clique no link abaixo para definir sua senha:</p>
+<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite">Definir minha senha</a></p>
+```
+
+Nos projetos hospedados (homologação e produção), o mesmo é feito no painel do Supabase: Authentication → URL Configuration (Site URL = domínio do painel; Redirect URLs com `/auth/confirm`), Authentication → Email Templates → Invite (colar o HTML acima) e desligar novos cadastros. Isso vai para o manual na Task 20.
+
+Run: `supabase stop && supabase start` (para aplicar o `config.toml`).
+
 `apps/painel/src/app/(painel)/inicio/page.tsx` (provisório):
 ```tsx
 export default function Inicio() {
@@ -4427,6 +4535,7 @@ export type LinhaCaixa = { id: string; atendente_id: string | null; setores_aber
 export function passaNoFiltro(l: LinhaCaixa, filtro: FiltroCaixa, u: { id: string; setores: string[] }): boolean;
 // lib/fila.ts
 export function enfileirarEnvio(mensagemId: string): Promise<void>;
+export function enfileirarRemocaoArquivos(paths: string[]): Promise<void>;   // usada na Task 18
 // lib/auditoria.ts
 export function registrarAuditoria(usuarioId: string, acao: string, entidade: string, entidadeId: string, detalhes?: object): Promise<void>;
 // SQL: view caixa_entrada (security_invoker); RPC alterar_status_chamado(p_chamado uuid, p_status status_chamado)
@@ -4441,11 +4550,11 @@ create extension if not exists pgtap with schema extensions;
 select plan(3);
 
 insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-00000000000b', 'ana@teste.com'),
-  ('00000000-0000-0000-0000-00000000000e', 'caio@teste.com');
+  ('00000000-0000-0000-0000-00000000000b', 'ana@pgtap.local'),
+  ('00000000-0000-0000-0000-00000000000e', 'caio@pgtap.local');
 insert into public.usuarios (id, nome, email) values
-  ('00000000-0000-0000-0000-00000000000b', 'Ana', 'ana@teste.com'),
-  ('00000000-0000-0000-0000-00000000000e', 'Caio', 'caio@teste.com');
+  ('00000000-0000-0000-0000-00000000000b', 'Ana', 'ana@pgtap.local'),
+  ('00000000-0000-0000-0000-00000000000e', 'Caio', 'caio@pgtap.local');
 insert into public.usuario_setores (usuario_id, setor_id)
   select '00000000-0000-0000-0000-00000000000b', id from public.setores where nome = 'Fiscal';
 insert into public.conversas (id, telefone) values ('20000000-0000-0000-0000-000000000001', '5531999990001');
@@ -4583,13 +4692,21 @@ function obterBoss(): Promise<PgBoss> {
     const b = new PgBoss({ connectionString: process.env.DATABASE_URL!, supervise: false, schedule: false });
     b.on('error', (e) => console.error('[fila painel]', e));
     await b.start();
+    // Idempotente: garante as filas mesmo se o painel subir antes do trabalhador. Mesma configuração da Task 9.
+    await b.createQueue('enviar-mensagem', { name: 'enviar-mensagem', retryLimit: 5, retryDelay: 10, retryBackoff: true });
+    await b.createQueue('remover-arquivos', { name: 'remover-arquivos', retryLimit: 10, retryDelay: 60, retryBackoff: true });
     return b;
   })();
   return boss;
 }
 
+/** Se falhar, a resposta fica "pendente" e o batimento do trabalhador reenfileira depois de 2 minutos. */
 export async function enfileirarEnvio(mensagemId: string): Promise<void> {
   await (await obterBoss()).send('enviar-mensagem', { mensagemId });
+}
+
+export async function enfileirarRemocaoArquivos(paths: string[]): Promise<void> {
+  if (paths.length) await (await obterBoss()).send('remover-arquivos', { paths });
 }
 ```
 
@@ -5066,10 +5183,12 @@ const campos = (f: FormData) => Object.fromEntries(f.entries());
 
 export async function salvarCliente(id: string | null, formData: FormData) {
   const sb = await exigirEdicao();
+  const u = await obterUsuario();
   const dados = ClienteForm.parse(campos(formData));
-  const agentePausado = formData.get('agente_pausado') === 'on';
+  // Pausar o agente é decisão só do administrador (spec, seção 5).
+  const pausa = u.papel === 'admin' ? { agente_pausado: formData.get('agente_pausado') === 'on' } : {};
   if (id) {
-    const { error } = await sb.from('clientes').update({ ...dados, agente_pausado: agentePausado }).eq('id', id);
+    const { error } = await sb.from('clientes').update({ ...dados, ...pausa }).eq('id', id);
     if (error) throw new Error(error.message);
     revalidatePath(`/clientes/${id}`);
     return;
@@ -5213,7 +5332,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
           <label className="text-sm">Regime<input name="regime" defaultValue={c.regime ?? ''} className={campo} /></label>
           <label className="text-sm">UF<input name="uf" defaultValue={c.uf ?? ''} maxLength={2} className={campo} /></label>
           <label className="col-span-2 text-sm">Endereço<input name="endereco" defaultValue={c.endereco ?? ''} className={campo} /></label>
-          <label className="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" name="agente_pausado" defaultChecked={c.agente_pausado} /> Pausar o agente para este cliente</label>
+          {u.papel === 'admin' && <label className="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" name="agente_pausado" defaultChecked={c.agente_pausado} /> Pausar o agente para este cliente</label>}
           {pode && <button className="col-span-2 w-fit rounded bg-slate-900 px-4 py-2 text-white">Salvar dados</button>}
         </fieldset>
       </form>
@@ -5698,7 +5817,7 @@ export async function alternarPausaGeral(pausar: boolean) {
 
 export async function marcarAlertaLido(id: string) {
   const sb = await supabaseServidor();
-  await sb.from('alertas').update({ lido_em: new Date().toISOString() }).eq('id', id);
+  await sb.rpc('marcar_alerta_lido', { p_alerta: id });
   revalidatePath('/inicio');
 }
 ```
@@ -5820,7 +5939,7 @@ export function criarEmail(cfg: { host: string; porta: number; usuario: string; 
 // alertas.ts
 export function criarAlertas(d: { repos: Repos; email: Email; envio: DepsEnvio }): Alertas;
 // tarefas.ts
-export type DepsTarefas = { repos: Repos; canal: CanalWhatsApp; alertas: Alertas; envio: DepsEnvio; email: Email; relogio: () => Date };
+export type DepsTarefas = { repos: Repos; canal: CanalWhatsApp; alertas: Alertas; envio: DepsEnvio; email: Email; fila: Fila; relogio: () => Date };
 export const MSG_WHATSAPP_DESCONECTADO: string;
 export function batimento(d: DepsTarefas): Promise<void>;
 export function alertaFila(d: DepsTarefas): Promise<number>;       // quantos chamados alertados
@@ -5909,14 +6028,17 @@ import { criarArmazenamento } from '../src/midia/armazenamento';
 import { MSG_WHATSAPP_DESCONECTADO, alertaFila, batimento, inicioDoDiaSP, montarResumo, resumoDiario, type DepsTarefas } from '../src/tarefas';
 import { db, repos, setorId } from './apoio/cenario';
 import { EmailFalso } from './apoio/email-falso';
+import { FilaFalsa } from './apoio/fila-falsa';
 
 let canal: CanalFalso;
 let email: EmailFalso;
 let alertados: { nivel: string; mensagem: string; setorId?: string | null }[];
 
+let fila: FilaFalsa;
+
 function deps(): DepsTarefas {
   return {
-    repos, canal, email, relogio: () => new Date(),
+    repos, canal, email, fila, relogio: () => new Date(),
     envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) },
     alertas: { alertar: async (a) => { alertados.push(a); } },
   };
@@ -5926,6 +6048,7 @@ beforeEach(async () => {
   await limparBanco();
   canal = new CanalFalso();
   email = new EmailFalso();
+  fila = new FilaFalsa();
   alertados = [];
 });
 
@@ -5934,6 +6057,13 @@ describe('batimento', () => {
     await batimento(deps());
     const s = await repos.sinaisVida();
     expect(Object.keys(s).sort()).toEqual(['fila', 'whatsapp']);
+  });
+  it('reenfileira resposta do painel pendente há mais de 2 minutos', async () => {
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    const { data: m } = await db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'saida', autor: 'atendente', tipo: 'texto',
+      conteudo: 'Segue', status_envio: 'pendente', criado_em: new Date(Date.now() - 5 * 60_000).toISOString() }).select().single();
+    await batimento(deps());
+    expect(fila.enviados).toEqual([{ nome: 'enviar-mensagem', dados: { mensagemId: m!.id }, opcoes: { singletonKey: m!.id } }]);
   });
   it('WhatsApp desconectado gera um único alerta crítico em 30 minutos', async () => {
     canal.conectado = false;
@@ -6036,14 +6166,19 @@ import type { Alertas } from './alertas';
 import type { CanalWhatsApp } from './canal/tipos';
 import type { Email } from './email';
 import { enviarDoSistema, type DepsEnvio } from './envio';
+import { FILAS, type Fila } from './fila';
 
-export type DepsTarefas = { repos: Repos; canal: CanalWhatsApp; alertas: Alertas; envio: DepsEnvio; email: Email; relogio: () => Date };
+export type DepsTarefas = { repos: Repos; canal: CanalWhatsApp; alertas: Alertas; envio: DepsEnvio; email: Email; fila: Fila; relogio: () => Date };
 
 export const MSG_WHATSAPP_DESCONECTADO =
   'O WhatsApp do escritório está desconectado. Abra o painel da Z-API e leia o QR code de novo com o celular do escritório.';
 
 export async function batimento(d: DepsTarefas): Promise<void> {
   await d.repos.registrarSinalVida('fila');
+  // Resposta do painel que não entrou na fila (ex.: falha ao enfileirar) é reenfileirada.
+  for (const mensagemId of await d.repos.respostasPendentesAntigas(2)) {
+    await d.fila.enviar(FILAS.enviarMensagem, { mensagemId }, { singletonKey: mensagemId });
+  }
   const conectado = await d.canal.status().then((s) => s.conectado).catch(() => false);
   if (conectado) {
     await d.repos.registrarSinalVida('whatsapp');
@@ -6133,14 +6268,17 @@ async function principal() {
     ia: criarClienteIa(cfg.ANTHROPIC_API_KEY),
     transcritor: criarTranscritor({ baseUrl: cfg.TRANSCRICAO_BASE_URL, apiKey: cfg.TRANSCRICAO_API_KEY, modelo: cfg.TRANSCRICAO_MODELO }),
   };
-  const depsTarefas = { repos, canal, alertas, envio, email, relogio };
-
   const boss = await criarBoss(cfg.DATABASE_URL);
-  await boss.work<{ conversaId: string }>(FILAS.processarConversa, { includeMetadata: true }, async ([job]) => {
-    await processarConversa(deps, job!.data.conversaId, job!.retryCount >= job!.retryLimit);
-  });
-  await boss.work<{ mensagemId: string }>(FILAS.enviarMensagem, async ([job]) => {
-    await enviarMensagemDoPainel(envio, job!.data.mensagemId);
+  const depsTarefas = { repos, canal, alertas, envio, email, relogio, fila: filaDe(boss) };
+  await boss.work<{ paths: string[] }>(FILAS.removerArquivos, async ([job]) => { await midia.remover(job!.data.paths); });
+  // 4 consumidores: conversas diferentes andam em paralelo; a política "stately" garante uma execução por conversa.
+  for (let i = 0; i < 4; i++) {
+    await boss.work<{ conversaId: string }>(FILAS.processarConversa, { includeMetadata: true }, async ([job]) => {
+      await processarConversa(deps, job!.data.conversaId, job!.retryCount >= job!.retryLimit);
+    });
+  }
+  await boss.work<{ mensagemId: string }>(FILAS.enviarMensagem, { includeMetadata: true }, async ([job]) => {
+    await enviarMensagemDoPainel(envio, job!.data.mensagemId, job!.retryCount >= job!.retryLimit);
   });
   await boss.work<MensagemRecebida>(FILAS.verificarEnviadaPorMim, async ([job]) => {
     await verificarEnviadaPorMim(envio, job!.data);
@@ -6210,14 +6348,14 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```sql
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(6);
+select plan(7);
 
 insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-00000000000a', 'admin@teste.com'),
-  ('00000000-0000-0000-0000-00000000000b', 'ana@teste.com');
+  ('00000000-0000-0000-0000-00000000000a', 'admin@pgtap.local'),
+  ('00000000-0000-0000-0000-00000000000b', 'ana@pgtap.local');
 insert into public.usuarios (id, nome, email, papel) values
-  ('00000000-0000-0000-0000-00000000000a', 'Admin', 'admin@teste.com', 'admin'),
-  ('00000000-0000-0000-0000-00000000000b', 'Ana', 'ana@teste.com', 'atendente');
+  ('00000000-0000-0000-0000-00000000000a', 'Admin', 'admin@pgtap.local', 'admin'),
+  ('00000000-0000-0000-0000-00000000000b', 'Ana', 'ana@pgtap.local', 'atendente');
 insert into public.contatos (id, nome, telefone) values ('40000000-0000-0000-0000-000000000001', 'João', '5531999990001');
 insert into public.conversas (id, telefone, contato_id) values ('20000000-0000-0000-0000-000000000001', '5531999990001', '40000000-0000-0000-0000-000000000001');
 insert into public.mensagens (conversa_id, direcao, autor, tipo, conteudo, arquivo_path) values
@@ -6228,7 +6366,7 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 
 update public.contatos set nome = 'João Silva' where id = '40000000-0000-0000-0000-000000000001';
 select is((select count(*) from public.auditoria_acessos where entidade = 'contatos' and acao = 'update')::int, 1, 'alteração em cadastro fica na auditoria');
-select is((select usuario_id from public.auditoria_acessos where entidade = 'contatos' limit 1), '00000000-0000-0000-0000-00000000000a'::uuid, 'com o usuário que alterou');
+select is((select usuario_id from public.auditoria_acessos where entidade = 'contatos' and acao = 'update' limit 1), '00000000-0000-0000-0000-00000000000a'::uuid, 'com o usuário que alterou');
 
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
 select throws_ok($$ select public.anonimizar_contato('40000000-0000-0000-0000-000000000001') $$, 'P0001', 'somente administrador', 'atendente não anonimiza');
@@ -6238,6 +6376,7 @@ select is(public.anonimizar_contato('40000000-0000-0000-0000-000000000001'),
   array['conversas/20000000-0000-0000-0000-000000000001/rg.pdf'], 'devolve os arquivos a remover');
 select is((select conteudo from public.mensagens limit 1), '[removido a pedido do titular]', 'conteúdo apagado');
 select is((select nome from public.contatos where id = '40000000-0000-0000-0000-000000000001'), 'Contato removido', 'nome apagado');
+select is((select count(*) from public.auditoria_acessos where detalhes::text like '%João%')::int, 0, 'auditoria não guarda mais o nome original');
 
 select * from finish();
 rollback;
@@ -6288,10 +6427,21 @@ begin
   from conversas c where c.id = m.conversa_id and (c.contato_id = p_contato or c.telefone = v_tel);
   delete from decisoes_agente d using conversas c where c.id = d.conversa_id and (c.contato_id = p_contato or c.telefone = v_tel);
 
+  -- Resumos e notas dos chamados dessas conversas podem conter dados pessoais.
+  update chamados ch set resumo = '[removido a pedido do titular]'
+  from conversas c where c.id = ch.conversa_id and (c.contato_id = p_contato or c.telefone = v_tel);
+  update chamado_eventos e set texto = null
+  from chamados ch join conversas c on c.id = ch.conversa_id
+  where ch.id = e.chamado_id and (c.contato_id = p_contato or c.telefone = v_tel);
+
+  -- random() é avaliado por linha: cada conversa recebe um número fictício diferente (telefone é único).
+  update conversas set telefone = '5500' || lpad(floor(random() * 1e9)::text, 9, '0') where contato_id = p_contato or telefone = v_tel;
   v_novo := '5500' || lpad(floor(random() * 1e9)::text, 9, '0');
-  update conversas set telefone = v_novo where contato_id = p_contato or telefone = v_tel;
   update contatos set nome = 'Contato removido', ativo = false, telefone = v_novo where id = p_contato;
 
+  -- O gatilho de auditoria guardou nome e telefone originais em "antes": apagar esses registros também.
+  delete from auditoria_acessos where entidade in ('contatos', 'contato_clientes')
+    and (entidade_id = p_contato::text or detalhes::text like '%' || p_contato::text || '%');
   insert into auditoria_acessos (usuario_id, acao, entidade, entidade_id) values (auth.uid(), 'anonimizar', 'contatos', p_contato::text);
   return v_paths;
 end $$;
@@ -6377,8 +6527,8 @@ Run: `pnpm --filter @escritorio/trabalhador test -- retencao` → PASS.
 
 Acrescentar a `apps/painel/src/app/(painel)/clientes/acoes.ts`:
 ```ts
+import { enfileirarRemocaoArquivos } from '@/lib/fila';
 import { exigirAdmin } from '@/lib/sessao';
-import { supabaseServico } from '@/lib/supabase/servico';
 
 export async function anonimizarContato(clienteId: string, contatoId: string, formData: FormData) {
   await exigirAdmin();
@@ -6386,7 +6536,8 @@ export async function anonimizarContato(clienteId: string, contatoId: string, fo
   const sb = await supabaseServidor();
   const { data: paths, error } = await sb.rpc('anonimizar_contato', { p_contato: contatoId });
   if (error) throw new Error(error.message);
-  if (paths && paths.length) await supabaseServico().storage.from('anexos').remove(paths);
+  // A remoção dos arquivos vai para a fila do trabalhador, com novas tentativas, para não deixar arquivo órfão.
+  await enfileirarRemocaoArquivos(paths ?? []);
   revalidatePath(`/clientes/${clienteId}`);
 }
 ```
@@ -6776,14 +6927,15 @@ jobs:
 2. **Configuração inicial (uma vez)**, em ordem, com onde clicar:
    - Supabase: criar os projetos de homologação e produção (produção no plano Pro), anotar URL, chaves e senha do banco.
    - Easypanel: criar dois apps por ambiente a partir do repositório GitHub, com "Dockerfile" apontando para `Dockerfile.trabalhador` e `Dockerfile.painel`; **desligar a publicação automática** (quem publica é o GitHub depois dos testes); copiar a URL de "Deploy webhook" de cada app; colar as variáveis do `.env.example`; configurar o domínio do painel (ex.: `painel.seuescritorio.com.br`) e do trabalhador.
-   - GitHub: criar os ambientes `homologacao` e `producao` (este com aprovação obrigatória sua) e cadastrar os segredos `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF`, `EASYPANEL_DEPLOY_TRABALHADOR`, `EASYPANEL_DEPLOY_PAINEL`, `ANTHROPIC_API_KEY`.
+   - GitHub: criar os ambientes `homologacao` e `producao` (este com aprovação obrigatória sua) e cadastrar os segredos `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF`, `EASYPANEL_DEPLOY_TRABALHADOR`, `EASYPANEL_DEPLOY_PAINEL` **dentro de cada ambiente** (Settings → Environments → homologacao/producao → secrets), com os valores do ambiente correspondente. Não cadastrar esses como segredos do repositório: se forem do repositório, a produção publicaria no projeto de homologação. Só `ANTHROPIC_API_KEY` fica no repositório.
+   - Supabase Auth (em cada projeto): Authentication → URL Configuration (Site URL = domínio do painel; Redirect URLs com `https://<domínio do painel>/auth/confirm`); Authentication → Email Templates → Invite (colar o HTML de `supabase/templates/convite.html`); desligar "Allow new users to sign up".
    - Z-API: em "Webhooks", no campo "Ao receber", colar `https://<domínio do trabalhador>/webhook/zapi/<WEBHOOK_SEGREDO>`; ligar também "Ao enviar" (para o sistema perceber respostas dadas pelo celular).
    - Monitor externo (UptimeRobot, gratuito): monitor HTTP para `https://<domínio do trabalhador>/saude`, a cada 5 minutos, alertando no seu e-mail.
    - Primeiro administrador: rodar `criar-admin.ts` (comando no próprio arquivo) e definir a senha pelo e-mail.
    - No painel: cadastrar usuários, setores (já vêm os 5), serviços, respostas prontas, feriados, seu WhatsApp e e-mail de alertas, e o teto de gasto com IA.
 3. **Dia a dia**: como pausar o agente (Início → Pausar agente) e quando fazer isso; como reconectar o WhatsApp quando chegar o e-mail de alerta (QR code no painel da Z-API); como convidar alguém; como ler "Por que o agente fez isso?"; o que significa cada tipo de alerta e o que fazer.
 4. **Pedir mudanças ao Claude**: descrever em português o que quer; o Claude altera, os testes rodam no GitHub, a homologação é atualizada sozinha; para ir à produção, abrir Actions → Publicação → Run workflow → `producao` e aprovar.
-5. **Segurança e LGPD**: nunca compartilhar as chaves; como apagar os dados de um contato a pedido dele (Clientes → contato → "Apagar dados (LGPD)"); conversas são apagadas automaticamente após 1 ano.
+5. **Segurança e LGPD**: nunca compartilhar as chaves; como apagar os dados de um contato a pedido dele (Clientes → contato → "Apagar dados (LGPD)"); conversas são apagadas automaticamente após 1 ano; **operadores de dados** que recebem dados dos clientes, para constar no registro de tratamento do escritório: Anthropic (IA, com transferência internacional), fornecedor de transcrição escolhido na Task 1 (idem), Z-API, Supabase e provedor de e-mail (SMTP).
 6. **Plano de saída da Z-API**: acompanhar a verificação da empresa na Meta; quando sair, pedir ao Claude "migrar o WhatsApp para a API oficial da Meta" (troca só a peça do canal).
 
 - [ ] **Step 6: Commit**
