@@ -10,7 +10,7 @@
 
 **Etapa 1: Base + Atendimento.** Todo contato pelo WhatsApp do escritório é atendido: o agente identifica o cliente e a demanda, resolve o que for simples e encaminha o resto ao setor certo. Os atendentes respondem pelo painel, cada um com seu login.
 
-**Etapa 2: Notas da indústria.** A indústria pede notas de venda e devolução pelo WhatsApp, e o agente conduz tudo do pedido ao PDF: identifica comprador e unidade, aplica o preço da tabela, envia o espelho, recebe a aprovação, emite no Bling e devolve a nota.
+**Etapa 2: Notas da indústria.** A indústria pede notas de venda pelo WhatsApp, e o agente conduz tudo do pedido ao PDF: identifica comprador e unidade, aplica o preço da tabela, envia o espelho, recebe a aprovação, emite no Bling e devolve a nota.
 
 **Critérios de sucesso:**
 - Nenhuma mensagem de cliente fica sem resposta ou sem dono
@@ -24,6 +24,7 @@
 - Documentos, Google Drive e cobrança automática (etapa 3)
 - NFS-e de qualquer tipo (etapas 4 e 5)
 - Cancelamento e carta de correção pelo agente (viram chamado para a equipe)
+- **Nota de devolução** (decisão do dono): o pedido de devolução vira chamado no setor Fiscal e é feito por uma pessoa. Pode passar para o agente em uma etapa futura
 - Cadastro de produto novo pelo agente (vira chamado, porque exige decisão fiscal)
 - Portal do cliente, POPs, obrigações, financeiro, comercial, indicadores (etapas futuras). A estrutura de dados já os comporta
 - Grupos de WhatsApp de clientes. O agente atende apenas conversas individuais e ignora grupos
@@ -56,7 +57,7 @@ Todas as tabelas com dado de cliente têm `cliente_id` e RLS habilitado. O traba
 
 **Clientes do escritório**
 - `clientes`: razão social, fantasia, CNPJ, IE, regime, endereço, UF, ativo, `modo_notas` (`desligado` | `supervisionado` | `automatico`), `agente_pausado` (botão de pausa imediata), padrões de NF-e (frete, transportadora, forma e prazo de pagamento, informações complementares)
-- `regras_natureza`: cliente, tipo (`venda` | `devolucao`), destino (`interna` | `interestadual`), indicador da IE do destinatário (contribuinte | isento | não contribuinte), natureza de operação no Bling. Combinação sem regra cadastrada → a nota não sai e vira chamado Fiscal
+- `regras_natureza` (vendas): cliente, destino (`interna` | `interestadual`), indicador da IE do destinatário (contribuinte | isento | não contribuinte), natureza de operação no Bling. Combinação sem regra cadastrada → a nota não sai e vira chamado Fiscal
 - `cliente_responsaveis`: cliente + setor → usuário (opcional)
 - `servicos` e `cliente_servicos`: catálogo de serviços do escritório (cada um ligado a um setor) e os contratados por cliente
 - `contatos`: nome, telefone (formato internacional), ativo
@@ -75,8 +76,8 @@ Todas as tabelas com dado de cliente têm `cliente_id` e RLS habilitado. O traba
 - `precos`: cliente, grupo, produto, valor, vigente desde/até, origem (`importacao` | `whatsapp` | `painel`), quem alterou (contato ou usuário), status (`vigente` | `aguardando_aprovacao_equipe` | `recusado`). O preço vigente é o registro `vigente` sem "vigente até"; os anteriores formam o histórico
 
 **Notas**
-- `pedidos_nota`: cliente, conversa, contato solicitante, tipo (`venda` | `devolucao`), unidade, chave da nota referenciada (devolução), número do espelho, versão do espelho, código de confirmação vigente (espelho travado), chave de idempotência (única), status (seção 6.7), `exclusao_bling_pendente`, travas acionadas, id no Bling, número, chave de acesso, totais com impostos calculados pelo Bling, dados de frete/pagamento, PDF, XML, erro
-- `pedido_itens`: cliente, produto, quantidade, valor unitário, origem do preço (`tabela` | `nota_referenciada`)
+- `pedidos_nota`: cliente, conversa, contato solicitante, unidade, número do espelho, versão do espelho, código de confirmação vigente (espelho travado), chave de idempotência (única), status (seção 6.7), `exclusao_bling_pendente`, travas acionadas, id no Bling, número, chave de acesso, totais com impostos calculados pelo Bling, dados de frete/pagamento, PDF, XML, erro
+- `pedido_itens`: cliente, produto, quantidade, valor unitário, origem do preço (`tabela`)
 - `espelhos`: cliente, pedido, versão, texto enviado, id da mensagem de envio, enviado em, aprovado em, mensagem que aprovou
 
 **Suporte**
@@ -151,7 +152,7 @@ Fora do horário, notas seguem normalmente. Para demandas de pessoa, o agente in
 2. **Comprador inexistente:** fluxo 6.5.
 3. **Itens:** associa cada item a um produto do catálogo (descrição, código, apelidos). Item ambíguo → pergunta. Produto inexistente → chamado Fiscal ("cadastrar produto"), cliente avisado, e o pedido fica em `aguardando_equipe`, retomado quando o produto for cadastrado.
 4. **Preço (venda):** preenchido pelo código a partir da tabela vigente do grupo. A IA não fornece preço. Produto sem preço para o grupo → pergunta ao cliente e segue o fluxo 6.6 (se o contato não tiver `pode_atualizar_preco`, abre chamado Fiscal e a equipe cadastra o preço pelo painel). O pedido fica em `aguardando_equipe` até o preço estar vigente (imediato em `automatico`; após aprovação da equipe em `supervisionado`).
-5. **Devolução:** exige a **chave da nota original**, localizada no Bling pelo número informado e confirmada com o cliente. Valores unitários e tributos são **copiados da nota original**, nunca da tabela atual. A quantidade devolvida não pode passar da original menos as devoluções já feitas. A nota sai com finalidade de devolução e a chave referenciada. **Quais devoluções a indústria emite** (por exemplo, retorno de comprador não contribuinte) e quais são emitidas pelo próprio comprador é regra definida pelo setor Fiscal antes da etapa 2 (seção 12). Caso fora da regra → chamado Fiscal.
+5. **Devolução:** não é feita pelo agente nestas etapas. O agente reconhece o pedido, abre chamado no setor Fiscal com o que o cliente informou (comprador, itens, nota original, se citada) e avisa o cliente de que a equipe vai cuidar.
 6. **"Igual à última":** repete os itens da última **venda autorizada pelo sistema** para aquela unidade, com os preços vigentes da tabela. Se não houver, pergunta os itens.
 7. **Natureza de operação:** o código determina se a operação é interna ou interestadual (UF da indústria × UF da unidade) e verifica a situação da IE do destinatário **em toda emissão**, não só no cadastro. A natureza vem de `regras_natureza`. Combinação sem regra → chamado Fiscal.
 8. **Frete, pagamento e informações complementares:** vêm dos padrões do cliente, e podem ser alterados no pedido se o cliente informar.
@@ -248,7 +249,7 @@ Fora do horário, notas seguem normalmente. Para demandas de pessoa, o agente in
 ### 6.8 Ferramentas do agente
 Estas são as únicas ações possíveis do agente. Todas validam no código:
 - `identificar_empresa`, `buscar_unidades`, `buscar_produtos`
-- `criar_pedido(unidade_id, itens[produto_id, quantidade], tipo, chave_nota_referenciada?)`: preço, natureza, frete e pagamento são preenchidos pelo código
+- `criar_pedido(unidade_id, itens[produto_id, quantidade])` (somente venda): preço, natureza, frete e pagamento são preenchidos pelo código
 - `corrigir_pedido(pedido_id, alterações)`: só antes da aprovação; gera nova versão
 - `cancelar_pedido(pedido_id)`: só a pedido do cliente e só nos estados que permitem `cancelado_pelo_cliente` (tabela em 6.7)
 - `enviar_espelho(pedido_id)`: o texto é gerado pelo código a partir do pedido
@@ -313,7 +314,7 @@ Toda chamada de ferramenta e sua justificativa ficam registradas em `decisoes_ag
 ## 10. Testes e implantação
 
 **Testes automáticos** (rodam no GitHub antes de qualquer publicação):
-- Regras: seleção de unidade, preço vigente, natureza de operação por UF e IE, travas (inclusive sem histórico), detecção de aprovação e de confirmação de reajuste (ordem das mensagens, versão, permissão por cliente), devolução (valores da nota original, limite de quantidade), idempotência e retomada, todas as transições da máquina de estados, RLS por perfil em todas as tabelas e buckets
+- Regras: seleção de unidade, preço vigente, natureza de operação por UF e IE, travas (inclusive sem histórico), detecção de aprovação e de confirmação de reajuste (ordem das mensagens, versão, permissão por cliente), pedido de devolução virando chamado, idempotência e retomada, todas as transições da máquina de estados, RLS por perfil em todas as tabelas e buckets
 - Integração com as implementações falsas de Z-API, Bling, Claude, transcrição e CNPJ/IE, incluindo falhas simuladas (queda depois de criar a nota e antes de gravar o id, webhook "enviada por mim" chegando antes do id, renovação simultânea do token)
 - **Cenários de conversa:** conjunto de pedidos realistas ("emite pra hortsul itabira 10 cx do A", áudios transcritos, pedidos ambíguos, SIM antes de uma correção, "sim" respondendo a outra pergunta, "SIM 17, mas troca...", SIM em espelho travado, código de reajuste usado num espelho, pedidos idênticos na mesma mensagem, instruções escondidas em PDFs e fichas, tentativas de burlar preço), verificando as ferramentas chamadas e o resultado. O conjunto cresce com cada erro encontrado em produção
 
@@ -332,7 +333,7 @@ Toda chamada de ferramenta e sua justificativa ficam registradas em `decisoes_ag
 
 ## 11. Verificações obrigatórias no início da implementação
 Estes pontos foram assumidos no design e precisam ser confirmados na documentação oficial antes do código correspondente:
-- **V1. Bling API v3:** fluxo OAuth por conta e rotação do token de renovação, endpoints de NF-e (criar, alterar, excluir pendente, transmitir, consultar, PDF/XML), **se nota pendente consome numeração**, campo pesquisável para guardar uma referência do pedido, campos de devolução (finalidade, chave referenciada e tipo entrada/saída da nota emitida pela indústria), como as naturezas de operação tratam UF e indicador de IE, leitura de notas para a importação, cadastro de contatos, limites de requisição, **existência de ambiente de homologação**
+- **V1. Bling API v3:** fluxo OAuth por conta e rotação do token de renovação, endpoints de NF-e (criar, alterar, excluir pendente, transmitir, consultar, PDF/XML), **se nota pendente consome numeração**, campo pesquisável para guardar uma referência do pedido, como as naturezas de operação tratam UF e indicador de IE, leitura de notas para a importação, cadastro de contatos, limites de requisição, **existência de ambiente de homologação**
 - **V2. Z-API:** reenvio de webhooks não entregues, eventos de mensagens enviadas pelo celular, identificação de grupos, preço atual
 - **V3. Consulta de IE:** escolha do fornecedor com cobertura de todas as UFs e preço por consulta
 - **V4. Transcrição de áudio:** escolha do fornecedor (qualidade em português, preço)
@@ -343,7 +344,6 @@ Se alguma verificação contrariar o design, o ponto volta para decisão do dono
 
 ## 12. Levantamentos com o setor Fiscal e a indústria (antes da etapa 2)
 Não são decisões técnicas. Precisam ser preenchidos no painel antes de ligar as notas:
-- **Regras de devolução:** em quais situações a indústria emite a nota de devolução e em quais o próprio comprador emite
 - **Regras de natureza de operação** da indústria: venda interna e interestadual, para contribuinte, isento e não contribuinte, incluindo ST e DIFAL quando aplicável
 - **Padrões de NF-e** da indústria: modalidade de frete, transportadora, forma e prazo de pagamento, informações complementares obrigatórias
 - **Revisão da importação:** grupos, unidades, apelidos, produtos e preços
