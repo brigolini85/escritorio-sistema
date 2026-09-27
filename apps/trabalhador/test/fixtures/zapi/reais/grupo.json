@@ -1,0 +1,28 @@
+{
+  "isStatusReply": false,
+  "chatLid": null,
+  "connectedPhone": "5531900000001",
+  "waitingMessage": false,
+  "isEdit": false,
+  "isGroup": true,
+  "isNewsletter": false,
+  "instanceId": "INSTANCIA_FICTICIA_0000000000000",
+  "messageId": "2AFE97E9E90E27D3AD3C",
+  "phone": "120363000000000000-group",
+  "fromMe": false,
+  "momment": 1790530499000,
+  "status": "RECEIVED",
+  "chatName": "Grupo Fictício",
+  "senderPhoto": null,
+  "senderName": "Cliente Fictício Ltda",
+  "photo": null,
+  "broadcast": false,
+  "participantPhone": "5531900000002",
+  "participantLid": "11111111111111@lid",
+  "forwarded": false,
+  "type": "ReceivedCallback",
+  "fromApi": false,
+  "text": {
+    "message": "Me manda a guia do das"
+  }
+}

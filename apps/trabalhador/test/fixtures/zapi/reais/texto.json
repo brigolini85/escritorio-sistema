@@ -1,0 +1,28 @@
+{
+  "isStatusReply": false,
+  "chatLid": "11111111111111@lid",
+  "connectedPhone": "5531900000001",
+  "waitingMessage": false,
+  "isEdit": false,
+  "isGroup": false,
+  "isNewsletter": false,
+  "instanceId": "INSTANCIA_FICTICIA_0000000000000",
+  "messageId": "2AC29E80D22BFA24EA9C",
+  "phone": "5531900000002",
+  "fromMe": false,
+  "momment": 1790529967000,
+  "status": "RECEIVED",
+  "chatName": "Cliente Fictício Ltda",
+  "senderPhoto": null,
+  "senderName": "Cliente Fictício Ltda",
+  "photo": null,
+  "broadcast": false,
+  "participantPhone": null,
+  "participantLid": null,
+  "forwarded": false,
+  "type": "ReceivedCallback",
+  "fromApi": false,
+  "text": {
+    "message": "Preciso do guia do das"
+  }
+}

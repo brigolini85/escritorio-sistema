@@ -1,0 +1,28 @@
+{
+  "isStatusReply": false,
+  "chatLid": null,
+  "connectedPhone": "5531900000001",
+  "waitingMessage": false,
+  "isEdit": false,
+  "isGroup": true,
+  "isNewsletter": false,
+  "instanceId": "INSTANCIA_FICTICIA_0000000000000",
+  "messageId": "3AB2DD4C8FDBEE52971A",
+  "phone": "120363000000000000-group",
+  "fromMe": true,
+  "momment": 1790530579003,
+  "status": "RECEIVED",
+  "chatName": "Grupo Fictício",
+  "senderPhoto": null,
+  "senderName": "Atendente Fictício",
+  "photo": null,
+  "broadcast": false,
+  "participantPhone": "5531900000001",
+  "participantLid": "22222222222222@lid",
+  "forwarded": false,
+  "type": "ReceivedCallback",
+  "fromApi": false,
+  "text": {
+    "message": "Vou fazer agora pra você"
+  }
+}
