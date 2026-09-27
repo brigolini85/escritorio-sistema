@@ -103,7 +103,7 @@ Uma plataforma única do escritório, em que um agente de IA atende os clientes 
 | 4 | NFS-e via Portal Nacional | Própria, a escrever |
 | 5 | NFS-e via prefeituras (plataforma intermediária) | Própria, a escrever |
 | 6+ | POPs, obrigações completo, indicadores, financeiro, comercial, fiscal/contábil/pessoal, portal do cliente | Uma spec por módulo |
-| Paralelo | Migração Z-API → API oficial da Meta, assim que a verificação da empresa sair | Própria, curta |
+| Paralelo | Migração Z-API → API oficial da Meta. A verificação da empresa na Meta começa **no primeiro dia** do projeto, porque o número usado na Z-API é o que os clientes conhecem e um bloqueio teria custo alto | Própria, curta |
 
 **Decisão de negócio pendente, fora do software:** clientes que emitem pelo Emissor Sebrae não têm API. Precisam migrar para um emissor com API (ex.: Bling) ou continuar manuais.
 
