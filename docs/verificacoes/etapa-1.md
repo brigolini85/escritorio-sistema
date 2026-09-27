@@ -79,24 +79,25 @@ R$ 99,90 por mês por instância (valor pago pelo dono em 2026-09-27). Com homol
 
 ## V4 — Transcrição
 
-Fornecedor testado: **Groq**, com API compatível com  (multipart: , , , ).
+Fornecedor testado: **Groq**, com API compatível com `POST {base}/audio/transcriptions` (multipart: `file`, `model`, `language`, `prompt`).
 
-- URL base: - Áudio de teste: 16,5 s de áudio  (opus) gravado no WhatsApp, com um pedido típico de cliente (guia do DAS, guia do INSS, folhas de pagamento, nota).
+- URL base: `https://api.groq.com/openai/v1`
+- Áudio de teste: 16,5 s de áudio `.ogg` (opus) gravado no WhatsApp, com um pedido típico de cliente (guia do DAS, guia do INSS, folhas de pagamento, nota).
 
-| Modelo | Sem vocabulário | Com vocabulário () | Tempo |
+| Modelo | Sem vocabulário | Com vocabulário (`prompt`) | Tempo |
 |---|---|---|---|
-|  | Errou só "INSS" (saiu "NSS") | **Tudo certo** | ~0,7 s |
-|  | Errou só "INSS" (saiu "NSS") | **Tudo certo**, mas troca "pra" por "para" | ~0,4 s |
+| `whisper-large-v3` | Errou só "INSS" (saiu "NSS") | **Tudo certo** | ~0,7 s |
+| `whisper-large-v3-turbo` | Errou só "INSS" (saiu "NSS") | **Tudo certo**, mas troca "pra" por "para" | ~0,4 s |
 
-Vocabulário usado no : "Conversa com escritório de contabilidade: DAS, INSS, FGTS, pró-labore, folha de pagamento, nota fiscal, extrato, Simples Nacional, DCTFWeb, eSocial."
+Vocabulário usado no `prompt`: "Conversa com escritório de contabilidade: DAS, INSS, FGTS, pró-labore, folha de pagamento, nota fiscal, extrato, Simples Nacional, DCTFWeb, eSocial."
 
-**Escolha:** Groq , sempre com  e o vocabulário no . É o mais fiel ao que foi falado, e a diferença de velocidade não importa para o atendimento.
+**Escolha:** Groq `whisper-large-v3`, sempre com `language=pt` e o vocabulário no `prompt`. É o mais fiel ao que foi falado, e a diferença de velocidade não importa para o atendimento.
 
 Preço: a Groq cobra por hora de áudio, com valor de centavos de dólar por hora. Com o volume de um escritório, o custo mensal fica irrelevante. Conferir o valor atual em https://groq.com/pricing antes de entrar em produção.
 
 Observações:
-- O vocabulário no  faz diferença real. Sem ele, siglas como INSS saem erradas.
-- No Windows, o  quebra os acentos do  ("prompt must be valid UTF-8"). No código (Node,  + ) funcionou normalmente.
+- O vocabulário no `prompt` faz diferença real. Sem ele, siglas como INSS saem erradas.
+- No Windows, o `curl` quebra os acentos do `prompt` ("prompt must be valid UTF-8"). No código (Node, `fetch` + `FormData`) funcionou normalmente.
 
 ## V5 — Supabase
 
