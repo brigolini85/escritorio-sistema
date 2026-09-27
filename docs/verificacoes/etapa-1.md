@@ -79,7 +79,24 @@ R$ 99,90 por mês por instância (valor pago pelo dono em 2026-09-27). Com homol
 
 ## V4 — Transcrição
 
-Pendente.
+Fornecedor testado: **Groq**, com API compatível com  (multipart: , , , ).
+
+- URL base: - Áudio de teste: 16,5 s de áudio  (opus) gravado no WhatsApp, com um pedido típico de cliente (guia do DAS, guia do INSS, folhas de pagamento, nota).
+
+| Modelo | Sem vocabulário | Com vocabulário () | Tempo |
+|---|---|---|---|
+|  | Errou só "INSS" (saiu "NSS") | **Tudo certo** | ~0,7 s |
+|  | Errou só "INSS" (saiu "NSS") | **Tudo certo**, mas troca "pra" por "para" | ~0,4 s |
+
+Vocabulário usado no : "Conversa com escritório de contabilidade: DAS, INSS, FGTS, pró-labore, folha de pagamento, nota fiscal, extrato, Simples Nacional, DCTFWeb, eSocial."
+
+**Escolha:** Groq , sempre com  e o vocabulário no . É o mais fiel ao que foi falado, e a diferença de velocidade não importa para o atendimento.
+
+Preço: a Groq cobra por hora de áudio, com valor de centavos de dólar por hora. Com o volume de um escritório, o custo mensal fica irrelevante. Conferir o valor atual em https://groq.com/pricing antes de entrar em produção.
+
+Observações:
+- O vocabulário no  faz diferença real. Sem ele, siglas como INSS saem erradas.
+- No Windows, o  quebra os acentos do  ("prompt must be valid UTF-8"). No código (Node,  + ) funcionou normalmente.
 
 ## V5 — Supabase
 
@@ -91,4 +108,7 @@ Pendente.
 
 ## Impacto no plano
 
-Pendente.
+- **V2 (Z-API):** confirma o spec. Ajustes para a Task 7: ler `momment` (e `moment` se faltar); descartar eventos com `notification` preenchido; tratar legenda vazia como `""` ou `null`; não usar o campo `error` do status para decidir se a instância caiu.
+- **V2 (Z-API), Task 8:** as URLs de mídia são temporárias; baixar e guardar no Storage assim que a mensagem chegar.
+- **V4 (transcrição):** confirma o spec, com um acréscimo para a Task 8: enviar `language=pt` e o vocabulário contábil no campo `prompt`. O vocabulário fica em configuração (`TRANSCRICAO_VOCABULARIO` ou em `configuracoes`), para o dono poder acrescentar termos.
+- **V5 e V6:** pendentes.
