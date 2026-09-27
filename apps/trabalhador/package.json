@@ -1,0 +1,30 @@
+{
+  "name": "@escritorio/trabalhador",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/principal.ts",
+    "build": "tsup src/principal.ts --format esm --target node22 --out-dir dist --clean --noExternal @escritorio/core --noExternal @escritorio/db",
+    "start": "node dist/principal.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "cenarios": "tsx src/cenarios/rodar.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
+    "@escritorio/core": "workspace:*",
+    "@escritorio/db": "workspace:*",
+    "@supabase/supabase-js": "^2.47.0",
+    "fastify": "^5.2.0",
+    "nodemailer": "^6.9.0",
+    "pg-boss": "^10.1.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^6.4.0",
+    "dotenv": "^16.4.0",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0"
+  }
+}
