@@ -1,6 +1,6 @@
 # Verificações da etapa 1
 
-Em andamento desde 2026-09-27.
+Feitas em 2026-09-27. Pendências menores (não travam o plano) listadas em V2 → Pendente.
 
 ## V2 — Z-API
 
@@ -93,7 +93,9 @@ Vocabulário usado no `prompt`: "Conversa com escritório de contabilidade: DAS,
 
 **Escolha:** Groq `whisper-large-v3`, sempre com `language=pt` e o vocabulário no `prompt`. É o mais fiel ao que foi falado, e a diferença de velocidade não importa para o atendimento.
 
-Preço: a Groq cobra por hora de áudio, com valor de centavos de dólar por hora. Com o volume de um escritório, o custo mensal fica irrelevante. Conferir o valor atual em https://groq.com/pricing antes de entrar em produção.
+Preço (documentação da Groq, 2026-09-27): `whisper-large-v3` US$ 0,111 por hora de áudio; `whisper-large-v3-turbo` US$ 0,04. Exemplo: 100 áudios de 30 s por dia dão cerca de 25 horas por mês, ou seja, uns US$ 3 por mês.
+
+Limites: arquivo de até 25 MB no plano gratuito (100 MB no pago); `.ogg` é aceito; o `prompt` aceita no máximo 224 tokens, então o vocabulário tem que ser curto.
 
 Observações:
 - O vocabulário no `prompt` faz diferença real. Sem ele, siglas como INSS saem erradas.
@@ -101,15 +103,35 @@ Observações:
 
 ## V5 — Supabase
 
-Projeto `escritorio-homologacao` criado. Limites do plano gratuito e preço do Pro: pendente.
+Projeto `escritorio-homologacao` criado na região São Paulo. Fonte: supabase.com/pricing, em 2026-09-27.
+
+| | Gratuito | Pro |
+|---|---|---|
+| Preço | US$ 0 | a partir de US$ 25/mês (inclui US$ 10 de crédito de computação, que cobre uma instância Micro) |
+| Banco | 500 MB | 8 GB por projeto, depois US$ 0,125/GB |
+| Arquivos (Storage) | 1 GB | 100 GB, depois US$ 0,0213/GB |
+| Tráfego de saída | 5 GB | — |
+| Backup | **não tem** | diário, guardado por 7 dias (PITR é opcional: US$ 100/mês por 7 dias) |
+| Pausa | **pausa após 1 semana sem uso** | não pausa |
+| Projetos | até 2 ativos | — |
+
+Conclusão: o gratuito serve para homologação. Produção precisa do Pro antes de receber dados reais (backup diário e sem pausa), como o spec já prevê.
 
 ## V6 — Claude
 
-Pendente.
+IDs e preços confirmados na referência oficial em 2026-09-27, como registrado no plano:
+
+| Uso | Modelo | Entrada | Saída |
+|---|---|---|---|
+| Conversa (etapa 1) | `claude-sonnet-5` | US$ 2 por milhão de tokens | US$ 10 por milhão |
+| Rápido (reservado para a etapa 2) | `claude-haiku-4-5` | US$ 1 por milhão | US$ 5 por milhão |
+
+Os preços ficam em `configuracoes.precos_modelos`, para o custo em `uso_ia` poder ser recalculado se mudarem.
 
 ## Impacto no plano
 
 - **V2 (Z-API):** confirma o spec. Ajustes para a Task 7: ler `momment` (e `moment` se faltar); descartar eventos com `notification` preenchido; tratar legenda vazia como `""` ou `null`; não usar o campo `error` do status para decidir se a instância caiu.
 - **V2 (Z-API), Task 8:** as URLs de mídia são temporárias; baixar e guardar no Storage assim que a mensagem chegar.
 - **V4 (transcrição):** confirma o spec, com um acréscimo para a Task 8: enviar `language=pt` e o vocabulário contábil no campo `prompt`. O vocabulário fica em configuração (`TRANSCRICAO_VOCABULARIO` ou em `configuracoes`), para o dono poder acrescentar termos.
-- **V5 e V6:** pendentes.
+- **V5 (Supabase):** confirma o spec.
+- **V6 (Claude):** confirma o spec.
