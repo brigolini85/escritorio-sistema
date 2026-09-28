@@ -20,7 +20,7 @@ export const UnidadeForm = z.object({
   nome_unidade: z.string().trim().min(1, 'Informe o nome da unidade'),
   razao_social: opcional,
   cnpj: z.preprocess((v) => (v ? somenteDigitos(String(v)) : null),
-    z.string().nullable().refine((c) => c === null || validarCnpj(c), 'CNPJ inválido')),
+    z.string().nullable().refine((c) => c === null || validarCnpj(c), 'CNPJ inválido: confira os números ou deixe em branco')),
   inscricao_estadual: opcional,
   endereco: opcional,
   bairro: opcional,

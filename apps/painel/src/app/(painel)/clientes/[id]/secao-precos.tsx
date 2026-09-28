@@ -38,6 +38,7 @@ export async function SecaoPrecos({ id, podeEditar, historico }: { id: string; p
                       <form action={definirPreco.bind(null, id, r.id, p.id)} className="flex items-center gap-1">
                         R$ <input name="valor" defaultValue={v !== undefined ? valorCampo(Number(v)) : ''} disabled={!podeEditar}
                           aria-label={`Preço de ${p.descricao} para ${r.nome}`} className="w-24 rounded border p-1 disabled:bg-slate-50" />
+                        {podeEditar && <button aria-label={`Salvar preço de ${p.descricao} para ${r.nome}`} className="rounded bg-slate-900 px-2 py-1 text-xs text-white">Salvar</button>}
                         <Link href={`/clientes/${id}?aba=precos&historico=${r.id}:${p.id}`} className="text-xs text-blue-700 underline">histórico</Link>
                       </form>
                     </td>

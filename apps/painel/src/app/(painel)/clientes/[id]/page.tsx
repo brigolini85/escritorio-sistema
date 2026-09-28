@@ -10,10 +10,10 @@ import { SecaoPrecos } from './secao-precos';
 import { SecaoProdutos } from './secao-produtos';
 
 export default async function FichaCliente({ params, searchParams }: {
-  params: Promise<{ id: string }>; searchParams: Promise<{ aba?: string; historico?: string }>;
+  params: Promise<{ id: string }>; searchParams: Promise<{ aba?: string; historico?: string; erro?: string }>;
 }) {
   const { id } = await params;
-  const { aba: pedida, historico } = await searchParams;
+  const { aba: pedida, historico, erro } = await searchParams;
   const aba: Aba = ABAS.some((a) => a.valor === pedida) ? (pedida as Aba) : 'dados';
   const u = await obterUsuario();
   const pode = temPermissao(u, 'editar_clientes');
@@ -24,6 +24,7 @@ export default async function FichaCliente({ params, searchParams }: {
   return (
     <div className="max-w-4xl space-y-4">
       <h1 className="text-xl font-semibold">{c.nome_fantasia ?? c.razao_social}</h1>
+      {erro && <p role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">Não foi possível salvar: {erro}</p>}
       <AbasCliente id={id} atual={aba} />
       {aba === 'dados' && <SecaoDados id={id} u={u} pode={pode} c={c} />}
       {aba === 'contatos' && <SecaoContatos id={id} u={u} pode={pode} />}

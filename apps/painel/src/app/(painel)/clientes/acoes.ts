@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { enfileirarRemocaoArquivos } from '@/lib/fila';
+import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { exigirAdmin, obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ClienteForm, ContatoForm } from './esquemas';
@@ -18,6 +19,10 @@ function checar(r: { error: { message: string } | null }) {
 }
 
 export async function salvarCliente(id: string | null, formData: FormData) {
+  await comAvisoDeErro(id ? `/clientes/${id}?aba=dados` : '/clientes/novo', () => salvarClienteSemAviso(id, formData));
+}
+
+async function salvarClienteSemAviso(id: string | null, formData: FormData) {
   const sb = await exigirEdicao();
   const u = await obterUsuario();
   const dados = ClienteForm.parse(campos(formData));
@@ -35,6 +40,10 @@ export async function salvarCliente(id: string | null, formData: FormData) {
 }
 
 export async function adicionarContato(clienteId: string, formData: FormData) {
+  await comAvisoDeErro(`/clientes/${clienteId}?aba=contatos`, () => adicionarContatoSemAviso(clienteId, formData));
+}
+
+async function adicionarContatoSemAviso(clienteId: string, formData: FormData) {
   const sb = await exigirEdicao();
   const c = ContatoForm.parse(campos(formData));
   const { data: contato, error } = await sb.from('contatos').upsert({ nome: c.nome, telefone: c.telefone }, { onConflict: 'telefone' }).select('id').single();
@@ -83,6 +92,10 @@ export async function anonimizarContato(clienteId: string, contatoId: string, fo
 
 /** Liga à empresa um contato que já existe (cadastrado pela aba Contatos ou pela conversa). */
 export async function vincularContatoExistente(clienteId: string, formData: FormData) {
+  await comAvisoDeErro(`/clientes/${clienteId}?aba=contatos`, () => vincularContatoSemAviso(clienteId, formData));
+}
+
+async function vincularContatoSemAviso(clienteId: string, formData: FormData) {
   const sb = await exigirEdicao();
   const contatoId = String(formData.get('contato_id') ?? '');
   if (!contatoId) throw new Error('Escolha o contato.');

@@ -56,7 +56,7 @@ test('cadastra produto, define preço para a rede e vê o histórico', async ({ 
   await expect(page.getByLabel('Descrição de 12')).toHaveValue('Costela com Requeijão');
 
   await page.getByRole('link', { name: 'Preços' }).click();
-  const campo = page.getByLabel('Preço de Costela com Requeijão para Supermercado Brasil');
+  const campo = page.getByLabel('Preço de Costela com Requeijão para Supermercado Brasil', { exact: true });
   await campo.fill('9,50');
   await campo.press('Enter');
   await expect(campo).toHaveValue('9,50');
@@ -76,7 +76,7 @@ test('quem não tem Editar preços não vê o campo de preço editável', async 
   await criarUsuarioTeste({ email: 'bia@teste.com', senha: 'senha-forte-123', nome: 'Bia', papel: 'atendente', permissoes: ['editar_clientes'] });
   await entrar(page, 'bia@teste.com', 'senha-forte-123');
   await page.goto(`/clientes/${id}?aba=precos`);
-  await expect(page.getByLabel('Preço de Costela com Requeijão para Supermercado Brasil')).toBeDisabled();
+  await expect(page.getByLabel('Preço de Costela com Requeijão para Supermercado Brasil', { exact: true })).toBeDisabled();
 });
 test('envia documento, libera para a IA e baixa', async ({ page }) => {
   const id = await empresaDeTeste();
@@ -103,4 +103,36 @@ test('envia documento, libera para a IA e baixa', async ({ page }) => {
   expect(resposta.headers().location).toMatch(/\/storage\/v1\/object\/sign\/documentos\//);
   const { count } = await db.from('auditoria_acessos').select('*', { count: 'exact', head: true }).eq('acao', 'download').eq('entidade_id', doc!.id);
   expect(count).toBe(1);
+});
+
+test('erro de preenchimento vira aviso na tela, sem quebrar a página', async ({ page }) => {
+  const id = await empresaDeTeste();
+  await db.from('parceiros_grupos').insert({ cliente_id: id, tipo: 'cliente', nome: 'Hortsul' });
+  await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
+  await entrar(page, 'admin@teste.com', 'senha-forte-123');
+  await page.goto(`/clientes/${id}?aba=clientes`);
+  await page.getByPlaceholder('Nome da unidade (ex.: Santa Efigênia)').fill('Itabira');
+  await page.getByPlaceholder('CNPJ').fill('11.222.333/0001-99');
+  await page.getByRole('button', { name: 'Adicionar unidade' }).click();
+  await expect(page.getByText(/Não foi possível salvar: .*CNPJ inválido/)).toBeVisible();
+  await expect(page.getByLabel('Nome de Hortsul')).toBeVisible();
+
+  await page.goto('/clientes/novo');
+  await page.getByLabel('Razão social').fill('Cliente Com CNPJ Errado');
+  await page.getByLabel('CNPJ').fill('11.222.333/0001-99');
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await expect(page.getByText(/Não foi possível salvar: .*CNPJ inválido/)).toBeVisible();
+});
+
+test('preço tem botão Salvar', async ({ page }) => {
+  const id = await empresaDeTeste();
+  await db.from('parceiros_grupos').insert({ cliente_id: id, tipo: 'cliente', nome: 'Supermercado Brasil' });
+  await db.from('produtos').insert({ cliente_id: id, codigo: '12', descricao: 'Costela com Requeijão', unidade: 'PAC' });
+  await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
+  await entrar(page, 'admin@teste.com', 'senha-forte-123');
+  await page.goto(`/clientes/${id}?aba=precos`);
+  await page.getByLabel('Preço de Costela com Requeijão para Supermercado Brasil', { exact: true }).fill('12,30');
+  await page.getByRole('button', { name: 'Salvar preço de Costela com Requeijão para Supermercado Brasil' }).click();
+  await expect(page.getByLabel('Preço de Costela com Requeijão para Supermercado Brasil', { exact: true })).toHaveValue('12,30');
+  await expect.poll(async () => (await db.from('precos').select('valor').eq('cliente_id', id).is('vigente_ate', null).single()).data?.valor).toBe(12.3);
 });
