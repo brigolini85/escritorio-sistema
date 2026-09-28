@@ -5,12 +5,14 @@ import { ABAS, AbasCliente, type Aba } from './abas';
 import { SecaoContatos } from './secao-contatos';
 import { SecaoDados } from './secao-dados';
 import { SecaoParceiros } from './secao-parceiros';
+import { SecaoPrecos } from './secao-precos';
+import { SecaoProdutos } from './secao-produtos';
 
 export default async function FichaCliente({ params, searchParams }: {
-  params: Promise<{ id: string }>; searchParams: Promise<{ aba?: string }>;
+  params: Promise<{ id: string }>; searchParams: Promise<{ aba?: string; historico?: string }>;
 }) {
   const { id } = await params;
-  const pedida = (await searchParams).aba;
+  const { aba: pedida, historico } = await searchParams;
   const aba: Aba = ABAS.some((a) => a.valor === pedida) ? (pedida as Aba) : 'dados';
   const u = await obterUsuario();
   const pode = temPermissao(u, 'editar_clientes');
@@ -26,6 +28,8 @@ export default async function FichaCliente({ params, searchParams }: {
       {aba === 'contatos' && <SecaoContatos id={id} u={u} pode={pode} />}
       {aba === 'clientes' && <SecaoParceiros id={id} tipo="cliente" pode={pode} />}
       {aba === 'fornecedores' && <SecaoParceiros id={id} tipo="fornecedor" pode={pode} />}
+      {aba === 'produtos' && <SecaoProdutos id={id} pode={pode} />}
+      {aba === 'precos' && <SecaoPrecos id={id} podeEditar={temPermissao(u, 'editar_precos')} historico={historico} />}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { GrupoForm, UnidadeForm } from './cadastros-esquemas';
+import { GrupoForm, PrecoForm, ProdutoForm, UnidadeForm } from './cadastros-esquemas';
 
 async function exigirEdicao() {
   const u = await obterUsuario();
@@ -29,5 +29,24 @@ export async function salvarUnidade(clienteId: string, grupoId: string, unidadeI
   checar(unidadeId
     ? await sb.from('parceiros_unidades').update(dados).eq('id', unidadeId).eq('cliente_id', clienteId)
     : await sb.from('parceiros_unidades').insert({ ...dados, cliente_id: clienteId, grupo_id: grupoId }));
+  revalidatePath(`/clientes/${clienteId}`);
+}
+
+export async function salvarProduto(clienteId: string, produtoId: string | null, formData: FormData) {
+  const { sb } = await exigirEdicao();
+  const dados = ProdutoForm.parse({ ativo: produtoId ? undefined : 'on', ...campos(formData) });
+  checar(produtoId
+    ? await sb.from('produtos').update(dados).eq('id', produtoId).eq('cliente_id', clienteId)
+    : await sb.from('produtos').insert({ ...dados, cliente_id: clienteId }));
+  revalidatePath(`/clientes/${clienteId}`);
+}
+
+export async function definirPreco(clienteId: string, grupoId: string, produtoId: string, formData: FormData) {
+  const u = await obterUsuario();
+  if (!temPermissao(u, 'editar_precos')) throw new Error('Você não tem permissão para editar preços.');
+  const { valor } = PrecoForm.parse(campos(formData));
+  const sb = await supabaseServidor();
+  const { error } = await sb.rpc('definir_preco', { p_grupo: grupoId, p_produto: produtoId, p_valor: valor });
+  if (error) throw new Error(error.message);
   revalidatePath(`/clientes/${clienteId}`);
 }

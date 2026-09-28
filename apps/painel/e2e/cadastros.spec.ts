@@ -41,3 +41,40 @@ test('atendente sem permissão vê os cadastros mas não edita', async ({ page }
   await expect(page.getByLabel('Nome de Hortsul')).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Criar rede' })).toHaveCount(0);
 });
+test('cadastra produto, define preço para a rede e vê o histórico', async ({ page }) => {
+  const id = await empresaDeTeste();
+  await db.from('parceiros_grupos').insert({ cliente_id: id, tipo: 'cliente', nome: 'Supermercado Brasil' });
+  await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
+  await entrar(page, 'admin@teste.com', 'senha-forte-123');
+
+  await page.goto(`/clientes/${id}?aba=produtos`);
+  await page.getByPlaceholder('Código').last().fill('12');
+  await page.getByPlaceholder('Descrição').last().fill('Costela com Requeijão');
+  await page.getByPlaceholder('Unidade (PAC, KG…)').last().fill('PAC');
+  await page.getByPlaceholder('Apelidos, separados por vírgula').last().fill('costela');
+  await page.getByRole('button', { name: 'Adicionar produto' }).click();
+  await expect(page.getByLabel('Descrição de 12')).toHaveValue('Costela com Requeijão');
+
+  await page.getByRole('link', { name: 'Preços' }).click();
+  const campo = page.getByLabel('Preço de Costela com Requeijão para Supermercado Brasil');
+  await campo.fill('9,50');
+  await campo.press('Enter');
+  await expect(campo).toHaveValue('9,50');
+  await campo.fill('10,00');
+  await campo.press('Enter');
+  await expect(campo).toHaveValue('10,00');
+
+  await page.getByRole('link', { name: 'histórico' }).first().click();
+  await expect(page.getByText('R$ 9,50')).toBeVisible();
+  await expect(page.getByText('R$ 10,00 · vigente')).toBeVisible();
+});
+
+test('quem não tem Editar preços não vê o campo de preço editável', async ({ page }) => {
+  const id = await empresaDeTeste();
+  await db.from('parceiros_grupos').insert({ cliente_id: id, tipo: 'cliente', nome: 'Supermercado Brasil' });
+  await db.from('produtos').insert({ cliente_id: id, codigo: '12', descricao: 'Costela com Requeijão', unidade: 'PAC' });
+  await criarUsuarioTeste({ email: 'bia@teste.com', senha: 'senha-forte-123', nome: 'Bia', papel: 'atendente', permissoes: ['editar_clientes'] });
+  await entrar(page, 'bia@teste.com', 'senha-forte-123');
+  await page.goto(`/clientes/${id}?aba=precos`);
+  await expect(page.getByLabel('Preço de Costela com Requeijão para Supermercado Brasil')).toBeDisabled();
+});
