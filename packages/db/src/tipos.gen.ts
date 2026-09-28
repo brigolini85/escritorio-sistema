@@ -107,6 +107,12 @@ isOneToOne: false
       foreignKeyName: "chamados_conversa_id_fkey"
       columns: ["conversa_id"]
 isOneToOne: false
+      referencedRelation: "caixa_entrada"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chamados_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
       referencedRelation: "conversas"
       referencedColumns: ["id"]
     },{
@@ -295,6 +301,12 @@ isOneToOne: false
       foreignKeyName: "decisoes_agente_conversa_id_fkey"
       columns: ["conversa_id"]
 isOneToOne: false
+      referencedRelation: "caixa_entrada"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "decisoes_agente_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
       referencedRelation: "conversas"
       referencedColumns: ["id"]
     }
@@ -334,6 +346,12 @@ isOneToOne: false
       columns: ["cliente_id"]
 isOneToOne: false
       referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "mensagens_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "caixa_entrada"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "mensagens_conversa_id_fkey"
@@ -416,6 +434,12 @@ isOneToOne: false
       foreignKeyName: "uso_ia_conversa_id_fkey"
       columns: ["conversa_id"]
 isOneToOne: false
+      referencedRelation: "caixa_entrada"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "uso_ia_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
       referencedRelation: "conversas"
       referencedColumns: ["id"]
     }
@@ -461,10 +485,26 @@ isOneToOne: false
                 }
           }
           Views: {
-            [_ in never]: never
+            "caixa_entrada": {
+                  Row: {
+                    "aguardando_cliente": boolean | null,"atendente_id": string | null,"chamados_abertos": number | null,"empresa": string | null,"estado": Database["public"]['Enums']["estado_conversa"] | null,"id": string | null,"nome_contato": string | null,"sem_responsavel": boolean | null,"setores_abertos": (string)[] | null,"telefone": string | null,"ultima_em": string | null,"ultima_mensagem": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversas_atendente_id_fkey"
+      columns: ["atendente_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
+                }
           }
           Functions: {
-            "assumir_conversa":
+            "alterar_status_chamado":
+{ Args: { "p_chamado": string,"p_status": Database["public"]['Enums']["status_chamado"] }; Returns: undefined
+                           },
+"assumir_conversa":
 { Args: { "p_conversa": string }; Returns: undefined
                            },
 "concluir_chamado":
