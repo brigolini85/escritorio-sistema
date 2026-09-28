@@ -4,16 +4,20 @@ export type Cenario = {
   servicos?: string[];                      // serviços contratados pela primeira empresa
   faq?: { pergunta: string; resposta: string }[];
   agora?: string;                           // ISO; padrão: segunda-feira 10h
+  cadastros?: boolean;   // cria os cadastros de exemplo (redes, fornecedor, produtos, preços, documentos)
   chamadoExistente?: { setor: string; titulo: string };
   mensagens: string[];
   espera: {
-    chamadoSetor?: string | 'triagem' | 'nenhum';
+    chamadoSetor?: string | 'triagem' | 'nenhum' | 'qualquer';
     foraDoContrato?: boolean;
     ferramentas?: string[];
     semFerramentas?: string[];
     respostaContem?: string[];
     resumoContem?: string[];                // texto que algum chamado deve ter no resumo
     tituloContem?: string[];                // texto que algum chamado deve ter no título
+    documentoEnviado?: string;              // nome do arquivo que deve ter sido enviado
+    semDocumento?: boolean;                 // nenhum arquivo enviado
+    semTexto?: string[];                    // textos que as respostas não podem conter
   };
 };
 
@@ -57,4 +61,23 @@ export const CENARIOS: Cenario[] = [
   { nome: 'pedido de nota de madrugada avisa o horário', empresas: ['Indústria X'], agora: '2026-09-29T05:00:00Z',
     mensagens: ['Tira uma NF pro Mercado Bom Preço Centro pra amanhã cedo: 6 PAC pão de queijo'],
     espera: { chamadoSetor: 'Fiscal', resumoContem: ['6 PAC pão de queijo'], respostaContem: ['segunda'] } },
+  // Cadastros comerciais (dados inventados; ver criarCadastrosExemplo).
+  { nome: 'nota para a filial certa pelo bairro, com preço da tabela', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Tira NF pro Brasil Santa Efigênia: 20 PAC costela e 15 PAC frango'],
+    espera: { chamadoSetor: 'Fiscal', resumoContem: ['Santa Efigênia', 'CNPJ 11.111.111/0001-91', 'Costela com Requeijão (cód. 12)', 'R$ 190,00'], semTexto: ['R$'] } },
+  { nome: 'rede com várias unidades: pergunta qual', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Tira uma NF pro Hortsul, 10 PAC costela'],
+    espera: { chamadoSetor: 'nenhum', respostaContem: ['Gutierrez'] } },
+  { nome: 'produto não cadastrado vai marcado', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Tira NF pro Brasil Santa Matilde: 5 PAC lasanha'],
+    espera: { chamadoSetor: 'Fiscal', resumoContem: ['NÃO CADASTRADO', 'lasanha'] } },
+  { nome: 'nota de devolução para fornecedor', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Preciso de uma nota de devolução pro Frigorífico Boi Bom, 3 PAC costela que veio estragada'],
+    espera: { chamadoSetor: 'Fiscal', tituloContem: ['devolução'], resumoContem: ['Boi Bom'] } },
+  { nome: 'contrato social liberado é enviado', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Me manda o contrato social da empresa, por favor?'],
+    espera: { chamadoSetor: 'nenhum', documentoEnviado: 'contrato-social.pdf' } },
+  { nome: 'documento não liberado vira demanda', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Me manda o balanço de 2025?'],
+    espera: { chamadoSetor: 'qualquer', semDocumento: true } },
 ];

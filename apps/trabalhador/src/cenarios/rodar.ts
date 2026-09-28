@@ -1,5 +1,5 @@
 import { limparBanco } from '@escritorio/db/teste';
-import { contatoComEmpresas, db, repos, setorId } from '../../test/apoio/cenario';
+import { contatoComEmpresas, criarCadastrosExemplo, db, repos, setorId } from '../../test/apoio/cenario';
 import { criarClienteIa } from '../agente/cliente-ia';
 import { CanalFalso } from '../canal/falso';
 import { LimitadorEnvio } from '../envio';
@@ -16,6 +16,7 @@ async function preparar(c: Cenario) {
   for (const f of c.faq ?? []) await db.from('respostas_prontas').insert(f);
   if (c.empresas.length === 0) return repos.obterOuCriarConversa('5531988887777', null);
   const { empresas, conversa } = await contatoComEmpresas(c.empresas);
+  if (c.cadastros) await criarCadastrosExemplo(empresas[0]!.id);
   for (const nome of c.servicos ?? []) {
     const { data: s } = await db.from('servicos').insert({ nome }).select().single();
     await db.from('cliente_servicos').insert({ cliente_id: empresas[0]!.id, servico_id: s!.id });
@@ -48,7 +49,8 @@ async function rodar(c: Cenario): Promise<string[]> {
   const e = c.espera;
   if (e.chamadoSetor === 'nenhum' && chamados?.length) falhas.push(`não deveria abrir chamado (abriu ${chamados.length})`);
   if (e.chamadoSetor === 'triagem' && !chamados?.some((x) => x.setor_id === null)) falhas.push('esperava chamado de triagem');
-  if (e.chamadoSetor && !['nenhum', 'triagem'].includes(e.chamadoSetor) && !chamados?.some((x) => x.setores?.nome === e.chamadoSetor)) {
+  if (e.chamadoSetor === 'qualquer' && !chamados?.length) falhas.push('esperava alguma demanda aberta');
+  if (e.chamadoSetor && !['nenhum', 'triagem', 'qualquer'].includes(e.chamadoSetor) && !chamados?.some((x) => x.setores?.nome === e.chamadoSetor)) {
     falhas.push(`esperava chamado no setor ${e.chamadoSetor}; obteve ${JSON.stringify(chamados?.map((x) => x.setores?.nome ?? 'triagem'))}`);
   }
   if (e.foraDoContrato !== undefined && !chamados?.some((x) => x.fora_do_contrato === e.foraDoContrato)) falhas.push(`esperava fora_do_contrato=${e.foraDoContrato}`);
@@ -57,6 +59,10 @@ async function rodar(c: Cenario): Promise<string[]> {
   for (const t of e.resumoContem ?? []) if (!chamados?.some((x) => x.resumo.toLowerCase().includes(t.toLowerCase()))) falhas.push(`resumo do chamado deveria conter "${t}"`);
   for (const t of e.tituloContem ?? []) if (!chamados?.some((x) => x.titulo.toLowerCase().includes(t.toLowerCase()))) falhas.push(`título do chamado deveria conter "${t}"`);
   for (const t of e.respostaContem ?? []) if (!respostas.toLowerCase().includes(t.toLowerCase())) falhas.push(`resposta deveria conter "${t}"`);
+  const arquivos = canal.enviados.flatMap((x) => (x.arquivo ? [x.arquivo] : []));
+  if (e.documentoEnviado && !arquivos.includes(e.documentoEnviado)) falhas.push(`esperava enviar ${e.documentoEnviado}; enviou ${JSON.stringify(arquivos)}`);
+  if (e.semDocumento && arquivos.length) falhas.push(`não deveria enviar documento; enviou ${JSON.stringify(arquivos)}`);
+  for (const t of e.semTexto ?? []) if (respostas.includes(t)) falhas.push(`resposta não deveria conter "${t}"`);
   // O cliente conversa com o escritório, não com um sistema: termos internos não aparecem nas respostas.
   for (const t of ['chamado', 'protocolo', 'ticket', 'triagem']) if (respostas.toLowerCase().includes(t)) falhas.push(`resposta não deveria falar em "${t}"`);
   return falhas;
