@@ -19,6 +19,9 @@ describe('lerConfig', () => {
   it('vocabulário vazio no .env conta como não informado', () => {
     expect(lerConfig({ ...completo, TRANSCRICAO_VOCABULARIO: '' }).TRANSCRICAO_VOCABULARIO).toBeUndefined();
   });
+  it('lista em português o que está faltando', () => {
+    expect(() => lerConfig({})).toThrow(/Configuração inválida ou faltando: .*SUPABASE_URL/);
+  });
   it('lista o que falta', () => {
     const { ZAPI_TOKEN: _, ...semToken } = completo;
     expect(() => lerConfig(semToken)).toThrow('Configuração inválida ou faltando: ZAPI_TOKEN');

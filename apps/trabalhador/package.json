@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/principal.ts",
+    "dev": "tsx watch --env-file=../../.env src/principal.ts",
     "build": "tsup src/principal.ts --format esm --target node22 --out-dir dist --clean --noExternal @escritorio/core --noExternal @escritorio/db",
     "start": "node dist/principal.js",
     "typecheck": "tsc --noEmit",
