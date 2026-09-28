@@ -88,7 +88,9 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
   const contato = await d.repos.buscarContato(conversa.telefone);
 
   if (!conversa.aviso_lgpd_enviado_em) {
-    await enviarDoSistema(d.envio, { conversaId, telefone: conversa.telefone, clienteId: conversa.cliente_em_foco, autor: 'sistema', texto: config.mensagens.aviso_lgpd ?? '' });
+    // O texto é do dono (Configurações → Mensagens automáticas); vazio = não enviar aviso.
+    const aviso = (config.mensagens.aviso_lgpd ?? '').trim();
+    if (aviso) await enviarDoSistema(d.envio, { conversaId, telefone: conversa.telefone, clienteId: conversa.cliente_em_foco, autor: 'sistema', texto: aviso });
     await d.repos.atualizarConversa(conversaId, { aviso_lgpd_enviado_em: d.relogio().toISOString() });
   }
 

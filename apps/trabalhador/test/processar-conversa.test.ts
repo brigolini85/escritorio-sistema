@@ -55,6 +55,17 @@ describe('processarConversa', () => {
     expect(await repos.mensagensNaoProcessadas(conversa.id)).toHaveLength(0);
   });
 
+  it('aviso de privacidade vazio nas configurações: não envia aviso e responde normalmente', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    const { data: cfg } = await db.from('configuracoes').select('mensagens').eq('id', 1).single();
+    await db.from('configuracoes').update({ mensagens: { ...(cfg!.mensagens as object), aviso_lgpd: '  ' } }).eq('id', 1);
+    await receber(conversa.id, 'M1', 'oi');
+    expect(await processarConversa(deps(respondeOi()), conversa.id, false)).toBe('agente');
+    expect(canal.enviados.map((e) => e.texto)).toEqual(['Olá!']);
+    expect((await repos.obterConversa(conversa.id)).aviso_lgpd_enviado_em).not.toBeNull();
+    await db.from('configuracoes').update({ mensagens: cfg!.mensagens }).eq('id', 1);
+  });
+
   it('mensagens picadas vão juntas numa única chamada ao agente', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await receber(conversa.id, 'M1', 'oi');
