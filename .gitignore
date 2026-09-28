@@ -11,3 +11,4 @@ test-results
 
 # Conversas reais exportadas do WhatsApp (dados pessoais: nunca vão para o GitHub)
 conversas-reais/
+*.tsbuildinfo
