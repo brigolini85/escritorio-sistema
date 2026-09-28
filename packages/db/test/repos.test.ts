@@ -108,3 +108,12 @@ describe('revisão 2026-09-28', () => {
     }
   });
 });
+
+describe('agente por contato', () => {
+  it('buscarContato informa se o agente está desligado para o contato', async () => {
+    await criarEmpresaComContato('5531999990001');
+    expect((await repos.buscarContato('5531999990001'))?.agentePausado).toBe(false);
+    await db.from('contatos').update({ agente_pausado: true }).eq('telefone', '5531999990001');
+    expect((await repos.buscarContato('5531999990001'))?.agentePausado).toBe(true);
+  });
+});

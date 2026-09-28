@@ -238,13 +238,13 @@ isOneToOne: false
                   ]
                 },"contatos": {
                   Row: {
-                    "ativo": boolean,"criado_em": string,"id": string,"nome": string,"telefone": string
+                    "agente_pausado": boolean,"ativo": boolean,"criado_em": string,"id": string,"nome": string,"telefone": string
                   }
                   Insert: {
-                    "ativo"?: boolean,"criado_em"?: string,"id"?: string,"nome": string,"telefone": string
+                    "agente_pausado"?: boolean,"ativo"?: boolean,"criado_em"?: string,"id"?: string,"nome": string,"telefone": string
                   }
                   Update: {
-                    "ativo"?: boolean,"criado_em"?: string,"id"?: string,"nome"?: string,"telefone"?: string
+                    "agente_pausado"?: boolean,"ativo"?: boolean,"criado_em"?: string,"id"?: string,"nome"?: string,"telefone"?: string
                   }
                   Relationships: [
                     
@@ -676,6 +676,9 @@ isOneToOne: false
                            },
 "transferir_chamado":
 { Args: { "p_chamado": string,"p_responsavel": string,"p_setor": string }; Returns: undefined
+                           },
+"vincular_contato_conversa":
+{ Args: { "p_contato": string,"p_conversa": string }; Returns: undefined
                            }
           }
           Enums: {

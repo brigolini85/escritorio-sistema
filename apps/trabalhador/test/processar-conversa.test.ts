@@ -151,6 +151,17 @@ describe('processarConversa', () => {
     expect((await db.from('chamados').select('setor_id')).data).toEqual([{ setor_id: null }]);
   });
 
+  it('contato com o agente desligado: nada é enviado, abre triagem e não chama a IA, mesmo com o agente ligado', async () => {
+    const { conversa, contato } = await contatoComEmpresas(['Indústria X']);
+    await db.from('contatos').update({ agente_pausado: true }).eq('id', contato.id);
+    await receber(conversa.id, 'M1', 'oi, tudo bem?');
+    const ia = respondeOi();
+    expect(await processarConversa(deps(ia), conversa.id, false)).toBe('pausado');
+    expect(ia.recebidos).toHaveLength(0);
+    expect(canal.enviados).toEqual([]);
+    expect((await db.from('chamados').select('setor_id, titulo').single()).data).toEqual({ setor_id: null, titulo: 'Agente desligado para este contato: atender manualmente' });
+  });
+
   it('teto de gasto com IA atingido: não chama a IA e encaminha para humano', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await db.from('configuracoes').update({ teto_ia_usd: 1 }).eq('id', 1);

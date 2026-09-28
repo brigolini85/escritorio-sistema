@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
-import { obterUsuario } from '@/lib/sessao';
+import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { AtualizarAoVivo } from '../atualizar-ao-vivo';
+import { ContatoDaConversa } from './contato-da-conversa';
 import { alterarStatus, assumir, concluir, devolverAoAgente, notaInterna, responder, transferir } from '../acoes';
 
 const hora = (iso: string) =>
@@ -11,7 +12,7 @@ export default async function Conversa({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const u = await obterUsuario();
   const sb = await supabaseServidor();
-  const { data: conversa } = await sb.from('conversas').select('*, contatos(nome), clientes:cliente_em_foco(razao_social, nome_fantasia)').eq('id', id).maybeSingle();
+  const { data: conversa } = await sb.from('conversas').select('*, contatos(id, nome, agente_pausado), clientes:cliente_em_foco(razao_social, nome_fantasia)').eq('id', id).maybeSingle();
   if (!conversa) notFound();
   const [{ data: mensagens }, { data: chamados }, { data: decisoes }, { data: setores }, { data: usuarios }] = await Promise.all([
     sb.from('mensagens').select('*').eq('conversa_id', id).order('criado_em'),
@@ -54,6 +55,7 @@ export default async function Conversa({ params }: { params: Promise<{ id: strin
       </section>
 
       <aside className="space-y-4">
+        <ContatoDaConversa conversaId={id} contato={conversa.contatos} pode={temPermissao(u, 'editar_clientes')} />
         {(chamados ?? []).map((c) => (
           <div key={c.id} className="rounded-lg border bg-white p-3 text-sm">
             <p className="font-semibold">#{c.numero} · {c.titulo}</p>

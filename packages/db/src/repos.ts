@@ -10,7 +10,7 @@ export type Chamado = Linha<'chamados'>;
 type TipoMensagem = Database['public']['Enums']['tipo_mensagem'];
 
 export type EmpresaDoContato = { id: string; nome: string; podePedirNota: boolean; agentePausado: boolean };
-export type ContatoEncontrado = { id: string; nome: string; empresas: EmpresaDoContato[] };
+export type ContatoEncontrado = { id: string; nome: string; agentePausado: boolean; empresas: EmpresaDoContato[] };
 export type Configuracoes = {
   expediente: ConfigExpediente;
   agentePausado: boolean;
@@ -59,7 +59,7 @@ export function criarRepos(db: Db) {
   return {
     async buscarContato(telefone: string): Promise<ContatoEncontrado | null> {
       const r = await db.from('contatos')
-        .select('id, nome, contato_clientes(pode_pedir_nota, clientes(id, razao_social, nome_fantasia, ativo, agente_pausado))')
+        .select('id, nome, agente_pausado, contato_clientes(pode_pedir_nota, clientes(id, razao_social, nome_fantasia, ativo, agente_pausado))')
         .in('telefone', variantesTelefone(telefone)).eq('ativo', true).limit(1).maybeSingle();
       const c = checar(r, 'buscarContato');
       if (!c) return null;
@@ -71,7 +71,7 @@ export function criarRepos(db: Db) {
           podePedirNota: v.pode_pedir_nota,
           agentePausado: v.clientes!.agente_pausado,
         }));
-      return { id: c.id, nome: c.nome, empresas };
+      return { id: c.id, nome: c.nome, agentePausado: c.agente_pausado, empresas };
     },
 
     async ehTelefoneInterno(telefone: string): Promise<boolean> {

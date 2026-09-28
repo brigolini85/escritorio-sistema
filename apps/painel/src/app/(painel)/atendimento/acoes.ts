@@ -1,7 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { enfileirarEnvio } from '@/lib/fila';
-import { obterUsuario } from '@/lib/sessao';
+import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
 async function rpc(nome: string, args: Record<string, unknown>) {
@@ -66,4 +66,39 @@ export async function alterarStatus(chamadoId: string, conversaId: string, statu
 export async function concluir(chamadoId: string, conversaId: string) {
   await rpc('concluir_chamado', { p_chamado: chamadoId });
   revalidatePath(`/atendimento/${conversaId}`);
+}
+
+async function exigirEdicaoClientes() {
+  const u = await obterUsuario();
+  if (!temPermissao(u, 'editar_clientes')) throw new Error('Você não tem permissão para cadastrar contatos.');
+  return supabaseServidor();
+}
+
+/** Cadastra o número da conversa como contato (com ou sem empresa) e liga a conversa a ele. */
+export async function cadastrarContatoDaConversa(conversaId: string, formData: FormData) {
+  const sb = await exigirEdicaoClientes();
+  const nome = String(formData.get('nome') ?? '').trim();
+  if (nome.length < 2) throw new Error('Informe o nome do contato.');
+  const clienteId = String(formData.get('cliente_id') ?? '') || null;
+  const { data: conversa, error: e1 } = await sb.from('conversas').select('telefone').eq('id', conversaId).single();
+  if (e1) throw new Error(e1.message);
+  const { data: contato, error: e2 } = await sb.from('contatos')
+    .upsert({ nome, telefone: conversa.telefone, agente_pausado: formData.get('agente_atende') !== 'on' }, { onConflict: 'telefone' })
+    .select('id').single();
+  if (e2) throw new Error(e2.message);
+  if (clienteId) {
+    const { error } = await sb.from('contato_clientes').upsert({ contato_id: contato.id, cliente_id: clienteId, pode_pedir_nota: formData.get('pode_pedir_nota') === 'on' });
+    if (error) throw new Error(error.message);
+  }
+  await rpc('vincular_contato_conversa', { p_conversa: conversaId, p_contato: contato.id });
+  revalidatePath(`/atendimento/${conversaId}`);
+}
+
+/** Liga ou desliga o agente só para este contato (desligado: nada automático, vira triagem). */
+export async function alternarAgenteContato(contatoId: string, conversaId: string | null, estavaDesligado: boolean) {
+  const sb = await exigirEdicaoClientes();
+  const { error } = await sb.from('contatos').update({ agente_pausado: !estavaDesligado }).eq('id', contatoId);
+  if (error) throw new Error(error.message);
+  if (conversaId) revalidatePath(`/atendimento/${conversaId}`);
+  revalidatePath('/clientes');
 }

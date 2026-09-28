@@ -1,11 +1,12 @@
 import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
+import { alternarAgenteContato } from '../../atendimento/acoes';
 import { adicionarContato, anonimizarContato, removerContato } from '../acoes';
 
 export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPainel; pode: boolean }) {
   const sb = await supabaseServidor();
   const { data: vinculos } = await sb.from('contato_clientes')
-    .select('pode_pedir_nota, pode_atualizar_preco, contatos(id, nome, telefone)').eq('cliente_id', id);
+    .select('pode_pedir_nota, pode_atualizar_preco, contatos(id, nome, telefone, agente_pausado)').eq('cliente_id', id);
   return (
     <>
       <section className="rounded-lg border bg-white p-4">
@@ -13,8 +14,13 @@ export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPai
         <ul className="mb-3 divide-y text-sm">
           {(vinculos ?? []).map((v) => v.contatos && (
             <li key={v.contatos.id} className="flex items-center justify-between py-2">
-              <span>{v.contatos.nome} · {v.contatos.telefone}{v.pode_pedir_nota ? ' · pode pedir nota' : ''}{v.pode_atualizar_preco ? ' · pode mudar preço' : ''}</span>
+              <span>{v.contatos.nome} · {v.contatos.telefone}{v.pode_pedir_nota ? ' · pode pedir nota' : ''}{v.pode_atualizar_preco ? ' · pode mudar preço' : ''}{v.contatos.agente_pausado ? ' · agente desligado' : ''}</span>
               <div className="flex items-center gap-3">
+                {pode && (
+                  <form action={alternarAgenteContato.bind(null, v.contatos.id, null, v.contatos.agente_pausado)}>
+                    <button className="underline">{v.contatos.agente_pausado ? 'Ligar o agente' : 'Desligar o agente'}</button>
+                  </form>
+                )}
                 {pode && <form action={removerContato.bind(null, id, v.contatos.id)}><button className="text-red-700 underline">Remover</button></form>}
                 {u.papel === 'admin' && (
                   <form action={anonimizarContato.bind(null, id, v.contatos.id)} className="flex items-center gap-1 text-xs">
