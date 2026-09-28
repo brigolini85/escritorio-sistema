@@ -92,10 +92,20 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       }
       const clienteId = desconhecido ? null : ctx.empresaEmFoco?.id ?? null;
       const responsavelId = clienteId ? escolherResponsavel(setorId, await d.repos.responsaveisDoCliente(clienteId)) : null;
-      const { numero } = await d.repos.abrirChamado({
-        clienteId, conversaId: ctx.conversa.id, setorId, responsavelId,
-        titulo: entrada.titulo, resumo: entrada.resumo, foraDoContrato: entrada.fora_do_contrato, origem: 'agente',
-      });
+      // Triagem já aberta nesta conversa: acrescenta as informações novas em vez de abrir outra.
+      const triagemAberta = setorId === null
+        ? (await d.repos.chamadosAbertosDaConversa(ctx.conversa.id)).find((c) => c.setor_id === null)
+        : undefined;
+      let numero: number;
+      if (triagemAberta) {
+        await d.repos.complementarChamado(triagemAberta.id, entrada.resumo);
+        numero = Number(triagemAberta.numero);
+      } else {
+        ({ numero } = await d.repos.abrirChamado({
+          clienteId, conversaId: ctx.conversa.id, setorId, responsavelId,
+          titulo: entrada.titulo, resumo: entrada.resumo, foraDoContrato: entrada.fora_do_contrato, origem: 'agente',
+        }));
+      }
       await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: 0 });
       const setorNome = ctx.setores.find((s) => s.id === setorId)?.nome ?? 'Triagem';
       const aviso = ctx.noExpediente ? null : formatarMensagem(ctx.config.mensagens.fora_do_horario ?? '', ctx.config.expediente as never);

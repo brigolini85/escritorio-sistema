@@ -116,6 +116,23 @@ describe('executarAgente', () => {
     expect(data).toEqual({ setor_id: null, cliente_id: null });
   });
 
+  it('segunda triagem na mesma conversa complementa a primeira em vez de abrir outra', async () => {
+    const conversa = await repos.obterOuCriarConversa('5531988887777', null);
+    for (const resumo of ['Quer contratar o escritório', 'Nome: Thiago, empresa: Padaria Teste']) {
+      const ia = new IaRoteirizada([
+        usarFerramentas({ nome: 'abrir_chamado', entrada: { setor_id: 'triagem', titulo: 'Possível novo cliente', resumo, fora_do_contrato: false } }),
+        usarFerramentas({ nome: 'responder', entrada: { texto: 'Já passei para a equipe.' } }),
+        fim(),
+      ]);
+      await executarAgente(deps(ia), await contexto(conversa.id), conteudo);
+    }
+    const { data } = await db.from('chamados').select('id, resumo');
+    expect(data).toHaveLength(1);
+    expect(data![0]!.resumo).toBe('Quer contratar o escritório\n\nNome: Thiago, empresa: Padaria Teste');
+    const { data: eventos } = await db.from('chamado_eventos').select('tipo').eq('chamado_id', data![0]!.id).order('criado_em');
+    expect(eventos!.map((e) => e.tipo)).toEqual(['criacao', 'nota_interna']);
+  });
+
   it('não envia nada se a conversa foi assumida por um atendente no meio do processamento', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     const ctx = await contexto(conversa.id);

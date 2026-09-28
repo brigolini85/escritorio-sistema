@@ -19,6 +19,7 @@ const SABADO = '2026-09-26T13:00:00Z';
 
 export const CENARIOS: Cenario[] = [
   { nome: 'saudação', empresas: ['Indústria X'], mensagens: ['Bom dia!'], espera: { chamadoSetor: 'nenhum', ferramentas: ['responder'] } },
+  { nome: 'agradecimento recebe resposta', empresas: ['Indústria X'], mensagens: ['Obrigado!'], espera: { chamadoSetor: 'nenhum', ferramentas: ['responder'] } },
   { nome: 'guia do DAS vai para o Fiscal', empresas: ['Indústria X'], mensagens: ['Preciso da guia do DAS de setembro'], espera: { chamadoSetor: 'Fiscal' } },
   { nome: 'abertura de filial vai para Legalização', empresas: ['Indústria X'], mensagens: ['Quero abrir uma filial em Itabira'], espera: { chamadoSetor: 'Legalização' } },
   { nome: 'holerite vai para Pessoal', empresas: ['Indústria X'], mensagens: ['Me manda o holerite do João de agosto?'], espera: { chamadoSetor: 'Pessoal' } },

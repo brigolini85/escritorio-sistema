@@ -175,6 +175,14 @@ export function criarRepos(db: Db) {
       return checar(await db.from('chamados').select('*').eq('conversa_id', conversaId).neq('status', 'concluido'), 'chamadosAbertosDaConversa');
     },
 
+    /** Acrescenta informação nova ao resumo de um chamado aberto e registra no histórico dele. */
+    async complementarChamado(id: string, texto: string): Promise<void> {
+      const atual = checar(await db.from('chamados').select('resumo, cliente_id').eq('id', id).single(), 'complementarChamado');
+      const resumo = atual.resumo ? `${atual.resumo}\n\n${texto}` : texto;
+      checar(await db.from('chamados').update({ resumo, atualizado_em: new Date().toISOString() }).eq('id', id), 'complementarChamado');
+      checar(await db.from('chamado_eventos').insert({ chamado_id: id, cliente_id: atual.cliente_id, tipo: 'nota_interna', texto }), 'complementarChamado');
+    },
+
     async chamadosAbertosDoCliente(clienteId: string): Promise<(Chamado & { setor_nome: string | null })[]> {
       const linhas = checar(await db.from('chamados').select('*, setores(nome)').eq('cliente_id', clienteId)
         .neq('status', 'concluido').order('criado_em'), 'chamadosAbertosDoCliente');
