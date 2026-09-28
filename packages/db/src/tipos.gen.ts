@@ -311,6 +311,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"documentos_empresa": {
+                  Row: {
+                    "arquivo_mime": string,"arquivo_nome": string,"arquivo_path": string,"cliente_id": string,"criado_em": string,"enviado_por": string | null,"ia_pode_enviar": boolean,"id": string,"nome": string
+                  }
+                  Insert: {
+                    "arquivo_mime"?: string,"arquivo_nome": string,"arquivo_path": string,"cliente_id": string,"criado_em"?: string,"enviado_por"?: string | null,"ia_pode_enviar"?: boolean,"id"?: string,"nome": string
+                  }
+                  Update: {
+                    "arquivo_mime"?: string,"arquivo_nome"?: string,"arquivo_path"?: string,"cliente_id"?: string,"criado_em"?: string,"enviado_por"?: string | null,"ia_pode_enviar"?: boolean,"id"?: string,"nome"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "documentos_empresa_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "documentos_empresa_enviado_por_fkey"
+      columns: ["enviado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"feriados": {
                   Row: {
                     "data": string,"descricao": string
@@ -358,6 +383,106 @@ isOneToOne: false
       columns: ["conversa_id"]
 isOneToOne: false
       referencedRelation: "conversas"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"parceiros_grupos": {
+                  Row: {
+                    "ativo": boolean,"cliente_id": string,"criado_em": string,"id": string,"nome": string,"palavras_chave": (string)[],"tipo": Database["public"]['Enums']["tipo_parceiro"]
+                  }
+                  Insert: {
+                    "ativo"?: boolean,"cliente_id": string,"criado_em"?: string,"id"?: string,"nome": string,"palavras_chave"?: (string)[],"tipo": Database["public"]['Enums']["tipo_parceiro"]
+                  }
+                  Update: {
+                    "ativo"?: boolean,"cliente_id"?: string,"criado_em"?: string,"id"?: string,"nome"?: string,"palavras_chave"?: (string)[],"tipo"?: Database["public"]['Enums']["tipo_parceiro"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "parceiros_grupos_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"parceiros_unidades": {
+                  Row: {
+                    "ativo": boolean,"bairro": string | null,"cidade": string | null,"cliente_id": string,"cnpj": string | null,"criado_em": string,"endereco": string | null,"grupo_id": string,"id": string,"inscricao_estadual": string | null,"nome_unidade": string,"palavras_chave": (string)[],"razao_social": string | null,"uf": string | null
+                  }
+                  Insert: {
+                    "ativo"?: boolean,"bairro"?: string | null,"cidade"?: string | null,"cliente_id": string,"cnpj"?: string | null,"criado_em"?: string,"endereco"?: string | null,"grupo_id": string,"id"?: string,"inscricao_estadual"?: string | null,"nome_unidade": string,"palavras_chave"?: (string)[],"razao_social"?: string | null,"uf"?: string | null
+                  }
+                  Update: {
+                    "ativo"?: boolean,"bairro"?: string | null,"cidade"?: string | null,"cliente_id"?: string,"cnpj"?: string | null,"criado_em"?: string,"endereco"?: string | null,"grupo_id"?: string,"id"?: string,"inscricao_estadual"?: string | null,"nome_unidade"?: string,"palavras_chave"?: (string)[],"razao_social"?: string | null,"uf"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "parceiros_unidades_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "parceiros_unidades_grupo_id_cliente_id_fkey"
+      columns: ["grupo_id","cliente_id"]
+isOneToOne: false
+      referencedRelation: "parceiros_grupos"
+      referencedColumns: ["id","cliente_id"]
+    }
+                  ]
+                },"precos": {
+                  Row: {
+                    "alterado_por": string | null,"cliente_id": string,"criado_em": string,"grupo_id": string,"id": string,"produto_id": string,"valor": number,"vigente_ate": string | null,"vigente_desde": string
+                  }
+                  Insert: {
+                    "alterado_por"?: string | null,"cliente_id": string,"criado_em"?: string,"grupo_id": string,"id"?: string,"produto_id": string,"valor": number,"vigente_ate"?: string | null,"vigente_desde"?: string
+                  }
+                  Update: {
+                    "alterado_por"?: string | null,"cliente_id"?: string,"criado_em"?: string,"grupo_id"?: string,"id"?: string,"produto_id"?: string,"valor"?: number,"vigente_ate"?: string | null,"vigente_desde"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "precos_alterado_por_fkey"
+      columns: ["alterado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "precos_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "precos_grupo_id_cliente_id_fkey"
+      columns: ["grupo_id","cliente_id"]
+isOneToOne: false
+      referencedRelation: "parceiros_grupos"
+      referencedColumns: ["id","cliente_id"]
+    },{
+      foreignKeyName: "precos_produto_id_cliente_id_fkey"
+      columns: ["produto_id","cliente_id"]
+isOneToOne: false
+      referencedRelation: "produtos"
+      referencedColumns: ["id","cliente_id"]
+    }
+                  ]
+                },"produtos": {
+                  Row: {
+                    "apelidos": (string)[],"ativo": boolean,"cliente_id": string,"codigo": string,"criado_em": string,"descricao": string,"id": string,"unidade": string
+                  }
+                  Insert: {
+                    "apelidos"?: (string)[],"ativo"?: boolean,"cliente_id": string,"codigo": string,"criado_em"?: string,"descricao": string,"id"?: string,"unidade"?: string
+                  }
+                  Update: {
+                    "apelidos"?: (string)[],"ativo"?: boolean,"cliente_id"?: string,"codigo"?: string,"criado_em"?: string,"descricao"?: string,"id"?: string,"unidade"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "produtos_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
       referencedColumns: ["id"]
     }
                   ]
@@ -516,6 +641,9 @@ isOneToOne: false
 "custo_ia_periodo":
 { Args: { "p_fim": string,"p_inicio": string }; Returns: number
                            },
+"definir_preco":
+{ Args: { "p_grupo": string,"p_produto": string,"p_valor": number }; Returns: string
+                           },
 "devolver_ao_agente":
 { Args: { "p_conversa": string }; Returns: undefined
                            },
@@ -551,7 +679,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "autor_mensagem": "cliente"|"agente"|"atendente"|"sistema","direcao_mensagem": "entrada"|"saida","estado_conversa": "agente"|"humano","papel_usuario": "admin"|"atendente","status_chamado": "aberto"|"em_andamento"|"aguardando_cliente"|"concluido","status_envio": "pendente"|"enviada"|"falhou","tipo_mensagem": "texto"|"audio"|"imagem"|"documento"
+            "autor_mensagem": "cliente"|"agente"|"atendente"|"sistema","direcao_mensagem": "entrada"|"saida","estado_conversa": "agente"|"humano","papel_usuario": "admin"|"atendente","status_chamado": "aberto"|"em_andamento"|"aguardando_cliente"|"concluido","status_envio": "pendente"|"enviada"|"falhou","tipo_mensagem": "texto"|"audio"|"imagem"|"documento","tipo_parceiro": "cliente"|"fornecedor"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -671,7 +799,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "autor_mensagem": ["cliente", "agente", "atendente", "sistema"],"direcao_mensagem": ["entrada", "saida"],"estado_conversa": ["agente", "humano"],"papel_usuario": ["admin", "atendente"],"status_chamado": ["aberto", "em_andamento", "aguardando_cliente", "concluido"],"status_envio": ["pendente", "enviada", "falhou"],"tipo_mensagem": ["texto", "audio", "imagem", "documento"]
+            "autor_mensagem": ["cliente", "agente", "atendente", "sistema"],"direcao_mensagem": ["entrada", "saida"],"estado_conversa": ["agente", "humano"],"papel_usuario": ["admin", "atendente"],"status_chamado": ["aberto", "em_andamento", "aguardando_cliente", "concluido"],"status_envio": ["pendente", "enviada", "falhou"],"tipo_mensagem": ["texto", "audio", "imagem", "documento"],"tipo_parceiro": ["cliente", "fornecedor"]
           }
         }
 } as const
