@@ -62,6 +62,8 @@ async function rodar(c: Cenario): Promise<string[]> {
   const arquivos = canal.enviados.flatMap((x) => (x.arquivo ? [x.arquivo] : []));
   if (e.documentoEnviado && !arquivos.includes(e.documentoEnviado)) falhas.push(`esperava enviar ${e.documentoEnviado}; enviou ${JSON.stringify(arquivos)}`);
   if (e.semDocumento && arquivos.length) falhas.push(`não deveria enviar documento; enviou ${JSON.stringify(arquivos)}`);
+  const digitos = respostas.replace(/\D/g, '');
+  for (const n of e.respostaContemNumero ?? []) if (!digitos.includes(n)) falhas.push(`resposta deveria trazer o número ${n}`);
   for (const t of e.semTexto ?? []) if (respostas.includes(t)) falhas.push(`resposta não deveria conter "${t}"`);
   // O cliente conversa com o escritório, não com um sistema: termos internos não aparecem nas respostas.
   for (const t of ['chamado', 'protocolo', 'ticket', 'triagem']) if (respostas.toLowerCase().includes(t)) falhas.push(`resposta não deveria falar em "${t}"`);

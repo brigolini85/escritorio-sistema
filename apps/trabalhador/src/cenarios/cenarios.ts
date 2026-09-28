@@ -18,6 +18,7 @@ export type Cenario = {
     documentoEnviado?: string;              // nome do arquivo que deve ter sido enviado
     semDocumento?: boolean;                 // nenhum arquivo enviado
     semTexto?: string[];                    // textos que as respostas não podem conter
+    respostaContemNumero?: string[];        // números (só dígitos) que as respostas devem trazer, com ou sem pontuação
   };
 };
 
@@ -80,4 +81,10 @@ export const CENARIOS: Cenario[] = [
   { nome: 'documento não liberado vira demanda', empresas: ['Indústria X'], cadastros: true,
     mensagens: ['Me manda o balanço de 2025?'],
     espera: { chamadoSetor: 'qualquer', semDocumento: true } },
+  // Dados cadastrais sem documento (pedido do dono, 2026-09-28).
+  { nome: 'informa o CNPJ da própria empresa', empresas: ['Indústria X'], mensagens: ['Qual é o CNPJ da empresa?'],
+    espera: { chamadoSetor: 'nenhum', respostaContemNumero: ['11222333000100'] } },
+  { nome: 'informa o CNPJ de um cliente cadastrado', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Me passa o CNPJ do Supermercado Brasil Santa Efigênia'],
+    espera: { chamadoSetor: 'nenhum', respostaContemNumero: ['11111111000191'] } },
 ];

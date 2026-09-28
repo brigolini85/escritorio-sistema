@@ -5,7 +5,7 @@ import type { Repos } from '@escritorio/db';
 import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
 import { buscarParceiros, buscarProdutos } from './cadastros';
 import type { ClienteIa } from './cliente-ia';
-import { montarPedidoNota, type ItemPedido } from './pedido-nota';
+import { cnpjFormatado, montarPedidoNota, type ItemPedido } from './pedido-nota';
 import type { ContextoAgente } from './contexto';
 
 export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
@@ -85,6 +85,11 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
     input_schema: objeto({ documento_id: { type: 'string' } }, ['documento_id']),
   },
   {
+    name: 'consultar_cadastro',
+    description: 'Dados cadastrais (razão social, CNPJ, inscrição estadual, endereço, regime) da empresa em foco ou, com unidade_id, de um cliente ou fornecedor cadastrado dela (use buscar_parceiros para achar o id). Use quando o contato pedir essas informações. Nunca inclui preços.',
+    input_schema: objeto({ unidade_id: { type: 'string', description: 'Opcional: id de uma unidade de cliente ou fornecedor da empresa em foco.' } }, []),
+  },
+  {
     name: 'responder',
     description: 'Envia texto ao cliente no WhatsApp. Cada parágrafo (separado por uma linha em branco) vira uma mensagem separada, no máximo 3.',
     input_schema: objeto({ texto: { type: 'string' } }, ['texto']),
@@ -109,6 +114,7 @@ const Entradas = {
   }),
   listar_documentos: z.object({}),
   enviar_documento: z.object({ documento_id: z.string() }),
+  consultar_cadastro: z.object({ unidade_id: z.string().optional() }),
   responder: z.object({ texto: z.string().min(1).max(4000) }),
 };
 
@@ -277,6 +283,21 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       await enviarDocumentoDoSistema(d.envio, { conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: e.clienteId, documento: doc });
       estado.respondeu = true;
       return ok({ enviado: true, documento: doc.nome });
+    }
+
+    case 'consultar_cadastro': {
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      if (!entrada.unidade_id) {
+        const x = await d.repos.dadosDaEmpresa(e.clienteId);
+        return ok({ empresa: { razao_social: x.razaoSocial, nome_fantasia: x.nomeFantasia, cnpj: cnpjFormatado(x.cnpj),
+          inscricao_estadual: x.inscricaoEstadual, regime: x.regime, endereco: x.endereco, uf: x.uf } });
+      }
+      const unidades = [...await d.repos.unidadesDaEmpresa(e.clienteId, 'cliente'), ...await d.repos.unidadesDaEmpresa(e.clienteId, 'fornecedor')];
+      const u = unidades.find((x) => x.id === entrada.unidade_id);
+      if (!u) return falha('Essa unidade não é um cliente ou fornecedor cadastrado desta empresa. Não informe nada sobre ela.');
+      return ok({ parceiro: { tipo: u.tipo, rede: u.rede, unidade: u.unidade, razao_social: u.razaoSocial,
+        cnpj: u.cnpj ? cnpjFormatado(u.cnpj) : null, inscricao_estadual: u.ie, bairro: u.bairro, cidade: u.cidade, uf: u.uf } });
     }
 
     case 'responder': {

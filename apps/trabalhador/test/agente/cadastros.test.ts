@@ -138,3 +138,27 @@ describe('revisão final: quantidade no texto do item', () => {
     expect(r.resultados[1].candidatos.map((c: { id: string }) => c.id)).toEqual([cad.alho]);
   });
 });
+
+describe('consultar_cadastro', () => {
+  it('sem unidade: dados da própria empresa do contato', async () => {
+    const r = await usar('consultar_cadastro', {});
+    expect(r).toMatchObject({ _erro: false, empresa: { razao_social: 'Indústria X', cnpj: '11.222.333/0001-00' } });
+  });
+  it('com unidade: dados do cliente cadastrado da empresa, com CNPJ e IE', async () => {
+    const r = await usar('consultar_cadastro', { unidade_id: cad.brasilEfigenia });
+    expect(r.parceiro).toMatchObject({ tipo: 'cliente', rede: 'Supermercado Brasil', unidade: 'Santa Efigênia', razao_social: 'Supermercado Brasil Ltda',
+      cnpj: '11.111.111/0001-91', inscricao_estadual: '0012345670011', cidade: 'Belo Horizonte', uf: 'MG' });
+  });
+  it('unidade de outra empresa é recusada', async () => {
+    const { data: y } = await db.from('clientes').insert({ razao_social: 'Indústria Y', cnpj: '99888777000166' }).select().single();
+    const { data: g } = await db.from('parceiros_grupos').insert({ cliente_id: y!.id, tipo: 'cliente', nome: 'Mercado Sigiloso' }).select().single();
+    const { data: u } = await db.from('parceiros_unidades').insert({ cliente_id: y!.id, grupo_id: g!.id, nome_unidade: 'Centro', cnpj: '33333333000191' }).select().single();
+    const r = await usar('consultar_cadastro', { unidade_id: u!.id });
+    expect(r._erro).toBe(true);
+    expect(JSON.stringify(r)).not.toContain('33333333000191');
+  });
+  it('sem empresa em foco não informa nada', async () => {
+    estado.ctx.empresaEmFoco = null;
+    expect((await usar('consultar_cadastro', {}))._erro).toBe(true);
+  });
+});

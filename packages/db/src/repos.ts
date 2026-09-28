@@ -37,6 +37,8 @@ export type UnidadeParceiro = {
   razaoSocial: string | null; cnpj: string | null; ie: string | null; bairro: string | null; cidade: string | null; uf: string | null;
   palavrasChave: string[];
 };
+export type DadosEmpresa = { razaoSocial: string; nomeFantasia: string | null; cnpj: string; inscricaoEstadual: string | null;
+  regime: string | null; endereco: string | null; uf: string | null };
 export type ProdutoEmpresa = { id: string; codigo: string; descricao: string; unidade: string; apelidos: string[] };
 export type DocumentoEmpresa = { id: string; nome: string; arquivoPath: string; arquivoNome: string; arquivoMime: string; iaPodeEnviar: boolean };
 
@@ -358,6 +360,13 @@ export function criarRepos(db: Db) {
       const linhas = checar(await db.from('documentos_empresa').select('id, nome, arquivo_path, arquivo_nome, arquivo_mime, ia_pode_enviar')
         .eq('cliente_id', clienteId).order('nome'), 'documentosDaEmpresa');
       return linhas.map((d) => ({ id: d.id, nome: d.nome, arquivoPath: d.arquivo_path, arquivoNome: d.arquivo_nome, arquivoMime: d.arquivo_mime, iaPodeEnviar: d.ia_pode_enviar }));
+    },
+
+    async dadosDaEmpresa(clienteId: string): Promise<DadosEmpresa> {
+      const c = checar(await db.from('clientes').select('razao_social, nome_fantasia, cnpj, inscricao_estadual, regime, endereco, uf')
+        .eq('id', clienteId).single(), 'dadosDaEmpresa');
+      return { razaoSocial: c.razao_social, nomeFantasia: c.nome_fantasia, cnpj: c.cnpj, inscricaoEstadual: c.inscricao_estadual,
+        regime: c.regime, endereco: c.endereco, uf: c.uf };
     },
 
     async setorPorNome(nome: string): Promise<string | null> {

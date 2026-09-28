@@ -8,7 +8,7 @@ export function formatarReais(valor: number): string {
 }
 
 const numero = (q: number) => String(q).replace('.', ',');
-const cnpjFormatado = (c: string) => c.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+export const cnpjFormatado = (c: string) => c.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
 
 /** Título e resumo da demanda de nota. Preço só aparece em venda e só vem da tabela (campo `preco`). */
 export function montarPedidoNota(p: {
