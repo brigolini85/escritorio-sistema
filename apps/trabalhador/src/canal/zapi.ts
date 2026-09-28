@@ -64,7 +64,8 @@ export function criarCanalZapi(
     },
 
     async enviarArquivo(telefone, arquivo) {
-      const extensao = (arquivo.nome.split('.').pop() ?? 'pdf').toLowerCase();
+      // Nome sem ponto (ex.: "contrato") não tem extensão: envia como PDF.
+      const extensao = arquivo.nome.includes('.') ? arquivo.nome.split('.').pop()!.toLowerCase() : 'pdf';
       return { idProvedor: idDaResposta(await chamar(`/send-document/${extensao}`, { phone: telefone, document: arquivo.url, fileName: arquivo.nome })) };
     },
 

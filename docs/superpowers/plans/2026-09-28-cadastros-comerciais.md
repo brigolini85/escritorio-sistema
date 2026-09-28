@@ -37,7 +37,7 @@
 ### Task 1: Banco — tabelas, RLS, preço com histórico, auditoria e bucket de documentos
 
 **Files:**
-- Create: `supabase/migrations/20260928000400_cadastros_comerciais.sql`
+- Create: `supabase/migrations/20260928000500_cadastros_comerciais.sql`
 - Create: `supabase/tests/06_cadastros_comerciais.test.sql`
 - Modify: `packages/db/src/tipos.gen.ts` (regenerado)
 
@@ -117,7 +117,7 @@ Expected: FAIL em `06_cadastros_comerciais.test.sql` — `relation "public.parce
 
 - [ ] **Step 3: Migração**
 
-`supabase/migrations/20260928000400_cadastros_comerciais.sql`:
+`supabase/migrations/20260928000500_cadastros_comerciais.sql`:
 ```sql
 -- Cadastros comerciais por empresa atendida: redes/unidades (clientes e fornecedores), produtos,
 -- preços por rede com histórico e documentos. Spec: 2026-09-28-cadastros-comerciais-design.md.

@@ -152,13 +152,13 @@ describe('executarAgente', () => {
   it('recusa do modelo escala para humano', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     const r = await executarAgente(deps(new IaRoteirizada([recusa()])), await contexto(conversa.id), conteudo);
-    expect(r).toEqual({ status: 'escalar', motivo: 'refusal' });
+    expect(r).toEqual({ status: 'escalar', motivo: 'refusal', respondeu: false });
   });
 
   it('terminar sem usar responder escala para humano', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     const r = await executarAgente(deps(new IaRoteirizada([fim()])), await contexto(conversa.id), conteudo);
-    expect(r).toEqual({ status: 'escalar', motivo: 'terminou sem responder' });
+    expect(r).toEqual({ status: 'escalar', motivo: 'terminou sem responder', respondeu: false });
     expect(canal.enviados).toHaveLength(0);
   });
 
@@ -166,7 +166,7 @@ describe('executarAgente', () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     const roteiro = Array.from({ length: 6 }, () => usarFerramentas({ nome: 'consultar_chamados', entrada: {} }));
     const r = await executarAgente(deps(new IaRoteirizada(roteiro)), await contexto(conversa.id), conteudo);
-    expect(r).toEqual({ status: 'escalar', motivo: 'limite de iterações' });
+    expect(r).toEqual({ status: 'escalar', motivo: 'limite de iterações', respondeu: false });
   });
 
   it('duas mensagens não entendidas seguidas abrem chamado de triagem', async () => {

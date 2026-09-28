@@ -5,7 +5,8 @@ import { FERRAMENTAS, executarFerramenta, type DepsAgente, type EstadoExecucao }
 import { montarSistema } from './prompt';
 
 export const MAX_ITERACOES = 6;
-export type ResultadoAgente = { status: 'ok' } | { status: 'escalar'; motivo: string };
+/** `respondeu`: se o agente mandou alguma mensagem ao cliente neste turno (antes de escalar). */
+export type ResultadoAgente = { status: 'ok' } | { status: 'escalar'; motivo: string; respondeu: boolean };
 
 async function registrarUso(d: DepsAgente, ctx: ContextoAgente, r: Anthropic.Message): Promise<void> {
   const preco = ctx.config.precosModelos[ctx.config.modeloConversa] ?? { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
@@ -37,10 +38,10 @@ export async function executarAgente(d: DepsAgente, ctx: ContextoAgente, conteud
     });
     await registrarUso(d, ctx, r);
 
-    if (r.stop_reason === 'refusal' || r.stop_reason === 'max_tokens') return { status: 'escalar', motivo: r.stop_reason };
+    if (r.stop_reason === 'refusal' || r.stop_reason === 'max_tokens') return { status: 'escalar', motivo: r.stop_reason, respondeu: estado.respondeu };
     const usos = r.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
     if (r.stop_reason !== 'tool_use' || usos.length === 0) {
-      return estado.respondeu ? { status: 'ok' } : { status: 'escalar', motivo: 'terminou sem responder' };
+      return estado.respondeu ? { status: 'ok' } : { status: 'escalar', motivo: 'terminou sem responder', respondeu: false };
     }
 
     messages.push({ role: 'assistant', content: r.content });
@@ -52,5 +53,5 @@ export async function executarAgente(d: DepsAgente, ctx: ContextoAgente, conteud
     }
     messages.push({ role: 'user', content: resultados });
   }
-  return estado.respondeu ? { status: 'ok' } : { status: 'escalar', motivo: 'limite de iterações' };
+  return estado.respondeu ? { status: 'ok' } : { status: 'escalar', motivo: 'limite de iterações', respondeu: false };
 }

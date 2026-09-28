@@ -8,7 +8,13 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
   const u = await obterUsuario();
   const filtro = (await searchParams).filtro ?? filtroPadrao(u);
   const sb = await supabaseServidor();
-  const { data } = await sb.from('caixa_entrada').select('*').order('ultima_em', { ascending: false, nullsFirst: false }).limit(200);
+  // O filtro vai na consulta, antes do limite: senão conversas antigas somem de "Minhas" e "Do meu setor".
+  let consulta = sb.from('caixa_entrada').select('*');
+  if (filtro === 'minhas') consulta = consulta.eq('atendente_id', u.id);
+  else if (filtro === 'setor') consulta = consulta.overlaps('setores_abertos', u.setores.length ? u.setores : ['00000000-0000-0000-0000-000000000000']);
+  else if (filtro === 'sem_responsavel') consulta = consulta.eq('sem_responsavel', true);
+  else if (filtro === 'aguardando') consulta = consulta.eq('aguardando_cliente', true);
+  const { data } = await consulta.order('ultima_em', { ascending: false, nullsFirst: false }).limit(200);
   const linhas = (data ?? []).filter((l) => passaNoFiltro({
     id: l.id!, atendente_id: l.atendente_id, setores_abertos: l.setores_abertos ?? [],
     sem_responsavel: Boolean(l.sem_responsavel), aguardando_cliente: Boolean(l.aguardando_cliente),

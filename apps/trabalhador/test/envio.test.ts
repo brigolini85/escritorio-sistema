@@ -68,6 +68,43 @@ describe('enviarMensagemDoPainel', () => {
   });
 });
 
+describe('revisão 2026-09-28 (envio pelo painel)', () => {
+  async function respostaPendente(extra: object = {}) {
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    const { data: m } = await db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'saida', autor: 'atendente',
+      tipo: 'texto', conteudo: 'Segue a guia', status_envio: 'pendente', ...extra }).select().single();
+    return { conversa, m: m! };
+  }
+
+  it('dois envios da mesma resposta ao mesmo tempo mandam uma vez só', async () => {
+    const { m } = await respostaPendente();
+    await Promise.all([enviarMensagemDoPainel(d, m.id), enviarMensagemDoPainel(d, m.id), enviarMensagemDoPainel(d, m.id)]);
+    expect(canal.enviados).toEqual([{ telefone: '5531999990001', texto: 'Segue a guia' }]);
+  });
+
+  it('texto + arquivo: o texto não é reenviado se só o arquivo falhar, e o eco do texto é reconhecido', async () => {
+    const { conversa } = await respostaPendente({ conteudo: 'x' });
+    await db.from('mensagens').delete().eq('conversa_id', conversa.id);
+    const path = `conversas/${conversa.id}/guia.pdf`;
+    await db.storage.from('anexos').upload(path, new Uint8Array([1, 2, 3]), { contentType: 'application/pdf', upsert: true });
+    const { m } = await respostaPendente({ tipo: 'documento', arquivo_path: path, arquivo_nome: 'guia.pdf', arquivo_mime: 'application/pdf' });
+
+    canal.falharArquivo = true;
+    await expect(enviarMensagemDoPainel(d, m.id, false)).rejects.toThrow();
+    canal.falharArquivo = false;
+    await enviarMensagemDoPainel(d, m.id, true);
+
+    expect(canal.enviados).toEqual([
+      { telefone: '5531999990001', texto: 'Segue a guia' },
+      { telefone: '5531999990001', arquivo: 'guia.pdf' },
+    ]);
+    const idTexto = 'FALSO-1';
+    expect(await verificarEnviadaPorMim(d, { ...canal.interpretarWebhook(f.enviadaPorMim)!, idProvedor: idTexto, texto: 'Segue a guia' })).toBe('do-sistema');
+    const { count } = await db.from('mensagens').select('*', { count: 'exact', head: true }).eq('conversa_id', conversa.id);
+    expect(count).toBe(2);
+  });
+});
+
 describe('verificarEnviadaPorMim', () => {
   it('mensagem que o próprio sistema enviou não muda nada', async () => {
     const conversa = await repos.obterOuCriarConversa('5531999990001', null);

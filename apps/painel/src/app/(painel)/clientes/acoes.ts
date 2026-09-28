@@ -12,6 +12,10 @@ async function exigirEdicao() {
   return supabaseServidor();
 }
 const campos = (f: FormData) => Object.fromEntries(f.entries());
+/** Erro do banco (inclusive recusa por permissão) aparece na tela em vez de passar calado. */
+function checar(r: { error: { message: string } | null }) {
+  if (r.error) throw new Error(r.error.message);
+}
 
 export async function salvarCliente(id: string | null, formData: FormData) {
   const sb = await exigirEdicao();
@@ -44,25 +48,25 @@ export async function adicionarContato(clienteId: string, formData: FormData) {
 
 export async function removerContato(clienteId: string, contatoId: string) {
   const sb = await exigirEdicao();
-  await sb.from('contato_clientes').delete().eq('cliente_id', clienteId).eq('contato_id', contatoId);
+  checar(await sb.from('contato_clientes').delete().eq('cliente_id', clienteId).eq('contato_id', contatoId));
   revalidatePath(`/clientes/${clienteId}`);
 }
 
 export async function salvarServicos(clienteId: string, formData: FormData) {
   const sb = await exigirEdicao();
   const ids = formData.getAll('servico').map(String);
-  await sb.from('cliente_servicos').delete().eq('cliente_id', clienteId);
-  if (ids.length) await sb.from('cliente_servicos').insert(ids.map((servico_id) => ({ cliente_id: clienteId, servico_id })));
+  checar(await sb.from('cliente_servicos').delete().eq('cliente_id', clienteId));
+  if (ids.length) checar(await sb.from('cliente_servicos').insert(ids.map((servico_id) => ({ cliente_id: clienteId, servico_id }))));
   revalidatePath(`/clientes/${clienteId}`);
 }
 
 export async function salvarResponsaveis(clienteId: string, formData: FormData) {
   const sb = await exigirEdicao();
-  await sb.from('cliente_responsaveis').delete().eq('cliente_id', clienteId);
+  checar(await sb.from('cliente_responsaveis').delete().eq('cliente_id', clienteId));
   const linhas = [...formData.entries()]
     .filter(([k, v]) => k.startsWith('setor:') && v)
     .map(([k, v]) => ({ cliente_id: clienteId, setor_id: k.slice(6), usuario_id: String(v) }));
-  if (linhas.length) await sb.from('cliente_responsaveis').insert(linhas);
+  if (linhas.length) checar(await sb.from('cliente_responsaveis').insert(linhas));
   revalidatePath(`/clientes/${clienteId}`);
 }
 

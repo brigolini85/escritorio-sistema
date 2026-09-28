@@ -82,7 +82,10 @@ export function criarRepos(db: Db) {
         }
         return existente;
       }
-      return checar(await db.from('conversas').insert({ telefone, contato_id: contatoId }).select().single(), 'conversa');
+      const criada = await db.from('conversas').insert({ telefone, contato_id: contatoId }).select().single();
+      // Duas mensagens do mesmo número novo ao mesmo tempo: quem perdeu a corrida usa a conversa que a outra criou.
+      if (criada.error?.code === '23505') return this.obterOuCriarConversa(telefone, contatoId);
+      return checar(criada, 'conversa');
     },
 
     async obterConversa(id: string): Promise<Conversa> {
@@ -137,6 +140,33 @@ export function criarRepos(db: Db) {
       const r = await db.from('mensagens').insert({ conversa_id: m.conversaId, cliente_id: m.clienteId, direcao: 'saida',
         autor: 'atendente', tipo: 'texto', conteudo: m.conteudo, id_provedor: m.idProvedor, status_envio: 'enviada' }).select('id').single();
       return checar(r, 'inserirSaidaExterna').id;
+    },
+
+    /** Reserva o envio de uma resposta do painel; só uma tarefa por vez (reserva expira em 2 min). */
+    async reservarEnvio(id: string): Promise<boolean> {
+      const limite = new Date(Date.now() - 2 * 60_000).toISOString();
+      const r = await db.from('mensagens').update({ envio_reservado_em: new Date().toISOString() })
+        .eq('id', id).in('status_envio', ['pendente', 'falhou'])
+        .or(`envio_reservado_em.is.null,envio_reservado_em.lt.${limite}`).select('id');
+      return checar(r, 'reservarEnvio').length > 0;
+    },
+
+    async liberarEnvio(id: string): Promise<void> {
+      checar(await db.from('mensagens').update({ envio_reservado_em: null }).eq('id', id), 'liberarEnvio');
+    },
+
+    /**
+     * Resposta com texto e arquivo: depois que o texto sai, ele vira uma mensagem própria (com o id do provedor,
+     * para o eco ser reconhecido) e a original fica só com o arquivo, para uma nova tentativa não repetir o texto.
+     */
+    async separarTextoEnviado(mensagemId: string, idProvedor: string): Promise<void> {
+      const m = checar(await db.from('mensagens').select('*').eq('id', mensagemId).single(), 'separarTextoEnviado');
+      checar(await db.from('mensagens').insert({
+        conversa_id: m.conversa_id, cliente_id: m.cliente_id, direcao: 'saida', autor: m.autor, atendente_id: m.atendente_id,
+        tipo: 'texto', conteudo: m.conteudo, id_provedor: idProvedor, status_envio: 'enviada',
+        criado_em: new Date(new Date(m.criado_em).getTime() - 1).toISOString(),
+      }), 'separarTextoEnviado');
+      checar(await db.from('mensagens').update({ conteudo: null }).eq('id', mensagemId), 'separarTextoEnviado');
     },
 
     async marcarEnviada(id: string, idProvedor: string): Promise<void> {
@@ -202,9 +232,9 @@ export function criarRepos(db: Db) {
     },
 
     async custoIaDoMes(mes: string): Promise<number> {
-      const linhas = checar(await db.from('uso_ia').select('custo_usd').gte('criado_em', inicioDoMes(mes))
-        .lt('criado_em', inicioDoMes(proximoMes(mes))), 'custoIaDoMes');
-      return linhas.reduce((s, l) => s + Number(l.custo_usd), 0);
+      // Soma no banco: a API devolve no máximo 1000 linhas por consulta.
+      const total = checar(await db.rpc('custo_ia_periodo', { p_inicio: inicioDoMes(mes), p_fim: inicioDoMes(proximoMes(mes)) }), 'custoIaDoMes');
+      return Number(total);
     },
 
     async obterConfiguracoes(): Promise<Configuracoes> {

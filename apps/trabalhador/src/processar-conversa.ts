@@ -17,11 +17,31 @@ const TAMANHO_HISTORICO = 20;
 const MAX_BYTES_ANEXO = 5 * 1024 * 1024;
 const IMAGENS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
+const AVISO_ANEXO_FALHOU = '[anexo não pôde ser baixado]';
+
+function anexoParaIa(m: Mensagem, bytes: Uint8Array, mimeCompleto: string, nome: string): AnexoParaIa | null {
+  if (bytes.length > MAX_BYTES_ANEXO) return null;
+  const mime = mimeCompleto.split(';')[0]!;
+  const base64 = Buffer.from(bytes).toString('base64');
+  if (m.tipo === 'imagem' && IMAGENS.includes(mime)) return { tipo: 'imagem', mime, base64, nome };
+  if (m.tipo === 'documento' && mime === 'application/pdf') return { tipo: 'documento', mime, base64, nome };
+  return null;
+}
+
 async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: Mensagem[]): Promise<AnexoParaIa[]> {
   const anexos: AnexoParaIa[] = [];
   for (const m of novas) {
-    if (!m.midia_url_origem || m.arquivo_path) continue;
     const nome = m.arquivo_nome ?? (m.tipo === 'audio' ? 'audio.ogg' : m.tipo === 'imagem' ? 'imagem.jpg' : 'arquivo');
+    // Nova tentativa: a imagem ou o PDF já foi salvo na primeira; lê de volta para o agente continuar vendo.
+    if (m.arquivo_path) {
+      if (m.tipo === 'imagem' || m.tipo === 'documento') {
+        const bytes = await d.midia.ler(m.arquivo_path).catch(() => null);
+        const anexo = bytes && anexoParaIa(m, bytes, m.arquivo_mime ?? '', nome);
+        if (anexo) anexos.push(anexo);
+      }
+      continue;
+    }
+    if (!m.midia_url_origem) continue;
     try {
       const salvo = await d.midia.baixarESalvar(m.midia_url_origem, conversa.id, nome, m.arquivo_mime);
       const patch: Partial<Mensagem> = { arquivo_path: salvo.path, arquivo_mime: salvo.mime };
@@ -29,16 +49,17 @@ async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: M
         patch.transcricao = await d.transcritor.transcrever(salvo.bytes, salvo.mime.split(';')[0]!, nome)
           .catch(() => '[áudio não pôde ser transcrito]');
         m.transcricao = patch.transcricao;
-      } else if (salvo.bytes.length <= MAX_BYTES_ANEXO) {
-        const base64 = Buffer.from(salvo.bytes).toString('base64');
-        const mime = salvo.mime.split(';')[0]!;
-        if (m.tipo === 'imagem' && IMAGENS.includes(mime)) anexos.push({ tipo: 'imagem', mime, base64, nome });
-        if (m.tipo === 'documento' && mime === 'application/pdf') anexos.push({ tipo: 'documento', mime, base64, nome });
+      } else {
+        const anexo = anexoParaIa(m, salvo.bytes, salvo.mime, nome);
+        if (anexo) anexos.push(anexo);
       }
       await d.repos.atualizarMensagem(m.id, patch);
     } catch (e) {
       console.error('[mídia] falha ao preparar', m.id, e);
-      await d.repos.atualizarMensagem(m.id, { conteudo: `${m.conteudo ?? ''} [anexo não pôde ser baixado]`.trim() });
+      // O agente precisa saber que o arquivo não veio; e a origem sai para não tentar (e avisar) de novo.
+      m.conteudo = `${m.conteudo ?? ''} ${AVISO_ANEXO_FALHOU}`.trim();
+      m.midia_url_origem = null;
+      await d.repos.atualizarMensagem(m.id, { conteudo: m.conteudo, midia_url_origem: null });
     }
   }
   return anexos;
@@ -124,8 +145,8 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
       if (await assumidaPorHumano(d, conversaId)) {
         desfecho = 'humano';
       } else {
-        const respondeu = (await d.repos.historico(conversaId, 3)).some((m) => m.autor === 'agente' && m.direcao === 'saida' && !ids.includes(m.id));
-        await encaminharParaHumano(d, conversa, `Agente encaminhou: ${r.motivo}`, respondeu ? null : config.mensagens.ia_indisponivel ?? null);
+        // Só conta resposta deste turno: uma mensagem antiga do agente no histórico não é resposta ao pedido novo.
+        await encaminharParaHumano(d, conversa, `Agente encaminhou: ${r.motivo}`, r.respondeu ? null : config.mensagens.ia_indisponivel ?? null);
         desfecho = 'escalado';
       }
     }

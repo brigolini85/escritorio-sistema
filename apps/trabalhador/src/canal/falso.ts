@@ -6,6 +6,8 @@ export class CanalFalso implements CanalWhatsApp {
   enviados: { telefone: string; texto?: string; arquivo?: string }[] = [];
   conectado = true;
   falharEnvio = false;
+  /** Falha só o envio de arquivo (o texto passa). */
+  falharArquivo = false;
   private contador = 0;
   private readonly interpretador = criarCanalZapi({ instancia: 'x', token: 'x', clientToken: 'x' });
 
@@ -18,7 +20,7 @@ export class CanalFalso implements CanalWhatsApp {
     return { idProvedor: `FALSO-${++this.contador}` };
   }
   async enviarArquivo(telefone: string, arquivo: { url: string; nome: string }) {
-    if (this.falharEnvio) throw new Error('falha simulada');
+    if (this.falharEnvio || this.falharArquivo) throw new Error('falha simulada');
     this.enviados.push({ telefone, arquivo: arquivo.nome });
     return { idProvedor: `FALSO-${++this.contador}` };
   }

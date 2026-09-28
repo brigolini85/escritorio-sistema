@@ -50,10 +50,15 @@ export async function enviarDoSistema(
 export async function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string, ultimaTentativa = true): Promise<void> {
   const m = await d.repos.obterMensagem(mensagemId);
   if (m.autor !== 'atendente' || (m.status_envio !== 'pendente' && m.status_envio !== 'falhou')) return;
+  // Outra tarefa da fila já está enviando esta resposta: não manda de novo.
+  if (!(await d.repos.reservarEnvio(m.id))) return;
   const conversa = await d.repos.obterConversa(m.conversa_id);
   try {
     let idProvedor: string | null = null;
-    if (m.conteudo) idProvedor = (await d.canal.enviarTexto(conversa.telefone, m.conteudo)).idProvedor;
+    if (m.conteudo) {
+      idProvedor = (await d.canal.enviarTexto(conversa.telefone, m.conteudo)).idProvedor;
+      if (m.arquivo_path) await d.repos.separarTextoEnviado(m.id, idProvedor);
+    }
     if (m.arquivo_path) {
       const url = await d.midia.urlAssinada(m.arquivo_path, 600);
       idProvedor = (await d.canal.enviarArquivo(conversa.telefone, { url, nome: m.arquivo_nome ?? 'arquivo.pdf' })).idProvedor;
@@ -61,6 +66,7 @@ export async function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string, u
     await d.repos.marcarEnviada(m.id, idProvedor ?? `sem-id-${m.id}`);
   } catch (e) {
     if (ultimaTentativa) await d.repos.marcarFalha(m.id);
+    await d.repos.liberarEnvio(m.id);
     throw e;
   }
 }

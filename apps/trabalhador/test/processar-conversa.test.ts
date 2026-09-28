@@ -69,6 +69,45 @@ describe('processarConversa', () => {
     await db.from('configuracoes').update({ mensagens: cfg!.mensagens }).eq('id', 1);
   });
 
+  it('revisão: nova tentativa depois de falha da IA ainda manda a imagem ao agente', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
+    await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: 'IMG1', tipo: 'imagem', conteudo: 'segue o pedido',
+      midiaUrlOrigem: 'https://z-api.exemplo/f.jpg', arquivoMime: 'image/jpeg' });
+    const baixar = vi.fn().mockImplementation(async () => new Response(new Uint8Array([9, 9, 9]), { headers: { 'content-type': 'image/jpeg' } }));
+    const erro = new Anthropic.APIConnectionError({ message: 'sem rede' });
+    await expect(processarConversa(deps(new IaRoteirizada([erro]), { midia: criarArmazenamento(db, baixar) }), conversa.id, false)).rejects.toThrow();
+    const ia = respondeOi();
+    await processarConversa(deps(ia, { midia: criarArmazenamento(db, baixar) }), conversa.id, false);
+    expect(ia.recebidos[0]!.messages[0]!.content).toContainEqual(expect.objectContaining({ type: 'image' }));
+  });
+
+  it('revisão: resposta antiga do agente não conta como resposta deste turno', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
+    await receber(conversa.id, 'M1', 'bom dia');
+    await processarConversa(deps(respondeOi()), conversa.id, false);
+    await receber(conversa.id, 'M2', 'preciso da guia do DAS');
+    expect(await processarConversa(deps(new IaRoteirizada([fim()])), conversa.id, false)).toBe('escalado');
+    expect(canal.enviados.at(-1)?.texto).toBe('Recebemos sua mensagem, já vamos te atender.');
+  });
+
+  it('revisão: anexo que não baixa avisa o agente e o aviso não se repete na nova tentativa', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
+    await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: 'IMG2', tipo: 'imagem', conteudo: 'foto do pedido',
+      midiaUrlOrigem: 'https://z-api.exemplo/expirou.jpg', arquivoMime: 'image/jpeg' });
+    const expirado = vi.fn().mockImplementation(async () => new Response('não existe', { status: 404 }));
+    const erro = new Anthropic.APIConnectionError({ message: 'sem rede' });
+    await expect(processarConversa(deps(new IaRoteirizada([erro]), { midia: criarArmazenamento(db, expirado) }), conversa.id, false)).rejects.toThrow();
+    const ia = respondeOi();
+    await processarConversa(deps(ia, { midia: criarArmazenamento(db, expirado) }), conversa.id, false);
+    const texto = (ia.recebidos[0]!.messages[0]!.content as { text: string }[])[0]!.text;
+    expect(texto).toContain('[anexo não pôde ser baixado]');
+    const { data } = await db.from('mensagens').select('conteudo').eq('id_provedor', 'IMG2').single();
+    expect(data!.conteudo!.match(/não pôde ser baixado/g)).toHaveLength(1);
+  });
+
   it('mensagens picadas vão juntas numa única chamada ao agente', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await receber(conversa.id, 'M1', 'oi');

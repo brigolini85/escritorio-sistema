@@ -71,6 +71,11 @@ describe('interpretarWebhook', () => {
 });
 
 describe('envio', () => {
+  it('arquivo sem extensão no nome é enviado como PDF', async () => {
+    const buscar = vi.fn().mockResolvedValue(new Response(JSON.stringify({ messageId: 'M2' })));
+    await criarCanalZapi(cfg, buscar).enviarArquivo('5531999990001', { url: 'https://x/a', nome: 'contrato' });
+    expect(buscar.mock.calls[0]![0]).toBe('https://api.z-api.io/instances/INST/token/TOK/send-document/pdf');
+  });
   it('envia texto com Client-Token e devolve o id da mensagem', async () => {
     const buscar = vi.fn().mockResolvedValue(new Response(JSON.stringify({ zaapId: 'Z1', messageId: 'M1', id: 'M1' })));
     const canal = criarCanalZapi(cfg, buscar);

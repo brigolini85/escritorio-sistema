@@ -90,3 +90,21 @@ describe('ehTelefoneInterno', () => {
     expect(await repos.ehTelefoneInterno('5531999990001')).toBe(false);
   });
 });
+
+describe('revisão 2026-09-28', () => {
+  it('custoIaDoMes soma mais de 1000 registros (limite de linhas da API)', async () => {
+    const mes = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()).slice(0, 7);
+    const linhas = Array.from({ length: 1001 }, () => ({ modelo: 'claude-sonnet-5', tokens_entrada: 1, tokens_saida: 1, custo_usd: 0.01 }));
+    const { error } = await db.from('uso_ia').insert(linhas);
+    expect(error).toBeNull();
+    expect(await repos.custoIaDoMes(mes)).toBeCloseTo(10.01);
+  });
+
+  it('obterOuCriarConversa: duas chamadas ao mesmo tempo para número novo devolvem a mesma conversa (várias rodadas)', async () => {
+    for (let rodada = 0; rodada < 5; rodada++) {
+      const telefone = `55319777712${rodada}0`;
+      const conversas = await Promise.all(Array.from({ length: 5 }, () => repos.obterOuCriarConversa(telefone, null)));
+      expect(new Set(conversas.map((c) => c.id)).size).toBe(1);
+    }
+  });
+});
