@@ -1,0 +1,54 @@
+name: Publicação
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: Ambiente
+        type: choice
+        options: [producao]
+        required: true
+
+jobs:
+  homologacao:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: homologacao
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase link --project-ref "$SUPABASE_PROJECT_REF" && supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      - run: curl -fsS -X POST "${{ secrets.EASYPANEL_DEPLOY_TRABALHADOR }}" && curl -fsS -X POST "${{ secrets.EASYPANEL_DEPLOY_PAINEL }}"
+
+  cenarios:
+    if: github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/cenarios.yml
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  producao:
+    needs: cenarios
+    runs-on: ubuntu-latest
+    environment: producao          # configurar no GitHub com aprovação obrigatória do dono
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase link --project-ref "$SUPABASE_PROJECT_REF" && supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      - run: curl -fsS -X POST "${{ secrets.EASYPANEL_DEPLOY_TRABALHADOR }}" && curl -fsS -X POST "${{ secrets.EASYPANEL_DEPLOY_PAINEL }}"

@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type { NextConfig } from 'next';
 
 // O .env fica na raiz do monorepo; o Next só lê o da pasta do app. Em produção as variáveis vêm do ambiente.
@@ -7,6 +8,8 @@ if (existsSync(envRaiz)) process.loadEnvFile(envRaiz);
 
 const config: NextConfig = {
   output: 'standalone',
+  // Raiz do monorepo: o build standalone precisa incluir os pacotes @escritorio/*.
+  outputFileTracingRoot: fileURLToPath(new URL('../../', import.meta.url)),
   transpilePackages: ['@escritorio/core', '@escritorio/db'],
   serverExternalPackages: ['pg-boss'],
   experimental: { serverActions: { bodySizeLimit: '15mb' } },

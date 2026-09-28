@@ -1,0 +1,15 @@
+FROM node:22-slim AS build
+RUN corepack enable
+WORKDIR /repo
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @escritorio/trabalhador build
+RUN pnpm deploy --filter @escritorio/trabalhador --prod /saida
+
+FROM node:22-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /saida/node_modules ./node_modules
+COPY --from=build /repo/apps/trabalhador/dist ./dist
+EXPOSE 3001
+CMD ["node", "dist/principal.js"]
