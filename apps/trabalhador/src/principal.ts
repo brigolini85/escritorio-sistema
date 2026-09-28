@@ -10,6 +10,7 @@ import { FILAS, criarBoss, filaDe } from './fila';
 import { criarArmazenamento } from './midia/armazenamento';
 import { criarTranscritor } from './midia/transcritor';
 import { processarConversa } from './processar-conversa';
+import { limparRetencao } from './retencao';
 import { criarServidor } from './servidor';
 import { alertaFila, batimento, resumoDiario } from './tarefas';
 
@@ -53,6 +54,8 @@ async function principal() {
   await boss.schedule(FILAS.batimento, '* * * * *');
   await boss.schedule(FILAS.alertaFila, '*/5 * * * *');
   await boss.schedule(FILAS.resumoDiario, '0 18 * * 1-6', {}, FUSO);
+  await boss.work(FILAS.limpezaRetencao, async () => { await limparRetencao(db, midia); });
+  await boss.schedule(FILAS.limpezaRetencao, '0 3 * * *', {}, FUSO);
 
   const app = criarServidor({ canal, repos, fila: filaDe(boss), segredo: cfg.WEBHOOK_SEGREDO, relogio });
   await app.listen({ host: '0.0.0.0', port: cfg.PORTA });

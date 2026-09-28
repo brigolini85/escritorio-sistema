@@ -1,7 +1,8 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { enfileirarRemocaoArquivos } from '@/lib/fila';
+import { exigirAdmin, obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ClienteForm, ContatoForm } from './esquemas';
 
@@ -62,5 +63,16 @@ export async function salvarResponsaveis(clienteId: string, formData: FormData) 
     .filter(([k, v]) => k.startsWith('setor:') && v)
     .map(([k, v]) => ({ cliente_id: clienteId, setor_id: k.slice(6), usuario_id: String(v) }));
   if (linhas.length) await sb.from('cliente_responsaveis').insert(linhas);
+  revalidatePath(`/clientes/${clienteId}`);
+}
+
+export async function anonimizarContato(clienteId: string, contatoId: string, formData: FormData) {
+  await exigirAdmin();
+  if (formData.get('confirmo') !== 'on') throw new Error('Marque a confirmação para apagar os dados.');
+  const sb = await supabaseServidor();
+  const { data: paths, error } = await sb.rpc('anonimizar_contato', { p_contato: contatoId });
+  if (error) throw new Error(error.message);
+  // A remoção dos arquivos vai para a fila do trabalhador, com novas tentativas, para não deixar arquivo órfão.
+  await enfileirarRemocaoArquivos(paths ?? []);
   revalidatePath(`/clientes/${clienteId}`);
 }

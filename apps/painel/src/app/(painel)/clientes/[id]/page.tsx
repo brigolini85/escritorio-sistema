@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { adicionarContato, removerContato, salvarCliente, salvarResponsaveis, salvarServicos } from '../acoes';
+import { adicionarContato, anonimizarContato, removerContato, salvarCliente, salvarResponsaveis, salvarServicos } from '../acoes';
 
 export default async function FichaCliente({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -46,7 +46,15 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
           {(vinculos ?? []).map((v) => v.contatos && (
             <li key={v.contatos.id} className="flex items-center justify-between py-2">
               <span>{v.contatos.nome} · {v.contatos.telefone}{v.pode_pedir_nota ? ' · pode pedir nota' : ''}{v.pode_atualizar_preco ? ' · pode mudar preço' : ''}</span>
-              {pode && <form action={removerContato.bind(null, id, v.contatos.id)}><button className="text-red-700 underline">Remover</button></form>}
+              <div className="flex items-center gap-3">
+                {pode && <form action={removerContato.bind(null, id, v.contatos.id)}><button className="text-red-700 underline">Remover</button></form>}
+                {u.papel === 'admin' && (
+                  <form action={anonimizarContato.bind(null, id, v.contatos.id)} className="flex items-center gap-1 text-xs">
+                    <label className="flex items-center gap-1"><input type="checkbox" name="confirmo" /> confirmo</label>
+                    <button className="text-red-700 underline">Apagar dados (LGPD)</button>
+                  </form>
+                )}
+              </div>
             </li>
           ))}
         </ul>

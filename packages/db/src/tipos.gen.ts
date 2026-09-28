@@ -504,6 +504,9 @@ isOneToOne: false
             "alterar_status_chamado":
 { Args: { "p_chamado": string,"p_status": Database["public"]['Enums']["status_chamado"] }; Returns: undefined
                            },
+"anonimizar_contato":
+{ Args: { "p_contato": string }; Returns: (string)[]
+                           },
 "assumir_conversa":
 { Args: { "p_conversa": string }; Returns: undefined
                            },
