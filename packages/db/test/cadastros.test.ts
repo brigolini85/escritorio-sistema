@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { criarClienteServico, criarRepos } from '../src';
+import { criarClienteServico, criarRepos, type Database } from '../src';
 import { limparBanco } from './limpar';
 
 const db = criarClienteServico(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -21,13 +21,14 @@ describe('cadastros da empresa', () => {
     const { data: boi } = await db.from('parceiros_grupos').insert({ cliente_id: x, tipo: 'fornecedor', nome: 'Frigorífico Boi Bom' }).select().single();
     const { data: outra } = await db.from('parceiros_grupos').insert({ cliente_id: y, tipo: 'cliente', nome: 'Supermercado Brasil' }).select().single();
     // Uma por vez: num insert em lote, a coluna ausente vira null (e palavras_chave é not null).
-    for (const unidade of [
+    const novas: Database['public']['Tables']['parceiros_unidades']['Insert'][] = [
       { cliente_id: x, grupo_id: brasil!.id, nome_unidade: 'Santa Efigênia', bairro: 'Santa Efigênia', cnpj: '11111111000191', palavras_chave: ['efigenia'] },
       { cliente_id: x, grupo_id: brasil!.id, nome_unidade: 'Fechada', ativo: false },
       { cliente_id: x, grupo_id: velha!.id, nome_unidade: 'Da rede antiga' },
       { cliente_id: x, grupo_id: boi!.id, nome_unidade: 'Matriz' },
       { cliente_id: y, grupo_id: outra!.id, nome_unidade: 'De outra empresa' },
-    ]) {
+    ];
+    for (const unidade of novas) {
       const { error } = await db.from('parceiros_unidades').insert(unidade);
       expect(error).toBeNull();
     }
