@@ -15,6 +15,7 @@ test('administrador cadastra cliente e contato autorizado', async ({ page }) => 
   await page.getByRole('button', { name: 'Salvar' }).click();
   await expect(page.getByRole('heading', { name: 'Indústria X Ltda' })).toBeVisible();
 
+  await page.getByRole('link', { name: 'Contatos', exact: true }).click();
   await page.getByLabel('Nome', { exact: true }).fill('João');
   await page.getByLabel('Telefone').fill('(31) 99999-0201');
   await page.getByLabel('Pode pedir nota').check();
