@@ -9,7 +9,7 @@
     "start": "node dist/principal.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "cenarios": "tsx src/cenarios/rodar.ts"
+    "cenarios": "tsx --env-file=../../.env src/cenarios/rodar.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
