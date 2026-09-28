@@ -130,3 +130,11 @@ describe('documentos', () => {
     expect(canal.enviados).toHaveLength(0);
   });
 });
+
+describe('revisão final: quantidade no texto do item', () => {
+  it('"20 PAC costela" não confunde o 20 com o produto de código 20', async () => {
+    const r = await usar('buscar_produtos', { textos: ['20 PAC costela', '20'] });
+    expect(r.resultados[0].candidatos.map((c: { id: string }) => c.id)).toEqual([cad.costela]);
+    expect(r.resultados[1].candidatos.map((c: { id: string }) => c.id)).toEqual([cad.alho]);
+  });
+});

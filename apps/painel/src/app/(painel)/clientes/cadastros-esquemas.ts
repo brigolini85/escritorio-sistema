@@ -38,6 +38,12 @@ export const ProdutoForm = z.object({
   ativo: caixa,
 });
 
+/** "9,50" e "1.234,56" (padrão brasileiro) ou "9.50": com vírgula, o ponto é milhar; sem vírgula, o ponto é decimal. */
+function valorDigitado(texto: string): string {
+  const t = texto.trim();
+  return t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t;
+}
+
 export const PrecoForm = z.object({
-  valor: z.preprocess((v) => Number(String(v ?? '').replace(/\./g, '').replace(',', '.')), z.number().positive('Informe um valor maior que zero')),
+  valor: z.preprocess((v) => Number(valorDigitado(String(v ?? ''))), z.number().positive('Informe um valor maior que zero')),
 });

@@ -59,3 +59,15 @@ describe('montarPedidoNota', () => {
     expect(r.resumo.split('\n').slice(0, 2)).toEqual(['Fornecedor: Frigorífico Boi Bom / Matriz', '3 PAC Costela com Requeijão (cód. 12)']);
   });
 });
+
+describe('revisão final: unidade do cliente diferente da cadastrada', () => {
+  it('mantém a unidade pedida, avisa a diferença e não calcula o item', () => {
+    const r = montarPedidoNota({
+      tipo: 'venda', destino: efigenia, textoDestinatario: 'Brasil Santa Efigênia', pedidoOriginal: '10 kg costela', semPermissao: false,
+      itens: [{ produto: costela, texto: 'costela', quantidade: 10, unidade: 'kg', preco: 9.5 }],
+    });
+    expect(r.resumo).toContain('10 kg Costela com Requeijão (cód. 12) – ATENÇÃO: pedido em kg, produto cadastrado em PAC; sem cálculo');
+    expect(r.resumo).not.toContain('Total');
+    expect(r.resumo).not.toContain('R$');
+  });
+});

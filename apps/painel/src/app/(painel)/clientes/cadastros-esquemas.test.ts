@@ -26,3 +26,13 @@ describe('esquemas', () => {
     expect(PrecoForm.safeParse({ valor: '0' }).success).toBe(false);
   });
 });
+
+describe('revisão final: preço digitado com ponto', () => {
+  it('ponto decimal não multiplica o preço; ponto de milhar só com vírgula', () => {
+    expect(PrecoForm.parse({ valor: '9.50' }).valor).toBe(9.5);
+    expect(PrecoForm.parse({ valor: '9.5' }).valor).toBe(9.5);
+    expect(PrecoForm.parse({ valor: '9,50' }).valor).toBe(9.5);
+    expect(PrecoForm.parse({ valor: '1.234,56' }).valor).toBe(1234.56);
+    expect(PrecoForm.parse({ valor: '1234.5' }).valor).toBe(1234.5);
+  });
+});

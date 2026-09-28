@@ -39,6 +39,11 @@ export function montarPedidoNota(p: {
       linhas.push(`${numero(i.quantidade)} ${i.unidade} ${i.texto} – PRODUTO NÃO CADASTRADO`);
       continue;
     }
+    // Unidade pedida diferente da cadastrada (ex.: kg × PAC): mantém a do cliente e não calcula, para o Fiscal conferir.
+    if (i.unidade.trim() !== '' && i.unidade.trim().toLowerCase() !== i.produto.unidade.toLowerCase()) {
+      linhas.push(`${numero(i.quantidade)} ${i.unidade} ${i.produto.descricao} (cód. ${i.produto.codigo}) – ATENÇÃO: pedido em ${i.unidade}, produto cadastrado em ${i.produto.unidade}; sem cálculo`);
+      continue;
+    }
     const base = `${numero(i.quantidade)} ${i.produto.unidade} ${i.produto.descricao} (cód. ${i.produto.codigo})`;
     if (!venda) linhas.push(base);
     else if (i.preco === null) linhas.push(`${base} – sem preço cadastrado`);

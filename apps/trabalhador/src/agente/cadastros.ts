@@ -14,11 +14,20 @@ export async function buscarParceiros(repos: Repos, clienteId: string, texto: st
   return achadas.map((u) => ({ id: u.id, rede: u.rede, unidade: u.unidade, bairro: u.bairro, cidade: u.cidade }));
 }
 
+const UNIDADES = new Set(['pac', 'pct', 'kg', 'g', 'un', 'und', 'cx', 'pc', 'l', 'lt', 'fd']);
+
+/** "20 PAC costela" → "costela": quantidade e unidade não podem casar com código de produto. Só número ("20") continua valendo como código. */
+function semQuantidade(texto: string): string {
+  const palavras = texto.split(/\s+/).filter(Boolean);
+  const resto = palavras.filter((p) => !/^\d+([.,]\d+)?$/.test(p) && !UNIDADES.has(p.toLowerCase()));
+  return resto.length ? resto.join(' ') : texto;
+}
+
 export async function buscarProdutos(repos: Repos, clienteId: string, textos: string[]): Promise<{ texto: string; candidatos: CandidatoProduto[] }[]> {
   const produtos = await repos.produtosDaEmpresa(clienteId);
   const candidatos = produtos.map((p) => ({ item: p, termos: [p.descricao, p.codigo, ...p.apelidos] }));
   return textos.map((texto) => ({
     texto,
-    candidatos: melhoresCandidatos(texto, candidatos).map((p) => ({ id: p.id, codigo: p.codigo, descricao: p.descricao, unidade: p.unidade })),
+    candidatos: melhoresCandidatos(semQuantidade(texto), candidatos).map((p) => ({ id: p.id, codigo: p.codigo, descricao: p.descricao, unidade: p.unidade })),
   }));
 }
