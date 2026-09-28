@@ -4,6 +4,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ABAS, AbasCliente, type Aba } from './abas';
 import { SecaoContatos } from './secao-contatos';
 import { SecaoDados } from './secao-dados';
+import { SecaoDocumentos } from './secao-documentos';
 import { SecaoParceiros } from './secao-parceiros';
 import { SecaoPrecos } from './secao-precos';
 import { SecaoProdutos } from './secao-produtos';
@@ -30,6 +31,7 @@ export default async function FichaCliente({ params, searchParams }: {
       {aba === 'fornecedores' && <SecaoParceiros id={id} tipo="fornecedor" pode={pode} />}
       {aba === 'produtos' && <SecaoProdutos id={id} pode={pode} />}
       {aba === 'precos' && <SecaoPrecos id={id} podeEditar={temPermissao(u, 'editar_precos')} historico={historico} />}
+      {aba === 'documentos' && <SecaoDocumentos id={id} pode={pode} admin={u.papel === 'admin'} />}
     </div>
   );
 }

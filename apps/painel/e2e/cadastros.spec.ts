@@ -78,3 +78,29 @@ test('quem não tem Editar preços não vê o campo de preço editável', async 
   await page.goto(`/clientes/${id}?aba=precos`);
   await expect(page.getByLabel('Preço de Costela com Requeijão para Supermercado Brasil')).toBeDisabled();
 });
+test('envia documento, libera para a IA e baixa', async ({ page }) => {
+  const id = await empresaDeTeste();
+  await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
+  await entrar(page, 'admin@teste.com', 'senha-forte-123');
+  await page.goto(`/clientes/${id}?aba=documentos`);
+  await page.getByPlaceholder('Nome do documento (ex.: Contrato social)').fill('Contrato social');
+  await page.locator('input[name="arquivo"]').setInputFiles({ name: 'contrato.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 teste') });
+  await page.getByRole('button', { name: 'Enviar documento' }).click();
+  await expect(page.getByText('Contrato social · contrato.pdf')).toBeVisible();
+  await expect(page.getByText('só a equipe envia')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Liberar para a IA' }).click();
+  // A frase também está no texto explicativo da tela: esperar o botão mudar, que só acontece depois de salvar.
+  await expect(page.getByRole('button', { name: 'Bloquear para a IA' })).toBeVisible();
+  const { data } = await db.from('documentos_empresa').select('ia_pode_enviar').eq('cliente_id', id).single();
+  expect(data!.ia_pode_enviar).toBe(true);
+
+  // O Chromium de teste baixa o PDF em vez de abrir a aba; confere a rota: redireciona para o link assinado e audita.
+  const { data: doc } = await db.from('documentos_empresa').select('id').eq('cliente_id', id).single();
+  await expect(page.getByRole('link', { name: 'Baixar' })).toHaveAttribute('href', `/api/documentos?id=${doc!.id}`);
+  const resposta = await page.request.get(`/api/documentos?id=${doc!.id}`, { maxRedirects: 0 });
+  expect(resposta.status()).toBe(307);
+  expect(resposta.headers().location).toMatch(/\/storage\/v1\/object\/sign\/documentos\//);
+  const { count } = await db.from('auditoria_acessos').select('*', { count: 'exact', head: true }).eq('acao', 'download').eq('entidade_id', doc!.id);
+  expect(count).toBe(1);
+});

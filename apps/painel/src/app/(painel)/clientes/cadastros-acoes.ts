@@ -1,6 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { exigirAdmin, obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { GrupoForm, PrecoForm, ProdutoForm, UnidadeForm } from './cadastros-esquemas';
 
@@ -48,5 +48,34 @@ export async function definirPreco(clienteId: string, grupoId: string, produtoId
   const sb = await supabaseServidor();
   const { error } = await sb.rpc('definir_preco', { p_grupo: grupoId, p_produto: produtoId, p_valor: valor });
   if (error) throw new Error(error.message);
+  revalidatePath(`/clientes/${clienteId}`);
+}
+
+export async function enviarDocumento(clienteId: string, formData: FormData) {
+  const { u, sb } = await exigirEdicao();
+  const nome = String(formData.get('nome') ?? '').trim();
+  const arquivo = formData.get('arquivo');
+  if (!nome || !(arquivo instanceof File) || arquivo.size === 0) throw new Error('Informe o nome e escolha o arquivo.');
+  const arquivoNome = arquivo.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_');
+  const path = `clientes/${clienteId}/${Date.now()}-${arquivoNome}`;
+  const mime = arquivo.type || 'application/pdf';
+  const up = await sb.storage.from('documentos').upload(path, arquivo, { contentType: mime });
+  if (up.error) throw new Error(`Falha ao enviar o arquivo: ${up.error.message}`);
+  checar(await sb.from('documentos_empresa').insert({ cliente_id: clienteId, nome, arquivo_path: path, arquivo_nome: arquivoNome, arquivo_mime: mime, enviado_por: u.id }));
+  revalidatePath(`/clientes/${clienteId}`);
+}
+
+export async function alternarIaDocumento(clienteId: string, documentoId: string, liberar: boolean) {
+  const { sb } = await exigirEdicao();
+  checar(await sb.from('documentos_empresa').update({ ia_pode_enviar: liberar }).eq('id', documentoId).eq('cliente_id', clienteId));
+  revalidatePath(`/clientes/${clienteId}`);
+}
+
+export async function excluirDocumento(clienteId: string, documentoId: string) {
+  await exigirAdmin();
+  const sb = await supabaseServidor();
+  const { data: doc } = await sb.from('documentos_empresa').select('arquivo_path').eq('id', documentoId).eq('cliente_id', clienteId).single();
+  checar(await sb.from('documentos_empresa').delete().eq('id', documentoId));
+  if (doc) await sb.storage.from('documentos').remove([doc.arquivo_path]);
   revalidatePath(`/clientes/${clienteId}`);
 }
