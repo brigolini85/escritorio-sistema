@@ -101,4 +101,5 @@ export async function alternarAgenteContato(contatoId: string, conversaId: strin
   if (error) throw new Error(error.message);
   if (conversaId) revalidatePath(`/atendimento/${conversaId}`);
   revalidatePath('/clientes');
+  revalidatePath('/contatos');
 }

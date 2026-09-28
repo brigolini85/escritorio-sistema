@@ -1,12 +1,15 @@
 import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato } from '../../atendimento/acoes';
-import { adicionarContato, anonimizarContato, removerContato } from '../acoes';
+import { adicionarContato, anonimizarContato, removerContato, vincularContatoExistente } from '../acoes';
 
 export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPainel; pode: boolean }) {
   const sb = await supabaseServidor();
   const { data: vinculos } = await sb.from('contato_clientes')
     .select('pode_pedir_nota, pode_atualizar_preco, contatos(id, nome, telefone, agente_pausado)').eq('cliente_id', id);
+  const { data: todos } = await sb.from('contatos').select('id, nome, telefone').eq('ativo', true).order('nome');
+  const jaVinculados = new Set((vinculos ?? []).flatMap((v) => (v.contatos ? [v.contatos.id] : [])));
+  const disponiveis = (todos ?? []).filter((c) => !jaVinculados.has(c.id));
   return (
     <>
       <section className="rounded-lg border bg-white p-4">
@@ -39,6 +42,19 @@ export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPai
             <label className="flex items-center gap-1"><input type="checkbox" name="pode_pedir_nota" /> Pode pedir nota</label>
             <label className="flex items-center gap-1"><input type="checkbox" name="pode_atualizar_preco" /> Pode mudar preço</label>
             <button className="rounded border px-3 py-2">Adicionar contato</button>
+          </form>
+        )}
+        {pode && disponiveis.length > 0 && (
+          <form action={vincularContatoExistente.bind(null, id)} className="mt-3 flex flex-wrap items-end gap-2 border-t pt-3 text-sm">
+            <label>Contato já cadastrado
+              <select name="contato_id" required defaultValue="" className="mt-1 block rounded border p-2">
+                <option value="" disabled>Escolha…</option>
+                {disponiveis.map((c) => <option key={c.id} value={c.id}>{c.nome} · {c.telefone}</option>)}
+              </select>
+            </label>
+            <label className="flex items-center gap-1"><input type="checkbox" name="pode_pedir_nota" /> Pode pedir nota (vínculo)</label>
+            <label className="flex items-center gap-1"><input type="checkbox" name="pode_atualizar_preco" /> Pode mudar preço (vínculo)</label>
+            <button className="rounded border px-3 py-2">Vincular contato</button>
           </form>
         )}
       </section>

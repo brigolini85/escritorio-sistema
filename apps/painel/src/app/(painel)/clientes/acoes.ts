@@ -80,3 +80,16 @@ export async function anonimizarContato(clienteId: string, contatoId: string, fo
   await enfileirarRemocaoArquivos(paths ?? []);
   revalidatePath(`/clientes/${clienteId}`);
 }
+
+/** Liga à empresa um contato que já existe (cadastrado pela aba Contatos ou pela conversa). */
+export async function vincularContatoExistente(clienteId: string, formData: FormData) {
+  const sb = await exigirEdicao();
+  const contatoId = String(formData.get('contato_id') ?? '');
+  if (!contatoId) throw new Error('Escolha o contato.');
+  checar(await sb.from('contato_clientes').upsert({
+    contato_id: contatoId, cliente_id: clienteId,
+    pode_pedir_nota: formData.get('pode_pedir_nota') === 'on', pode_atualizar_preco: formData.get('pode_atualizar_preco') === 'on',
+  }));
+  revalidatePath(`/clientes/${clienteId}`);
+  revalidatePath('/contatos');
+}

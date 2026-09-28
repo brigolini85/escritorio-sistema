@@ -4,6 +4,7 @@ export function itensDoMenu(papel: 'admin' | 'atendente'): { rotulo: string; hre
     { rotulo: 'Atendimento', href: '/atendimento' },
     { rotulo: 'Demandas', href: '/demandas' },
     { rotulo: 'Clientes', href: '/clientes' },
+    { rotulo: 'Contatos', href: '/contatos' },
   ];
   return papel === 'admin' ? [...itens, { rotulo: 'Configurações', href: '/configuracoes' }] : itens;
 }
