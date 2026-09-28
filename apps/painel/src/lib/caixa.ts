@@ -18,3 +18,8 @@ export function passaNoFiltro(l: LinhaCaixa, filtro: FiltroCaixa, u: { id: strin
     default: return true;
   }
 }
+
+/** Administrador e quem não tem setor veem tudo de início; os demais começam pelo próprio setor. */
+export function filtroPadrao(u: { papel: 'admin' | 'atendente'; setores: string[] }): FiltroCaixa {
+  return u.papel === 'admin' || u.setores.length === 0 ? 'todas' : 'setor';
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { passaNoFiltro, type LinhaCaixa } from './caixa';
+import { filtroPadrao, passaNoFiltro, type LinhaCaixa } from './caixa';
 
 const u = { id: 'ana', setores: ['fiscal'] };
 const linha = (p: Partial<LinhaCaixa>): LinhaCaixa => ({ id: 'c', atendente_id: null, setores_abertos: [], sem_responsavel: false, aguardando_cliente: false, ...p });
@@ -19,5 +19,15 @@ describe('passaNoFiltro', () => {
   });
   it('todas mostra tudo o que o RLS já liberou', () => {
     expect(passaNoFiltro(linha({}), 'todas', u)).toBe(true);
+  });
+});
+
+describe('filtroPadrao', () => {
+  it('administrador e quem não tem setor começam em Todas', () => {
+    expect(filtroPadrao({ papel: 'admin', setores: ['fiscal'] })).toBe('todas');
+    expect(filtroPadrao({ papel: 'atendente', setores: [] })).toBe('todas');
+  });
+  it('atendente com setor começa em Do meu setor', () => {
+    expect(filtroPadrao({ papel: 'atendente', setores: ['fiscal'] })).toBe('setor');
   });
 });

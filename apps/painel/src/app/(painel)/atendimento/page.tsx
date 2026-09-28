@@ -1,12 +1,12 @@
 import Link from 'next/link';
-import { FILTROS, passaNoFiltro, type FiltroCaixa } from '@/lib/caixa';
+import { FILTROS, filtroPadrao, passaNoFiltro, type FiltroCaixa } from '@/lib/caixa';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { AtualizarAoVivo } from './atualizar-ao-vivo';
 
 export default async function Atendimento({ searchParams }: { searchParams: Promise<{ filtro?: FiltroCaixa }> }) {
   const u = await obterUsuario();
-  const filtro = (await searchParams).filtro ?? 'setor';
+  const filtro = (await searchParams).filtro ?? filtroPadrao(u);
   const sb = await supabaseServidor();
   const { data } = await sb.from('caixa_entrada').select('*').order('ultima_em', { ascending: false, nullsFirst: false }).limit(200);
   const linhas = (data ?? []).filter((l) => passaNoFiltro({

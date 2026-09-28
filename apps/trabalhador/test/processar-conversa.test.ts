@@ -44,15 +44,18 @@ describe('processarConversa', () => {
     expect(ia.recebidos).toHaveLength(0);
   });
 
-  it('primeira mensagem: envia aviso de LGPD uma vez e responde', async () => {
+  it('com aviso configurado: envia na primeira mensagem uma única vez e responde', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
+    const { data: cfg } = await db.from('configuracoes').select('mensagens').eq('id', 1).single();
+    await db.from('configuracoes').update({ mensagens: { ...(cfg!.mensagens as object), aviso_lgpd: 'Aviso de privacidade de teste.' } }).eq('id', 1);
     await receber(conversa.id, 'M1', 'oi');
     expect(await processarConversa(deps(respondeOi()), conversa.id, false)).toBe('agente');
     await receber(conversa.id, 'M2', 'tudo bem?');
     await processarConversa(deps(respondeOi()), conversa.id, false);
     const textos = canal.enviados.map((e) => e.texto!);
-    expect(textos.filter((t) => t.includes('ficam registradas'))).toHaveLength(1);
+    expect(textos.filter((t) => t === 'Aviso de privacidade de teste.')).toHaveLength(1);
     expect(await repos.mensagensNaoProcessadas(conversa.id)).toHaveLength(0);
+    await db.from('configuracoes').update({ mensagens: cfg!.mensagens }).eq('id', 1);
   });
 
   it('aviso de privacidade vazio nas configurações: não envia aviso e responde normalmente', async () => {

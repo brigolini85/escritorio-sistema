@@ -3,9 +3,9 @@ import { itensDoMenu } from './menu';
 
 describe('itensDoMenu', () => {
   it('atendente não vê Configurações', () => {
-    expect(itensDoMenu('atendente').map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Clientes']);
+    expect(itensDoMenu('atendente').map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes']);
   });
   it('administrador vê Configurações', () => {
-    expect(itensDoMenu('admin').map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Clientes', 'Configurações']);
+    expect(itensDoMenu('admin').map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Configurações']);
   });
 });
