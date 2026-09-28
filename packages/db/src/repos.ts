@@ -369,6 +369,12 @@ export function criarRepos(db: Db) {
         regime: c.regime, endereco: c.endereco, uf: c.uf };
     },
 
+    /** Preço alterado pelo agente a pedido do contato; o banco exige "pode mudar preço" para a empresa. */
+    async definirPrecoPeloAgente(grupoId: string, produtoId: string, valor: number, contatoId: string): Promise<void> {
+      const r = await db.rpc('definir_preco_agente', { p_grupo: grupoId, p_produto: produtoId, p_valor: valor, p_contato: contatoId });
+      if (r.error) throw new Error(r.error.message);
+    },
+
     async setorPorNome(nome: string): Promise<string | null> {
       const s = checar(await db.from('setores').select('id').eq('nome', nome).eq('ativo', true).maybeSingle(), 'setorPorNome');
       return s?.id ?? null;

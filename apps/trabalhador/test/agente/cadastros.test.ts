@@ -162,3 +162,31 @@ describe('consultar_cadastro', () => {
     expect((await usar('consultar_cadastro', {}))._erro).toBe(true);
   });
 });
+
+describe('preço pelo WhatsApp (pedido do dono, 2026-09-28)', () => {
+  const vigente = async () => (await db.from('precos').select('valor, origem').eq('produto_id', cad.costela).is('vigente_ate', null).single()).data;
+
+  it('consultar_preco informa o preço da tabela da rede e avisa quando não há preço', async () => {
+    const r = await usar('consultar_preco', { unidade_id: cad.brasilEfigenia, produto_id: cad.costela });
+    expect(r).toMatchObject({ _erro: false, rede: 'Supermercado Brasil', produto: 'Costela com Requeijão', unidade: 'PAC', preco: 'R$ 9,50' });
+    expect((await usar('consultar_preco', { unidade_id: cad.brasilEfigenia, produto_id: cad.alho })).preco).toBeNull();
+  });
+
+  it('alterar_preco sem a marcação "pode mudar preço" é recusado', async () => {
+    const r = await usar('alterar_preco', { unidade_id: cad.brasilEfigenia, produto_id: cad.costela, novo_valor: 10, confirmado_pelo_cliente: true });
+    expect(r._erro).toBe(true);
+    expect(JSON.stringify(r)).toContain('sem permissão');
+    expect(await vigente()).toEqual({ valor: 9.5, origem: 'painel' });
+  });
+
+  it('alterar_preco só depois de o cliente confirmar', async () => {
+    await db.from('contato_clientes').update({ pode_atualizar_preco: true }).eq('contato_id', estado.ctx.contato!.id);
+    const semConfirmar = await usar('alterar_preco', { unidade_id: cad.brasilEfigenia, produto_id: cad.costela, novo_valor: 10, confirmado_pelo_cliente: false });
+    expect(semConfirmar._erro).toBe(true);
+    expect(await vigente()).toEqual({ valor: 9.5, origem: 'painel' });
+
+    const r = await usar('alterar_preco', { unidade_id: cad.brasilEfigenia, produto_id: cad.costela, novo_valor: 10, confirmado_pelo_cliente: true });
+    expect(r).toMatchObject({ _erro: false, antes: 'R$ 9,50', depois: 'R$ 10,00' });
+    expect(await vigente()).toEqual({ valor: 10, origem: 'agente' });
+  });
+});

@@ -432,16 +432,22 @@ isOneToOne: false
                   ]
                 },"precos": {
                   Row: {
-                    "alterado_por": string | null,"cliente_id": string,"criado_em": string,"grupo_id": string,"id": string,"produto_id": string,"valor": number,"vigente_ate": string | null,"vigente_desde": string
+                    "alterado_por": string | null,"alterado_por_contato": string | null,"cliente_id": string,"criado_em": string,"grupo_id": string,"id": string,"origem": string,"produto_id": string,"valor": number,"vigente_ate": string | null,"vigente_desde": string
                   }
                   Insert: {
-                    "alterado_por"?: string | null,"cliente_id": string,"criado_em"?: string,"grupo_id": string,"id"?: string,"produto_id": string,"valor": number,"vigente_ate"?: string | null,"vigente_desde"?: string
+                    "alterado_por"?: string | null,"alterado_por_contato"?: string | null,"cliente_id": string,"criado_em"?: string,"grupo_id": string,"id"?: string,"origem"?: string,"produto_id": string,"valor": number,"vigente_ate"?: string | null,"vigente_desde"?: string
                   }
                   Update: {
-                    "alterado_por"?: string | null,"cliente_id"?: string,"criado_em"?: string,"grupo_id"?: string,"id"?: string,"produto_id"?: string,"valor"?: number,"vigente_ate"?: string | null,"vigente_desde"?: string
+                    "alterado_por"?: string | null,"alterado_por_contato"?: string | null,"cliente_id"?: string,"criado_em"?: string,"grupo_id"?: string,"id"?: string,"origem"?: string,"produto_id"?: string,"valor"?: number,"vigente_ate"?: string | null,"vigente_desde"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "precos_alterado_por_contato_fkey"
+      columns: ["alterado_por_contato"]
+isOneToOne: false
+      referencedRelation: "contatos"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "precos_alterado_por_fkey"
       columns: ["alterado_por"]
 isOneToOne: false
@@ -643,6 +649,9 @@ isOneToOne: false
                            },
 "definir_preco":
 { Args: { "p_grupo": string,"p_produto": string,"p_valor": number }; Returns: string
+                           },
+"definir_preco_agente":
+{ Args: { "p_contato": string,"p_grupo": string,"p_produto": string,"p_valor": number }; Returns: string
                            },
 "devolver_ao_agente":
 { Args: { "p_conversa": string }; Returns: undefined

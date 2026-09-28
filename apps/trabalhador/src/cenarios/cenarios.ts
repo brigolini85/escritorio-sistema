@@ -4,6 +4,8 @@ export type Cenario = {
   servicos?: string[];                      // serviços contratados pela primeira empresa
   faq?: { pergunta: string; resposta: string }[];
   agora?: string;                           // ISO; padrão: segunda-feira 10h
+  mensagens2?: string[];                  // segunda rodada, processada depois da resposta à primeira
+  podeAtualizarPreco?: boolean;           // contato com "pode mudar preço" na empresa
   cadastros?: boolean;   // cria os cadastros de exemplo (redes, fornecedor, produtos, preços, documentos)
   chamadoExistente?: { setor: string; titulo: string };
   mensagens: string[];
@@ -18,6 +20,7 @@ export type Cenario = {
     documentoEnviado?: string;              // nome do arquivo que deve ter sido enviado
     semDocumento?: boolean;                 // nenhum arquivo enviado
     semTexto?: string[];                    // textos que as respostas não podem conter
+    precoFinal?: { produto: string; rede: string; valor: number; origem: 'painel' | 'agente' };   // preço vigente no fim
     respostaContemNumero?: string[];        // números (só dígitos) que as respostas devem trazer, com ou sem pontuação
   };
 };
@@ -87,4 +90,14 @@ export const CENARIOS: Cenario[] = [
   { nome: 'informa o CNPJ de um cliente cadastrado', empresas: ['Indústria X'], cadastros: true,
     mensagens: ['Me passa o CNPJ do Supermercado Brasil Santa Efigênia'],
     espera: { chamadoSetor: 'nenhum', respostaContemNumero: ['11111111000191'] } },
+  // Preço pelo WhatsApp (pedido do dono, 2026-09-28).
+  { nome: 'informa o preço da tabela para uma rede', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Quanto está a costela pro Supermercado Brasil?'],
+    espera: { chamadoSetor: 'nenhum', respostaContemNumero: ['950'] } },
+  { nome: 'muda o preço só depois de o cliente confirmar', empresas: ['Indústria X'], cadastros: true, podeAtualizarPreco: true,
+    mensagens: ['Muda o preço da costela pro Supermercado Brasil para 10 reais'], mensagens2: ['Sim, pode alterar'],
+    espera: { chamadoSetor: 'nenhum', precoFinal: { produto: '12', rede: 'Supermercado Brasil', valor: 10, origem: 'agente' } } },
+  { nome: 'sem permissão não muda o preço e passa para a equipe', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Muda o preço da costela pro Supermercado Brasil para 10 reais'], mensagens2: ['Sim, pode alterar'],
+    espera: { chamadoSetor: 'qualquer', precoFinal: { produto: '12', rede: 'Supermercado Brasil', valor: 9.5, origem: 'painel' } } },
 ];

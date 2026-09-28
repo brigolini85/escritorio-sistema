@@ -17,6 +17,7 @@ async function preparar(c: Cenario) {
   if (c.empresas.length === 0) return repos.obterOuCriarConversa('5531988887777', null);
   const { empresas, conversa } = await contatoComEmpresas(c.empresas);
   if (c.cadastros) await criarCadastrosExemplo(empresas[0]!.id);
+  if (c.podeAtualizarPreco) await db.from('contato_clientes').update({ pode_atualizar_preco: true }).eq('cliente_id', empresas[0]!.id);
   for (const nome of c.servicos ?? []) {
     const { data: s } = await db.from('servicos').insert({ nome }).select().single();
     await db.from('cliente_servicos').insert({ cliente_id: empresas[0]!.id, servico_id: s!.id });
@@ -28,25 +29,51 @@ async function preparar(c: Cenario) {
   return conversa;
 }
 
+/** Preço vigente de um produto (pelo código) para uma rede (pelo nome). */
+async function precoVigente(codigo: string, rede: string) {
+  const { data } = await db.from('precos').select('valor, origem, produtos!inner(codigo), parceiros_grupos!inner(nome)')
+    .is('vigente_ate', null).eq('produtos.codigo', codigo).eq('parceiros_grupos.nome', rede).maybeSingle();
+  return data ? { valor: Number(data.valor), origem: data.origem } : null;
+}
+
 async function rodar(c: Cenario): Promise<string[]> {
   const conversa = await preparar(c);
   for (const [i, texto] of c.mensagens.entries()) {
     await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: `CEN-${i}-${Date.now()}`, tipo: 'texto', conteudo: texto });
   }
   const canal = new CanalFalso();
-  await processarConversa({
+  const deps = {
     repos, ia: criarClienteIa(process.env.ANTHROPIC_API_KEY!),
     envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) },
     midia: criarArmazenamento(db), transcritor: { transcrever: async () => '' },
     alertas: { alertar: async () => {} }, relogio: () => new Date(c.agora ?? SEGUNDA_10H),
-  }, conversa.id, true);
+  };
+  await processarConversa(deps, conversa.id, true);
+  // Segunda rodada (ex.: o "sim" que confirma uma alteração de preço).
+  const falhasRodada1: string[] = [];
+  if (c.mensagens2) {
+    if (c.espera.precoFinal) {
+      const antes = await precoVigente(c.espera.precoFinal.produto, c.espera.precoFinal.rede);
+      if (antes && antes.origem === 'agente') falhasRodada1.push('alterou o preço antes de o cliente confirmar');
+    }
+    for (const [i, texto] of c.mensagens2.entries()) {
+      await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: `CEN2-${i}-${Date.now()}`, tipo: 'texto', conteudo: texto });
+    }
+    await processarConversa(deps, conversa.id, true);
+  }
 
   const { data: chamados } = await db.from('chamados').select('setor_id, fora_do_contrato, titulo, resumo, setores(nome), origem').eq('conversa_id', conversa.id).eq('origem', 'agente');
   const { data: decisoes } = await db.from('decisoes_agente').select('etapa').eq('conversa_id', conversa.id);
   const etapas = (decisoes ?? []).map((d) => d.etapa);
   const respostas = canal.enviados.map((e) => e.texto ?? '').join('\n');
-  const falhas: string[] = [];
+  const falhas: string[] = [...falhasRodada1];
   const e = c.espera;
+  if (e.precoFinal) {
+    const p = await precoVigente(e.precoFinal.produto, e.precoFinal.rede);
+    if (!p || p.valor !== e.precoFinal.valor || p.origem !== e.precoFinal.origem) {
+      falhas.push(`preço final esperado ${JSON.stringify(e.precoFinal)}; obtido ${JSON.stringify(p)}`);
+    }
+  }
   if (e.chamadoSetor === 'nenhum' && chamados?.length) falhas.push(`não deveria abrir chamado (abriu ${chamados.length})`);
   if (e.chamadoSetor === 'triagem' && !chamados?.some((x) => x.setor_id === null)) falhas.push('esperava chamado de triagem');
   if (e.chamadoSetor === 'qualquer' && !chamados?.length) falhas.push('esperava alguma demanda aberta');

@@ -136,3 +136,17 @@ test('preço tem botão Salvar', async ({ page }) => {
   await expect(page.getByLabel('Preço de Costela com Requeijão para Supermercado Brasil', { exact: true })).toHaveValue('12,30');
   await expect.poll(async () => (await db.from('precos').select('valor').eq('cliente_id', id).is('vigente_ate', null).single()).data?.valor).toBe(12.3);
 });
+
+test('histórico mostra quando o preço foi alterado pelo agente IA e a pedido de quem', async ({ page }) => {
+  const id = await empresaDeTeste();
+  const { data: rede } = await db.from('parceiros_grupos').insert({ cliente_id: id, tipo: 'cliente', nome: 'Supermercado Brasil' }).select().single();
+  const { data: prod } = await db.from('produtos').insert({ cliente_id: id, codigo: '12', descricao: 'Costela com Requeijão', unidade: 'PAC' }).select().single();
+  await db.from('contatos').delete().eq('telefone', '5531999990601');
+  const { data: luana } = await db.from('contatos').insert({ nome: 'Luana', telefone: '5531999990601' }).select().single();
+  await db.from('precos').insert({ cliente_id: id, grupo_id: rede!.id, produto_id: prod!.id, valor: 9.5, vigente_ate: new Date().toISOString() });
+  await db.from('precos').insert({ cliente_id: id, grupo_id: rede!.id, produto_id: prod!.id, valor: 10, origem: 'agente', alterado_por_contato: luana!.id });
+  await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
+  await entrar(page, 'admin@teste.com', 'senha-forte-123');
+  await page.goto(`/clientes/${id}?aba=precos&historico=${rede!.id}:${prod!.id}`);
+  await expect(page.getByText(/R\$ 10,00 · vigente .* · alterado pelo agente IA \(a pedido de Luana\)/)).toBeVisible();
+});

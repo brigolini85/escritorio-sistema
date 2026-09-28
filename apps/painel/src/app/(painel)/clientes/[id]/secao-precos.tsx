@@ -16,7 +16,7 @@ export async function SecaoPrecos({ id, podeEditar, historico }: { id: string; p
   const preco = (g: string, p: string) => vigentes?.find((x) => x.grupo_id === g && x.produto_id === p)?.valor;
   const [hGrupo, hProduto] = (historico ?? '').split(':');
   const { data: linhasHistorico } = hGrupo && hProduto
-    ? await sb.from('precos').select('valor, vigente_desde, vigente_ate, usuarios(nome)').eq('grupo_id', hGrupo).eq('produto_id', hProduto).order('vigente_desde', { ascending: false })
+    ? await sb.from('precos').select('valor, vigente_desde, vigente_ate, origem, usuarios(nome), contatos(nome)').eq('grupo_id', hGrupo).eq('produto_id', hProduto).order('vigente_desde', { ascending: false })
     : { data: null };
 
   if (!(redes ?? []).length || !(produtos ?? []).length) {
@@ -55,7 +55,7 @@ export async function SecaoPrecos({ id, podeEditar, historico }: { id: string; p
           {linhasHistorico.length === 0 && <p className="text-slate-500">Sem preços registrados.</p>}
           <ul className="space-y-1">
             {linhasHistorico.map((h, i) => (
-              <li key={i}>{reais(Number(h.valor))}{h.vigente_ate ? '' : ' · vigente'} · desde {data(h.vigente_desde)}{h.vigente_ate ? ` até ${data(h.vigente_ate)}` : ''}{h.usuarios?.nome ? ` · por ${h.usuarios.nome}` : ''}</li>
+              <li key={i}>{reais(Number(h.valor))}{h.vigente_ate ? '' : ' · vigente'} · desde {data(h.vigente_desde)}{h.vigente_ate ? ` até ${data(h.vigente_ate)}` : ''}{h.origem === 'agente' ? ` · alterado pelo agente IA${h.contatos?.nome ? ` (a pedido de ${h.contatos.nome})` : ''}` : h.usuarios?.nome ? ` · por ${h.usuarios.nome}` : ''}</li>
             ))}
           </ul>
         </section>

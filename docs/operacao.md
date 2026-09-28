@@ -146,3 +146,9 @@ De segunda a sábado, às 18h, você recebe o **resumo do dia** no WhatsApp e no
 ## 6. Plano de saída da Z-API
 
 A Z-API é uma solução não oficial. O caminho definitivo é a **API oficial do WhatsApp, da Meta**, que exige a verificação da empresa no Meta Business. Acompanhe essa verificação; quando ela for aprovada, peça ao Claude: "migrar o WhatsApp para a API oficial da Meta". Só a peça do canal muda: o painel, o agente, os chamados e os dados continuam os mesmos.
+
+## 7. Preços pelo WhatsApp
+
+- **Consultar:** se um contato perguntar o preço de um produto para um cliente dele (por exemplo, "quanto está a costela pro Supermercado Brasil?"), o agente responde com o valor da tabela de preços da empresa (Clientes → empresa → aba Preços).
+- **Alterar:** só contatos com a marcação **"Pode mudar preço"** (Clientes → empresa → aba Contatos) podem pedir alteração. O agente confirma com a pessoa ("passa de R$ 9,50 para R$ 10,00?") e só grava depois do "sim". Quem não tem a marcação recebe um aviso, e o pedido vira uma demanda para a equipe decidir.
+- **Histórico:** no link "histórico" de cada preço aparece quem mudou: o nome da pessoa da equipe ou **"alterado pelo agente IA (a pedido de Fulano)"**.

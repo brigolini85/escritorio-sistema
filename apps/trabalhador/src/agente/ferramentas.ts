@@ -5,7 +5,7 @@ import type { Repos } from '@escritorio/db';
 import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
 import { buscarParceiros, buscarProdutos } from './cadastros';
 import type { ClienteIa } from './cliente-ia';
-import { cnpjFormatado, montarPedidoNota, type ItemPedido } from './pedido-nota';
+import { cnpjFormatado, formatarReais, montarPedidoNota, type ItemPedido } from './pedido-nota';
 import type { ContextoAgente } from './contexto';
 
 export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
@@ -90,6 +90,20 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
     input_schema: objeto({ unidade_id: { type: 'string', description: 'Opcional: id de uma unidade de cliente ou fornecedor da empresa em foco.' } }, []),
   },
   {
+    name: 'consultar_preco',
+    description: 'Preço de tabela de um produto para uma unidade de cliente da empresa em foco (ache os ids com buscar_parceiros e buscar_produtos). O preço é da rede: só para consultar ou alterar preço, qualquer unidade da rede serve (não pergunte a unidade por causa do preço). Para nota fiscal a unidade importa.',
+    input_schema: objeto({ unidade_id: { type: 'string' }, produto_id: { type: 'string' } }, ['unidade_id', 'produto_id']),
+  },
+  {
+    name: 'alterar_preco',
+    description: 'Altera o preço de tabela de um produto para a rede de uma unidade de cliente. Só use depois de o cliente confirmar explicitamente o novo valor (confirmado_pelo_cliente = true). Exige que o contato tenha permissão para mudar preço.',
+    input_schema: objeto({
+      unidade_id: { type: 'string' }, produto_id: { type: 'string' },
+      novo_valor: { type: 'number', description: 'Em reais, ex.: 10.5' },
+      confirmado_pelo_cliente: { type: 'boolean' },
+    }, ['unidade_id', 'produto_id', 'novo_valor', 'confirmado_pelo_cliente']),
+  },
+  {
     name: 'responder',
     description: 'Envia texto ao cliente no WhatsApp. Cada parágrafo (separado por uma linha em branco) vira uma mensagem separada, no máximo 3.',
     input_schema: objeto({ texto: { type: 'string' } }, ['texto']),
@@ -115,6 +129,8 @@ const Entradas = {
   listar_documentos: z.object({}),
   enviar_documento: z.object({ documento_id: z.string() }),
   consultar_cadastro: z.object({ unidade_id: z.string().optional() }),
+  consultar_preco: z.object({ unidade_id: z.string(), produto_id: z.string() }),
+  alterar_preco: z.object({ unidade_id: z.string(), produto_id: z.string(), novo_valor: z.number().positive().max(1_000_000), confirmado_pelo_cliente: z.boolean() }),
   responder: z.object({ texto: z.string().min(1).max(4000) }),
 };
 
@@ -298,6 +314,30 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       if (!u) return falha('Essa unidade não é um cliente ou fornecedor cadastrado desta empresa. Não informe nada sobre ela.');
       return ok({ parceiro: { tipo: u.tipo, rede: u.rede, unidade: u.unidade, razao_social: u.razaoSocial,
         cnpj: u.cnpj ? cnpjFormatado(u.cnpj) : null, inscricao_estadual: u.ie, bairro: u.bairro, cidade: u.cidade, uf: u.uf } });
+    }
+
+    case 'consultar_preco':
+    case 'alterar_preco': {
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      const unidade = (await d.repos.unidadesDaEmpresa(e.clienteId, 'cliente')).find((u) => u.id === entrada.unidade_id);
+      if (!unidade) return falha('Essa unidade não é um cliente cadastrado desta empresa. Use buscar_parceiros.');
+      const produto = (await d.repos.produtosDaEmpresa(e.clienteId)).find((p) => p.id === entrada.produto_id);
+      if (!produto) return falha('Esse produto não é desta empresa. Use buscar_produtos.');
+      const atual = (await d.repos.precosVigentes(e.clienteId, unidade.grupoId, [produto.id]))[produto.id] ?? null;
+      const base = { rede: unidade.rede, produto: produto.descricao, unidade: produto.unidade };
+      if (nome === 'consultar_preco') return ok({ ...base, preco: atual === null ? null : formatarReais(atual) });
+      if (!entrada.confirmado_pelo_cliente) {
+        return falha('Antes de alterar, confirme com o cliente o novo valor (produto, rede, de quanto para quanto) e só então chame de novo com confirmado_pelo_cliente = true.');
+      }
+      try {
+        await d.repos.definirPrecoPeloAgente(unidade.grupoId, produto.id, entrada.novo_valor, ctx.contato!.id);
+      } catch (erro) {
+        const msg = erro instanceof Error ? erro.message : '';
+        if (msg.includes('sem permissão')) return falha('Este contato não tem permissão para mudar preço (sem permissão). Não altere: abra uma demanda com abrir_chamado para a equipe decidir.');
+        throw erro;
+      }
+      return ok({ ...base, antes: atual === null ? null : formatarReais(atual), depois: formatarReais(entrada.novo_valor) });
     }
 
     case 'responder': {
