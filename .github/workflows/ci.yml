@@ -34,3 +34,5 @@ jobs:
       - run: bash scripts/env-local.sh
       - run: pnpm --filter @escritorio/db test
       - run: pnpm --filter @escritorio/trabalhador test
+      - run: pnpm --filter @escritorio/painel exec playwright install --with-deps chromium
+      - run: pnpm --filter @escritorio/painel e2e
