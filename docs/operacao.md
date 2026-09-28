@@ -67,7 +67,7 @@ Em cada projeto do Supabase:
 Na instância de cada ambiente, abra **Webhooks**:
 
 1. No campo **Ao receber**, cole `https://<domínio do trabalhador>/webhook/zapi/<WEBHOOK_SEGREDO>`, usando o mesmo segredo que você colocou no Easypanel.
-2. Ligue também **Ao enviar**. É assim que o sistema percebe quando alguém respondeu o cliente direto pelo celular do escritório; nesse caso o agente para de responder aquela conversa.
+2. Na mesma tela, ligue a opção de **notificar também as mensagens enviadas por mim** (na documentação da Z-API ela se chama `notifySentByMe`). É assim que o sistema percebe quando alguém respondeu o cliente direto pelo celular do escritório; nesse caso o agente para de responder aquela conversa. Não é preciso configurar o webhook "Ao enviar": o sistema não usa esse aviso.
 
 ### 2.6 Aviso de sistema fora do ar (UptimeRobot)
 
