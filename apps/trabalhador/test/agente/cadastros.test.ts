@@ -63,3 +63,43 @@ describe('buscar_produtos', () => {
     ]);
   });
 });
+describe('abrir_pedido_nota', () => {
+  const pedido = (extra: object = {}) => ({
+    tipo: 'venda', unidade_id: cad.brasilEfigenia, texto_destinatario: 'Brasil Santa Efigênia',
+    itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 20, unidade: 'PAC' }, { produto_id: null, texto: 'lasanha', quantidade: 3, unidade: 'PAC' }],
+    pedido_original: 'Tira NF pro Brasil Santa Efigênia: 20 PAC costela e 3 lasanha', ...extra,
+  });
+
+  it('abre a demanda no Fiscal com CNPJ, preço da tabela e item não cadastrado', async () => {
+    const r = await usar('abrir_pedido_nota', pedido());
+    expect(r).toMatchObject({ setor: 'Fiscal', itens_sem_cadastro: 1, _erro: false });
+    const { data } = await db.from('chamados').select('titulo, resumo, setores(nome), cliente_id').single();
+    expect(data!.setores?.nome).toBe('Fiscal');
+    expect(data!.titulo).toBe('NF de venda – Supermercado Brasil / Santa Efigênia');
+    expect(data!.resumo).toContain('CNPJ 11.111.111/0001-91');
+    expect(data!.resumo).toContain('20 PAC Costela com Requeijão (cód. 12) × R$ 9,50 = R$ 190,00');
+    expect(data!.resumo).toContain('3 PAC lasanha – PRODUTO NÃO CADASTRADO');
+    expect(data!.resumo).toContain('Observação: contato sem permissão para pedir nota.');
+  });
+
+  it('recusa unidade de fornecedor num pedido de venda', async () => {
+    expect((await usar('abrir_pedido_nota', pedido({ unidade_id: cad.boiBom })))._erro).toBe(true);
+    expect((await db.from('chamados').select('id')).data).toHaveLength(0);
+  });
+
+  it('recusa produto de outra empresa', async () => {
+    const { data: y } = await db.from('clientes').insert({ razao_social: 'Indústria Y', cnpj: '99888777000166' }).select().single();
+    const { data: alheio } = await db.from('produtos').insert({ cliente_id: y!.id, codigo: '1', descricao: 'Alheio' }).select().single();
+    const r = await usar('abrir_pedido_nota', pedido({ itens: [{ produto_id: alheio!.id, texto: 'alheio', quantidade: 1, unidade: 'UN' }] }));
+    expect(r._erro).toBe(true);
+  });
+
+  it('devolução para fornecedor, sem preço', async () => {
+    const r = await usar('abrir_pedido_nota', pedido({ tipo: 'devolucao', unidade_id: cad.boiBom, texto_destinatario: 'Boi Bom',
+      itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 3, unidade: 'PAC' }], pedido_original: 'devolução de 3 costela pro Boi Bom' }));
+    expect(r._erro).toBe(false);
+    const { data } = await db.from('chamados').select('titulo, resumo').single();
+    expect(data!.titulo).toBe('NF de devolução – Frigorífico Boi Bom / Matriz');
+    expect(data!.resumo).not.toContain('R$');
+  });
+});

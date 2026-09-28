@@ -5,6 +5,7 @@ import type { Repos } from '@escritorio/db';
 import { enviarDoSistema, type DepsEnvio } from '../envio';
 import { buscarParceiros, buscarProdutos } from './cadastros';
 import type { ClienteIa } from './cliente-ia';
+import { montarPedidoNota, type ItemPedido } from './pedido-nota';
 import type { ContextoAgente } from './contexto';
 
 export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
@@ -55,6 +56,25 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
     input_schema: objeto({ textos: { type: 'array', items: { type: 'string' } } }, ['textos']),
   },
   {
+    name: 'abrir_pedido_nota',
+    description: 'Abre a demanda de nota fiscal no Fiscal, já organizada: destinatário (ou fornecedor, na devolução) e itens identificados nos cadastros, com o preço da tabela preenchido pelo sistema. Use depois de buscar_parceiros e buscar_produtos. unidade_id/produto_id vazios (null) = não cadastrado.',
+    input_schema: objeto({
+      tipo: { type: 'string', enum: ['venda', 'devolucao'] },
+      unidade_id: { type: ['string', 'null'] },
+      texto_destinatario: { type: 'string', description: 'Como o cliente se referiu ao destinatário.' },
+      itens: {
+        type: 'array',
+        items: objeto({
+          produto_id: { type: ['string', 'null'] },
+          texto: { type: 'string', description: 'Como o cliente escreveu o item.' },
+          quantidade: { type: 'number' },
+          unidade: { type: 'string', description: 'PAC, kg, UN… como o cliente informou.' },
+        }, ['produto_id', 'texto', 'quantidade', 'unidade']),
+      },
+      pedido_original: { type: 'string', description: 'Texto do pedido do cliente, copiado sem alterar.' },
+    }, ['tipo', 'unidade_id', 'texto_destinatario', 'itens', 'pedido_original']),
+  },
+  {
     name: 'responder',
     description: 'Envia texto ao cliente no WhatsApp. Cada parágrafo (separado por uma linha em branco) vira uma mensagem separada, no máximo 3.',
     input_schema: objeto({ texto: { type: 'string' } }, ['texto']),
@@ -68,6 +88,15 @@ const Entradas = {
   sinalizar_nao_entendido: z.object({}),
   buscar_parceiros: z.object({ texto: z.string().min(1).max(200), tipo: z.enum(['cliente', 'fornecedor']) }),
   buscar_produtos: z.object({ textos: z.array(z.string().min(1).max(200)).min(1).max(30) }),
+  abrir_pedido_nota: z.object({
+    tipo: z.enum(['venda', 'devolucao']),
+    unidade_id: z.string().nullable(),
+    texto_destinatario: z.string().min(1).max(300),
+    itens: z.array(z.object({
+      produto_id: z.string().nullable(), texto: z.string().min(1).max(200), quantidade: z.number().positive(), unidade: z.string().max(20),
+    })).min(1).max(50),
+    pedido_original: z.string().min(1).max(4000),
+  }),
   responder: z.object({ texto: z.string().min(1).max(4000) }),
 };
 
@@ -90,6 +119,10 @@ function exigirEmpresa(estado: EstadoExecucao): { clienteId: string } | Resultad
   const empresa = estado.ctx.empresaEmFoco;
   if (!empresa) return falha('Nenhuma empresa definida para este contato. Número desconhecido: use abrir_chamado com "triagem".');
   return { clienteId: empresa.id };
+}
+
+function avisoForaDoHorario(ctx: ContextoAgente): string | null {
+  return ctx.noExpediente ? null : formatarMensagem(ctx.config.mensagens.fora_do_horario ?? '', ctx.config.expediente as never);
 }
 
 async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: keyof typeof Entradas, entrada: any): Promise<Resultado> {
@@ -134,7 +167,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       }
       await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: 0 });
       const setorNome = ctx.setores.find((s) => s.id === setorId)?.nome ?? 'Triagem';
-      const aviso = ctx.noExpediente ? null : formatarMensagem(ctx.config.mensagens.fora_do_horario ?? '', ctx.config.expediente as never);
+      const aviso = avisoForaDoHorario(ctx);
       return ok({ numero, setor: setorNome, fora_do_horario: !ctx.noExpediente, aviso_para_o_cliente: aviso });
     }
 
@@ -172,6 +205,46 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
       return ok({ resultados: await buscarProdutos(d.repos, e.clienteId, entrada.textos) });
+    }
+
+    case 'abrir_pedido_nota': {
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      const tipoParceiro = entrada.tipo === 'venda' ? 'cliente' : 'fornecedor';
+      const unidades = await d.repos.unidadesDaEmpresa(e.clienteId, tipoParceiro);
+      const destino = entrada.unidade_id ? unidades.find((u) => u.id === entrada.unidade_id) ?? null : null;
+      if (entrada.unidade_id && !destino) {
+        return falha(`unidade_id não é ${tipoParceiro === 'cliente' ? 'um cliente' : 'um fornecedor'} desta empresa. Use buscar_parceiros com o tipo certo.`);
+      }
+      const produtos = await d.repos.produtosDaEmpresa(e.clienteId);
+      const itensEntrada = entrada.itens as { produto_id: string | null; texto: string; quantidade: number; unidade: string }[];
+      if (itensEntrada.some((i) => i.produto_id && !produtos.some((p) => p.id === i.produto_id))) {
+        return falha('produto_id não pertence a esta empresa. Use buscar_produtos.');
+      }
+      const precos = entrada.tipo === 'venda' && destino
+        ? await d.repos.precosVigentes(e.clienteId, destino.grupoId, itensEntrada.flatMap((i) => (i.produto_id ? [i.produto_id] : [])))
+        : {};
+      const itens: ItemPedido[] = itensEntrada.map((i) => ({
+        produto: produtos.find((p) => p.id === i.produto_id) ?? null, texto: i.texto, quantidade: i.quantidade, unidade: i.unidade,
+        preco: i.produto_id ? precos[i.produto_id] ?? null : null,
+      }));
+      const { titulo, resumo } = montarPedidoNota({
+        tipo: entrada.tipo, destino, textoDestinatario: entrada.texto_destinatario, itens,
+        pedidoOriginal: entrada.pedido_original, semPermissao: !ctx.empresaEmFoco!.podePedirNota,
+      });
+      const setorId = await d.repos.setorPorNome('Fiscal');
+      const responsavelId = escolherResponsavel(setorId, await d.repos.responsaveisDoCliente(e.clienteId));
+      const { numero } = await d.repos.abrirChamado({
+        clienteId: e.clienteId, conversaId: ctx.conversa.id, setorId, responsavelId,
+        titulo, resumo, foraDoContrato: false, origem: 'agente',
+      });
+      await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: 0 });
+      const aviso = avisoForaDoHorario(ctx);
+      return ok({
+        numero, setor: setorId ? 'Fiscal' : 'Triagem', itens_sem_cadastro: itens.filter((i) => !i.produto).length,
+        sem_preco: entrada.tipo === 'venda' ? itens.filter((i) => i.produto && i.preco === null).length : 0,
+        fora_do_horario: !ctx.noExpediente, aviso_para_o_cliente: aviso,
+      });
     }
 
     case 'responder': {
