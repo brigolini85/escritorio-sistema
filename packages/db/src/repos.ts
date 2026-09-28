@@ -31,6 +31,14 @@ export type NovoChamado = {
   clienteId: string | null; conversaId: string | null; setorId: string | null; responsavelId: string | null;
   titulo: string; resumo: string; foraDoContrato: boolean; origem: string;
 };
+export type TipoParceiro = 'cliente' | 'fornecedor';
+export type UnidadeParceiro = {
+  id: string; grupoId: string; tipo: TipoParceiro; rede: string; unidade: string;
+  razaoSocial: string | null; cnpj: string | null; ie: string | null; bairro: string | null; cidade: string | null; uf: string | null;
+  palavrasChave: string[];
+};
+export type ProdutoEmpresa = { id: string; codigo: string; descricao: string; unidade: string; apelidos: string[] };
+export type DocumentoEmpresa = { id: string; nome: string; arquivoPath: string; arquivoNome: string; arquivoMime: string; iaPodeEnviar: boolean };
 
 /** Devolve os dados de uma consulta bem-sucedida; o tipo vem só do caso de sucesso. */
 function checar<T>(r: PostgrestSingleResponse<T>, contexto: string): T {
@@ -318,6 +326,43 @@ export function criarRepos(db: Db) {
     async marcarAlertadoFila(ids: string[]): Promise<void> {
       if (ids.length === 0) return;
       checar(await db.from('chamados').update({ alertado_fila_em: new Date().toISOString() }).in('id', ids), 'marcarAlertadoFila');
+    },
+
+    async unidadesDaEmpresa(clienteId: string, tipo: TipoParceiro): Promise<UnidadeParceiro[]> {
+      const linhas = checar(await db.from('parceiros_unidades')
+        .select('id, nome_unidade, razao_social, cnpj, inscricao_estadual, bairro, cidade, uf, palavras_chave, parceiros_grupos!inner(id, nome, tipo, palavras_chave, ativo)')
+        .eq('cliente_id', clienteId).eq('ativo', true)
+        .eq('parceiros_grupos.tipo', tipo).eq('parceiros_grupos.ativo', true)
+        .order('nome_unidade'), 'unidadesDaEmpresa');
+      return linhas.map((l) => ({
+        id: l.id, grupoId: l.parceiros_grupos.id, tipo: l.parceiros_grupos.tipo, rede: l.parceiros_grupos.nome, unidade: l.nome_unidade,
+        razaoSocial: l.razao_social, cnpj: l.cnpj, ie: l.inscricao_estadual, bairro: l.bairro, cidade: l.cidade, uf: l.uf,
+        palavrasChave: [...l.parceiros_grupos.palavras_chave, ...l.palavras_chave],
+      }));
+    },
+
+    async produtosDaEmpresa(clienteId: string): Promise<ProdutoEmpresa[]> {
+      const linhas = checar(await db.from('produtos').select('id, codigo, descricao, unidade, apelidos')
+        .eq('cliente_id', clienteId).eq('ativo', true).order('descricao'), 'produtosDaEmpresa');
+      return linhas.map((p) => ({ id: p.id, codigo: p.codigo, descricao: p.descricao, unidade: p.unidade, apelidos: p.apelidos }));
+    },
+
+    async precosVigentes(clienteId: string, grupoId: string, produtoIds: string[]): Promise<Record<string, number>> {
+      if (produtoIds.length === 0) return {};
+      const linhas = checar(await db.from('precos').select('produto_id, valor').eq('cliente_id', clienteId)
+        .eq('grupo_id', grupoId).in('produto_id', produtoIds).is('vigente_ate', null), 'precosVigentes');
+      return Object.fromEntries(linhas.map((l) => [l.produto_id, Number(l.valor)]));
+    },
+
+    async documentosDaEmpresa(clienteId: string): Promise<DocumentoEmpresa[]> {
+      const linhas = checar(await db.from('documentos_empresa').select('id, nome, arquivo_path, arquivo_nome, arquivo_mime, ia_pode_enviar')
+        .eq('cliente_id', clienteId).order('nome'), 'documentosDaEmpresa');
+      return linhas.map((d) => ({ id: d.id, nome: d.nome, arquivoPath: d.arquivo_path, arquivoNome: d.arquivo_nome, arquivoMime: d.arquivo_mime, iaPodeEnviar: d.ia_pode_enviar }));
+    },
+
+    async setorPorNome(nome: string): Promise<string | null> {
+      const s = checar(await db.from('setores').select('id').eq('nome', nome).eq('ativo', true).maybeSingle(), 'setorPorNome');
+      return s?.id ?? null;
     },
 
     async resumoDoDia(inicio: Date) {
