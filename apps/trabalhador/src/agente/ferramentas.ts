@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { escolherResponsavel, formatarMensagem } from '@escritorio/core';
 import type { Repos } from '@escritorio/db';
 import { enviarDoSistema, type DepsEnvio } from '../envio';
+import { buscarParceiros, buscarProdutos } from './cadastros';
 import type { ClienteIa } from './cliente-ia';
 import type { ContextoAgente } from './contexto';
 
@@ -41,6 +42,19 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
     input_schema: objeto({}, []),
   },
   {
+    name: 'buscar_parceiros',
+    description: 'Procura, nos cadastros da empresa em foco, as unidades de clientes (tipo "cliente", para nota de venda) ou de fornecedores (tipo "fornecedor", para nota de devolução) que combinam com o texto do cliente. Devolve até 5 candidatos.',
+    input_schema: objeto({
+      texto: { type: 'string', description: 'Como o cliente se referiu ao destinatário, por exemplo "Brasil Santa Efigênia".' },
+      tipo: { type: 'string', enum: ['cliente', 'fornecedor'] },
+    }, ['texto', 'tipo']),
+  },
+  {
+    name: 'buscar_produtos',
+    description: 'Procura, nos produtos cadastrados da empresa em foco, cada item citado pelo cliente (nome, apelido ou código). Devolve até 5 candidatos por item.',
+    input_schema: objeto({ textos: { type: 'array', items: { type: 'string' } } }, ['textos']),
+  },
+  {
     name: 'responder',
     description: 'Envia texto ao cliente no WhatsApp. Cada parágrafo (separado por uma linha em branco) vira uma mensagem separada, no máximo 3.',
     input_schema: objeto({ texto: { type: 'string' } }, ['texto']),
@@ -52,6 +66,8 @@ const Entradas = {
   abrir_chamado: z.object({ setor_id: z.string(), titulo: z.string().min(3).max(120), resumo: z.string().min(1).max(4000), fora_do_contrato: z.boolean() }),
   consultar_chamados: z.object({}),
   sinalizar_nao_entendido: z.object({}),
+  buscar_parceiros: z.object({ texto: z.string().min(1).max(200), tipo: z.enum(['cliente', 'fornecedor']) }),
+  buscar_produtos: z.object({ textos: z.array(z.string().min(1).max(200)).min(1).max(30) }),
   responder: z.object({ texto: z.string().min(1).max(4000) }),
 };
 
@@ -65,6 +81,15 @@ function empresaDefinida(estado: EstadoExecucao): Resultado | null {
     return falha('O contato fala por mais de uma empresa. Pergunte de qual empresa se trata e use selecionar_empresa antes.');
   }
   return null;
+}
+
+/** Ferramentas de cadastro só funcionam com a empresa em foco definida (e nunca para número desconhecido). */
+function exigirEmpresa(estado: EstadoExecucao): { clienteId: string } | Resultado {
+  const bloqueio = empresaDefinida(estado);
+  if (bloqueio) return bloqueio;
+  const empresa = estado.ctx.empresaEmFoco;
+  if (!empresa) return falha('Nenhuma empresa definida para este contato. Número desconhecido: use abrir_chamado com "triagem".');
+  return { clienteId: empresa.id };
 }
 
 async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: keyof typeof Entradas, entrada: any): Promise<Resultado> {
@@ -135,6 +160,18 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       }
       await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: tentativas });
       return ok({ instrucao: 'Peça gentilmente para o cliente explicar de outra forma.' });
+    }
+
+    case 'buscar_parceiros': {
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      return ok({ candidatos: await buscarParceiros(d.repos, e.clienteId, entrada.texto, entrada.tipo) });
+    }
+
+    case 'buscar_produtos': {
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      return ok({ resultados: await buscarProdutos(d.repos, e.clienteId, entrada.textos) });
     }
 
     case 'responder': {
