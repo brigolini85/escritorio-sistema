@@ -2,7 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { escolherResponsavel, formatarMensagem } from '@escritorio/core';
 import type { Repos } from '@escritorio/db';
-import { enviarDoSistema, type DepsEnvio } from '../envio';
+import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
 import { buscarParceiros, buscarProdutos } from './cadastros';
 import type { ClienteIa } from './cliente-ia';
 import { montarPedidoNota, type ItemPedido } from './pedido-nota';
@@ -75,6 +75,16 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
     }, ['tipo', 'unidade_id', 'texto_destinatario', 'itens', 'pedido_original']),
   },
   {
+    name: 'listar_documentos',
+    description: 'Lista os documentos cadastrados da empresa em foco (contrato social etc.) e se cada um pode ser enviado pela IA.',
+    input_schema: objeto({}, []),
+  },
+  {
+    name: 'enviar_documento',
+    description: 'Envia pelo WhatsApp um documento da empresa em foco que esteja liberado para envio pela IA.',
+    input_schema: objeto({ documento_id: { type: 'string' } }, ['documento_id']),
+  },
+  {
     name: 'responder',
     description: 'Envia texto ao cliente no WhatsApp. Cada parágrafo (separado por uma linha em branco) vira uma mensagem separada, no máximo 3.',
     input_schema: objeto({ texto: { type: 'string' } }, ['texto']),
@@ -97,6 +107,8 @@ const Entradas = {
     })).min(1).max(50),
     pedido_original: z.string().min(1).max(4000),
   }),
+  listar_documentos: z.object({}),
+  enviar_documento: z.object({ documento_id: z.string() }),
   responder: z.object({ texto: z.string().min(1).max(4000) }),
 };
 
@@ -245,6 +257,26 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
         sem_preco: entrada.tipo === 'venda' ? itens.filter((i) => i.produto && i.preco === null).length : 0,
         fora_do_horario: !ctx.noExpediente, aviso_para_o_cliente: aviso,
       });
+    }
+
+    case 'listar_documentos': {
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      const docs = await d.repos.documentosDaEmpresa(e.clienteId);
+      return ok({ documentos: docs.map((x) => ({ id: x.id, nome: x.nome, ia_pode_enviar: x.iaPodeEnviar })) });
+    }
+
+    case 'enviar_documento': {
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      const doc = (await d.repos.documentosDaEmpresa(e.clienteId)).find((x) => x.id === entrada.documento_id);
+      if (!doc) return falha('Documento não encontrado nesta empresa. Use listar_documentos.');
+      if (!doc.iaPodeEnviar) return falha('Este documento não está liberado para envio automático. Abra uma demanda com abrir_chamado para a equipe enviar.');
+      const atual = await d.repos.obterConversa(ctx.conversa.id);
+      if (atual.estado === 'humano') return falha('Um atendente assumiu esta conversa. Não envie nada.');
+      await enviarDocumentoDoSistema(d.envio, { conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: e.clienteId, documento: doc });
+      estado.respondeu = true;
+      return ok({ enviado: true, documento: doc.nome });
     }
 
     case 'responder': {

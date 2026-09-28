@@ -3,7 +3,7 @@ import type { Db } from '@escritorio/db';
 export interface ArmazenamentoMidia {
   baixarESalvar(url: string, conversaId: string, nomeArquivo: string, mime: string | null): Promise<{ path: string; bytes: Uint8Array; mime: string }>;
   ler(path: string): Promise<Uint8Array>;
-  urlAssinada(path: string, segundos: number): Promise<string>;
+  urlAssinada(path: string, segundos: number, bucket?: string): Promise<string>;
   remover(paths: string[]): Promise<void>;
 }
 
@@ -30,8 +30,8 @@ export function criarArmazenamento(db: Db, buscar: typeof fetch = fetch): Armaze
       if (error || !data) throw new Error(`leitura falhou: ${error?.message}`);
       return new Uint8Array(await data.arrayBuffer());
     },
-    async urlAssinada(path, segundos) {
-      const { data, error } = await db.storage.from(BUCKET).createSignedUrl(path, segundos);
+    async urlAssinada(path, segundos, bucket = BUCKET) {
+      const { data, error } = await db.storage.from(bucket).createSignedUrl(path, segundos);
       if (error || !data) throw new Error(`url assinada falhou: ${error?.message}`);
       return data.signedUrl;
     },

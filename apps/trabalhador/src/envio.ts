@@ -1,5 +1,5 @@
 import { normalizarTelefone } from '@escritorio/core';
-import type { Repos } from '@escritorio/db';
+import type { DocumentoEmpresa, Repos } from '@escritorio/db';
 import type { CanalWhatsApp, MensagemRecebida } from './canal/tipos';
 import type { ArmazenamentoMidia } from './midia/armazenamento';
 
@@ -38,6 +38,23 @@ export async function enviarDoSistema(
   if (p.autor === 'sistema') await d.limitador.aguardar();
   try {
     const { idProvedor } = await d.canal.enviarTexto(p.telefone, p.texto);
+    await d.repos.marcarEnviada(id, idProvedor);
+    return id;
+  } catch (e) {
+    await d.repos.marcarFalha(id);
+    throw e;
+  }
+}
+
+/** Documento da empresa (bucket "documentos"): registra antes, como em enviarDoSistema, e envia pela URL assinada. */
+export async function enviarDocumentoDoSistema(
+  d: DepsEnvio,
+  p: { conversaId: string; telefone: string; clienteId: string; documento: DocumentoEmpresa },
+): Promise<string> {
+  const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: 'agente', conteudo: `📎 ${p.documento.nome}` });
+  try {
+    const url = await d.midia.urlAssinada(p.documento.arquivoPath, 600, 'documentos');
+    const { idProvedor } = await d.canal.enviarArquivo(p.telefone, { url, nome: p.documento.arquivoNome });
     await d.repos.marcarEnviada(id, idProvedor);
     return id;
   } catch (e) {

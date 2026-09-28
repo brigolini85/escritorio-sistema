@@ -103,3 +103,30 @@ describe('abrir_pedido_nota', () => {
     expect(data!.resumo).not.toContain('R$');
   });
 });
+describe('documentos', () => {
+  it('lista os documentos da empresa com a marcação de envio', async () => {
+    const r = await usar('listar_documentos', {});
+    expect(r.documentos).toEqual([
+      { id: cad.balanco, nome: 'Balanço 2025', ia_pode_enviar: false },
+      { id: cad.contrato, nome: 'Contrato social', ia_pode_enviar: true },
+    ]);
+  });
+  it('envia o documento liberado e registra a mensagem', async () => {
+    const r = await usar('enviar_documento', { documento_id: cad.contrato });
+    expect(r._erro).toBe(false);
+    expect(canal.enviados).toEqual([{ telefone: '5531999990001', arquivo: 'contrato-social.pdf' }]);
+    const { data } = await db.from('mensagens').select('conteudo, status_envio, autor').single();
+    expect(data).toEqual({ conteudo: '📎 Contrato social', status_envio: 'enviada', autor: 'agente' });
+    expect(estado.respondeu).toBe(true);
+  });
+  it('recusa documento não liberado', async () => {
+    expect((await usar('enviar_documento', { documento_id: cad.balanco }))._erro).toBe(true);
+    expect(canal.enviados).toHaveLength(0);
+  });
+  it('recusa documento de outra empresa', async () => {
+    const { data: y } = await db.from('clientes').insert({ razao_social: 'Indústria Y', cnpj: '99888777000166' }).select().single();
+    const { data: doc } = await db.from('documentos_empresa').insert({ cliente_id: y!.id, nome: 'Contrato alheio', arquivo_path: `clientes/${y!.id}/x.pdf`, arquivo_nome: 'x.pdf', ia_pode_enviar: true }).select().single();
+    expect((await usar('enviar_documento', { documento_id: doc!.id }))._erro).toBe(true);
+    expect(canal.enviados).toHaveLength(0);
+  });
+});
