@@ -155,9 +155,17 @@ describe('executarAgente', () => {
     expect(r).toEqual({ status: 'escalar', motivo: 'refusal', respondeu: false });
   });
 
-  it('terminar sem usar responder escala para humano', async () => {
+  it('terminou sem usar responder: recebe um lembrete e, respondendo, segue normal', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
-    const r = await executarAgente(deps(new IaRoteirizada([fim()])), await contexto(conversa.id), conteudo);
+    const ia = new IaRoteirizada([fim(), usarFerramentas({ nome: 'responder', entrada: { texto: 'É a unidade Santa Efigênia ou a Santa Matilde?' } }), fim()]);
+    expect(await executarAgente(deps(ia), await contexto(conversa.id), conteudo)).toEqual({ status: 'ok' });
+    expect(canal.enviados.map((e) => e.texto)).toEqual(['É a unidade Santa Efigênia ou a Santa Matilde?']);
+    expect(JSON.stringify(ia.recebidos[1]!.messages.at(-1))).toContain('ferramenta responder');
+  });
+
+  it('terminar sem responder duas vezes escala para humano', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    const r = await executarAgente(deps(new IaRoteirizada([fim(), fim()])), await contexto(conversa.id), conteudo);
     expect(r).toEqual({ status: 'escalar', motivo: 'terminou sem responder', respondeu: false });
     expect(canal.enviados).toHaveLength(0);
   });

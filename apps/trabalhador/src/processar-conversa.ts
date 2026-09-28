@@ -122,7 +122,8 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
   const pausado = config.agentePausado || ctx.empresaEmFoco?.agentePausado === true
     || (empresas.length > 0 && empresas.every((e) => e.agentePausado));
   if (pausado) {
-    await encaminharParaHumano(d, conversa, 'Agente pausado: atender manualmente', config.mensagens.agente_pausado ?? null);
+    // Pausado não manda nada ao cliente (decisão do dono, 2026-09-28): a equipe vê a mensagem e a triagem no painel.
+    await encaminharParaHumano(d, conversa, 'Agente pausado: atender manualmente', null);
     await d.repos.marcarProcessadas(ids);
     return 'pausado';
   }

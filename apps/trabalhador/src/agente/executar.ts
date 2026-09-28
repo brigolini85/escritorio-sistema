@@ -5,6 +5,8 @@ import { FERRAMENTAS, executarFerramenta, type DepsAgente, type EstadoExecucao }
 import { montarSistema } from './prompt';
 
 export const MAX_ITERACOES = 6;
+const LEMBRETE_RESPONDER =
+  'Nada foi enviado ao cliente: texto fora das ferramentas não chega a ele. Use a ferramenta responder para falar com o cliente (ou abra um chamado, se for o caso).';
 /** `respondeu`: se o agente mandou alguma mensagem ao cliente neste turno (antes de escalar). */
 export type ResultadoAgente = { status: 'ok' } | { status: 'escalar'; motivo: string; respondeu: boolean };
 
@@ -26,6 +28,7 @@ export async function executarAgente(d: DepsAgente, ctx: ContextoAgente, conteud
   const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: montarSistema(ctx.setores, ctx.respostasProntas), cache_control: { type: 'ephemeral' } }];
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: conteudo }];
   const estado: EstadoExecucao = { ctx, respondeu: false };
+  let lembrado = false;
 
   for (let i = 0; i < MAX_ITERACOES; i++) {
     const r = await d.ia.criar({
@@ -41,7 +44,16 @@ export async function executarAgente(d: DepsAgente, ctx: ContextoAgente, conteud
     if (r.stop_reason === 'refusal' || r.stop_reason === 'max_tokens') return { status: 'escalar', motivo: r.stop_reason, respondeu: estado.respondeu };
     const usos = r.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
     if (r.stop_reason !== 'tool_use' || usos.length === 0) {
-      return estado.respondeu ? { status: 'ok' } : { status: 'escalar', motivo: 'terminou sem responder', respondeu: false };
+      if (estado.respondeu) return { status: 'ok' };
+      // Às vezes o modelo escreve a resposta como texto em vez de usar a ferramenta: um lembrete antes de escalar.
+      // Sem lembrete se já lembrou, ou se um atendente assumiu a conversa (aí o agente não deve falar).
+      if (lembrado || (await d.repos.obterConversa(ctx.conversa.id)).estado === 'humano') {
+        return { status: 'escalar', motivo: 'terminou sem responder', respondeu: false };
+      }
+      lembrado = true;
+      messages.push({ role: 'assistant', content: r.content });
+      messages.push({ role: 'user', content: [{ type: 'text', text: LEMBRETE_RESPONDER }] });
+      continue;
     }
 
     messages.push({ role: 'assistant', content: r.content });

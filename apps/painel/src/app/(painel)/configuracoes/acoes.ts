@@ -80,7 +80,8 @@ export async function removerFeriado(data: string) {
 
 export async function salvarMensagens(formData: FormData) {
   await exigirAdmin();
-  const chaves = ['aviso_lgpd', 'fora_do_horario', 'agente_pausado', 'ia_indisponivel'];
+  // Com o agente pausado nada é enviado ao cliente (decisão do dono, 2026-09-28): não há mensagem de pausa.
+  const chaves = ['aviso_lgpd', 'fora_do_horario', 'ia_indisponivel'];
   const mensagens = Object.fromEntries(chaves.map((k) => [k, String(formData.get(k) ?? '').trim()]));
   checar(await (await supabaseServidor()).from('configuracoes').update({ mensagens }).eq('id', 1));
   recarregar();

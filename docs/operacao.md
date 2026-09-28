@@ -102,7 +102,7 @@ Com o número de teste conectado, mande mensagens do seu celular pessoal e confi
 
 ### Pausar o agente
 
-Em **Início**, clique em **Pausar agente**. A partir daí, toda mensagem recebe um aviso de que uma pessoa vai atender, e vira chamado de triagem para a equipe. Use quando o agente estiver respondendo algo errado, em época de muito movimento em que você prefira atendimento só humano, ou enquanto pede uma correção ao Claude. Para voltar, clique em **Retomar agente**. Também dá para pausar só para um cliente, na ficha dele (Clientes → cliente → "Pausar o agente para este cliente").
+Em **Início**, clique em **Pausar agente**. A partir daí, o cliente **não recebe nenhuma resposta automática**: as mensagens aparecem para a equipe no painel (Atendimento) e viram uma demanda de triagem, e alguém da equipe responde. Use quando o agente estiver respondendo algo errado, em época de muito movimento em que você prefira atendimento só humano, ou enquanto pede uma correção ao Claude. Para voltar, clique em **Retomar agente**. Também dá para pausar só para um cliente, na ficha dele (Clientes → cliente → "Pausar o agente para este cliente").
 
 ### Quando chegar o e-mail "WhatsApp desconectado"
 

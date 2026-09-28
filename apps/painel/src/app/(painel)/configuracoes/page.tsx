@@ -150,7 +150,7 @@ export default async function Configuracoes() {
       <form action={salvarMensagens} className={caixa}>
         <h2 className="font-semibold">Mensagens automáticas</h2>
         {[['aviso_lgpd', 'Aviso de privacidade (primeiro contato)'], ['fora_do_horario', 'Fora do horário ({inicio} e {fim} viram os horários)'],
-          ['agente_pausado', 'Agente pausado'], ['ia_indisponivel', 'IA indisponível']].map(([k, rotulo]) => (
+          ['ia_indisponivel', 'IA indisponível']].map(([k, rotulo]) => (
           <label key={k} className="block text-sm">{rotulo}<textarea name={k} defaultValue={mensagens[k!] ?? ''} rows={2} className={`${input} mt-1 w-full`} /></label>
         ))}
         <button className="rounded bg-slate-900 px-3 py-1 text-white">Salvar mensagens</button>

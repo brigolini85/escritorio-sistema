@@ -138,15 +138,17 @@ describe('processarConversa', () => {
     expect(canal.enviados).toHaveLength(0);
   });
 
-  it('agente pausado: mensagem padrão, chamado de triagem e nenhuma chamada à IA', async () => {
+  it('agente pausado: não manda nada ao cliente, abre uma triagem e não chama a IA (decisão do dono)', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await db.from('configuracoes').update({ agente_pausado: true }).eq('id', 1);
-    await receber(conversa.id, 'M1', 'oi');
     const ia = respondeOi();
-    expect(await processarConversa(deps(ia), conversa.id, false)).toBe('pausado');
+    for (const [i, texto] of ['oi', 'tem alguém aí?', 'preciso da guia'].entries()) {
+      await receber(conversa.id, `M${i}`, texto);
+      expect(await processarConversa(deps(ia), conversa.id, false)).toBe('pausado');
+    }
     expect(ia.recebidos).toHaveLength(0);
-    expect(canal.enviados.at(-1)?.texto).toContain('uma pessoa da nossa equipe');
-    expect((await db.from('chamados').select('setor_id').single()).data).toEqual({ setor_id: null });
+    expect(canal.enviados).toEqual([]);
+    expect((await db.from('chamados').select('setor_id')).data).toEqual([{ setor_id: null }]);
   });
 
   it('teto de gasto com IA atingido: não chama a IA e encaminha para humano', async () => {
