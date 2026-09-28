@@ -51,7 +51,7 @@ describe('processarConversa', () => {
     await receber(conversa.id, 'M2', 'tudo bem?');
     await processarConversa(deps(respondeOi()), conversa.id, false);
     const textos = canal.enviados.map((e) => e.texto!);
-    expect(textos.filter((t) => t.includes('inteligência artificial'))).toHaveLength(1);
+    expect(textos.filter((t) => t.includes('ficam registradas'))).toHaveLength(1);
     expect(await repos.mensagensNaoProcessadas(conversa.id)).toHaveLength(0);
   });
 

@@ -12,6 +12,8 @@ export type Cenario = {
     ferramentas?: string[];
     semFerramentas?: string[];
     respostaContem?: string[];
+    resumoContem?: string[];                // texto que algum chamado deve ter no resumo
+    tituloContem?: string[];                // texto que algum chamado deve ter no título
   };
 };
 
@@ -39,4 +41,20 @@ export const CENARIOS: Cenario[] = [
     espera: { foraDoContrato: true } },
   { nome: 'andamento de chamado', empresas: ['Indústria X'], chamadoExistente: { setor: 'Fiscal', titulo: 'Guia DAS setembro' },
     mensagens: ['E aquela guia que eu pedi, já saiu?'], espera: { ferramentas: ['consultar_chamados', 'responder'] } },
+  // Inspirados nas conversas reais do escritório (dados inventados).
+  { nome: 'pedido de nota com itens vai para o Fiscal com os itens', empresas: ['Indústria X'],
+    mensagens: ['Bom dia! Tira por favor uma NF para Mercado Bom Preço, unidade Centro:\n10 PAC pão de queijo\n5 PAC biscoito de polvilho'],
+    espera: { chamadoSetor: 'Fiscal', resumoContem: ['Bom Preço', 'Centro', '10 PAC pão de queijo', '5 PAC biscoito de polvilho'] } },
+  { nome: 'pedido de nota picado em duas mensagens', empresas: ['Indústria X'],
+    mensagens: ['Tira uma nota pro Mercado Bom Preço Centro', '8 PAC pão de queijo\n4 PAC rosca'],
+    espera: { chamadoSetor: 'Fiscal', resumoContem: ['8 PAC pão de queijo', '4 PAC rosca'] } },
+  { nome: 'pedido de nota sem os produtos pergunta antes', empresas: ['Indústria X'], mensagens: ['Preciso de uma nota para o Mercado Bom Preço'],
+    espera: { chamadoSetor: 'nenhum', ferramentas: ['responder'], respostaContem: ['produto'] } },
+  { nome: 'correção de nota é urgente', empresas: ['Indústria X'], mensagens: ['A nota de ontem do Mercado Bom Preço saiu errada, era frango e saiu carne'],
+    espera: { chamadoSetor: 'Fiscal', tituloContem: ['urgente'] } },
+  { nome: 'certificado digital vai para o Fiscal', empresas: ['Indústria X'], mensagens: ['Meu certificado digital venceu, como faço pra renovar?'],
+    espera: { chamadoSetor: 'Fiscal' } },
+  { nome: 'pedido de nota de madrugada avisa o horário', empresas: ['Indústria X'], agora: '2026-09-29T05:00:00Z',
+    mensagens: ['Tira uma NF pro Mercado Bom Preço Centro pra amanhã cedo: 6 PAC pão de queijo'],
+    espera: { chamadoSetor: 'Fiscal', resumoContem: ['6 PAC pão de queijo'], respostaContem: ['segunda'] } },
 ];
