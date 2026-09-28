@@ -10,6 +10,7 @@ export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
 export type EstadoExecucao = { ctx: ContextoAgente; respondeu: boolean };
 
 const TRIAGEM = 'triagem';
+const MAX_PARTES_RESPOSTA = 3;
 const objeto = (properties: Record<string, object>, required: string[]) =>
   ({ type: 'object' as const, properties, required, additionalProperties: false });
 
@@ -41,7 +42,7 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
   },
   {
     name: 'responder',
-    description: 'Envia uma mensagem de texto ao cliente no WhatsApp.',
+    description: 'Envia texto ao cliente no WhatsApp. Cada parágrafo (separado por uma linha em branco) vira uma mensagem separada, no máximo 3.',
     input_schema: objeto({ texto: { type: 'string' } }, ['texto']),
   },
 ];
@@ -137,14 +138,25 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     }
 
     case 'responder': {
-      const atual = await d.repos.obterConversa(ctx.conversa.id);
-      if (atual.estado === 'humano') return falha('Um atendente assumiu esta conversa. Não envie nada.');
-      await enviarDoSistema(d.envio, {
-        conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: ctx.empresaEmFoco?.id ?? null,
-        autor: 'agente', texto: entrada.texto,
-      });
+      // Como uma pessoa no WhatsApp: cada parágrafo vai numa mensagem; o excedente fica junto na última.
+      const paragrafos = entrada.texto.split(/\n\s*\n/).map((p: string) => p.trim()).filter(Boolean);
+      const partes = paragrafos.length > MAX_PARTES_RESPOSTA
+        ? [...paragrafos.slice(0, MAX_PARTES_RESPOSTA - 1), paragrafos.slice(MAX_PARTES_RESPOSTA - 1).join('\n\n')]
+        : paragrafos;
+      let enviadas = 0;
+      for (const parte of partes) {
+        // Relê antes de cada parte: se um atendente assumiu no meio, para de mandar.
+        const atual = await d.repos.obterConversa(ctx.conversa.id);
+        if (atual.estado === 'humano') break;
+        await enviarDoSistema(d.envio, {
+          conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: ctx.empresaEmFoco?.id ?? null,
+          autor: 'agente', texto: parte,
+        });
+        enviadas++;
+      }
+      if (enviadas === 0) return falha('Um atendente assumiu esta conversa. Não envie nada.');
       estado.respondeu = true;
-      return ok({ enviado: true });
+      return ok({ enviado: true, mensagens: enviadas });
     }
   }
 }

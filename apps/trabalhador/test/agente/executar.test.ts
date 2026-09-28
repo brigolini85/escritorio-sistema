@@ -36,6 +36,13 @@ describe('executarAgente', () => {
     expect((await db.from('decisoes_agente').select('etapa')).data).toEqual([{ etapa: 'responder' }]);
   });
 
+  it('cada parágrafo vira uma mensagem, no máximo 3 (o excedente vai junto na última)', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Bom dia!\n\nJá passei para o Fiscal.\n \nEles te retornam hoje.\n\nQualquer coisa, chama.' } }), fim()]);
+    await executarAgente(deps(ia), await contexto(conversa.id), conteudo);
+    expect(canal.enviados.map((e) => e.texto)).toEqual(['Bom dia!', 'Já passei para o Fiscal.', 'Eles te retornam hoje.\n\nQualquer coisa, chama.']);
+  });
+
   it('usa o modelo de conversa configurado, com cache no prompt de sistema', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi' } }), fim()]);
