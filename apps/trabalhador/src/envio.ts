@@ -46,14 +46,23 @@ export async function enviarDoSistema(
   }
 }
 
-/** Documento da empresa (bucket "documentos"): registra antes, como em enviarDoSistema, e envia pela URL assinada. */
+/**
+ * Conteúdo do arquivo embutido (data URI em Base64), aceito pela Z-API no lugar do link.
+ * Com link, quem baixa é a Z-API: um endereço que ela não alcança (ex.: Supabase local) falha sem aviso.
+ */
+async function arquivoEmBase64(d: DepsEnvio, path: string, mime: string, bucket?: string): Promise<string> {
+  const bytes = await d.midia.ler(path, bucket);
+  return `data:${mime.split(';')[0]};base64,${Buffer.from(bytes).toString('base64')}`;
+}
+
+/** Documento da empresa (bucket "documentos"): registra antes, como em enviarDoSistema, e envia o conteúdo. */
 export async function enviarDocumentoDoSistema(
   d: DepsEnvio,
   p: { conversaId: string; telefone: string; clienteId: string; documento: DocumentoEmpresa },
 ): Promise<string> {
   const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: 'agente', conteudo: `📎 ${p.documento.nome}` });
   try {
-    const url = await d.midia.urlAssinada(p.documento.arquivoPath, 600, 'documentos');
+    const url = await arquivoEmBase64(d, p.documento.arquivoPath, p.documento.arquivoMime, 'documentos');
     const { idProvedor } = await d.canal.enviarArquivo(p.telefone, { url, nome: p.documento.arquivoNome });
     await d.repos.marcarEnviada(id, idProvedor);
     return id;
@@ -77,7 +86,7 @@ export async function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string, u
       if (m.arquivo_path) await d.repos.separarTextoEnviado(m.id, idProvedor);
     }
     if (m.arquivo_path) {
-      const url = await d.midia.urlAssinada(m.arquivo_path, 600);
+      const url = await arquivoEmBase64(d, m.arquivo_path, m.arquivo_mime ?? 'application/pdf');
       idProvedor = (await d.canal.enviarArquivo(conversa.telefone, { url, nome: m.arquivo_nome ?? 'arquivo.pdf' })).idProvedor;
     }
     await d.repos.marcarEnviada(m.id, idProvedor ?? `sem-id-${m.id}`);

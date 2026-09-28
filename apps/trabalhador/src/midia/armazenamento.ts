@@ -2,7 +2,7 @@ import type { Db } from '@escritorio/db';
 
 export interface ArmazenamentoMidia {
   baixarESalvar(url: string, conversaId: string, nomeArquivo: string, mime: string | null): Promise<{ path: string; bytes: Uint8Array; mime: string }>;
-  ler(path: string): Promise<Uint8Array>;
+  ler(path: string, bucket?: string): Promise<Uint8Array>;
   urlAssinada(path: string, segundos: number, bucket?: string): Promise<string>;
   remover(paths: string[]): Promise<void>;
 }
@@ -25,8 +25,8 @@ export function criarArmazenamento(db: Db, buscar: typeof fetch = fetch): Armaze
       if (error) throw new Error(`upload falhou: ${error.message}`);
       return { path, bytes, mime: tipo };
     },
-    async ler(path) {
-      const { data, error } = await db.storage.from(BUCKET).download(path);
+    async ler(path, bucket = BUCKET) {
+      const { data, error } = await db.storage.from(bucket).download(path);
       if (error || !data) throw new Error(`leitura falhou: ${error?.message}`);
       return new Uint8Array(await data.arrayBuffer());
     },

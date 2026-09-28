@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { criarClienteServico, criarRepos } from '@escritorio/db';
 import { limparBanco } from '@escritorio/db/teste';
 import { CanalFalso } from '../src/canal/falso';
-import { LimitadorEnvio, enviarDoSistema, enviarMensagemDoPainel, verificarEnviadaPorMim, type DepsEnvio } from '../src/envio';
+import { LimitadorEnvio, enviarDocumentoDoSistema, enviarDoSistema, enviarMensagemDoPainel, verificarEnviadaPorMim, type DepsEnvio } from '../src/envio';
 import { criarArmazenamento } from '../src/midia/armazenamento';
 import * as f from './fixtures/zapi/sinteticos';
 
@@ -102,6 +102,30 @@ describe('revisão 2026-09-28 (envio pelo painel)', () => {
     expect(await verificarEnviadaPorMim(d, { ...canal.interpretarWebhook(f.enviadaPorMim)!, idProvedor: idTexto, texto: 'Segue a guia' })).toBe('do-sistema');
     const { count } = await db.from('mensagens').select('*', { count: 'exact', head: true }).eq('conversa_id', conversa.id);
     expect(count).toBe(2);
+  });
+});
+
+describe('arquivo vai com o conteúdo (Base64), não como link', () => {
+  // A Z-API baixa o link do lado dela; um link do Supabase que ela não alcança (ex.: 127.0.0.1) some sem erro.
+  it('documento da empresa enviado pela IA', async () => {
+    const { data: cli } = await db.from('clientes').insert({ razao_social: 'Indústria X', cnpj: '11222333000181' }).select().single();
+    const path = `clientes/${cli!.id}/contrato.pdf`;
+    const pdf = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55, 10]);
+    await db.storage.from('documentos').upload(path, pdf, { contentType: 'application/pdf', upsert: true });
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    await enviarDocumentoDoSistema(d, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: cli!.id,
+      documento: { id: 'x', nome: 'Contrato social', arquivoPath: path, arquivoNome: 'contrato.pdf', arquivoMime: 'application/pdf', iaPodeEnviar: true } });
+    expect(canal.arquivosEnviados).toEqual([{ nome: 'contrato.pdf', url: `data:application/pdf;base64,${Buffer.from(pdf).toString('base64')}` }]);
+  });
+
+  it('arquivo anexado pela equipe no painel', async () => {
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    const path = `conversas/${conversa.id}/guia.pdf`;
+    await db.storage.from('anexos').upload(path, new Uint8Array([1, 2, 3]), { contentType: 'application/pdf', upsert: true });
+    const { data: m } = await db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'saida', autor: 'atendente', tipo: 'documento',
+      arquivo_path: path, arquivo_nome: 'guia.pdf', arquivo_mime: 'application/pdf', status_envio: 'pendente' }).select().single();
+    await enviarMensagemDoPainel(d, m!.id);
+    expect(canal.arquivosEnviados).toEqual([{ nome: 'guia.pdf', url: 'data:application/pdf;base64,AQID' }]);
   });
 });
 
