@@ -38,3 +38,38 @@ test('resposta do assistente com CSV em duas partes mostra um link por parte, se
   await expect(p1).toHaveAttribute('href', `/api/csv-bling?assistente=${msg.id}&parte=1`);
   await expect(p2).toHaveAttribute('href', `/api/csv-bling?assistente=${msg.id}&parte=2`);
 });
+
+async function conversaComDemanda(telefone: string) {
+  await db.from('conversas').delete().eq('telefone', telefone);
+  const { data: conversa } = await db.from('conversas').insert({ telefone }).select().single();
+  const { data: s } = await db.from('setores').select('id').eq('nome', 'Fiscal').single();
+  await db.from('chamados').insert({ conversa_id: conversa!.id, setor_id: s!.id, titulo: 'Guia do DAS' });
+  return conversa!.id as string;
+}
+
+test('caixa do assistente dentro do atendimento grava a pergunta com a conversa, limita o tamanho e mostra avisos', async ({ page }) => {
+  const usuarioId = await criarUsuarioTeste({ email, senha, nome: 'Ana', papel: 'atendente', setores: ['Fiscal'], permissoes: ['assistente_site'] });
+  const conversaId = await conversaComDemanda('5531999990201');
+  await entrar(page, email, senha);
+  await page.goto(`/atendimento/${conversaId}`);
+  await expect(page.getByText('Já sabe deste cliente')).toBeVisible();
+  const campo = page.getByPlaceholder('Pergunte ao assistente');
+  await expect(campo).toHaveAttribute('maxlength', '4000');
+  await campo.fill('resuma esta conversa');
+  await campo.press('Enter');
+  await expect(page.getByText('resuma esta conversa')).toBeVisible();
+  await expect(page.getByText('Pensando…')).toBeVisible();
+  const { data } = await db.from('assistente_mensagens').select('conversa_id, canal, papel').eq('usuario_id', usuarioId);
+  expect(data).toEqual([{ conversa_id: conversaId, canal: 'site', papel: 'usuario' }]);
+  await page.goto(`/atendimento/${conversaId}?erro=${encodeURIComponent('Sem acesso a esta conversa.')}`);
+  await expect(page.getByText('Sem acesso a esta conversa.')).toBeVisible();
+});
+
+test('sem a marcação, a caixa do assistente não aparece no atendimento', async ({ page }) => {
+  await criarUsuarioTeste({ email, senha, nome: 'Ana', papel: 'atendente', setores: ['Fiscal'], permissoes: [] });
+  const conversaId = await conversaComDemanda('5531999990202');
+  await entrar(page, email, senha);
+  await page.goto(`/atendimento/${conversaId}`);
+  await expect(page.getByText('Guia do DAS').first()).toBeVisible();
+  await expect(page.getByPlaceholder('Pergunte ao assistente')).toHaveCount(0);
+});

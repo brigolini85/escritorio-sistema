@@ -12,8 +12,7 @@ export async function ConversaAssistente({ usuarioId, conversaId, compacta = fal
   q = conversaId ? q.eq('conversa_id', conversaId) : q.is('conversa_id', null);
   const { data } = await q.order('criado_em', { ascending: false }).limit(compacta ? 20 : 60);
   const mensagens = (data ?? []).reverse();
-  const ultima = mensagens.at(-1);
-  const pensando = ultima?.papel === 'usuario' && !ultima.processada_em;
+  const pensando = mensagens.some((m) => m.papel === 'usuario' && !m.processada_em);
   return (
     <div className="flex flex-col gap-2">
       <ul className={`space-y-2 overflow-y-auto text-sm ${compacta ? 'max-h-80' : 'max-h-[60vh]'}`}>
@@ -36,7 +35,7 @@ export async function ConversaAssistente({ usuarioId, conversaId, compacta = fal
         {mensagens.length === 0 && <li className="text-slate-500">Pergunte sobre demandas, pedidos, vendas ou peça para corrigir um pedido e gerar o CSV do Bling.</li>}
       </ul>
       <form action={perguntarAoAssistente.bind(null, conversaId)} className="flex gap-2">
-        <input name="pergunta" placeholder="Pergunte ao assistente" required className="flex-1 rounded border p-2 text-sm" autoComplete="off" />
+        <input name="pergunta" placeholder="Pergunte ao assistente" required maxLength={4000} className="flex-1 rounded border p-2 text-sm" autoComplete="off" />
         <button className="rounded bg-slate-900 px-3 py-1 text-sm text-white">Enviar</button>
       </form>
     </div>

@@ -16,7 +16,10 @@ export async function perguntarAoAssistente(conversaId: string | null, formData:
     const conteudo = Pergunta.parse(formData.get('pergunta'));
     const sb = await supabaseServidor();
     const { error } = await sb.from('assistente_mensagens').insert({ usuario_id: u.id, canal: 'site', conversa_id: conversaId, papel: 'usuario', conteudo });
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error('[assistente] falha ao gravar a pergunta', error);
+      throw new Error(error.code === '42501' || error.code === '22P02' ? 'Sem acesso a esta conversa.' : 'Não foi possível enviar a pergunta. Tente de novo.');
+    }
     await enfileirarAssistente({ usuarioId: u.id, conversaId });
   });
   revalidatePath(destino);

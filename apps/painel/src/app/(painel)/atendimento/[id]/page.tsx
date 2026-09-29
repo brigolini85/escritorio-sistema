@@ -9,8 +9,9 @@ import { alterarStatus, assumir, concluir, devolverAoAgente, notaInterna, respon
 const hora = (iso: string) =>
   new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso));
 
-export default async function Conversa({ params }: { params: Promise<{ id: string }> }) {
+export default async function Conversa({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ erro?: string }> }) {
   const { id } = await params;
+  const { erro } = await searchParams;
   const u = await obterUsuario();
   const sb = await supabaseServidor();
   const { data: conversa } = await sb.from('conversas').select('*, contatos(id, nome, agente_pausado), clientes:cliente_em_foco(razao_social, nome_fantasia)').eq('id', id).maybeSingle();
@@ -60,6 +61,7 @@ export default async function Conversa({ params }: { params: Promise<{ id: strin
           <details className="rounded-lg border bg-white p-3 text-sm" open>
             <summary className="cursor-pointer font-semibold">Assistente</summary>
             <p className="my-2 text-xs text-slate-500">Já sabe deste cliente e das demandas desta conversa.</p>
+            {erro && <p className="mb-2 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">{erro}</p>}
             <ConversaAssistente usuarioId={u.id} conversaId={id} compacta />
           </details>
         )}
