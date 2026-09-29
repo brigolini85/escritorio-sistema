@@ -1,11 +1,11 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { escolherResponsavel, formatarMensagem } from '@escritorio/core';
-import type { Repos } from '@escritorio/db';
+import type { Repos, UnidadeParceiro } from '@escritorio/db';
 import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
 import { buscarParceiros, buscarProdutos } from './cadastros';
 import type { ClienteIa } from './cliente-ia';
-import { cnpjFormatado, formatarReais, montarPedidoNota, type ItemPedido } from './pedido-nota';
+import { chaveConferencia, cnpjFormatado, formatarReais, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente, type ItemPedido } from './pedido-nota';
 import type { ContextoAgente } from './contexto';
 
 export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
@@ -15,6 +15,38 @@ const TRIAGEM = 'triagem';
 const MAX_PARTES_RESPOSTA = 3;
 const objeto = (properties: Record<string, object>, required: string[]) =>
   ({ type: 'object' as const, properties, required, additionalProperties: false });
+
+/** Campos de um pedido de nota, iguais no resumo para o cliente e na demanda do Fiscal. */
+const CAMPOS_PEDIDO = {
+  tipo: { type: 'string', enum: ['venda', 'devolucao'] },
+  unidade_id: { type: ['string', 'null'] },
+  texto_destinatario: { type: 'string', description: 'Como o cliente se referiu ao destinatário.' },
+  itens: {
+    type: 'array',
+    items: objeto({
+      produto_id: { type: ['string', 'null'] },
+      texto: { type: 'string', description: 'Como o cliente escreveu o item.' },
+      quantidade: { type: 'number' },
+      unidade: { type: 'string', description: 'PAC, kg, UN… como o cliente informou.' },
+    }, ['produto_id', 'texto', 'quantidade', 'unidade']),
+  },
+  data_prevista: { type: ['string', 'null'], description: 'Data de entrega combinada, DD/MM/AAAA (calcule a partir de "Hoje" no contexto). null se o cliente não disse.' },
+  forma_pagamento: { type: ['string', 'null'], description: 'Como o cliente disse: PIX, Boleto, Dinheiro, Cartão… null se não disse.' },
+  valor_frete: { type: ['number', 'null'], description: 'Valor do frete em reais, se o cliente disse. null se não disse.' },
+  tipo_frete: { type: ['string', 'null'], enum: ['R', 'D', null], description: 'R = frete por conta de quem vende (CIF); D = por conta de quem recebe (FOB). null se não disse.' },
+  transportadora: { type: ['string', 'null'] },
+  observacoes: { type: ['string', 'null'], description: 'Resumo curto do que foi combinado (horário de entrega…). null se nada.' },
+  entrega: {
+    type: ['object', 'null'],
+    description: 'Só se o cliente pedir entrega num endereço diferente do cadastro do destinatário. null = entrega no endereço cadastrado.',
+    properties: {
+      endereco: { type: 'string', description: 'Rua/avenida, sem o número.' }, numero: { type: ['string', 'null'] }, complemento: { type: ['string', 'null'] },
+      bairro: { type: ['string', 'null'] }, cidade: { type: ['string', 'null'] }, uf: { type: ['string', 'null'] }, cep: { type: ['string', 'null'] },
+    },
+    required: ['endereco'],
+  },
+};
+const OBRIGATORIOS_PEDIDO = ['tipo', 'unidade_id', 'texto_destinatario', 'itens'];
 
 export const FERRAMENTAS: Anthropic.Tool[] = [
   {
@@ -56,23 +88,18 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
     input_schema: objeto({ textos: { type: 'array', items: { type: 'string' } } }, ['textos']),
   },
   {
+    name: 'resumir_pedido_nota',
+    description: 'Manda ao cliente, pelo WhatsApp, o resumo de uma nota para ele conferir antes de ir para o Fiscal: destinatário com CNPJ, produtos com código, quantidade, preço da tabela e total, e o que foi combinado. O sistema monta o texto. Uma chamada por nota. Use depois de buscar_parceiros e buscar_produtos. unidade_id/produto_id vazios (null) = não cadastrado.',
+    input_schema: objeto(CAMPOS_PEDIDO, OBRIGATORIOS_PEDIDO),
+  },
+  {
     name: 'abrir_pedido_nota',
-    description: 'Abre a demanda de nota fiscal no Fiscal, já organizada: destinatário (ou fornecedor, na devolução) e itens identificados nos cadastros, com o preço da tabela preenchido pelo sistema. Use depois de buscar_parceiros e buscar_produtos. unidade_id/produto_id vazios (null) = não cadastrado.',
+    description: 'Passa a nota para o Fiscal, já organizada, com o preço da tabela preenchido pelo sistema. Só depois de o cliente confirmar o resumo mandado por resumir_pedido_nota (cliente_confirmou_resumo = true), com o mesmo destinatário e os mesmos itens do resumo. Uma chamada por nota.',
     input_schema: objeto({
-      tipo: { type: 'string', enum: ['venda', 'devolucao'] },
-      unidade_id: { type: ['string', 'null'] },
-      texto_destinatario: { type: 'string', description: 'Como o cliente se referiu ao destinatário.' },
-      itens: {
-        type: 'array',
-        items: objeto({
-          produto_id: { type: ['string', 'null'] },
-          texto: { type: 'string', description: 'Como o cliente escreveu o item.' },
-          quantidade: { type: 'number' },
-          unidade: { type: 'string', description: 'PAC, kg, UN… como o cliente informou.' },
-        }, ['produto_id', 'texto', 'quantidade', 'unidade']),
-      },
+      ...CAMPOS_PEDIDO,
       pedido_original: { type: 'string', description: 'Texto do pedido do cliente, copiado sem alterar.' },
-    }, ['tipo', 'unidade_id', 'texto_destinatario', 'itens', 'pedido_original']),
+      cliente_confirmou_resumo: { type: 'boolean', description: 'true só depois de o cliente confirmar o resumo e dizer que não tem mais nota para pedir agora.' },
+    }, [...OBRIGATORIOS_PEDIDO, 'pedido_original', 'cliente_confirmou_resumo']),
   },
   {
     name: 'listar_documentos',
@@ -104,11 +131,41 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
     }, ['unidade_id', 'produto_id', 'novo_valor', 'confirmado_pelo_cliente']),
   },
   {
+    name: 'cadastrar_produto',
+    description: 'Cadastra um produto novo na empresa em foco. Só use depois de o cliente confirmar explicitamente código, descrição e unidade (confirmado_pelo_cliente = true). Exige que o contato tenha permissão para mudar preço. O preço é por rede: depois de cadastrar, use alterar_preco se o cliente informar o valor.',
+    input_schema: objeto({
+      codigo: { type: 'string', description: 'Código do produto na empresa, como o cliente informou.' },
+      descricao: { type: 'string', description: 'Nome do produto, ex.: "Lasanha Bolonhesa".' },
+      unidade: { type: 'string', description: 'PAC, KG, UN, CX…' },
+      apelidos: { type: 'array', items: { type: 'string' }, description: 'Outros nomes que o cliente usa para o produto (pode ser vazio).' },
+      confirmado_pelo_cliente: { type: 'boolean' },
+    }, ['codigo', 'descricao', 'unidade', 'apelidos', 'confirmado_pelo_cliente']),
+  },
+  {
     name: 'responder',
     description: 'Envia texto ao cliente no WhatsApp. Cada parágrafo (separado por uma linha em branco) vira uma mensagem separada, no máximo 3.',
     input_schema: objeto({ texto: { type: 'string' } }, ['texto']),
   },
 ];
+
+const PedidoNota = z.object({
+  tipo: z.enum(['venda', 'devolucao']),
+  unidade_id: z.string().nullable(),
+  texto_destinatario: z.string().min(1).max(300),
+  itens: z.array(z.object({
+    produto_id: z.string().nullable(), texto: z.string().min(1).max(200), quantidade: z.number().positive(), unidade: z.string().max(20),
+  })).min(1).max(50),
+  data_prevista: z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/, 'data_prevista no formato DD/MM/AAAA').nullish(),
+  forma_pagamento: z.string().max(60).nullish(),
+  valor_frete: z.number().min(0).max(1_000_000).nullish(),
+  tipo_frete: z.enum(['R', 'D']).nullish(),
+  transportadora: z.string().max(120).nullish(),
+  observacoes: z.string().max(500).nullish(),
+  entrega: z.object({
+    endereco: z.string().trim().min(1).max(200), numero: z.string().max(20).nullish(), complemento: z.string().max(100).nullish(),
+    bairro: z.string().max(100).nullish(), cidade: z.string().max(100).nullish(), uf: z.string().max(2).nullish(), cep: z.string().max(10).nullish(),
+  }).nullish(),
+});
 
 const Entradas = {
   selecionar_empresa: z.object({ cliente_id: z.string() }),
@@ -117,22 +174,29 @@ const Entradas = {
   sinalizar_nao_entendido: z.object({}),
   buscar_parceiros: z.object({ texto: z.string().min(1).max(200), tipo: z.enum(['cliente', 'fornecedor']) }),
   buscar_produtos: z.object({ textos: z.array(z.string().min(1).max(200)).min(1).max(30) }),
-  abrir_pedido_nota: z.object({
-    tipo: z.enum(['venda', 'devolucao']),
-    unidade_id: z.string().nullable(),
-    texto_destinatario: z.string().min(1).max(300),
-    itens: z.array(z.object({
-      produto_id: z.string().nullable(), texto: z.string().min(1).max(200), quantidade: z.number().positive(), unidade: z.string().max(20),
-    })).min(1).max(50),
-    pedido_original: z.string().min(1).max(4000),
-  }),
+  resumir_pedido_nota: PedidoNota,
+  abrir_pedido_nota: PedidoNota.extend({ pedido_original: z.string().min(1).max(4000), cliente_confirmou_resumo: z.boolean() }),
   listar_documentos: z.object({}),
   enviar_documento: z.object({ documento_id: z.string() }),
   consultar_cadastro: z.object({ unidade_id: z.string().optional() }),
   consultar_preco: z.object({ unidade_id: z.string(), produto_id: z.string() }),
   alterar_preco: z.object({ unidade_id: z.string(), produto_id: z.string(), novo_valor: z.number().positive().max(1_000_000), confirmado_pelo_cliente: z.boolean() }),
+  cadastrar_produto: z.object({
+    codigo: z.string().trim().min(1).max(40), descricao: z.string().trim().min(1).max(200), unidade: z.string().trim().max(20),
+    apelidos: z.array(z.string().trim().min(1).max(100)).max(10), confirmado_pelo_cliente: z.boolean(),
+  }),
   responder: z.object({ texto: z.string().min(1).max(4000) }),
 };
+
+/** O escritório não usa emoji com os clientes (pedido do dono, 2026-09-29): tira o que o modelo escapar. */
+export function semEmoji(texto: string): string {
+  return texto
+    .replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\u{FE0F}\u{200D}\u{20E3}\u{1F3FB}-\u{1F3FF}]/gu, '')
+    .replace(/[ \t]+([.,!?;:])/g, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+$/gm, '')
+    .trim();
+}
 
 type Resultado = { resultado: string; erro: boolean };
 const ok = (dados: object): Resultado => ({ resultado: JSON.stringify(dados), erro: false });
@@ -157,6 +221,28 @@ function exigirEmpresa(estado: EstadoExecucao): { clienteId: string } | Resultad
 
 function avisoForaDoHorario(ctx: ContextoAgente): string | null {
   return ctx.noExpediente ? null : formatarMensagem(ctx.config.mensagens.fora_do_horario ?? '', ctx.config.expediente as never);
+}
+
+/** Destinatário e itens do pedido de nota, conferidos contra os cadastros da empresa, com o preço da tabela. */
+async function prepararPedido(d: DepsAgente, clienteId: string, entrada: z.infer<typeof PedidoNota>): Promise<{ destino: UnidadeParceiro | null; itens: ItemPedido[] } | Resultado> {
+  const tipoParceiro = entrada.tipo === 'venda' ? 'cliente' : 'fornecedor';
+  const unidades = await d.repos.unidadesDaEmpresa(clienteId, tipoParceiro);
+  const destino = entrada.unidade_id ? unidades.find((u) => u.id === entrada.unidade_id) ?? null : null;
+  if (entrada.unidade_id && !destino) {
+    return falha(`unidade_id não é ${tipoParceiro === 'cliente' ? 'um cliente' : 'um fornecedor'} desta empresa. Use buscar_parceiros com o tipo certo.`);
+  }
+  const produtos = await d.repos.produtosDaEmpresa(clienteId);
+  if (entrada.itens.some((i) => i.produto_id && !produtos.some((p) => p.id === i.produto_id))) {
+    return falha('produto_id não pertence a esta empresa. Use buscar_produtos.');
+  }
+  const precos = entrada.tipo === 'venda' && destino
+    ? await d.repos.precosVigentes(clienteId, destino.grupoId, entrada.itens.flatMap((i) => (i.produto_id ? [i.produto_id] : [])))
+    : {};
+  const itens: ItemPedido[] = entrada.itens.map((i) => ({
+    produto: produtos.find((p) => p.id === i.produto_id) ?? null, texto: i.texto, quantidade: i.quantidade, unidade: i.unidade,
+    preco: i.produto_id ? precos[i.produto_id] ?? null : null,
+  }));
+  return { destino, itens };
 }
 
 async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: keyof typeof Entradas, entrada: any): Promise<Resultado> {
@@ -241,37 +327,52 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       return ok({ resultados: await buscarProdutos(d.repos, e.clienteId, entrada.textos) });
     }
 
+    case 'resumir_pedido_nota': {
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      const p = await prepararPedido(d, e.clienteId, entrada);
+      if ('erro' in p) return p;
+      const atual = await d.repos.obterConversa(ctx.conversa.id);
+      if (atual.estado === 'humano') return falha('Um atendente assumiu esta conversa. Não envie nada.');
+      await enviarDoSistema(d.envio, {
+        conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: e.clienteId, autor: 'agente',
+        texto: montarResumoParaCliente({ tipo: entrada.tipo, destino: p.destino, textoDestinatario: entrada.texto_destinatario, itens: p.itens, extras: entrada }),
+      });
+      estado.respondeu = true;
+      return ok({
+        enviado: true, conferencia: chaveConferencia(entrada),
+        instrucao: 'O resumo já chegou ao cliente. Se for a última nota a resumir agora, pergunte numa mensagem curta se está tudo certo e se tem mais alguma nota. Não repita o resumo.',
+      });
+    }
+
     case 'abrir_pedido_nota': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
-      const tipoParceiro = entrada.tipo === 'venda' ? 'cliente' : 'fornecedor';
-      const unidades = await d.repos.unidadesDaEmpresa(e.clienteId, tipoParceiro);
-      const destino = entrada.unidade_id ? unidades.find((u) => u.id === entrada.unidade_id) ?? null : null;
-      if (entrada.unidade_id && !destino) {
-        return falha(`unidade_id não é ${tipoParceiro === 'cliente' ? 'um cliente' : 'um fornecedor'} desta empresa. Use buscar_parceiros com o tipo certo.`);
+      if (!entrada.cliente_confirmou_resumo) {
+        return falha('Ainda não passe o pedido: mande o resumo com resumir_pedido_nota e espere o cliente confirmar que está certo e que não tem mais nota. Depois chame de novo com cliente_confirmou_resumo = true (uma chamada por nota).');
       }
-      const produtos = await d.repos.produtosDaEmpresa(e.clienteId);
-      const itensEntrada = entrada.itens as { produto_id: string | null; texto: string; quantidade: number; unidade: string }[];
-      if (itensEntrada.some((i) => i.produto_id && !produtos.some((p) => p.id === i.produto_id))) {
-        return falha('produto_id não pertence a esta empresa. Use buscar_produtos.');
+      // Trava: só abre o pedido que o cliente conferiu (mesmo destinatário e mesmos itens de um resumo enviado nas últimas 24 h).
+      const conferidas = await d.repos.conferenciasEnviadas(ctx.conversa.id, new Date(ctx.agora.getTime() - 24 * 3600_000));
+      if (!conferidas.includes(chaveConferencia(entrada))) {
+        return falha('O cliente não conferiu este pedido: mande o resumo com resumir_pedido_nota (com o mesmo destinatário e os mesmos itens) e espere a confirmação antes de passar para o Fiscal.');
       }
-      const precos = entrada.tipo === 'venda' && destino
-        ? await d.repos.precosVigentes(e.clienteId, destino.grupoId, itensEntrada.flatMap((i) => (i.produto_id ? [i.produto_id] : [])))
-        : {};
-      const itens: ItemPedido[] = itensEntrada.map((i) => ({
-        produto: produtos.find((p) => p.id === i.produto_id) ?? null, texto: i.texto, quantidade: i.quantidade, unidade: i.unidade,
-        preco: i.produto_id ? precos[i.produto_id] ?? null : null,
-      }));
+      const p = await prepararPedido(d, e.clienteId, entrada);
+      if ('erro' in p) return p;
+      const { destino, itens } = p;
       const { titulo, resumo } = montarPedidoNota({
         tipo: entrada.tipo, destino, textoDestinatario: entrada.texto_destinatario, itens,
         pedidoOriginal: entrada.pedido_original, semPermissao: !ctx.empresaEmFoco!.podePedirNota,
       });
       const setorId = await d.repos.setorPorNome('Fiscal');
       const responsavelId = escolherResponsavel(setorId, await d.repos.responsaveisDoCliente(e.clienteId));
-      const { numero } = await d.repos.abrirChamado({
+      const { id: chamadoId, numero } = await d.repos.abrirChamado({
         clienteId: e.clienteId, conversaId: ctx.conversa.id, setorId, responsavelId,
         titulo, resumo, foraDoContrato: false, origem: 'agente',
       });
+      // Pedido de venda para a equipe baixar no painel como arquivo do Bling (o cliente nunca recebe).
+      if (entrada.tipo === 'venda') {
+        await d.repos.anexarPedidoVenda(chamadoId, montarPedidoVenda({ agora: ctx.agora, destino, textoDestinatario: entrada.texto_destinatario, itens, extras: entrada }));
+      }
       await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: 0 });
       const aviso = avisoForaDoHorario(ctx);
       return ok({
@@ -340,12 +441,31 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       return ok({ ...base, antes: atual === null ? null : formatarReais(atual), depois: formatarReais(entrada.novo_valor) });
     }
 
+    case 'cadastrar_produto': {
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      if (!entrada.confirmado_pelo_cliente) {
+        return falha('Antes de cadastrar, confirme com o cliente o código, a descrição e a unidade do produto e só então chame de novo com confirmado_pelo_cliente = true.');
+      }
+      const produto = { codigo: entrada.codigo, descricao: entrada.descricao, unidade: entrada.unidade.toUpperCase() || 'UN', apelidos: entrada.apelidos };
+      try {
+        await d.repos.cadastrarProdutoPeloAgente(e.clienteId, produto, ctx.contato!.id);
+      } catch (erro) {
+        const msg = erro instanceof Error ? erro.message : '';
+        if (msg.includes('sem permissão')) return falha('Este contato não tem permissão para cadastrar produto (sem permissão). Não cadastre: abra uma demanda com abrir_chamado para a equipe cadastrar.');
+        if (msg.includes('já cadastrado')) return falha('Já existe um produto com esse código nesta empresa. Use buscar_produtos e confirme com o cliente.');
+        throw erro;
+      }
+      return ok({ cadastrado: true, codigo: produto.codigo, descricao: produto.descricao, unidade: produto.unidade });
+    }
+
     case 'responder': {
       // Como uma pessoa no WhatsApp: cada parágrafo vai numa mensagem; o excedente fica junto na última.
-      const paragrafos = entrada.texto.split(/\n\s*\n/).map((p: string) => p.trim()).filter(Boolean);
+      const paragrafos = semEmoji(entrada.texto).split(/\n\s*\n/).map((p: string) => p.trim()).filter(Boolean);
       const partes = paragrafos.length > MAX_PARTES_RESPOSTA
         ? [...paragrafos.slice(0, MAX_PARTES_RESPOSTA - 1), paragrafos.slice(MAX_PARTES_RESPOSTA - 1).join('\n\n')]
         : paragrafos;
+      if (partes.length === 0) return falha('Texto vazio: escreva a resposta em palavras, sem emoji.');
       let enviadas = 0;
       for (const parte of partes) {
         // Relê antes de cada parte: se um atendente assumiu no meio, para de mandar.

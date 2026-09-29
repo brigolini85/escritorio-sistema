@@ -150,5 +150,22 @@ A Z-API é uma solução não oficial. O caminho definitivo é a **API oficial d
 ## 7. Preços pelo WhatsApp
 
 - **Consultar:** se um contato perguntar o preço de um produto para um cliente dele (por exemplo, "quanto está a costela pro Supermercado Brasil?"), o agente responde com o valor da tabela de preços da empresa (Clientes → empresa → aba Preços).
-- **Alterar:** só contatos com a marcação **"Pode mudar preço"** (Clientes → empresa → aba Contatos) podem pedir alteração. O agente confirma com a pessoa ("passa de R$ 9,50 para R$ 10,00?") e só grava depois do "sim". Quem não tem a marcação recebe um aviso, e o pedido vira uma demanda para a equipe decidir.
+- **Alterar:** só contatos com a marcação **"Pode mudar preço e cadastrar produto"** (Clientes → empresa → aba Contatos) podem pedir alteração. O agente confirma com a pessoa ("passa de R$ 9,50 para R$ 10,00?") e só grava depois do "sim". Quem não tem a marcação recebe um aviso, e o pedido vira uma demanda para a equipe decidir.
 - **Histórico:** no link "histórico" de cada preço aparece quem mudou: o nome da pessoa da equipe ou **"alterado pelo agente IA (a pedido de Fulano)"**.
+- **Cadastrar produto:** contatos com a mesma marcação podem pedir o cadastro de um produto novo ("cadastra o produto 30, Lasanha Bolonhesa, pacote"). O agente pede o que faltar (código, descrição e unidade), confirma com a pessoa e só grava depois do "sim". Se ela informar o preço para uma rede, o agente grava o preço também. Quem não tem a marcação recebe um aviso, e o pedido vira uma demanda para a equipe cadastrar.
+- **Emoji:** o agente não usa emoji nas mensagens.
+
+## 8. Pedidos de venda para o Bling
+
+O arquivo segue o modelo de **pedido de venda** do Bling: 41 colunas separadas por vírgula, UTF-8 sem BOM e uma linha por produto. O número do pedido é o número da demanda.
+
+- **Um pedido:** na demanda de nota de venda (tela Demandas ou ao lado da conversa), clique em **"Baixar CSV Bling"**.
+- **Vários pedidos:** na tela **Demandas**, o botão **"Exportar CSV Bling"** gera um arquivo com todas as demandas de nota de venda abertas do filtro escolhido. Acima de 500 pedidos, aparecem os botões "parte 1", "parte 2" etc., sem dividir um pedido entre arquivos.
+- **Nome do arquivo:** `pedidos_venda_bling_AAAAMMDD_HHMM.csv`, com a data e a hora em que foi gerado (horário de Brasília).
+- **Comprador:** vem do cadastro do cliente (Clientes → empresa → aba Clientes): razão social, CNPJ, endereço, número, complemento, bairro, cidade, UF, CEP e telefone. Preencha esses campos uma vez; o arquivo sempre usa o cadastro atual. Sem endereço de entrega combinado na conversa, a entrega vai para o endereço do comprador.
+- **Pedido:** produtos, quantidades e preço da tabela vêm do que o agente organizou. Data de entrega, forma de pagamento, frete, transportadora, observações e endereço de entrega diferente só vão preenchidos se o cliente falar deles; o agente não pergunta.
+- **Faltou algo:** se faltar o nome do comprador, o produto, a quantidade ou o valor de algum item, o painel mostra qual pedido e qual item em vez de gerar o arquivo (o Bling recusa venda sem total).
+- **Sem valor:** produto não cadastrado, produto sem preço na tabela da rede, ou pedido numa unidade que muda o preço (kg, litro, caixa, fardo) de um produto cadastrado em outra. UN, PC, PAC, PCT, pacote e peça contam como a mesma unidade e usam o preço do cadastro.
+- Nota de devolução não gera pedido de venda. O cliente nunca recebe nem ouve falar do arquivo, e todo download fica registrado na auditoria.
+
+**Resumo para o cliente conferir.** Antes de passar um pedido de nota para o Fiscal, o agente manda ao cliente um resumo de cada nota: destinatário com CNPJ e endereço (do cadastro), produtos com código, quantidade, preço da tabela, total e o que foi combinado (pagamento, entrega). Junto, pergunta se está certo e se tem mais alguma nota. Se o cliente corrigir, sai um resumo novo. Só depois de o cliente confirmar a nota vai para o Fiscal, uma demanda por nota; o sistema não deixa passar um pedido diferente do resumo conferido. Se o cliente voltar depois pedindo outra, vira uma demanda nova.

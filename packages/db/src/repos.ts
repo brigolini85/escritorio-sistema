@@ -1,4 +1,4 @@
-import { variantesTelefone, type ConfigExpediente, type PrecoModelo } from '@escritorio/core';
+import { variantesTelefone, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo } from '@escritorio/core';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { Db } from './cliente';
 import type { Database } from './tipos.gen';
@@ -35,6 +35,7 @@ export type TipoParceiro = 'cliente' | 'fornecedor';
 export type UnidadeParceiro = {
   id: string; grupoId: string; tipo: TipoParceiro; rede: string; unidade: string;
   razaoSocial: string | null; cnpj: string | null; ie: string | null; bairro: string | null; cidade: string | null; uf: string | null;
+  endereco: string | null; numero: string | null; complemento: string | null; cep: string | null;
   palavrasChave: string[];
 };
 export type DadosEmpresa = { razaoSocial: string; nomeFantasia: string | null; cnpj: string; inscricaoEstadual: string | null;
@@ -211,6 +212,11 @@ export function criarRepos(db: Db) {
       return { id: novo.id, numero: Number(novo.numero) };
     },
 
+    /** Dados do pedido de venda para o painel gerar o arquivo do Bling (o comprador vem do cadastro na hora). */
+    async anexarPedidoVenda(chamadoId: string, pedido: PedidoVendaSalvo): Promise<void> {
+      checar(await db.from('chamados').update({ pedido_venda: pedido as never }).eq('id', chamadoId), 'anexarPedidoVenda');
+    },
+
     async chamadosAbertosDaConversa(conversaId: string): Promise<Chamado[]> {
       return checar(await db.from('chamados').select('*').eq('conversa_id', conversaId).neq('status', 'concluido'), 'chamadosAbertosDaConversa');
     },
@@ -232,6 +238,16 @@ export function criarRepos(db: Db) {
     async registrarDecisao(d: { conversaId: string; clienteId: string | null; etapa: string; entrada: unknown; saida: unknown; justificativa?: string }): Promise<void> {
       checar(await db.from('decisoes_agente').insert({ conversa_id: d.conversaId, cliente_id: d.clienteId, etapa: d.etapa,
         entrada: d.entrada as never, saida: d.saida as never, justificativa: d.justificativa ?? null }), 'registrarDecisao');
+    },
+
+    /** Chaves dos resumos de nota enviados ao cliente nesta conversa desde `desde` (a demanda só abre para um pedido conferido). */
+    async conferenciasEnviadas(conversaId: string, desde: Date): Promise<string[]> {
+      const linhas = checar(await db.from('decisoes_agente').select('saida').eq('conversa_id', conversaId)
+        .eq('etapa', 'resumir_pedido_nota').gte('criado_em', desde.toISOString()), 'conferenciasEnviadas');
+      return linhas.flatMap((l) => {
+        const chave = (l.saida as { conferencia?: unknown } | null)?.conferencia;
+        return typeof chave === 'string' ? [chave] : [];
+      });
     },
 
     async registrarUsoIa(u: { conversaId: string | null; modelo: string; tokensEntrada: number; tokensSaida: number;
@@ -332,13 +348,14 @@ export function criarRepos(db: Db) {
 
     async unidadesDaEmpresa(clienteId: string, tipo: TipoParceiro): Promise<UnidadeParceiro[]> {
       const linhas = checar(await db.from('parceiros_unidades')
-        .select('id, nome_unidade, razao_social, cnpj, inscricao_estadual, bairro, cidade, uf, palavras_chave, parceiros_grupos!inner(id, nome, tipo, palavras_chave, ativo)')
+        .select('id, nome_unidade, razao_social, cnpj, inscricao_estadual, endereco, numero, complemento, cep, bairro, cidade, uf, palavras_chave, parceiros_grupos!inner(id, nome, tipo, palavras_chave, ativo)')
         .eq('cliente_id', clienteId).eq('ativo', true)
         .eq('parceiros_grupos.tipo', tipo).eq('parceiros_grupos.ativo', true)
         .order('nome_unidade'), 'unidadesDaEmpresa');
       return linhas.map((l) => ({
         id: l.id, grupoId: l.parceiros_grupos.id, tipo: l.parceiros_grupos.tipo, rede: l.parceiros_grupos.nome, unidade: l.nome_unidade,
         razaoSocial: l.razao_social, cnpj: l.cnpj, ie: l.inscricao_estadual, bairro: l.bairro, cidade: l.cidade, uf: l.uf,
+        endereco: l.endereco, numero: l.numero, complemento: l.complemento, cep: l.cep,
         palavrasChave: [...l.parceiros_grupos.palavras_chave, ...l.palavras_chave],
       }));
     },
@@ -373,6 +390,15 @@ export function criarRepos(db: Db) {
     async definirPrecoPeloAgente(grupoId: string, produtoId: string, valor: number, contatoId: string): Promise<void> {
       const r = await db.rpc('definir_preco_agente', { p_grupo: grupoId, p_produto: produtoId, p_valor: valor, p_contato: contatoId });
       if (r.error) throw new Error(r.error.message);
+    },
+
+    /** Produto cadastrado pelo agente a pedido do contato; o banco exige "pode mudar preço" para a empresa. */
+    async cadastrarProdutoPeloAgente(clienteId: string, p: { codigo: string; descricao: string; unidade: string; apelidos: string[] }, contatoId: string): Promise<string> {
+      const r = await db.rpc('cadastrar_produto_agente', {
+        p_cliente: clienteId, p_codigo: p.codigo, p_descricao: p.descricao, p_unidade: p.unidade, p_apelidos: p.apelidos, p_contato: contatoId,
+      });
+      if (r.error) throw new Error(r.error.message);
+      return r.data;
     },
 
     async setorPorNome(nome: string): Promise<string | null> {

@@ -88,13 +88,13 @@ isOneToOne: false
                   ]
                 },"chamados": {
                   Row: {
-                    "alertado_fila_em": string | null,"atualizado_em": string,"cliente_id": string | null,"concluido_em": string | null,"conversa_id": string | null,"criado_em": string,"fora_do_contrato": boolean,"id": string,"numero": number,"origem": string,"responsavel_id": string | null,"resumo": string,"setor_id": string | null,"status": Database["public"]['Enums']["status_chamado"],"titulo": string
+                    "alertado_fila_em": string | null,"atualizado_em": string,"cliente_id": string | null,"concluido_em": string | null,"conversa_id": string | null,"criado_em": string,"fora_do_contrato": boolean,"id": string,"numero": number,"origem": string,"pedido_venda": Json | null,"responsavel_id": string | null,"resumo": string,"setor_id": string | null,"status": Database["public"]['Enums']["status_chamado"],"titulo": string
                   }
                   Insert: {
-                    "alertado_fila_em"?: string | null,"atualizado_em"?: string,"cliente_id"?: string | null,"concluido_em"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"fora_do_contrato"?: boolean,"id"?: string,"numero"?: never,"origem"?: string,"responsavel_id"?: string | null,"resumo"?: string,"setor_id"?: string | null,"status"?: Database["public"]['Enums']["status_chamado"],"titulo": string
+                    "alertado_fila_em"?: string | null,"atualizado_em"?: string,"cliente_id"?: string | null,"concluido_em"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"fora_do_contrato"?: boolean,"id"?: string,"numero"?: never,"origem"?: string,"pedido_venda"?: Json | null,"responsavel_id"?: string | null,"resumo"?: string,"setor_id"?: string | null,"status"?: Database["public"]['Enums']["status_chamado"],"titulo": string
                   }
                   Update: {
-                    "alertado_fila_em"?: string | null,"atualizado_em"?: string,"cliente_id"?: string | null,"concluido_em"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"fora_do_contrato"?: boolean,"id"?: string,"numero"?: never,"origem"?: string,"responsavel_id"?: string | null,"resumo"?: string,"setor_id"?: string | null,"status"?: Database["public"]['Enums']["status_chamado"],"titulo"?: string
+                    "alertado_fila_em"?: string | null,"atualizado_em"?: string,"cliente_id"?: string | null,"concluido_em"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"fora_do_contrato"?: boolean,"id"?: string,"numero"?: never,"origem"?: string,"pedido_venda"?: Json | null,"responsavel_id"?: string | null,"resumo"?: string,"setor_id"?: string | null,"status"?: Database["public"]['Enums']["status_chamado"],"titulo"?: string
                   }
                   Relationships: [
                     {
@@ -407,13 +407,13 @@ isOneToOne: false
                   ]
                 },"parceiros_unidades": {
                   Row: {
-                    "ativo": boolean,"bairro": string | null,"cidade": string | null,"cliente_id": string,"cnpj": string | null,"criado_em": string,"endereco": string | null,"grupo_id": string,"id": string,"inscricao_estadual": string | null,"nome_unidade": string,"palavras_chave": (string)[],"razao_social": string | null,"uf": string | null
+                    "ativo": boolean,"bairro": string | null,"cep": string | null,"cidade": string | null,"cliente_id": string,"cnpj": string | null,"complemento": string | null,"criado_em": string,"endereco": string | null,"grupo_id": string,"id": string,"inscricao_estadual": string | null,"nome_unidade": string,"numero": string | null,"palavras_chave": (string)[],"razao_social": string | null,"telefone": string | null,"uf": string | null
                   }
                   Insert: {
-                    "ativo"?: boolean,"bairro"?: string | null,"cidade"?: string | null,"cliente_id": string,"cnpj"?: string | null,"criado_em"?: string,"endereco"?: string | null,"grupo_id": string,"id"?: string,"inscricao_estadual"?: string | null,"nome_unidade": string,"palavras_chave"?: (string)[],"razao_social"?: string | null,"uf"?: string | null
+                    "ativo"?: boolean,"bairro"?: string | null,"cep"?: string | null,"cidade"?: string | null,"cliente_id": string,"cnpj"?: string | null,"complemento"?: string | null,"criado_em"?: string,"endereco"?: string | null,"grupo_id": string,"id"?: string,"inscricao_estadual"?: string | null,"nome_unidade": string,"numero"?: string | null,"palavras_chave"?: (string)[],"razao_social"?: string | null,"telefone"?: string | null,"uf"?: string | null
                   }
                   Update: {
-                    "ativo"?: boolean,"bairro"?: string | null,"cidade"?: string | null,"cliente_id"?: string,"cnpj"?: string | null,"criado_em"?: string,"endereco"?: string | null,"grupo_id"?: string,"id"?: string,"inscricao_estadual"?: string | null,"nome_unidade"?: string,"palavras_chave"?: (string)[],"razao_social"?: string | null,"uf"?: string | null
+                    "ativo"?: boolean,"bairro"?: string | null,"cep"?: string | null,"cidade"?: string | null,"cliente_id"?: string,"cnpj"?: string | null,"complemento"?: string | null,"criado_em"?: string,"endereco"?: string | null,"grupo_id"?: string,"id"?: string,"inscricao_estadual"?: string | null,"nome_unidade"?: string,"numero"?: string | null,"palavras_chave"?: (string)[],"razao_social"?: string | null,"telefone"?: string | null,"uf"?: string | null
                   }
                   Relationships: [
                     {
@@ -640,6 +640,9 @@ isOneToOne: false
                            },
 "assumir_conversa":
 { Args: { "p_conversa": string }; Returns: undefined
+                           },
+"cadastrar_produto_agente":
+{ Args: { "p_apelidos": (string)[],"p_cliente": string,"p_codigo": string,"p_contato": string,"p_descricao": string,"p_unidade": string }; Returns: string
                            },
 "concluir_chamado":
 { Args: { "p_chamado": string }; Returns: undefined

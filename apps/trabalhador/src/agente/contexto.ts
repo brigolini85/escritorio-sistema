@@ -10,6 +10,7 @@ export type ContextoAgente = {
   servicosContratados: string[];
   noExpediente: boolean;
   config: Configuracoes;
+  agora: Date;
 };
 
 export async function carregarContexto(
@@ -30,5 +31,6 @@ export async function carregarContexto(
     servicosContratados: empresaEmFoco ? await repos.servicosDoCliente(empresaEmFoco.id) : [],
     noExpediente: estaNoExpediente(agora, config.expediente),
     config,
+    agora,
   };
 }

@@ -6,7 +6,7 @@ const input = 'rounded border p-2 text-sm disabled:bg-slate-50';
 export async function SecaoParceiros({ id, tipo, pode }: { id: string; tipo: 'cliente' | 'fornecedor'; pode: boolean }) {
   const sb = await supabaseServidor();
   const { data: grupos } = await sb.from('parceiros_grupos')
-    .select('id, nome, palavras_chave, ativo, parceiros_unidades(id, nome_unidade, razao_social, cnpj, inscricao_estadual, endereco, bairro, cidade, uf, palavras_chave, ativo)')
+    .select('id, nome, palavras_chave, ativo, parceiros_unidades(id, nome_unidade, razao_social, cnpj, inscricao_estadual, endereco, numero, complemento, cep, telefone, bairro, cidade, uf, palavras_chave, ativo)')
     .eq('cliente_id', id).eq('tipo', tipo).order('nome');
   const nomeGrupo = tipo === 'cliente' ? 'rede/cliente' : 'fornecedor';
 
@@ -16,10 +16,14 @@ export async function SecaoParceiros({ id, tipo, pode }: { id: string; tipo: 'cl
       <input name="razao_social" defaultValue={un?.razao_social ?? ''} placeholder="Razão social" className={input} />
       <input name="cnpj" defaultValue={un?.cnpj ?? ''} placeholder="CNPJ" className={input} />
       <input name="inscricao_estadual" defaultValue={un?.inscricao_estadual ?? ''} placeholder="Inscrição estadual" className={input} />
-      <input name="endereco" defaultValue={un?.endereco ?? ''} placeholder="Endereço" className={input} />
+      <input name="endereco" defaultValue={un?.endereco ?? ''} placeholder="Endereço (rua, sem o número)" className={input} />
+      <input name="numero" defaultValue={un?.numero ?? ''} placeholder="Número" className={input} />
+      <input name="complemento" defaultValue={un?.complemento ?? ''} placeholder="Complemento" className={input} />
       <input name="bairro" defaultValue={un?.bairro ?? ''} placeholder="Bairro" className={input} />
       <input name="cidade" defaultValue={un?.cidade ?? ''} placeholder="Cidade" className={input} />
       <input name="uf" defaultValue={un?.uf ?? ''} placeholder="UF" maxLength={2} className={input} />
+      <input name="cep" defaultValue={un?.cep ?? ''} placeholder="CEP" className={input} />
+      <input name="telefone" defaultValue={un?.telefone ?? ''} placeholder="Telefone/celular" className={input} />
       <input name="palavras_chave" defaultValue={un?.palavras_chave.join(', ')} placeholder="Palavras-chave, separadas por vírgula" className={input} />
     </fieldset>
   );

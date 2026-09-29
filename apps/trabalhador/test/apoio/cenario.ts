@@ -35,7 +35,7 @@ export async function criarCadastrosExemplo(clienteId: string): Promise<Cadastro
     (await db.from('produtos').insert({ cliente_id: clienteId, codigo, descricao, unidade: 'PAC', apelidos }).select().single()).data!.id;
 
   const brasil = await grupo('cliente', 'Supermercado Brasil', ['brasil']);
-  const brasilEfigenia = await unidade(brasil, 'Santa Efigênia', { razao_social: 'Supermercado Brasil Ltda', cnpj: '11111111000191', inscricao_estadual: '0012345670011', bairro: 'Santa Efigênia', cidade: 'Belo Horizonte', uf: 'MG' });
+  const brasilEfigenia = await unidade(brasil, 'Santa Efigênia', { razao_social: 'Supermercado Brasil Ltda', cnpj: '11111111000191', inscricao_estadual: '0012345670011', endereco: 'Rua Salinas', numero: '1200', complemento: 'loja 2', cep: '30150230', bairro: 'Santa Efigênia', cidade: 'Belo Horizonte', uf: 'MG' });
   const brasilMatilde = await unidade(brasil, 'Santa Matilde', { razao_social: 'Supermercado Brasil Ltda', cnpj: '11111111000272', bairro: 'Santa Matilde', cidade: 'Belo Horizonte', uf: 'MG' });
   const hortsulGrupo = await grupo('cliente', 'Hortsul');
   const hortsul = [

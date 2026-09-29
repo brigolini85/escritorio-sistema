@@ -17,7 +17,7 @@ export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPai
         <ul className="mb-3 divide-y text-sm">
           {(vinculos ?? []).map((v) => v.contatos && (
             <li key={v.contatos.id} className="flex items-center justify-between py-2">
-              <span>{v.contatos.nome} · {v.contatos.telefone}{v.pode_pedir_nota ? ' · pode pedir nota' : ''}{v.pode_atualizar_preco ? ' · pode mudar preço' : ''}{v.contatos.agente_pausado ? ' · agente desligado' : ''}</span>
+              <span>{v.contatos.nome} · {v.contatos.telefone}{v.pode_pedir_nota ? ' · pode pedir nota' : ''}{v.pode_atualizar_preco ? ' · pode mudar preço e cadastrar produto' : ''}{v.contatos.agente_pausado ? ' · agente desligado' : ''}</span>
               <div className="flex items-center gap-3">
                 {pode && (
                   <form action={alternarAgenteContato.bind(null, v.contatos.id, null, v.contatos.agente_pausado)}>
@@ -40,7 +40,7 @@ export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPai
             <label>Nome<input name="nome" required className="mt-1 block rounded border p-2" /></label>
             <label>Telefone<input name="telefone" required placeholder="(31) 99999-0000" className="mt-1 block rounded border p-2" /></label>
             <label className="flex items-center gap-1"><input type="checkbox" name="pode_pedir_nota" /> Pode pedir nota</label>
-            <label className="flex items-center gap-1"><input type="checkbox" name="pode_atualizar_preco" /> Pode mudar preço</label>
+            <label className="flex items-center gap-1"><input type="checkbox" name="pode_atualizar_preco" /> Pode mudar preço e cadastrar produto</label>
             <button className="rounded border px-3 py-2">Adicionar contato</button>
           </form>
         )}
@@ -53,7 +53,7 @@ export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPai
               </select>
             </label>
             <label className="flex items-center gap-1"><input type="checkbox" name="pode_pedir_nota" /> Pode pedir nota (vínculo)</label>
-            <label className="flex items-center gap-1"><input type="checkbox" name="pode_atualizar_preco" /> Pode mudar preço (vínculo)</label>
+            <label className="flex items-center gap-1"><input type="checkbox" name="pode_atualizar_preco" /> Pode mudar preço e cadastrar produto (vínculo)</label>
             <button className="rounded border px-3 py-2">Vincular contato</button>
           </form>
         )}

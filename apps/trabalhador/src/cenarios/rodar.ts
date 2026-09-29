@@ -1,3 +1,4 @@
+import { montarCsvVendaBling, pedidoVendaBling, type PedidoVendaSalvo } from '@escritorio/core';
 import { limparBanco } from '@escritorio/db/teste';
 import { contatoComEmpresas, criarCadastrosExemplo, db, repos, setorId } from '../../test/apoio/cenario';
 import { criarClienteIa } from '../agente/cliente-ia';
@@ -36,11 +37,33 @@ async function precoVigente(codigo: string, rede: string) {
   return data ? { valor: Number(data.valor), origem: data.origem } : null;
 }
 
+async function produtoPorCodigo(codigo: string) {
+  const { data } = await db.from('produtos').select('descricao, unidade').eq('codigo', codigo).maybeSingle();
+  return data;
+}
+
+/** Demandas de nota abertas pelo agente na conversa (título "NF de venda" ou "NF de devolução"). */
+async function notasAbertas(conversaId: string): Promise<number> {
+  const { data } = await db.from('chamados').select('id').eq('conversa_id', conversaId).like('titulo', 'NF de %');
+  return data?.length ?? 0;
+}
+
+/** Arquivo do Bling de cada demanda de venda, montado como o painel monta (comprador vindo do cadastro). */
+async function csvsBling(conversaId: string): Promise<string[]> {
+  const { data } = await db.from('chamados').select('numero, pedido_venda').eq('conversa_id', conversaId).not('pedido_venda', 'is', null);
+  const csvs: string[] = [];
+  for (const ch of data ?? []) {
+    const salvo = ch.pedido_venda as unknown as PedidoVendaSalvo;
+    const { data: u } = salvo.unidade_id
+      ? await db.from('parceiros_unidades').select('razao_social, nome_unidade, cnpj, endereco, numero, complemento, bairro, cidade, uf, cep, telefone').eq('id', salvo.unidade_id).maybeSingle()
+      : { data: null };
+    csvs.push(montarCsvVendaBling([pedidoVendaBling(Number(ch.numero), salvo, u)]));
+  }
+  return csvs;
+}
+
 async function rodar(c: Cenario): Promise<string[]> {
   const conversa = await preparar(c);
-  for (const [i, texto] of c.mensagens.entries()) {
-    await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: `CEN-${i}-${Date.now()}`, tipo: 'texto', conteudo: texto });
-  }
   const canal = new CanalFalso();
   const deps = {
     repos, ia: criarClienteIa(process.env.ANTHROPIC_API_KEY!),
@@ -48,18 +71,22 @@ async function rodar(c: Cenario): Promise<string[]> {
     midia: criarArmazenamento(db), transcritor: { transcrever: async () => '' },
     alertas: { alertar: async () => {} }, relogio: () => new Date(c.agora ?? SEGUNDA_10H),
   };
-  await processarConversa(deps, conversa.id, true);
-  // Segunda rodada (ex.: o "sim" que confirma uma alteração de preço).
+  // Rodadas seguintes (ex.: o "sim" que confirma um preço, o "só essa" que libera a nota), cada uma depois da resposta à anterior.
+  const rodadas = [c.mensagens, c.mensagens2, c.mensagens3, c.mensagens4].filter((r): r is string[] => !!r);
   const falhasRodada1: string[] = [];
-  if (c.mensagens2) {
-    if (c.espera.precoFinal) {
+  for (const [r, mensagens] of rodadas.entries()) {
+    if (r > 0 && c.espera.precoFinal) {
       const antes = await precoVigente(c.espera.precoFinal.produto, c.espera.precoFinal.rede);
       if (antes && antes.origem === 'agente') falhasRodada1.push('alterou o preço antes de o cliente confirmar');
     }
-    for (const [i, texto] of c.mensagens2.entries()) {
-      await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: `CEN2-${i}-${Date.now()}`, tipo: 'texto', conteudo: texto });
+    if (r > 0 && c.espera.produtoFinal && await produtoPorCodigo(c.espera.produtoFinal.codigo)) falhasRodada1.push('cadastrou o produto antes de o cliente confirmar');
+    for (const [i, texto] of mensagens.entries()) {
+      await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: `CEN${r}-${i}-${Date.now()}`, tipo: 'texto', conteudo: texto });
     }
     await processarConversa(deps, conversa.id, true);
+    const esperadas = c.espera.notasPorRodada?.[r];
+    const abertas = await notasAbertas(conversa.id);
+    if (esperadas !== undefined && abertas !== esperadas) falhasRodada1.push(`depois da rodada ${r + 1}: esperava ${esperadas} nota(s) passada(s) para o Fiscal; obteve ${abertas}`);
   }
 
   const { data: chamados } = await db.from('chamados').select('setor_id, fora_do_contrato, titulo, resumo, setores(nome), origem').eq('conversa_id', conversa.id).eq('origem', 'agente');
@@ -74,6 +101,12 @@ async function rodar(c: Cenario): Promise<string[]> {
       falhas.push(`preço final esperado ${JSON.stringify(e.precoFinal)}; obtido ${JSON.stringify(p)}`);
     }
   }
+  if (e.produtoFinal) {
+    const p = await produtoPorCodigo(e.produtoFinal.codigo);
+    if (!!p !== e.produtoFinal.existe) falhas.push(`produto ${e.produtoFinal.codigo} ${e.produtoFinal.existe ? 'deveria' : 'não deveria'} estar cadastrado`);
+    if (p && e.produtoFinal.descricao && !p.descricao.toLowerCase().includes(e.produtoFinal.descricao)) falhas.push(`descrição cadastrada: "${p.descricao}"`);
+    if (p && e.produtoFinal.unidade && p.unidade !== e.produtoFinal.unidade) falhas.push(`unidade cadastrada: "${p.unidade}"`);
+  }
   if (e.chamadoSetor === 'nenhum' && chamados?.length) falhas.push(`não deveria abrir chamado (abriu ${chamados.length})`);
   if (e.chamadoSetor === 'triagem' && !chamados?.some((x) => x.setor_id === null)) falhas.push('esperava chamado de triagem');
   if (e.chamadoSetor === 'qualquer' && !chamados?.length) falhas.push('esperava alguma demanda aberta');
@@ -84,6 +117,8 @@ async function rodar(c: Cenario): Promise<string[]> {
   for (const f of e.ferramentas ?? []) if (!etapas.includes(f)) falhas.push(`esperava usar ${f}`);
   for (const f of e.semFerramentas ?? []) if (etapas.includes(f)) falhas.push(`não deveria usar ${f}`);
   for (const t of e.resumoContem ?? []) if (!chamados?.some((x) => x.resumo.toLowerCase().includes(t.toLowerCase()))) falhas.push(`resumo do chamado deveria conter "${t}"`);
+  const csvs = e.csvBlingContem ? await csvsBling(conversa.id) : [];
+  for (const t of e.csvBlingContem ?? []) if (!csvs.some((x) => x.includes(t))) falhas.push(`CSV do Bling deveria conter "${t}"; obtido ${JSON.stringify(csvs)}`);
   for (const t of e.tituloContem ?? []) if (!chamados?.some((x) => x.titulo.toLowerCase().includes(t.toLowerCase()))) falhas.push(`título do chamado deveria conter "${t}"`);
   for (const t of e.respostaContem ?? []) if (!respostas.toLowerCase().includes(t.toLowerCase())) falhas.push(`resposta deveria conter "${t}"`);
   const arquivos = canal.enviados.flatMap((x) => (x.arquivo ? [x.arquivo] : []));
@@ -92,6 +127,7 @@ async function rodar(c: Cenario): Promise<string[]> {
   const digitos = respostas.replace(/\D/g, '');
   for (const n of e.respostaContemNumero ?? []) if (!digitos.includes(n)) falhas.push(`resposta deveria trazer o número ${n}`);
   for (const t of e.semTexto ?? []) if (respostas.includes(t)) falhas.push(`resposta não deveria conter "${t}"`);
+  if (/\p{Extended_Pictographic}/u.test(respostas)) falhas.push('resposta não deveria ter emoji');
   // O cliente conversa com o escritório, não com um sistema: termos internos não aparecem nas respostas.
   for (const t of ['chamado', 'protocolo', 'ticket', 'triagem']) if (respostas.toLowerCase().includes(t)) falhas.push(`resposta não deveria falar em "${t}"`);
   return falhas;

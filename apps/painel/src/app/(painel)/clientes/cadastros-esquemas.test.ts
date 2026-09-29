@@ -19,6 +19,12 @@ describe('esquemas', () => {
     expect(UnidadeForm.parse({ nome_unidade: 'Matriz', cnpj: '' }).cnpj).toBeNull();
     expect(UnidadeForm.safeParse({ nome_unidade: 'X', cnpj: '11222333000182' }).success).toBe(false);
   });
+  it('unidade: número, complemento, CEP e telefone para o arquivo do Bling (pedido do dono, 2026-09-29)', () => {
+    expect(UnidadeForm.parse({ nome_unidade: 'Matriz', numero: ' 111 ', complemento: '', cep: '35.900-000', telefone: '(31) 99999-0000' }))
+      .toMatchObject({ numero: '111', complemento: null, cep: '35900000', telefone: '(31) 99999-0000' });
+    expect(UnidadeForm.parse({ nome_unidade: 'Matriz', cep: '' }).cep).toBeNull();
+    expect(UnidadeForm.safeParse({ nome_unidade: 'Matriz', cep: '3590' }).success).toBe(false);
+  });
   it('produto e preço', () => {
     expect(ProdutoForm.parse({ codigo: '12', descricao: 'Costela com Requeijão', unidade: 'pac', apelidos: 'costela' }))
       .toMatchObject({ codigo: '12', unidade: 'PAC', apelidos: ['costela'] });

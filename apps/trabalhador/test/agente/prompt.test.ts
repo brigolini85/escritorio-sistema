@@ -15,7 +15,7 @@ describe('montarConteudoUsuario', () => {
   it('separa contexto, histórico e mensagens novas, e anexa imagens e PDFs', () => {
     const ctx = {
       conversa: { telefone: '5531999990001' }, contato: { id: 'c', nome: 'João', empresas: [{ id: 'E1', nome: 'Indústria X', podePedirNota: true, agentePausado: false }] },
-      empresaEmFoco: null, setores: [], respostasProntas: [], servicosContratados: [], noExpediente: true, config: {},
+      empresaEmFoco: null, setores: [], respostasProntas: [], servicosContratados: [], noExpediente: true, config: {}, agora: new Date('2026-09-28T13:00:00Z'),
     } as never;
     const msg = (autor: string, conteudo: string, extra: object = {}) => ({ autor, conteudo, criado_em: '2026-09-28T13:00:00Z', tipo: 'texto', ...extra }) as never;
     const blocos = montarConteudoUsuario(ctx, [msg('cliente', 'oi'), msg('agente', 'Olá!')],

@@ -12,3 +12,8 @@ test-results
 # Conversas reais exportadas do WhatsApp (dados pessoais: nunca vão para o GitHub)
 conversas-reais/
 *.tsbuildinfo
+
+# Textos colados pelo dono para o Claude ler (apagados depois)
+pedidos-do-dono/
+# Endereço do túnel de teste para colar na Z-API (tem o segredo do webhook)
+webhook-zapi.txt

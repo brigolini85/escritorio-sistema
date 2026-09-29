@@ -63,15 +63,40 @@ describe('buscar_produtos', () => {
     ]);
   });
 });
-describe('abrir_pedido_nota', () => {
-  const pedido = (extra: object = {}) => ({
+describe('pedido de nota: resumo para o cliente e demanda no Fiscal', () => {
+  const base = (extra: object = {}) => ({
     tipo: 'venda', unidade_id: cad.brasilEfigenia, texto_destinatario: 'Brasil Santa Efigênia',
     itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 20, unidade: 'PAC' }, { produto_id: null, texto: 'lasanha', quantidade: 3, unidade: 'PAC' }],
-    pedido_original: 'Tira NF pro Brasil Santa Efigênia: 20 PAC costela e 3 lasanha', ...extra,
+    ...extra,
+  });
+  const abrir = (extra: object = {}) => usar('abrir_pedido_nota', {
+    ...base(extra), pedido_original: 'Tira NF pro Brasil Santa Efigênia: 20 PAC costela e 3 lasanha', cliente_confirmou_resumo: true,
+  });
+  /** O cliente confere o resumo e confirma: só então a demanda abre. */
+  const conferirEAbrir = async (extra: object = {}) => {
+    const r = await usar('resumir_pedido_nota', base(extra));
+    expect(r._erro).toBe(false);
+    return abrir(extra);
+  };
+
+  it('resumo vai ao cliente com CNPJ, código, preço e total, e não abre demanda (pedido do dono, 2026-09-29)', async () => {
+    const r = await usar('resumir_pedido_nota', base({ forma_pagamento: 'PIX' }));
+    expect(r).toMatchObject({ _erro: false, enviado: true });
+    expect(canal.enviados).toEqual([{ telefone: '5531999990001', texto: [
+      '*Nota de venda*',
+      'Para: Supermercado Brasil Ltda – CNPJ 11.111.111/0001-91',
+      'Endereço: Rua Salinas, 1200, loja 2 – Santa Efigênia – Belo Horizonte/MG – CEP 30150-230',
+      '• 20 PAC Costela com Requeijão (cód. 12) – R$ 9,50 = R$ 190,00',
+      '• 3 PAC lasanha – produto não cadastrado, a equipe confere',
+      'Total: R$ 190,00 (itens sem preço de fora)',
+      'Pagamento: PIX',
+    ].join('\n') }]);
+    expect(estado.respondeu).toBe(true);
+    expect((await db.from('chamados').select('id')).data).toHaveLength(0);
   });
 
   it('abre a demanda no Fiscal com CNPJ, preço da tabela e item não cadastrado', async () => {
-    const r = await usar('abrir_pedido_nota', pedido());
+    const r = await conferirEAbrir();
     expect(r).toMatchObject({ setor: 'Fiscal', itens_sem_cadastro: 1, _erro: false });
     const { data } = await db.from('chamados').select('titulo, resumo, setores(nome), cliente_id').single();
     expect(data!.setores?.nome).toBe('Fiscal');
@@ -82,25 +107,61 @@ describe('abrir_pedido_nota', () => {
     expect(data!.resumo).toContain('Observação: contato sem permissão para pedir nota.');
   });
 
-  it('recusa unidade de fornecedor num pedido de venda', async () => {
-    expect((await usar('abrir_pedido_nota', pedido({ unidade_id: cad.boiBom })))._erro).toBe(true);
+  it('trava: sem resumo conferido, ou com itens diferentes do resumo, não abre a demanda', async () => {
+    expect(JSON.stringify(await abrir())).toContain('não conferiu');
+    await usar('resumir_pedido_nota', base());
+    const outro = await abrir({ itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 25, unidade: 'PAC' }] });
+    expect(JSON.stringify(outro)).toContain('não conferiu');
+    expect(JSON.stringify(await usar('abrir_pedido_nota', { ...base(), pedido_original: 'x', cliente_confirmou_resumo: false }))).toContain('resumir_pedido_nota');
     expect((await db.from('chamados').select('id')).data).toHaveLength(0);
+    expect((await abrir())._erro).toBe(false);
+  });
+
+  it('venda: guarda na demanda o pedido de venda para o arquivo do Bling (pedido do dono, 2026-09-29)', async () => {
+    await conferirEAbrir({ forma_pagamento: 'PIX', data_prevista: '02/10/2026',
+      itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 20, unidade: 'PAC' }, { produto_id: cad.frango, texto: 'frango', quantidade: 2, unidade: 'kg' },
+        { produto_id: null, texto: 'lasanha', quantidade: 3, unidade: 'PAC' }],
+      entrega: { endereco: 'Rua B', numero: '5', cep: '35.900-000', uf: 'mg', cidade: 'Itabira' } });
+    const { data } = await db.from('chamados').select('pedido_venda').single();
+    expect(data!.pedido_venda).toEqual({
+      unidade_id: cad.brasilEfigenia, texto_destinatario: 'Brasil Santa Efigênia', data: '28/09/2026',
+      itens: [
+        { produto: 'Costela com Requeijão', sku: '12', un: 'PAC', quantidade: 20, valor_unitario: 9.5 },
+        { produto: 'Frango com Requeijão', sku: '14', un: 'KG', quantidade: 2, valor_unitario: null },
+        { produto: 'lasanha', sku: null, un: 'PAC', quantidade: 3, valor_unitario: null },
+      ],
+      data_prevista: '02/10/2026', forma_pagamento: 'PIX', valor_frete: null, tipo_frete: null, transportadora: null, observacoes: null,
+      entrega: { endereco: 'Rua B', numero: '5', complemento: null, bairro: null, cidade: 'Itabira', uf: 'MG', cep: '35900000' },
+    });
+  });
+
+  it('data prevista fora do formato é recusada', async () => {
+    expect((await usar('resumir_pedido_nota', base({ data_prevista: 'sexta' })))._erro).toBe(true);
+    expect(canal.enviados).toHaveLength(0);
+  });
+
+  it('recusa unidade de fornecedor num pedido de venda', async () => {
+    expect((await usar('resumir_pedido_nota', base({ unidade_id: cad.boiBom })))._erro).toBe(true);
+    expect(canal.enviados).toHaveLength(0);
   });
 
   it('recusa produto de outra empresa', async () => {
     const { data: y } = await db.from('clientes').insert({ razao_social: 'Indústria Y', cnpj: '99888777000166' }).select().single();
     const { data: alheio } = await db.from('produtos').insert({ cliente_id: y!.id, codigo: '1', descricao: 'Alheio' }).select().single();
-    const r = await usar('abrir_pedido_nota', pedido({ itens: [{ produto_id: alheio!.id, texto: 'alheio', quantidade: 1, unidade: 'UN' }] }));
+    const r = await usar('resumir_pedido_nota', base({ itens: [{ produto_id: alheio!.id, texto: 'alheio', quantidade: 1, unidade: 'UN' }] }));
     expect(r._erro).toBe(true);
+    expect(canal.enviados).toHaveLength(0);
   });
 
   it('devolução para fornecedor, sem preço', async () => {
-    const r = await usar('abrir_pedido_nota', pedido({ tipo: 'devolucao', unidade_id: cad.boiBom, texto_destinatario: 'Boi Bom',
-      itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 3, unidade: 'PAC' }], pedido_original: 'devolução de 3 costela pro Boi Bom' }));
+    const r = await conferirEAbrir({ tipo: 'devolucao', unidade_id: cad.boiBom, texto_destinatario: 'Boi Bom',
+      itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 3, unidade: 'PAC' }] });
     expect(r._erro).toBe(false);
+    expect(canal.enviados[0]!.texto).not.toContain('R$');
     const { data } = await db.from('chamados').select('titulo, resumo').single();
     expect(data!.titulo).toBe('NF de devolução – Frigorífico Boi Bom / Matriz');
     expect(data!.resumo).not.toContain('R$');
+    expect((await db.from('chamados').select('pedido_venda').single()).data!.pedido_venda).toBeNull();
   });
 });
 describe('documentos', () => {
@@ -188,5 +249,35 @@ describe('preço pelo WhatsApp (pedido do dono, 2026-09-28)', () => {
     const r = await usar('alterar_preco', { unidade_id: cad.brasilEfigenia, produto_id: cad.costela, novo_valor: 10, confirmado_pelo_cliente: true });
     expect(r).toMatchObject({ _erro: false, antes: 'R$ 9,50', depois: 'R$ 10,00' });
     expect(await vigente()).toEqual({ valor: 10, origem: 'agente' });
+  });
+});
+
+describe('produto pelo WhatsApp (pedido do dono, 2026-09-29)', () => {
+  const lasanha = { codigo: '30', descricao: 'Lasanha Bolonhesa', unidade: 'pac', apelidos: ['lasanha'], confirmado_pelo_cliente: true };
+  const gravado = async () => (await db.from('produtos').select('codigo, descricao, unidade, apelidos').eq('codigo', '30').maybeSingle()).data;
+
+  it('sem a marcação "pode mudar preço" é recusado', async () => {
+    const r = await usar('cadastrar_produto', lasanha);
+    expect(r._erro).toBe(true);
+    expect(JSON.stringify(r)).toContain('sem permissão');
+    expect(await gravado()).toBeNull();
+  });
+
+  it('só cadastra depois de o cliente confirmar; depois a busca já acha', async () => {
+    await db.from('contato_clientes').update({ pode_atualizar_preco: true }).eq('contato_id', estado.ctx.contato!.id);
+    expect((await usar('cadastrar_produto', { ...lasanha, confirmado_pelo_cliente: false }))._erro).toBe(true);
+    expect(await gravado()).toBeNull();
+
+    const r = await usar('cadastrar_produto', lasanha);
+    expect(r).toMatchObject({ _erro: false, codigo: '30', descricao: 'Lasanha Bolonhesa', unidade: 'PAC' });
+    expect(await gravado()).toEqual({ codigo: '30', descricao: 'Lasanha Bolonhesa', unidade: 'PAC', apelidos: ['lasanha'] });
+    expect((await usar('buscar_produtos', { textos: ['lasanha'] })).resultados[0].candidatos[0].codigo).toBe('30');
+  });
+
+  it('código repetido é recusado', async () => {
+    await db.from('contato_clientes').update({ pode_atualizar_preco: true }).eq('contato_id', estado.ctx.contato!.id);
+    const r = await usar('cadastrar_produto', { ...lasanha, codigo: '12' });
+    expect(r._erro).toBe(true);
+    expect(JSON.stringify(r)).toContain('Já existe');
   });
 });

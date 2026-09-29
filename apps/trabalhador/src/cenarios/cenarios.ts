@@ -5,6 +5,8 @@ export type Cenario = {
   faq?: { pergunta: string; resposta: string }[];
   agora?: string;                           // ISO; padrão: segunda-feira 10h
   mensagens2?: string[];                  // segunda rodada, processada depois da resposta à primeira
+  mensagens3?: string[];                  // terceira rodada, depois da resposta à segunda
+  mensagens4?: string[];                  // quarta rodada, depois da resposta à terceira
   podeAtualizarPreco?: boolean;           // contato com "pode mudar preço" na empresa
   cadastros?: boolean;   // cria os cadastros de exemplo (redes, fornecedor, produtos, preços, documentos)
   chamadoExistente?: { setor: string; titulo: string };
@@ -22,6 +24,9 @@ export type Cenario = {
     semTexto?: string[];                    // textos que as respostas não podem conter
     precoFinal?: { produto: string; rede: string; valor: number; origem: 'painel' | 'agente' };   // preço vigente no fim
     respostaContemNumero?: string[];        // números (só dígitos) que as respostas devem trazer, com ou sem pontuação
+    csvBlingContem?: string[];              // textos que o arquivo do Bling de alguma demanda de venda deve ter
+    notasPorRodada?: number[];              // total de notas passadas ao Fiscal depois de cada rodada
+    produtoFinal?: { codigo: string; existe: boolean; descricao?: string; unidade?: string };   // produto cadastrado (ou não) no fim
   };
 };
 
@@ -51,11 +56,11 @@ export const CENARIOS: Cenario[] = [
     mensagens: ['E aquela guia que eu pedi, já saiu?'], espera: { ferramentas: ['consultar_chamados', 'responder'] } },
   // Inspirados nas conversas reais do escritório (dados inventados).
   { nome: 'pedido de nota com itens vai para o Fiscal com os itens', empresas: ['Indústria X'],
-    mensagens: ['Bom dia! Tira por favor uma NF para Mercado Bom Preço, unidade Centro:\n10 PAC pão de queijo\n5 PAC biscoito de polvilho'],
-    espera: { chamadoSetor: 'Fiscal', resumoContem: ['Bom Preço', 'Centro', '10 PAC pão de queijo', '5 PAC biscoito de polvilho'] } },
+    mensagens: ['Bom dia! Tira por favor uma NF para Mercado Bom Preço, unidade Centro:\n10 PAC pão de queijo\n5 PAC biscoito de polvilho'], mensagens2: ['Só essa, obrigado'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 1], resumoContem: ['Bom Preço', 'Centro', '10 PAC pão de queijo', '5 PAC biscoito de polvilho'] } },
   { nome: 'pedido de nota picado em duas mensagens', empresas: ['Indústria X'],
-    mensagens: ['Tira uma nota pro Mercado Bom Preço Centro', '8 PAC pão de queijo\n4 PAC rosca'],
-    espera: { chamadoSetor: 'Fiscal', resumoContem: ['8 PAC pão de queijo', '4 PAC rosca'] } },
+    mensagens: ['Tira uma nota pro Mercado Bom Preço Centro', '8 PAC pão de queijo\n4 PAC rosca'], mensagens2: ['Só essa, obrigado'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 1], resumoContem: ['8 PAC pão de queijo', '4 PAC rosca'] } },
   { nome: 'pedido de nota sem os produtos pergunta antes', empresas: ['Indústria X'], mensagens: ['Preciso de uma nota para o Mercado Bom Preço'],
     espera: { chamadoSetor: 'nenhum', ferramentas: ['responder'], respostaContem: ['produto'] } },
   { nome: 'correção de nota é urgente', empresas: ['Indústria X'], mensagens: ['A nota de ontem do Mercado Bom Preço saiu errada, era frango e saiu carne'],
@@ -63,21 +68,22 @@ export const CENARIOS: Cenario[] = [
   { nome: 'certificado digital vai para o Fiscal', empresas: ['Indústria X'], mensagens: ['Meu certificado digital venceu, como faço pra renovar?'],
     espera: { chamadoSetor: 'Fiscal' } },
   { nome: 'pedido de nota de madrugada avisa o horário', empresas: ['Indústria X'], agora: '2026-09-29T05:00:00Z',
-    mensagens: ['Tira uma NF pro Mercado Bom Preço Centro pra amanhã cedo: 6 PAC pão de queijo'],
-    espera: { chamadoSetor: 'Fiscal', resumoContem: ['6 PAC pão de queijo'], respostaContem: ['segunda'] } },
+    mensagens: ['Tira uma NF pro Mercado Bom Preço Centro pra amanhã cedo: 6 PAC pão de queijo'], mensagens2: ['Só essa, obrigado'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 1], resumoContem: ['6 PAC pão de queijo'], respostaContem: ['segunda'] } },
   // Cadastros comerciais (dados inventados; ver criarCadastrosExemplo).
   { nome: 'nota para a filial certa pelo bairro, com preço da tabela', empresas: ['Indústria X'], cadastros: true,
-    mensagens: ['Tira NF pro Brasil Santa Efigênia: 20 PAC costela e 15 PAC frango'],
-    espera: { chamadoSetor: 'Fiscal', resumoContem: ['Santa Efigênia', 'CNPJ 11.111.111/0001-91', 'Costela com Requeijão (cód. 12)', 'R$ 190,00'], semTexto: ['R$'] } },
+    mensagens: ['Tira NF pro Brasil Santa Efigênia: 20 PAC costela e 15 PAC frango'], mensagens2: ['Só essa, obrigado'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 1], resumoContem: ['Santa Efigênia', 'CNPJ 11.111.111/0001-91', 'Costela com Requeijão (cód. 12)', 'R$ 190,00'],
+      respostaContem: ['R$ 190,00'], ferramentas: ['resumir_pedido_nota'] } },
   { nome: 'rede com várias unidades: pergunta qual', empresas: ['Indústria X'], cadastros: true,
     mensagens: ['Tira uma NF pro Hortsul, 10 PAC costela'],
     espera: { chamadoSetor: 'nenhum', respostaContem: ['Gutierrez'] } },
   { nome: 'produto não cadastrado vai marcado', empresas: ['Indústria X'], cadastros: true,
-    mensagens: ['Tira NF pro Brasil Santa Matilde: 5 PAC lasanha'],
-    espera: { chamadoSetor: 'Fiscal', resumoContem: ['NÃO CADASTRADO', 'lasanha'] } },
+    mensagens: ['Tira NF pro Brasil Santa Matilde: 5 PAC lasanha'], mensagens2: ['Só essa, obrigado'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 1], resumoContem: ['NÃO CADASTRADO', 'lasanha'] } },
   { nome: 'nota de devolução para fornecedor', empresas: ['Indústria X'], cadastros: true,
-    mensagens: ['Preciso de uma nota de devolução pro Frigorífico Boi Bom, 3 PAC costela que veio estragada'],
-    espera: { chamadoSetor: 'Fiscal', tituloContem: ['devolução'], resumoContem: ['Boi Bom'] } },
+    mensagens: ['Preciso de uma nota de devolução pro Frigorífico Boi Bom, 3 PAC costela que veio estragada'], mensagens2: ['Só essa, obrigado'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 1], tituloContem: ['devolução'], resumoContem: ['Boi Bom'] } },
   { nome: 'contrato social liberado é enviado', empresas: ['Indústria X'], cadastros: true,
     mensagens: ['Me manda o contrato social da empresa, por favor?'],
     espera: { chamadoSetor: 'nenhum', documentoEnviado: 'contrato-social.pdf' } },
@@ -100,4 +106,39 @@ export const CENARIOS: Cenario[] = [
   { nome: 'sem permissão não muda o preço e passa para a equipe', empresas: ['Indústria X'], cadastros: true,
     mensagens: ['Muda o preço da costela pro Supermercado Brasil para 10 reais'], mensagens2: ['Sim, pode alterar'],
     espera: { chamadoSetor: 'qualquer', precoFinal: { produto: '12', rede: 'Supermercado Brasil', valor: 9.5, origem: 'painel' } } },
+  // Produto pelo WhatsApp (pedido do dono, 2026-09-29).
+  { nome: 'cadastra produto só depois de o cliente confirmar', empresas: ['Indústria X'], cadastros: true, podeAtualizarPreco: true,
+    mensagens: ['Cadastra um produto novo: código 30, Lasanha Bolonhesa, vende em pacote'], mensagens2: ['Sim, pode cadastrar'],
+    espera: { chamadoSetor: 'nenhum', produtoFinal: { codigo: '30', existe: true, descricao: 'lasanha bolonhesa', unidade: 'PAC' } } },
+  { nome: 'cadastro de produto sem o código pergunta antes', empresas: ['Indústria X'], cadastros: true, podeAtualizarPreco: true,
+    mensagens: ['Cadastra pra mim a Lasanha Bolonhesa, pacote'],
+    espera: { chamadoSetor: 'nenhum', semFerramentas: ['cadastrar_produto'], respostaContem: ['código'] } },
+  { nome: 'sem permissão não cadastra produto e passa para a equipe', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Cadastra um produto novo: código 30, Lasanha Bolonhesa, pacote'], mensagens2: ['Sim, pode cadastrar'],
+    espera: { chamadoSetor: 'qualquer', produtoFinal: { codigo: '30', existe: false } } },
+  // Arquivo do Bling, pedido de venda (pedido do dono, 2026-09-29): o combinado na conversa vai para o arquivo; o cliente não ouve falar dele.
+  { nome: 'pedido com pagamento e entrega vai para o arquivo do Bling', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Tira NF pro Brasil Santa Efigênia: 20 PAC costela. Pagamento no PIX, entrega na quarta dia 30/09'], mensagens2: ['Só essa, obrigado'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 1],
+      csvBlingContem: ['Supermercado Brasil Ltda', '11111111000191', 'PIX', '30/09/2026', 'Costela com Requeijão,12,PAC,20,"9,5",190'],
+      semTexto: ['CSV', 'csv', 'planilha', 'Bling'] } },
+  // "Tem mais alguma nota?" antes de passar para o Fiscal, como uma pessoa faria (pedido do dono, 2026-09-29).
+  { nome: 'duas notas numa mensagem: pergunta se tem mais e passa as duas', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Tira NF pro Brasil Santa Efigênia 10 PAC costela e outra pro Brasil Santa Matilde 5 PAC frango'], mensagens2: ['Só essas'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 2] } },
+  { nome: 'cliente diz que tem mais: espera a outra e pergunta de novo', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Tira NF pro Brasil Santa Efigênia 10 PAC costela'], mensagens2: ['Tem sim, outra pro Brasil Santa Matilde 5 PAC frango'],
+    mensagens3: ['Agora é só isso, obrigado'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 0, 2] } },
+  // Resumo para o cliente conferir antes do Fiscal (pedido do dono, 2026-09-29).
+  { nome: 'mesmo dizendo que é só essa, manda o resumo e espera a confirmação', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Tira só uma NF pro Brasil Santa Efigênia, 10 PAC costela. É só essa'], mensagens2: ['Isso, pode passar'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 1], ferramentas: ['resumir_pedido_nota'], respostaContem: ['11.111.111/0001-91', 'R$ 95,00'] } },
+  { nome: 'cliente corrige a quantidade: novo resumo e a nota sai corrigida', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Tira NF pro Brasil Santa Efigênia 10 PAC costela'], mensagens2: ['Na verdade são 15 PAC, não 10'], mensagens3: ['Agora sim, pode passar, é só essa'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 0, 1], resumoContem: ['15 PAC Costela'], respostaContem: ['R$ 142,50'] } },
+  { nome: 'cliente volta pedindo outra depois: nova demanda', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Tira NF pro Brasil Santa Efigênia 10 PAC costela, só essa'], mensagens2: ['Confere, pode passar'],
+    mensagens3: ['Opa, esqueci: tira outra pro Brasil Santa Matilde 5 PAC frango'], mensagens4: ['Certo, só essa agora'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 1, 1, 2] } },
 ];
