@@ -17,3 +17,6 @@ conversas-reais/
 pedidos-do-dono/
 # Endereço do túnel de teste para colar na Z-API (tem o segredo do webhook)
 webhook-zapi.txt
+
+# Cópias de trabalho separadas (git worktree)
+.claude/worktrees/
