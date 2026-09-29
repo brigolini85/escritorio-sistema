@@ -255,8 +255,9 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
 
     case 'gerar_csv_bling': {
       if (!podeCorrigirPedidos(u)) return falha('Você não tem permissão para gerar o CSV do Bling. Peça ao administrador na aba Usuários.');
-      const chamados = entrada.numeros
-        ? (await Promise.all(entrada.numeros.map((n: number) => d.repos.chamadoPorNumero(n)))).filter((c): c is NonNullable<typeof c> => c !== null)
+      const numeros: number[] | null = entrada.numeros ? [...new Set<number>(entrada.numeros)] : null;
+      const chamados = numeros
+        ? (await Promise.all(numeros.map((n: number) => d.repos.chamadoPorNumero(n)))).filter((c): c is NonNullable<typeof c> => c !== null)
         : await d.repos.chamadosRecentes({ abertas: true, comPedido: true, visivelPara });
       const escolhidos = chamados.filter((c) => c.pedido_venda && podeVerChamado(u, c));
       if (escolhidos.length === 0) return falha('Nenhuma demanda de venda com pedido entre as que você pode ver.');
@@ -266,13 +267,18 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       const partes = dividirPedidosBling(pedidos);
       const nomes = partes.map((_, i) => nomeArquivoVendaBling(estado.ctx.agora, partes.length > 1 ? i + 1 : undefined));
       if (estado.ctx.canal === 'site') {
-        estado.arquivo = { tipo: 'csv_bling', chamados: escolhidos.map((c) => c.id), nome: nomes[0]! };
+        estado.arquivo = { tipo: 'csv_bling', chamados: [...new Set(escolhidos.map((c) => c.id))], nome: nomes[0]!, partes: partes.length };
       } else {
         partes.forEach((p, i) => estado.csvs.push({ nome: nomes[i]!, conteudo: montarCsvVendaBling(p) }));
       }
       await d.repos.registrarAuditoria({ usuarioId: u.id, acao: 'download', entidade: 'csv_bling', entidadeId: escolhidos.map((c) => c.id).join(','),
         detalhes: { canal: estado.ctx.canal, pedidos: pedidos.map((p) => p.numero), arquivos: nomes } });
-      return ok({ pedidos: pedidos.length, arquivos: nomes, instrucao: estado.ctx.canal === 'site' ? 'O botão de baixar aparece junto da sua resposta.' : 'O arquivo vai junto da sua resposta.' });
+      const incluidos = pedidos.map((p) => p.numero).sort((a, b) => a - b);
+      const ignorados = numeros ? numeros.filter((n) => !incluidos.includes(n)).sort((a, b) => a - b) : [];
+      return ok({ pedidos: pedidos.length, arquivos: nomes, incluidos,
+        ...(numeros ? { ignorados, motivo_ignorados: 'não encontradas, sem pedido de venda ou fora das que você pode ver' } : {}),
+        instrucao: (estado.ctx.canal === 'site' ? 'O botão de baixar aparece junto da sua resposta.' : 'O arquivo vai junto da sua resposta.') +
+          (ignorados.length ? ' Diga à pessoa quais números ficaram de fora do arquivo (ignorados) e o motivo.' : '') });
     }
 
     case 'responder':

@@ -25,15 +25,26 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   const id = q.get('id');
   const ids = q.get('ids')?.split(',').filter(Boolean) ?? null;
-  const filtro: FiltroBling = id ? { id } : ids ? { ids } : { setor: q.get('setor') ?? 'todos' };
-  const { pedidos, problemas } = await carregarPedidosBling(await supabaseServidor(), filtro);
+  const mensagemId = q.get('assistente');
+  const sb = await supabaseServidor();
+  let filtro: FiltroBling = id ? { id } : ids ? { ids } : { setor: q.get('setor') ?? 'todos' };
+  if (mensagemId) {
+    // Link do assistente: os ids ficam na mensagem (só o dono a lê, pelo RLS), não na URL.
+    const { data: msg } = await sb.from('assistente_mensagens').select('papel, arquivo').eq('id', mensagemId).maybeSingle();
+    const arquivo = msg?.arquivo as { tipo?: string; chamados?: string[] } | null | undefined;
+    if (!msg || msg.papel !== 'assistente' || arquivo?.tipo !== 'csv_bling' || !arquivo.chamados?.length) {
+      return aviso('Arquivo não encontrado.', ['Peça de novo ao assistente para gerar o arquivo.']);
+    }
+    filtro = { ids: arquivo.chamados };
+  }
+  const { pedidos, problemas } = await carregarPedidosBling(sb, filtro);
   if (pedidos.length === 0) return aviso('Nenhum pedido de venda para exportar.', ['Só as demandas de nota de venda abertas pelo agente geram o arquivo.']);
   if (problemas.length) return aviso('Complete os dados abaixo antes de gerar o arquivo:', problemas);
 
   const partes = dividirPedidosBling(pedidos);
   const parte = Math.min(Math.max(Number(q.get('parte') ?? 1) || 1, 1), partes.length);
   const nome = nomeArquivoVendaBling(new Date(), partes.length > 1 ? parte : undefined);
-  await registrarAuditoria(u.id, 'download', 'csv_bling', id ?? (ids ? ids.join(',') : `exportacao:${q.get('setor') ?? 'todos'}`), { pedidos: partes[parte - 1]!.map((p) => p.numero), arquivo: nome });
+  await registrarAuditoria(u.id, 'download', 'csv_bling', id ?? (mensagemId ? `assistente:${mensagemId}` : ids ? ids.join(',') : `exportacao:${q.get('setor') ?? 'todos'}`), { pedidos: partes[parte - 1]!.map((p) => p.numero), arquivo: nome });
   return new NextResponse(montarCsvVendaBling(partes[parte - 1]!), {
     headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${nome}"` },
   });

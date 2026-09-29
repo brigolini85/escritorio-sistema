@@ -54,7 +54,7 @@ describe('gerar_csv_bling pelo assistente (pedido do dono, 2026-09-29)', () => {
   it('site: a resposta leva o arquivo para baixar no painel', async () => {
     await rodar('site', [usarFerramentas({ nome: 'gerar_csv_bling', entrada: { numeros: [numero] } }), usarFerramentas({ nome: 'responder', entrada: { texto: 'Pronto!' } }), fim()]);
     const ultima = (await repos.historicoAssistente(dono, 'site', null, 5)).at(-1)!;
-    expect(ultima.arquivo).toMatchObject({ tipo: 'csv_bling', chamados: [chamadoId] });
+    expect(ultima.arquivo).toMatchObject({ tipo: 'csv_bling', chamados: [chamadoId], partes: 1 });
     expect((ultima.arquivo as { nome: string }).nome).toMatch(/^pedidos_venda_bling_\d{8}_\d{4}\.csv$/);
     expect(canal.enviados).toEqual([]);
   });
@@ -90,6 +90,30 @@ describe('gerar_csv_bling pelo assistente (pedido do dono, 2026-09-29)', () => {
     expect(linhas[0]).toContain(`${numero},Supermercado Brasil Ltda`);
     expect(estado.csvs[0]!.conteudo).not.toContain(`${outro.numero},Supermercado Brasil Ltda`);
   });
+
+  it('números repetidos e inexistentes: um pedido no arquivo, incluídos e ignorados informados', async () => {
+    const e = await estadoDe(dono, 'site');
+    const r = await executarFerramentaAssistente({ repos, ia: new IaRoteirizada([]), canal }, e, 'gerar_csv_bling', { numeros: [numero, numero, 99999] });
+    const saida = JSON.parse(r.resultado);
+    expect(r.erro).toBe(false);
+    expect(saida).toMatchObject({ pedidos: 1, incluidos: [numero], ignorados: [99999],
+      motivo_ignorados: 'não encontradas, sem pedido de venda ou fora das que você pode ver' });
+    expect(saida.instrucao).toContain('ignorados');
+    expect(e.arquivo).toMatchObject({ chamados: [chamadoId], partes: 1 });
+  });
+
+  it('pedidosVendaParaBling atravessa blocos de 100 ids, em ordem de número', async () => {
+    const outros = [];
+    for (let i = 0; i < 104; i++) outros.push((await abrirVenda('Fiscal', `NF ${i}`)).id);
+    const falsos = Array.from({ length: 45 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`);
+    const ids = [...falsos.slice(0, 20), chamadoId, ...falsos.slice(20), ...outros];
+    const pedidos = await repos.pedidosVendaParaBling(ids);
+    expect(pedidos).toHaveLength(105);
+    const numeros = pedidos.map((p) => p.numero);
+    expect(numeros).toEqual([...numeros].sort((a, b) => a - b));
+    expect(numeros).toContain(numero);
+    expect((await repos.pedidosVendaParaBling([...falsos, chamadoId])).map((p) => p.numero)).toEqual([numero]);
+  }, 120000);
 
   it('entrada sem números nem abertas, ou com número inválido, vira erro da ferramenta', async () => {
     const e = await estadoDe(dono, 'site');

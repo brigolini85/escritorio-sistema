@@ -41,7 +41,7 @@ export type UnidadeParceiro = {
 export type UsuarioAssistente = { id: string; nome: string; papel: 'admin' | 'atendente'; permissoes: string[]; setores: string[]; telefone: string | null; ativo: boolean };
 export type CanalAssistente = 'site' | 'whatsapp';
 export type MensagemAssistente = Linha<'assistente_mensagens'>;
-export type ArquivoAssistente = { tipo: 'csv_bling'; chamados: string[]; nome: string };
+export type ArquivoAssistente = { tipo: 'csv_bling'; chamados: string[]; nome: string; partes: number };
 export type ChamadoResumo = {
   id: string; numero: number; titulo: string; resumo: string; status: string; setor_id: string | null; setor: string | null;
   responsavel_id: string | null; responsavel: string | null; cliente_id: string | null; empresa: string | null; criado_em: string;
@@ -542,12 +542,19 @@ export function criarRepos(db: Db) {
     },
 
     async pedidosVendaParaBling(chamadoIds: string[]): Promise<PedidoVendaBling[]> {
-      if (chamadoIds.length === 0) return [];
-      const chamados = checar(await db.from('chamados').select('numero, pedido_venda').in('id', chamadoIds).not('pedido_venda', 'is', null).order('numero'), 'pedidosVendaParaBling');
+      const bloco = <T,>(l: T[]) => Array.from({ length: Math.ceil(l.length / 100) }, (_, i) => l.slice(i * 100, i * 100 + 100));
+      // Em blocos de 100: o filtro vai na URL e uma lista longa estoura o limite dela.
+      const chamados: { numero: number | string; pedido_venda: unknown }[] = [];
+      for (const ids of bloco([...new Set(chamadoIds)])) {
+        chamados.push(...checar(await db.from('chamados').select('numero, pedido_venda').in('id', ids).not('pedido_venda', 'is', null), 'pedidosVendaParaBling'));
+      }
+      chamados.sort((x, y) => Number(x.numero) - Number(y.numero));
       const salvos = chamados.map((c) => ({ numero: Number(c.numero), salvo: c.pedido_venda as unknown as PedidoVendaSalvo }));
-      const ids = [...new Set(salvos.flatMap((s) => (s.salvo.unidade_id ? [s.salvo.unidade_id] : [])))];
-      const unidades = ids.length ? checar(await db.from('parceiros_unidades')
-        .select('id, razao_social, nome_unidade, cnpj, endereco, numero, complemento, bairro, cidade, uf, cep, telefone').in('id', ids), 'pedidosVendaParaBling') : [];
+      const unidades: (NonNullable<Parameters<typeof pedidoVendaBling>[2]> & { id: string })[] = [];
+      for (const ids of bloco([...new Set(salvos.flatMap((s) => (s.salvo.unidade_id ? [s.salvo.unidade_id] : [])))])) {
+        unidades.push(...checar(await db.from('parceiros_unidades')
+          .select('id, razao_social, nome_unidade, cnpj, endereco, numero, complemento, bairro, cidade, uf, cep, telefone').in('id', ids), 'pedidosVendaParaBling'));
+      }
       const porId = new Map(unidades.map((u) => [u.id, u]));
       return salvos.map((s) => pedidoVendaBling(s.numero, s.salvo, s.salvo.unidade_id ? porId.get(s.salvo.unidade_id) ?? null : null));
     },
