@@ -169,3 +169,13 @@ O arquivo segue o modelo de **pedido de venda** do Bling: 41 colunas separadas p
 - Nota de devolução não gera pedido de venda. O cliente nunca recebe nem ouve falar do arquivo, e todo download fica registrado na auditoria.
 
 **Resumo para o cliente conferir.** Antes de passar um pedido de nota para o Fiscal, o agente manda ao cliente um resumo de cada nota: destinatário com CNPJ e endereço (do cadastro), produtos com código, quantidade, preço da tabela, total e o que foi combinado (pagamento, entrega). Junto, pergunta se está certo e se tem mais alguma nota. Se o cliente corrigir, sai um resumo novo. Só depois de o cliente confirmar a nota vai para o Fiscal, uma demanda por nota; o sistema não deixa passar um pedido diferente do resumo conferido. Se o cliente voltar depois pedindo outra, vira uma demanda nova.
+
+## 9. Assistente interno (dono e equipe)
+
+- **Quem usa:** na aba **Usuários** (menu do administrador), marque em cada pessoa "Usar o assistente pelo site" e/ou "Usar o assistente pelo WhatsApp (pelo telefone acima)". Vale também para o administrador.
+- **No painel:** menu **Assistente** (perguntas gerais) ou a caixa **Assistente** dentro de cada atendimento (já sabe do cliente e das demandas daquela conversa).
+- **No WhatsApp:** a pessoa marcada manda mensagem do número dela para o número do agente. Essas conversas não aparecem no Atendimento. Atenção: um número com o assistente ligado deixa de falar com o agente de clientes; para testar como cliente, desmarque ou use outro número.
+- **O que ele faz (Parte 1):** consulta demandas, pedidos, vendas por período e rede, preços e cadastros; corrige pedidos de nota (itens, quantidades, unidade, preço, destinatário, pagamento, entrega) mostrando o antes e o depois e só grava depois do "sim"; gera o CSV do Bling (botão no painel, arquivo no WhatsApp).
+- **Permissões:** corrigir pedidos e gerar CSV exigem "Corrigir pedidos de nota e gerar CSV do Bling" (o administrador sempre pode). Quem não é administrador só vê as demandas dos seus setores.
+- **Registro:** toda alteração fica anotada na demanda ("Pedido alterado pelo assistente a pedido de Fulano") e na auditoria; o gasto entra no limite mensal de IA.
+- **Guarda das conversas:** as conversas com o assistente são apagadas depois de 1 ano, junto com as demais.

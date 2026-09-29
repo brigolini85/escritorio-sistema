@@ -3,6 +3,7 @@ import { limparBanco } from '@escritorio/db/teste';
 import { criarArmazenamento } from '../src/midia/armazenamento';
 import { limparRetencao } from '../src/retencao';
 import { db, repos } from './apoio/cenario';
+import { criarUsuarioTeste } from './apoio/usuario';
 
 beforeEach(limparBanco);
 
@@ -19,8 +20,17 @@ describe('limparRetencao', () => {
     await db.from('decisoes_agente').insert({ conversa_id: conversa.id, etapa: 'responder', criado_em: antigo });
 
     const r = await limparRetencao(db, midia, new Date('2026-09-28T12:00:00Z'));
-    expect(r).toEqual({ mensagens: 1, arquivos: 1, decisoes: 1 });
+    expect(r).toEqual({ mensagens: 1, arquivos: 1, decisoes: 1, assistente: 0 });
     expect((await db.from('mensagens').select('conteudo')).data).toEqual([{ conteudo: 'recente' }]);
     await expect(midia.ler(salvo.path)).rejects.toThrow();
+  });
+
+  it('apaga as conversas com o assistente com mais de 1 ano (pedido do dono, 2026-09-29)', async () => {
+    const id = await criarUsuarioTeste({ email: 'dono@teste-retencao.local' });
+    await db.from('assistente_mensagens').insert({ usuario_id: id, canal: 'site', papel: 'usuario', conteudo: 'antiga', criado_em: '2024-01-01T00:00:00Z' });
+    await db.from('assistente_mensagens').insert({ usuario_id: id, canal: 'site', papel: 'usuario', conteudo: 'nova' });
+    const r = await limparRetencao(db, criarArmazenamento(db), new Date('2026-09-29T12:00:00Z'));
+    expect(r.assistente).toBe(1);
+    expect((await db.from('assistente_mensagens').select('conteudo')).data).toEqual([{ conteudo: 'nova' }]);
   });
 });

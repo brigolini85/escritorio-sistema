@@ -3,7 +3,7 @@ import type { ArmazenamentoMidia } from './midia/armazenamento';
 
 const LOTE = 500;
 
-/** Conversas, anexos e decisões do agente ficam guardados por 1 ano (spec, seção 9). */
+/** Conversas, anexos e decisões do agente e as conversas com o assistente interno ficam guardados por 1 ano (spec, seção 9). */
 export async function limparRetencao(db: Db, midia: ArmazenamentoMidia, agora = new Date()) {
   const limite = new Date(agora);
   limite.setFullYear(limite.getFullYear() - 1);
@@ -23,5 +23,7 @@ export async function limparRetencao(db: Db, midia: ArmazenamentoMidia, agora = 
   }
   const { data: decisoes, error: e3 } = await db.from('decisoes_agente').delete().lt('criado_em', corte).select('id');
   if (e3) throw new Error(e3.message);
-  return { mensagens, arquivos, decisoes: decisoes?.length ?? 0 };
+  const { data: assistente, error: e4 } = await db.from('assistente_mensagens').delete().lt('criado_em', corte).select('id');
+  if (e4) throw new Error(e4.message);
+  return { mensagens, arquivos, decisoes: decisoes?.length ?? 0, assistente: assistente?.length ?? 0 };
 }
