@@ -1,14 +1,16 @@
 import type Anthropic from '@anthropic-ai/sdk';
+import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
 import { problemasPedidoBling } from '@escritorio/core';
 import type { ArquivoAssistente, Repos } from '@escritorio/db';
 import type { ClienteIa } from '../agente/cliente-ia';
 import { buscarParceiros, buscarProdutos } from '../agente/cadastros';
-import { cnpjFormatado, formatarReais } from '../agente/pedido-nota';
+import { cnpjFormatado, formatarReais, montarPedidoNota } from '../agente/pedido-nota';
 import type { CanalWhatsApp } from '../canal/tipos';
 import type { ContextoAssistente } from './contexto';
 import { periodoEmIso, totaisDeVendas, totalDoPedido } from './vendas';
-import { podeVerChamado } from './visibilidade';
+import { corrigirPedido, descreverPedido, pedidoOriginalDoResumo } from './pedido';
+import { podeCorrigirPedidos, podeVerChamado } from './visibilidade';
 
 export type DepsAssistente = { repos: Repos; ia: ClienteIa; canal: CanalWhatsApp };
 export type EstadoAssistente = { ctx: ContextoAssistente; resposta: string[]; arquivo: ArquivoAssistente | null; csvs: { nome: string; conteudo: string }[] };
@@ -46,6 +48,21 @@ export const FERRAMENTAS_ASSISTENTE: Anthropic.Tool[] = [
     input_schema: objeto({ cliente_id: { type: 'string' }, unidade_id: { type: 'string' } }, ['cliente_id']) },
   { name: 'resumo_vendas', description: 'Pedidos de venda (das demandas de nota) no período: quantidade, total e total por rede. Opcional: só de uma empresa.',
     input_schema: objeto({ de: { type: 'string', description: 'DD/MM/AAAA' }, ate: { type: 'string', description: 'DD/MM/AAAA' }, cliente_id: { type: 'string' } }, ['de', 'ate']) },
+  {
+    name: 'alterar_pedido_venda',
+    description: 'Corrige o pedido de venda de uma demanda de nota (itens, quantidades, unidade, preço, destinatário, pagamento, entrega). Sem confirmado mostra o antes e o depois sem gravar; com confirmado = true grava (só depois de a pessoa confirmar). itens substitui a lista inteira; sem valor_unitario usa o preço da tabela.',
+    input_schema: objeto({
+      numero: { type: 'integer' },
+      unidade_id: { type: 'string', description: 'Novo destinatário (buscar_parceiros, tipo cliente).' },
+      itens: { type: 'array', items: objeto({
+        produto_id: { type: ['string', 'null'] }, texto: { type: 'string' }, quantidade: { type: 'number' }, unidade: { type: 'string' },
+        valor_unitario: { type: ['number', 'null'], description: 'Só se a pessoa informar um preço diferente da tabela.' },
+      }, ['produto_id', 'texto', 'quantidade', 'unidade']) },
+      forma_pagamento: { type: 'string' }, data_prevista: { type: 'string', description: 'DD/MM/AAAA' }, valor_frete: { type: 'number' },
+      tipo_frete: { type: 'string', enum: ['R', 'D'] }, transportadora: { type: 'string' }, observacoes: { type: 'string' },
+      confirmado: { type: 'boolean' },
+    }, ['numero', 'confirmado']),
+  },
   { name: 'responder', description: 'Envia a resposta para a pessoa da equipe.', input_schema: objeto({ texto: { type: 'string' } }, ['texto']) },
 ];
 
@@ -75,6 +92,13 @@ const Entradas = {
   consultar_preco: z.object({ cliente_id: ID, unidade_id: ID, produto_id: ID }),
   dados_cadastro: z.object({ cliente_id: ID, unidade_id: ID.optional() }),
   resumo_vendas: z.object({ de: DATA, ate: DATA, cliente_id: ID.optional() }),
+  alterar_pedido_venda: z.object({
+    numero: z.number().int().positive(), unidade_id: ID.optional(),
+    itens: z.array(z.object({ produto_id: ID.nullable(), texto: z.string().min(1).max(200), quantidade: z.number().positive(), unidade: z.string().max(20), valor_unitario: z.number().positive().nullish() })).min(1).max(50).optional(),
+    forma_pagamento: z.string().max(60).optional(), data_prevista: DATA.optional(), valor_frete: z.number().min(0).optional(),
+    tipo_frete: z.enum(['R', 'D']).optional(), transportadora: z.string().max(120).optional(), observacoes: z.string().max(500).optional(),
+    confirmado: z.boolean(),
+  }),
   responder: z.object({ texto: z.string().trim().min(1).max(4000) }),
 };
 
@@ -167,6 +191,42 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       const redes = await d.repos.nomesDasRedes([...new Set(lista.flatMap((c) => (c.pedido_venda!.unidade_id ? [c.pedido_venda!.unidade_id] : [])))]);
       const t = totaisDeVendas(lista.map((c) => ({ salvo: c.pedido_venda!, rede: (c.pedido_venda!.unidade_id && redes[c.pedido_venda!.unidade_id]) || c.pedido_venda!.texto_destinatario })));
       return ok({ pedidos: t.pedidos, total: formatarReais(t.total), por_rede: t.porRede.map((r) => ({ rede: r.rede, pedidos: r.pedidos, total: formatarReais(r.total) })) });
+    }
+
+    case 'alterar_pedido_venda': {
+      if (!podeCorrigirPedidos(u)) return falha('Você não tem permissão para corrigir pedidos de nota. Peça ao administrador para marcar "Corrigir pedidos de nota e gerar CSV do Bling" na aba Usuários.');
+      const c = await d.repos.chamadoPorNumero(entrada.numero);
+      if (!c || !podeVerChamado(u, c)) return falha('Demanda não encontrada entre as que você pode ver.');
+      if (!c.pedido_venda || !c.cliente_id) return falha('Esta demanda não tem pedido de venda (só as notas de venda passadas pelo agente têm).');
+      if (c.status === 'concluido') return falha('Esta demanda já foi concluída; o pedido não pode mudar.');
+      const unidades = await d.repos.unidadesDaEmpresa(c.cliente_id, 'cliente');
+      const unidadeId = entrada.unidade_id ?? c.pedido_venda.unidade_id;
+      const destino = unidadeId ? unidades.find((x) => x.id === unidadeId) ?? null : null;
+      if (entrada.unidade_id && !destino) return falha('Esse destinatário não é cliente desta empresa. Use buscar_parceiros com tipo "cliente".');
+      const produtos = await d.repos.produtosDaEmpresa(c.cliente_id);
+      if (entrada.itens?.some((i: { produto_id: string | null }) => i.produto_id && !produtos.some((p) => p.id === i.produto_id))) {
+        return falha('Produto não é desta empresa. Use buscar_produtos.');
+      }
+      const precos = destino && entrada.itens
+        ? await d.repos.precosVigentes(c.cliente_id, destino.grupoId, entrada.itens.flatMap((i: { produto_id: string | null }) => (i.produto_id ? [i.produto_id] : [])))
+        : {};
+      const { numero: _n, itens, unidade_id: _u, confirmado, ...extras } = entrada;
+      const { novo, itensPedido } = corrigirPedido({ salvo: { ...c.pedido_venda, unidade_id: unidadeId }, destino, itens: itens ?? null, produtos, precos, extras, agora: estado.ctx.agora });
+      const antes = descreverPedido(c.pedido_venda);
+      const depois = descreverPedido(novo);
+      if (confirmado && isDeepStrictEqual(novo, c.pedido_venda)) return ok({ gravado: true, numero: c.numero, depois, ja_estava: true });
+      if (!confirmado) return ok({ gravado: false, antes, depois, instrucao: 'Mostre o antes e o depois e pergunte se pode gravar. Só chame de novo com confirmado = true depois de um sim.' });
+
+      const itensResumo = itensPedido ?? novo.itens.map((i) => ({
+        produto: produtos.find((p) => p.codigo === i.sku) ?? null, texto: i.produto ?? '', quantidade: i.quantidade ?? 0,
+        unidade: i.un ?? 'UN', preco: i.valor_unitario,
+      }));
+      const { resumo } = montarPedidoNota({ tipo: 'venda', destino, textoDestinatario: novo.texto_destinatario, itens: itensResumo,
+        pedidoOriginal: pedidoOriginalDoResumo(c.resumo), semPermissao: c.resumo.includes('Observação: contato sem permissão para pedir nota.') });
+      await d.repos.atualizarPedidoVenda(c.id, { pedido: novo, resumo });
+      await d.repos.registrarNotaInterna(c.id, c.cliente_id, u.id, `Pedido alterado pelo assistente a pedido de ${u.nome}.\nAntes:\n${antes}\nDepois:\n${depois}`);
+      await d.repos.registrarAuditoria({ usuarioId: u.id, acao: 'assistente', entidade: 'pedido_venda', entidadeId: c.id, detalhes: { canal: estado.ctx.canal, antes: c.pedido_venda, depois: novo } });
+      return ok({ gravado: true, numero: c.numero, depois });
     }
 
     case 'responder':
