@@ -507,8 +507,15 @@ export function criarRepos(db: Db) {
       return linhas.map((e) => ({ tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null }));
     },
 
-    async atualizarPedidoVenda(chamadoId: string, p: { pedido: PedidoVendaSalvo; resumo: string }): Promise<void> {
-      checar(await db.from('chamados').update({ pedido_venda: p.pedido as never, resumo: p.resumo, atualizado_em: new Date().toISOString() }).eq('id', chamadoId), 'atualizarPedidoVenda');
+    async atualizarPedidoVenda(chamadoId: string, p: { pedido: PedidoVendaSalvo; resumo: string; titulo?: string }): Promise<void> {
+      checar(await db.from('chamados').update({ pedido_venda: p.pedido as never, resumo: p.resumo, ...(p.titulo ? { titulo: p.titulo } : {}), atualizado_em: new Date().toISOString() }).eq('id', chamadoId), 'atualizarPedidoVenda');
+    },
+
+    /** O assistente já mostrou esta prévia (antes/depois) a esta pessoa desde `desde`? */
+    async previaDoAssistente(conferencia: string, usuarioId: string, desde: Date): Promise<boolean> {
+      const linhas = checar(await db.from('decisoes_agente').select('id').eq('etapa', 'assistente:alterar_pedido_venda')
+        .eq('saida->>conferencia', conferencia).eq('saida->>usuario', usuarioId).gte('criado_em', desde.toISOString()).limit(1), 'previaDoAssistente');
+      return linhas.length > 0;
     },
 
     async registrarNotaInterna(chamadoId: string, clienteId: string | null, usuarioId: string, texto: string): Promise<void> {

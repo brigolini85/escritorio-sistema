@@ -1,11 +1,12 @@
 import type Anthropic from '@anthropic-ai/sdk';
+import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
-import { problemasPedidoBling } from '@escritorio/core';
+import { problemasPedidoBling, type PedidoVendaSalvo } from '@escritorio/core';
 import type { ArquivoAssistente, Repos } from '@escritorio/db';
 import type { ClienteIa } from '../agente/cliente-ia';
 import { buscarParceiros, buscarProdutos } from '../agente/cadastros';
-import { cnpjFormatado, formatarReais, montarPedidoNota } from '../agente/pedido-nota';
+import { cnpjFormatado, formatarReais, mesmaUnidade, montarPedidoNota } from '../agente/pedido-nota';
 import type { CanalWhatsApp } from '../canal/tipos';
 import type { ContextoAssistente } from './contexto';
 import { periodoEmIso, totaisDeVendas, totalDoPedido } from './vendas';
@@ -13,7 +14,8 @@ import { corrigirPedido, descreverPedido, pedidoOriginalDoResumo } from './pedid
 import { podeCorrigirPedidos, podeVerChamado } from './visibilidade';
 
 export type DepsAssistente = { repos: Repos; ia: ClienteIa; canal: CanalWhatsApp };
-export type EstadoAssistente = { ctx: ContextoAssistente; resposta: string[]; arquivo: ArquivoAssistente | null; csvs: { nome: string; conteudo: string }[] };
+export type EstadoAssistente = { ctx: ContextoAssistente; resposta: string[]; arquivo: ArquivoAssistente | null; csvs: { nome: string; conteudo: string }[];
+  /** Prévias de correção mostradas nesta execução: só valem como confirmação na mensagem seguinte. */ previas: Set<string> };
 
 type Resultado = { resultado: string; erro: boolean };
 export const ok = (dados: object): Resultado => ({ resultado: JSON.stringify(dados), erro: false });
@@ -210,20 +212,35 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       const precos = destino && entrada.itens
         ? await d.repos.precosVigentes(c.cliente_id, destino.grupoId, entrada.itens.flatMap((i: { produto_id: string | null }) => (i.produto_id ? [i.produto_id] : [])))
         : {};
-      const { numero: _n, itens, unidade_id: _u, confirmado, ...extras } = entrada;
+      const trocou = !!entrada.unidade_id && entrada.unidade_id !== c.pedido_venda.unidade_id;
+      if (trocou && !entrada.itens) return falha('Ao trocar o destinatário, mande os itens de novo para eu recalcular os preços da nova rede.');
+      const { numero: _n, itens, unidade_id: _u, confirmado, ...resto } = entrada;
+      const extras = trocou && destino ? { ...resto, texto_destinatario: `${destino.rede} / ${destino.unidade}` } : resto;
       const { novo, itensPedido } = corrigirPedido({ salvo: { ...c.pedido_venda, unidade_id: unidadeId }, destino, itens: itens ?? null, produtos, precos, extras, agora: estado.ctx.agora });
-      const antes = descreverPedido(c.pedido_venda);
-      const depois = descreverPedido(novo);
-      if (confirmado && isDeepStrictEqual(novo, c.pedido_venda)) return ok({ gravado: true, numero: c.numero, depois, ja_estava: true });
-      if (!confirmado) return ok({ gravado: false, antes, depois, instrucao: 'Mostre o antes e o depois e pergunte se pode gravar. Só chame de novo com confirmado = true depois de um sim.' });
+      const nomeDe = (p: PedidoVendaSalvo) => { const x = unidades.find((y) => y.id === p.unidade_id); return x ? `${x.rede} / ${x.unidade}` : p.texto_destinatario; };
+      const antes = descreverPedido(c.pedido_venda, nomeDe(c.pedido_venda));
+      const depois = descreverPedido(novo, nomeDe(novo));
+      const conferencia = createHash('sha1').update(JSON.stringify({ numero: c.numero, novo })).digest('hex').slice(0, 12);
+      if (confirmado) {
+        if (estado.previas.has(conferencia)) return falha('Mostre o antes e o depois e espere a confirmação na próxima mensagem.');
+        if (!(await d.repos.previaDoAssistente(conferencia, u.id, new Date(Date.now() - 24 * 3600 * 1000)))) {
+          return falha('O pedido mudou ou ainda não foi mostrado. Mostre o antes e o depois de novo e espere a confirmação.');
+        }
+        if (isDeepStrictEqual(novo, c.pedido_venda)) return ok({ gravado: true, numero: c.numero, depois, ja_estava: true });
+      }
+      if (!confirmado) {
+        estado.previas.add(conferencia);
+        return ok({ gravado: false, antes, depois, conferencia, usuario: u.id, instrucao: 'Mostre o antes e o depois e pergunte se pode gravar. Só chame de novo com confirmado = true depois de um sim.' });
+      }
 
       const itensResumo = itensPedido ?? novo.itens.map((i) => ({
         produto: produtos.find((p) => p.codigo === i.sku) ?? null, texto: i.produto ?? '', quantidade: i.quantidade ?? 0,
         unidade: i.un ?? 'UN', preco: i.valor_unitario,
+        precoInformado: i.valor_unitario !== null && !!produtos.find((p) => p.codigo === i.sku) && !mesmaUnidade(i.un ?? 'UN', produtos.find((p) => p.codigo === i.sku)!.unidade),
       }));
-      const { resumo } = montarPedidoNota({ tipo: 'venda', destino, textoDestinatario: novo.texto_destinatario, itens: itensResumo,
+      const { titulo, resumo } = montarPedidoNota({ tipo: 'venda', destino, textoDestinatario: novo.texto_destinatario, itens: itensResumo,
         pedidoOriginal: pedidoOriginalDoResumo(c.resumo), semPermissao: c.resumo.includes('Observação: contato sem permissão para pedir nota.') });
-      await d.repos.atualizarPedidoVenda(c.id, { pedido: novo, resumo });
+      await d.repos.atualizarPedidoVenda(c.id, { pedido: novo, resumo, ...(trocou ? { titulo } : {}) });
       await d.repos.registrarNotaInterna(c.id, c.cliente_id, u.id, `Pedido alterado pelo assistente a pedido de ${u.nome}.\nAntes:\n${antes}\nDepois:\n${depois}`);
       await d.repos.registrarAuditoria({ usuarioId: u.id, acao: 'assistente', entidade: 'pedido_venda', entidadeId: c.id, detalhes: { canal: estado.ctx.canal, antes: c.pedido_venda, depois: novo } });
       return ok({ gravado: true, numero: c.numero, depois });

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { FUSO_HORARIO, type PedidoVendaSalvo } from '@escritorio/core';
 import type { ProdutoEmpresa, UnidadeParceiro } from '@escritorio/db';
 
-export type ItemPedido = { produto: ProdutoEmpresa | null; texto: string; quantidade: number; unidade: string; preco: number | null };
+export type ItemPedido = { produto: ProdutoEmpresa | null; texto: string; quantidade: number; unidade: string; preco: number | null; precoInformado?: boolean };
 
 export function formatarReais(valor: number): string {
   const [inteiro, centavos] = valor.toFixed(2).split('.') as [string, string];
@@ -54,6 +54,14 @@ export function montarPedidoNota(p: {
       linhas.push(`${numero(i.quantidade)} ${i.unidade} ${i.texto} – PRODUTO NÃO CADASTRADO`);
       continue;
     }
+    // Preço informado pela equipe vale na unidade informada, mesmo diferente da cadastrada.
+    if (i.precoInformado && i.preco !== null) {
+      const subtotal = Math.round(i.quantidade * i.preco * 100) / 100;
+      total += subtotal;
+      algumPreco = true;
+      linhas.push(`${numero(i.quantidade)} ${i.unidade} ${i.produto.descricao} (cód. ${i.produto.codigo}) × ${formatarReais(i.preco)} = ${formatarReais(subtotal)} (preço informado)`);
+      continue;
+    }
     // Unidade pedida diferente da cadastrada (ex.: kg × PAC): mantém a do cliente e não calcula, para o Fiscal conferir.
     if (unidadeDiferente(i)) {
       linhas.push(`${numero(i.quantidade)} ${i.unidade} ${i.produto.descricao} (cód. ${i.produto.codigo}) – ATENÇÃO: pedido em ${i.unidade}, produto cadastrado em ${i.produto.unidade}; sem cálculo`);
@@ -92,6 +100,9 @@ export function montarPedidoVenda(p: {
     unidade_id: p.destino?.id ?? null, texto_destinatario: p.textoDestinatario,
     data: new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO_HORARIO, day: '2-digit', month: '2-digit', year: 'numeric' }).format(p.agora),
     itens: p.itens.map((i) => {
+      if (i.precoInformado && i.preco !== null) {
+        return { produto: i.produto?.descricao ?? i.texto, sku: i.produto?.codigo ?? null, un: i.unidade.trim().toUpperCase() || 'UN', quantidade: i.quantidade, valor_unitario: i.preco };
+      }
       // Unidade pedida diferente da cadastrada: mantém a do cliente e deixa o valor para o Fiscal conferir.
       const diferente = unidadeDiferente(i);
       return {

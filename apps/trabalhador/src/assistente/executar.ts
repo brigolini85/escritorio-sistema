@@ -9,7 +9,7 @@ const MAX_VOLTAS = 8;
 const LEMBRETE = 'Texto fora das ferramentas não chega à pessoa. Use a ferramenta responder.';
 
 export async function executarAssistente(d: DepsAssistente, ctx: ContextoAssistente, historico: MensagemAssistente[]): Promise<EstadoAssistente> {
-  const estado: EstadoAssistente = { ctx, resposta: [], arquivo: null, csvs: [] };
+  const estado: EstadoAssistente = { ctx, resposta: [], arquivo: null, csvs: [], previas: new Set() };
   const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: montarSistemaAssistente(ctx) }];
   const messages = mensagensDoHistorico(historico);
   const preco = ctx.config.precosModelos[ctx.config.modeloConversa] ?? { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };

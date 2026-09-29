@@ -29,6 +29,13 @@ describe('corrigir pedido (assistente, 2026-09-29)', () => {
   it('descreve o pedido com total', () => {
     expect(descreverPedido(salvo)).toBe('• 10 PAC Costela com Requeijão (cód. 12) × R$ 9,50 = R$ 95,00\nTotal: R$ 95,00\nPagamento: PIX');
   });
+  it('descreve destinatário, tipo de frete, transportadora e observações', () => {
+    const d = descreverPedido({ ...salvo, tipo_frete: 'R', transportadora: 'T', observacoes: 'O' }, 'Brasil / Santa Efigênia');
+    expect(d.startsWith('Destinatário: Brasil / Santa Efigênia\n')).toBe(true);
+    expect(d).toContain('Tipo de frete: por conta de quem vende');
+    expect(d).toContain('Transportadora: T');
+    expect(d).toContain('Observações: O');
+  });
   it('recupera o pedido original do resumo da demanda', () => {
     expect(pedidoOriginalDoResumo('Destinatário: X\n\nPedido original: "tira nota, 10 costela"')).toBe('tira nota, 10 costela');
     expect(pedidoOriginalDoResumo('sem original')).toBe('');
