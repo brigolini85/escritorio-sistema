@@ -1,4 +1,4 @@
-import { variantesTelefone, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo } from '@escritorio/core';
+import { pedidoVendaBling, variantesTelefone, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo } from '@escritorio/core';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { Db } from './cliente';
 import type { Database } from './tipos.gen';
@@ -38,6 +38,15 @@ export type UnidadeParceiro = {
   endereco: string | null; numero: string | null; complemento: string | null; cep: string | null;
   palavrasChave: string[];
 };
+export type UsuarioAssistente = { id: string; nome: string; papel: 'admin' | 'atendente'; permissoes: string[]; setores: string[]; telefone: string | null; ativo: boolean };
+export type CanalAssistente = 'site' | 'whatsapp';
+export type MensagemAssistente = Linha<'assistente_mensagens'>;
+export type ArquivoAssistente = { tipo: 'csv_bling'; chamados: string[]; nome: string };
+export type ChamadoResumo = {
+  id: string; numero: number; titulo: string; resumo: string; status: string; setor_id: string | null; setor: string | null;
+  responsavel_id: string | null; responsavel: string | null; cliente_id: string | null; empresa: string | null; criado_em: string;
+  pedido_venda: PedidoVendaSalvo | null;
+};
 export type DadosEmpresa = { razaoSocial: string; nomeFantasia: string | null; cnpj: string; inscricaoEstadual: string | null;
   regime: string | null; endereco: string | null; uf: string | null };
 export type ProdutoEmpresa = { id: string; codigo: string; descricao: string; unidade: string; apelidos: string[] };
@@ -57,6 +66,20 @@ function proximoMes(mes: string): string {
   const [a, m] = mes.split('-').map(Number) as [number, number];
   return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`;
 }
+
+const SELECT_CHAMADO_RESUMO = 'id, numero, titulo, resumo, status, setor_id, responsavel_id, cliente_id, criado_em, pedido_venda, setores(nome), usuarios(nome), clientes(razao_social, nome_fantasia)';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function paraChamadoResumo(c: any): ChamadoResumo {
+  return {
+    id: c.id, numero: Number(c.numero), titulo: c.titulo, resumo: c.resumo, status: c.status, setor_id: c.setor_id, setor: c.setores?.nome ?? null,
+    responsavel_id: c.responsavel_id, responsavel: c.usuarios?.nome ?? null, cliente_id: c.cliente_id,
+    empresa: c.clientes ? c.clientes.nome_fantasia ?? c.clientes.razao_social : null, criado_em: c.criado_em,
+    pedido_venda: (c.pedido_venda ?? null) as PedidoVendaSalvo | null,
+  };
+}
+
+const semAcento = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 export function criarRepos(db: Db) {
   return {
@@ -399,6 +422,108 @@ export function criarRepos(db: Db) {
       });
       if (r.error) throw new Error(r.error.message);
       return r.data;
+    },
+
+    async usuarioDoAssistente(telefone: string): Promise<UsuarioAssistente | null> {
+      const linhas = checar(await db.from('usuarios').select('id, nome, papel, permissoes, telefone, ativo, usuario_setores(setor_id)')
+        .in('telefone', variantesTelefone(telefone)).eq('ativo', true).contains('permissoes', ['assistente_whatsapp']).limit(1), 'usuarioDoAssistente');
+      const u = linhas[0];
+      return u ? { id: u.id, nome: u.nome, papel: u.papel, permissoes: u.permissoes, telefone: u.telefone, ativo: u.ativo, setores: u.usuario_setores.map((s) => s.setor_id) } : null;
+    },
+
+    async obterUsuarioAssistente(id: string): Promise<UsuarioAssistente | null> {
+      const u = checar(await db.from('usuarios').select('id, nome, papel, permissoes, telefone, ativo, usuario_setores(setor_id)').eq('id', id).maybeSingle(), 'obterUsuarioAssistente');
+      return u ? { id: u.id, nome: u.nome, papel: u.papel, permissoes: u.permissoes, telefone: u.telefone, ativo: u.ativo, setores: u.usuario_setores.map((s) => s.setor_id) } : null;
+    },
+
+    async registrarMensagemAssistente(m: { usuarioId: string; canal: CanalAssistente; conversaId: string | null; papel: 'usuario' | 'assistente'; conteudo: string; arquivo?: ArquivoAssistente | null; processada?: boolean }): Promise<string> {
+      const r = checar(await db.from('assistente_mensagens').insert({
+        usuario_id: m.usuarioId, canal: m.canal, conversa_id: m.conversaId, papel: m.papel, conteudo: m.conteudo,
+        arquivo: (m.arquivo ?? null) as never, processada_em: m.processada ? new Date().toISOString() : null,
+      }).select('id').single(), 'registrarMensagemAssistente');
+      return r.id;
+    },
+
+    async historicoAssistente(usuarioId: string, canal: CanalAssistente, conversaId: string | null, limite: number): Promise<MensagemAssistente[]> {
+      let q = db.from('assistente_mensagens').select('*').eq('usuario_id', usuarioId).eq('canal', canal);
+      q = conversaId ? q.eq('conversa_id', conversaId) : q.is('conversa_id', null);
+      const linhas = checar(await q.order('criado_em', { ascending: false }).limit(limite), 'historicoAssistente');
+      return linhas.reverse();
+    },
+
+    async perguntasPendentes(usuarioId: string, canal: CanalAssistente, conversaId: string | null): Promise<MensagemAssistente[]> {
+      let q = db.from('assistente_mensagens').select('*').eq('usuario_id', usuarioId).eq('canal', canal).eq('papel', 'usuario').is('processada_em', null);
+      q = conversaId ? q.eq('conversa_id', conversaId) : q.is('conversa_id', null);
+      return checar(await q.order('criado_em'), 'perguntasPendentes');
+    },
+
+    async marcarPerguntasRespondidas(ids: string[]): Promise<void> {
+      if (ids.length) checar(await db.from('assistente_mensagens').update({ processada_em: new Date().toISOString() }).in('id', ids), 'marcarPerguntasRespondidas');
+    },
+
+    async chamadosRecentes(f: { status?: string; abertas?: boolean; de?: string; ate?: string; clienteIds?: string[]; soNotas?: boolean }): Promise<ChamadoResumo[]> {
+      let q = db.from('chamados').select(SELECT_CHAMADO_RESUMO);
+      if (f.status) q = q.eq('status', f.status as never);
+      if (f.abertas) q = q.neq('status', 'concluido');
+      if (f.de) q = q.gte('criado_em', f.de);
+      if (f.ate) q = q.lte('criado_em', f.ate);
+      if (f.clienteIds) q = q.in('cliente_id', f.clienteIds);
+      if (f.soNotas) q = q.like('titulo', 'NF de %');
+      return checar(await q.order('criado_em', { ascending: false }).limit(500), 'chamadosRecentes').map(paraChamadoResumo);
+    },
+
+    async chamadoPorNumero(numero: number): Promise<ChamadoResumo | null> {
+      const c = checar(await db.from('chamados').select(SELECT_CHAMADO_RESUMO).eq('numero', numero).maybeSingle(), 'chamadoPorNumero');
+      return c ? paraChamadoResumo(c) : null;
+    },
+
+    async eventosDoChamado(chamadoId: string, limite: number) {
+      const linhas = checar(await db.from('chamado_eventos').select('tipo, texto, criado_em, usuarios(nome)').eq('chamado_id', chamadoId)
+        .order('criado_em', { ascending: false }).limit(limite), 'eventosDoChamado');
+      return linhas.map((e) => ({ tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null }));
+    },
+
+    async atualizarPedidoVenda(chamadoId: string, p: { pedido: PedidoVendaSalvo; resumo: string }): Promise<void> {
+      checar(await db.from('chamados').update({ pedido_venda: p.pedido as never, resumo: p.resumo, atualizado_em: new Date().toISOString() }).eq('id', chamadoId), 'atualizarPedidoVenda');
+    },
+
+    async registrarNotaInterna(chamadoId: string, clienteId: string | null, usuarioId: string, texto: string): Promise<void> {
+      checar(await db.from('chamado_eventos').insert({ chamado_id: chamadoId, cliente_id: clienteId, tipo: 'nota_interna', usuario_id: usuarioId, texto }), 'registrarNotaInterna');
+    },
+
+    async registrarAuditoria(a: { usuarioId: string; acao: string; entidade: string; entidadeId: string; detalhes?: object }): Promise<void> {
+      checar(await db.from('auditoria_acessos').insert({ usuario_id: a.usuarioId, acao: a.acao, entidade: a.entidade, entidade_id: a.entidadeId, detalhes: (a.detalhes ?? null) as never }), 'registrarAuditoria');
+    },
+
+    async buscarEmpresas(texto: string): Promise<{ id: string; nome: string; cnpj: string }[]> {
+      const limpo = texto.replace(/[,()*%\\]/g, ' ').trim();
+      const digitos = limpo.replace(/\D/g, '');
+      const filtros = [`razao_social.ilike.%${limpo}%`, `nome_fantasia.ilike.%${limpo}%`, ...(digitos.length >= 3 ? [`cnpj.like.%${digitos}%`] : [])];
+      let linhas = checar(await db.from('clientes').select('id, razao_social, nome_fantasia, cnpj').or(filtros.join(',')).eq('ativo', true).order('razao_social').limit(10), 'buscarEmpresas');
+      // Sem acento no texto digitado ("industria"): compara também sem acentos.
+      if (linhas.length === 0) {
+        const todos = checar(await db.from('clientes').select('id, razao_social, nome_fantasia, cnpj').eq('ativo', true).order('razao_social'), 'buscarEmpresas');
+        const alvo = semAcento(limpo);
+        linhas = todos.filter((c) => semAcento(`${c.razao_social} ${c.nome_fantasia ?? ''}`).includes(alvo)).slice(0, 10);
+      }
+      return linhas.map((c) => ({ id: c.id, nome: c.nome_fantasia ?? c.razao_social, cnpj: c.cnpj }));
+    },
+
+    async pedidosVendaParaBling(chamadoIds: string[]): Promise<PedidoVendaBling[]> {
+      if (chamadoIds.length === 0) return [];
+      const chamados = checar(await db.from('chamados').select('numero, pedido_venda').in('id', chamadoIds).not('pedido_venda', 'is', null).order('numero'), 'pedidosVendaParaBling');
+      const salvos = chamados.map((c) => ({ numero: Number(c.numero), salvo: c.pedido_venda as unknown as PedidoVendaSalvo }));
+      const ids = [...new Set(salvos.flatMap((s) => (s.salvo.unidade_id ? [s.salvo.unidade_id] : [])))];
+      const unidades = ids.length ? checar(await db.from('parceiros_unidades')
+        .select('id, razao_social, nome_unidade, cnpj, endereco, numero, complemento, bairro, cidade, uf, cep, telefone').in('id', ids), 'pedidosVendaParaBling') : [];
+      const porId = new Map(unidades.map((u) => [u.id, u]));
+      return salvos.map((s) => pedidoVendaBling(s.numero, s.salvo, s.salvo.unidade_id ? porId.get(s.salvo.unidade_id) ?? null : null));
+    },
+
+    async nomesDasRedes(unidadeIds: string[]): Promise<Record<string, string>> {
+      if (unidadeIds.length === 0) return {};
+      const linhas = checar(await db.from('parceiros_unidades').select('id, parceiros_grupos(nome)').in('id', unidadeIds), 'nomesDasRedes');
+      return Object.fromEntries(linhas.map((l) => [l.id, l.parceiros_grupos?.nome ?? '']));
     },
 
     async setorPorNome(nome: string): Promise<string | null> {
