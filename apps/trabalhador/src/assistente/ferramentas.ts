@@ -2,7 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
-import { problemasPedidoBling, type PedidoVendaSalvo } from '@escritorio/core';
+import { dividirPedidosBling, montarCsvVendaBling, nomeArquivoVendaBling, problemasPedidoBling, type PedidoVendaSalvo } from '@escritorio/core';
 import type { ArquivoAssistente, Repos } from '@escritorio/db';
 import type { ClienteIa } from '../agente/cliente-ia';
 import { buscarParceiros, buscarProdutos } from '../agente/cadastros';
@@ -65,6 +65,11 @@ export const FERRAMENTAS_ASSISTENTE: Anthropic.Tool[] = [
       confirmado: { type: 'boolean' },
     }, ['numero', 'confirmado']),
   },
+  {
+    name: 'gerar_csv_bling',
+    description: 'Gera o arquivo de pedidos de venda do Bling: das demandas pelos números, ou (abertas = true) de todas as demandas de venda abertas que a pessoa pode ver. No painel vira o botão de baixar; no WhatsApp o arquivo é enviado junto com a resposta.',
+    input_schema: objeto({ numeros: { type: 'array', items: { type: 'integer' } }, abertas: { type: 'boolean' } }, []),
+  },
   { name: 'responder', description: 'Envia a resposta para a pessoa da equipe.', input_schema: objeto({ texto: { type: 'string' } }, ['texto']) },
 ];
 
@@ -101,6 +106,8 @@ const Entradas = {
     tipo_frete: z.enum(['R', 'D']).optional(), transportadora: z.string().max(120).optional(), observacoes: z.string().max(500).optional(),
     confirmado: z.boolean(),
   }),
+  gerar_csv_bling: z.object({ numeros: z.array(z.number().int().positive()).min(1).max(1000).optional(), abertas: z.boolean().optional() })
+    .refine((x) => x.numeros || x.abertas, 'Informe os números das demandas ou abertas = true'),
   responder: z.object({ texto: z.string().trim().min(1).max(4000) }),
 };
 
@@ -244,6 +251,28 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       await d.repos.registrarNotaInterna(c.id, c.cliente_id, u.id, `Pedido alterado pelo assistente a pedido de ${u.nome}.\nAntes:\n${antes}\nDepois:\n${depois}`);
       await d.repos.registrarAuditoria({ usuarioId: u.id, acao: 'assistente', entidade: 'pedido_venda', entidadeId: c.id, detalhes: { canal: estado.ctx.canal, antes: c.pedido_venda, depois: novo } });
       return ok({ gravado: true, numero: c.numero, depois });
+    }
+
+    case 'gerar_csv_bling': {
+      if (!podeCorrigirPedidos(u)) return falha('Você não tem permissão para gerar o CSV do Bling. Peça ao administrador na aba Usuários.');
+      const chamados = entrada.numeros
+        ? (await Promise.all(entrada.numeros.map((n: number) => d.repos.chamadoPorNumero(n)))).filter((c): c is NonNullable<typeof c> => c !== null)
+        : await d.repos.chamadosRecentes({ abertas: true, comPedido: true, visivelPara });
+      const escolhidos = chamados.filter((c) => c.pedido_venda && podeVerChamado(u, c));
+      if (escolhidos.length === 0) return falha('Nenhuma demanda de venda com pedido entre as que você pode ver.');
+      const pedidos = await d.repos.pedidosVendaParaBling(escolhidos.map((c) => c.id));
+      const problemas = pedidos.flatMap(problemasPedidoBling);
+      if (problemas.length) return falha(`Não dá para gerar ainda: ${problemas.join('; ')}.`);
+      const partes = dividirPedidosBling(pedidos);
+      const nomes = partes.map((_, i) => nomeArquivoVendaBling(estado.ctx.agora, partes.length > 1 ? i + 1 : undefined));
+      if (estado.ctx.canal === 'site') {
+        estado.arquivo = { tipo: 'csv_bling', chamados: escolhidos.map((c) => c.id), nome: nomes[0]! };
+      } else {
+        partes.forEach((p, i) => estado.csvs.push({ nome: nomes[i]!, conteudo: montarCsvVendaBling(p) }));
+      }
+      await d.repos.registrarAuditoria({ usuarioId: u.id, acao: 'download', entidade: 'csv_bling', entidadeId: escolhidos.map((c) => c.id).join(','),
+        detalhes: { canal: estado.ctx.canal, pedidos: pedidos.map((p) => p.numero), arquivos: nomes } });
+      return ok({ pedidos: pedidos.length, arquivos: nomes, instrucao: estado.ctx.canal === 'site' ? 'O botão de baixar aparece junto da sua resposta.' : 'O arquivo vai junto da sua resposta.' });
     }
 
     case 'responder':

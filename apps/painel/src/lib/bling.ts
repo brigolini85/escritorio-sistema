@@ -5,7 +5,7 @@ import type { supabaseServidor } from './supabase/servidor';
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;
 
 /** Qual conjunto de demandas vira arquivo: uma demanda (botão da demanda) ou as abertas do filtro da tela Demandas. */
-export type FiltroBling = { id: string } | { setor: string };
+export type FiltroBling = { id: string } | { ids: string[] } | { setor: string };
 
 /**
  * Pedidos de venda das demandas, com o comprador lido do cadastro agora (CEP, número... preenchidos depois também valem).
@@ -14,6 +14,7 @@ export type FiltroBling = { id: string } | { setor: string };
 export async function carregarPedidosBling(sb: Sb, filtro: FiltroBling): Promise<{ pedidos: PedidoVendaBling[]; problemas: string[] }> {
   let consulta = sb.from('chamados').select('numero, pedido_venda').not('pedido_venda', 'is', null).order('numero');
   if ('id' in filtro) consulta = consulta.eq('id', filtro.id);
+  else if ('ids' in filtro) consulta = consulta.in('id', filtro.ids);
   else {
     consulta = consulta.neq('status', 'concluido');
     if (filtro.setor === 'triagem') consulta = consulta.is('setor_id', null);

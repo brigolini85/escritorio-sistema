@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
   const u = await obterUsuario();
   const q = req.nextUrl.searchParams;
   const id = q.get('id');
-  const filtro: FiltroBling = id ? { id } : { setor: q.get('setor') ?? 'todos' };
+  const ids = q.get('ids')?.split(',').filter(Boolean) ?? null;
+  const filtro: FiltroBling = id ? { id } : ids ? { ids } : { setor: q.get('setor') ?? 'todos' };
   const { pedidos, problemas } = await carregarPedidosBling(await supabaseServidor(), filtro);
   if (pedidos.length === 0) return aviso('Nenhum pedido de venda para exportar.', ['Só as demandas de nota de venda abertas pelo agente geram o arquivo.']);
   if (problemas.length) return aviso('Complete os dados abaixo antes de gerar o arquivo:', problemas);
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
   const partes = dividirPedidosBling(pedidos);
   const parte = Math.min(Math.max(Number(q.get('parte') ?? 1) || 1, 1), partes.length);
   const nome = nomeArquivoVendaBling(new Date(), partes.length > 1 ? parte : undefined);
-  await registrarAuditoria(u.id, 'download', 'csv_bling', id ?? `exportacao:${q.get('setor') ?? 'todos'}`, { pedidos: partes[parte - 1]!.map((p) => p.numero), arquivo: nome });
+  await registrarAuditoria(u.id, 'download', 'csv_bling', id ?? (ids ? ids.join(',') : `exportacao:${q.get('setor') ?? 'todos'}`), { pedidos: partes[parte - 1]!.map((p) => p.numero), arquivo: nome });
   return new NextResponse(montarCsvVendaBling(partes[parte - 1]!), {
     headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${nome}"` },
   });
