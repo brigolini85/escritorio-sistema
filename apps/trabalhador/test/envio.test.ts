@@ -4,6 +4,7 @@ import { limparBanco } from '@escritorio/db/teste';
 import { CanalFalso } from '../src/canal/falso';
 import { LimitadorEnvio, enviarDocumentoDoSistema, enviarDoSistema, enviarMensagemDoPainel, verificarEnviadaPorMim, type DepsEnvio } from '../src/envio';
 import { criarArmazenamento } from '../src/midia/armazenamento';
+import { criarUsuarioTeste } from './apoio/usuario';
 import * as f from './fixtures/zapi/sinteticos';
 
 const db = criarClienteServico(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -147,5 +148,14 @@ describe('verificarEnviadaPorMim', () => {
     expect(await verificarEnviadaPorMim(d, canal.interpretarWebhook(f.enviadaPorMim)!)).toBe('humano');
     expect((await repos.obterConversa(conversa.id)).estado).toBe('humano');
     expect((await repos.mensagemPorIdProvedor('MSG-EU-1'))?.conteudo).toBe('Já envio');
+  });
+  it('resposta do assistente ao usuário da equipe não vira mensagem nem muda o estado da conversa', async () => {
+    const msg = canal.interpretarWebhook(f.enviadaPorMim)!;
+    await criarUsuarioTeste({ email: 'dono@teste-envio.local', permissoes: ['assistente_whatsapp'], telefone: msg.telefone });
+    const conversa = await repos.obterOuCriarConversa(msg.telefone, null);
+    expect(await verificarEnviadaPorMim(d, { ...msg, idProvedor: 'ASSIST-1' })).toBe('do-sistema');
+    expect(await repos.mensagemPorIdProvedor('ASSIST-1')).toBeNull();
+    expect(await repos.historico(conversa.id, 10)).toEqual([]);
+    expect((await repos.obterConversa(conversa.id)).estado).toBe('agente');
   });
 });

@@ -6,6 +6,7 @@ import { LimitadorEnvio } from '../src/envio';
 import { criarArmazenamento } from '../src/midia/armazenamento';
 import { processarConversa, type DepsProcessamento } from '../src/processar-conversa';
 import { contatoComEmpresas, db, repos } from './apoio/cenario';
+import { FilaFalsa } from './apoio/fila-falsa';
 import { IaRoteirizada, fim, usarFerramentas } from './apoio/ia-roteirizada';
 
 const SEGUNDA_10H = new Date('2026-09-28T13:00:00Z');
@@ -15,7 +16,7 @@ let alertas: { nivel: string; mensagem: string }[];
 function deps(ia: IaRoteirizada, extra: Partial<DepsProcessamento> = {}): DepsProcessamento {
   const baixar = vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-type': 'audio/ogg' } }));
   return {
-    repos, ia,
+    repos, ia, fila: new FilaFalsa(),
     envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) },
     midia: criarArmazenamento(db, baixar),
     transcritor: { transcrever: vi.fn().mockResolvedValue('preciso do holerite') },

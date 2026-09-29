@@ -6,7 +6,8 @@ import { criarCanalZapi } from './canal/zapi';
 import { lerConfig } from './config';
 import { criarEmail } from './email';
 import { LimitadorEnvio, enviarMensagemDoPainel, verificarEnviadaPorMim } from './envio';
-import { FILAS, criarBoss, filaDe } from './fila';
+import { processarAssistente } from './assistente/processar';
+import { FILAS, criarBoss, filaDe, type JobAssistente } from './fila';
 import { criarArmazenamento } from './midia/armazenamento';
 import { criarTranscritor } from './midia/transcritor';
 import { processarConversa } from './processar-conversa';
@@ -26,20 +27,25 @@ async function principal() {
   const envio = { repos, canal, limitador: new LimitadorEnvio(20), midia };
   const email = criarEmail({ host: cfg.SMTP_HOST, porta: cfg.SMTP_PORTA, usuario: cfg.SMTP_USUARIO, senha: cfg.SMTP_SENHA, remetente: cfg.SMTP_REMETENTE });
   const alertas = criarAlertas({ repos, email, envio });
+  const boss = await criarBoss(cfg.DATABASE_URL);
   const deps = {
-    repos, envio, midia, alertas, relogio,
+    repos, envio, midia, alertas, relogio, fila: filaDe(boss),
     ia: criarClienteIa(cfg.ANTHROPIC_API_KEY),
     transcritor: criarTranscritor({
       baseUrl: cfg.TRANSCRICAO_BASE_URL, apiKey: cfg.TRANSCRICAO_API_KEY, modelo: cfg.TRANSCRICAO_MODELO, vocabulario: cfg.TRANSCRICAO_VOCABULARIO,
     }),
   };
-  const boss = await criarBoss(cfg.DATABASE_URL);
   const depsTarefas = { repos, canal, alertas, envio, email, relogio, fila: filaDe(boss) };
   await boss.work<{ paths: string[] }>(FILAS.removerArquivos, async ([job]) => { await midia.remover(job!.data.paths); });
   // 4 consumidores: conversas diferentes andam em paralelo; a política "stately" garante uma execução por conversa.
   for (let i = 0; i < 4; i++) {
     await boss.work<{ conversaId: string }>(FILAS.processarConversa, { includeMetadata: true }, async ([job]) => {
       await processarConversa(deps, job!.data.conversaId, job!.retryCount >= job!.retryLimit);
+    });
+  }
+  for (let i = 0; i < 2; i++) {
+    await boss.work<JobAssistente>(FILAS.assistente, { includeMetadata: true }, async ([job]) => {
+      await processarAssistente({ repos, ia: deps.ia, canal }, job!.data, job!.retryCount >= job!.retryLimit);
     });
   }
   await boss.work<{ mensagemId: string }>(FILAS.enviarMensagem, { includeMetadata: true }, async ([job]) => {

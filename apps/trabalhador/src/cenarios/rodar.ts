@@ -69,7 +69,7 @@ async function rodar(c: Cenario): Promise<string[]> {
     repos, ia: criarClienteIa(process.env.ANTHROPIC_API_KEY!),
     envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) },
     midia: criarArmazenamento(db), transcritor: { transcrever: async () => '' },
-    alertas: { alertar: async () => {} }, relogio: () => new Date(c.agora ?? SEGUNDA_10H),
+    fila: { enviar: async () => {} }, alertas: { alertar: async () => {} }, relogio: () => new Date(c.agora ?? SEGUNDA_10H),
   };
   // Rodadas seguintes (ex.: o "sim" que confirma um preço, o "só essa" que libera a nota), cada uma depois da resposta à anterior.
   const rodadas = [c.mensagens, c.mensagens2, c.mensagens3, c.mensagens4].filter((r): r is string[] => !!r);

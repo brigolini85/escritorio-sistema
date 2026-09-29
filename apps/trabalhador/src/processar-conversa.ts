@@ -7,11 +7,12 @@ import { executarAgente } from './agente/executar';
 import type { DepsAgente } from './agente/ferramentas';
 import { montarConteudoUsuario, type AnexoParaIa } from './agente/prompt';
 import { enviarDoSistema } from './envio';
+import { agendarAssistente, type Fila } from './fila';
 import type { ArmazenamentoMidia } from './midia/armazenamento';
 import type { Transcritor } from './midia/transcritor';
 
-export type DepsProcessamento = DepsAgente & { transcritor: Transcritor; midia: ArmazenamentoMidia; alertas: Alertas; relogio: () => Date };
-export type DesfechoProcessamento = 'sem-mensagens' | 'interno' | 'humano' | 'pausado' | 'teto' | 'agente' | 'escalado';
+export type DepsProcessamento = DepsAgente & { transcritor: Transcritor; midia: ArmazenamentoMidia; alertas: Alertas; relogio: () => Date; fila: Fila };
+export type DesfechoProcessamento = 'sem-mensagens' | 'assistente' | 'interno' | 'humano' | 'pausado' | 'teto' | 'agente' | 'escalado';
 
 const TAMANHO_HISTORICO = 20;
 const MAX_BYTES_ANEXO = 5 * 1024 * 1024;
@@ -95,6 +96,22 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
   const ids = novas.map((m) => m.id);
   let conversa = await d.repos.obterConversa(conversaId);
   const anexos = await prepararMidias(d, conversa, novas);
+
+  // WhatsApp de alguém da equipe com o assistente ligado: vira pergunta ao assistente interno (pedido do dono, 2026-09-29).
+  // `prepararMidias` já preencheu `transcricao` nas linhas em memória (e em nova tentativa ela vem do banco).
+  const usuario = await d.repos.usuarioDoAssistente(conversa.telefone);
+  if (usuario) {
+    for (const m of novas) {
+      const texto = m.tipo === 'audio' ? m.transcricao ?? '[áudio sem transcrição]'
+        : m.tipo === 'imagem' ? `[imagem]${m.conteudo ? ` ${m.conteudo}` : ''}`
+        : m.tipo === 'documento' ? `[documento: ${m.arquivo_nome ?? 'arquivo'}]${m.conteudo ? ` ${m.conteudo}` : ''}`
+        : m.conteudo ?? '';
+      if (texto.trim()) await d.repos.registrarMensagemAssistente({ usuarioId: usuario.id, canal: 'whatsapp', conversaId: null, papel: 'usuario', conteudo: texto });
+    }
+    await d.repos.marcarProcessadas(ids);
+    await agendarAssistente(d.fila, { usuarioId: usuario.id, canal: 'whatsapp', conversaId: null, telefone: conversa.telefone });
+    return 'assistente';
+  }
 
   if (await d.repos.ehTelefoneInterno(conversa.telefone)) {
     await d.repos.marcarProcessadas(ids);

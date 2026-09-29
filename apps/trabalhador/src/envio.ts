@@ -101,6 +101,8 @@ export async function verificarEnviadaPorMim(d: DepsEnvio, m: MensagemRecebida):
   if (await d.repos.mensagemPorIdProvedor(m.idProvedor)) return 'do-sistema';
   const telefone = normalizarTelefone(m.telefone);
   if (!telefone) return 'do-sistema';
+  // Resposta do assistente interno: não tem linha em `mensagens` e nunca assume a conversa como atendimento humano.
+  if (await d.repos.usuarioDoAssistente(telefone)) return 'do-sistema';
   const conversa = await d.repos.obterOuCriarConversa(telefone, null);
   if (m.texto) {
     const pendente = await d.repos.saidaPendenteComConteudo(conversa.id, m.texto);
