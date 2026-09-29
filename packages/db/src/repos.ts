@@ -469,7 +469,7 @@ export function criarRepos(db: Db) {
       if (ids.length) checar(await db.from('assistente_mensagens').update({ processada_em: new Date().toISOString() }).in('id', ids), 'marcarPerguntasRespondidas');
     },
 
-    async chamadosRecentes(f: { status?: string; abertas?: boolean; de?: string; ate?: string; clienteIds?: string[]; soNotas?: boolean; comPedido?: boolean; visivelPara?: { usuarioId: string; setorIds: string[] } | null; limite?: number }): Promise<ChamadoResumo[]> {
+    async chamadosRecentes(f: { status?: string; abertas?: boolean; de?: string; ate?: string; clienteIds?: string[]; soNotas?: boolean; comPedido?: boolean; setorId?: string | null; visivelPara?: { usuarioId: string; setorIds: string[] } | null; limite?: number }): Promise<ChamadoResumo[]> {
       const montar = () => {
         let q = db.from('chamados').select(SELECT_CHAMADO_RESUMO);
         if (f.status) q = q.eq('status', f.status as never);
@@ -479,6 +479,7 @@ export function criarRepos(db: Db) {
         if (f.clienteIds) q = q.in('cliente_id', f.clienteIds);
         if (f.soNotas) q = q.like('titulo', 'NF de %');
         if (f.comPedido) q = q.not('pedido_venda', 'is', null);
+        if (f.setorId) q = q.eq('setor_id', f.setorId);
         if (f.visivelPara) {
           const { usuarioId, setorIds } = f.visivelPara;
           q = q.or([`responsavel_id.eq.${usuarioId}`, ...(setorIds.length ? [`setor_id.in.(${setorIds.join(',')})`] : [])].join(','));
@@ -545,9 +546,14 @@ export function criarRepos(db: Db) {
     },
 
     async nomesDasRedes(unidadeIds: string[]): Promise<Record<string, string>> {
-      if (unidadeIds.length === 0) return {};
-      const linhas = checar(await db.from('parceiros_unidades').select('id, parceiros_grupos(nome)').in('id', unidadeIds), 'nomesDasRedes');
-      return Object.fromEntries(linhas.map((l) => [l.id, l.parceiros_grupos?.nome ?? '']));
+      const ids = [...new Set(unidadeIds)];
+      const nomes: Record<string, string> = {};
+      // Em blocos de 100: o filtro vai na URL e uma lista longa estoura o limite dela.
+      for (let i = 0; i < ids.length; i += 100) {
+        const linhas = checar(await db.from('parceiros_unidades').select('id, parceiros_grupos(nome)').in('id', ids.slice(i, i + 100)), 'nomesDasRedes');
+        for (const l of linhas) nomes[l.id] = l.parceiros_grupos?.nome ?? '';
+      }
+      return nomes;
     },
 
     async setorPorNome(nome: string): Promise<string | null> {

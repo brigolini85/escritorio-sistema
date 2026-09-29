@@ -49,7 +49,18 @@ export const FERRAMENTAS_ASSISTENTE: Anthropic.Tool[] = [
   { name: 'responder', description: 'Envia a resposta para a pessoa da equipe.', input_schema: objeto({ texto: { type: 'string' } }, ['texto']) },
 ];
 
-const DATA = z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/, 'data no formato DD/MM/AAAA');
+const MSG_DATA = 'data inválida (use DD/MM/AAAA)';
+const DATA = z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/, MSG_DATA).refine((v) => {
+  const [d, m, a] = v.split('/').map(Number) as [number, number, number];
+  const t = new Date(Date.UTC(a, m - 1, d));
+  return t.getUTCFullYear() === a && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}, MSG_DATA);
+const ID = z.string().uuid('identificador inválido (use o id devolvido pelas buscas)');
+const depoisDe = (de?: string, ate?: string) => {
+  if (!de || !ate) return false;
+  const k = (v: string) => v.split('/').reverse().join('');
+  return k(de) > k(ate);
+};
 
 const Entradas = {
   listar_demandas: z.object({
@@ -59,11 +70,11 @@ const Entradas = {
   }),
   ver_demanda: z.object({ numero: z.number().int().positive() }),
   buscar_empresas: z.object({ texto: z.string().trim().min(2).max(120) }),
-  buscar_parceiros: z.object({ cliente_id: z.string(), texto: z.string().min(1).max(200), tipo: z.enum(['cliente', 'fornecedor']) }),
-  buscar_produtos: z.object({ cliente_id: z.string(), textos: z.array(z.string().min(1).max(200)).min(1).max(30) }),
-  consultar_preco: z.object({ cliente_id: z.string(), unidade_id: z.string(), produto_id: z.string() }),
-  dados_cadastro: z.object({ cliente_id: z.string(), unidade_id: z.string().optional() }),
-  resumo_vendas: z.object({ de: DATA, ate: DATA, cliente_id: z.string().optional() }),
+  buscar_parceiros: z.object({ cliente_id: ID, texto: z.string().min(1).max(200), tipo: z.enum(['cliente', 'fornecedor']) }),
+  buscar_produtos: z.object({ cliente_id: ID, textos: z.array(z.string().min(1).max(200)).min(1).max(30) }),
+  consultar_preco: z.object({ cliente_id: ID, unidade_id: ID, produto_id: ID }),
+  dados_cadastro: z.object({ cliente_id: ID, unidade_id: ID.optional() }),
+  resumo_vendas: z.object({ de: DATA, ate: DATA, cliente_id: ID.optional() }),
   responder: z.object({ texto: z.string().trim().min(1).max(4000) }),
 };
 
@@ -78,6 +89,7 @@ async function empresaExiste(d: DepsAssistente, clienteId: string): Promise<bool
 
 async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nome: keyof typeof Entradas, entrada: any): Promise<Resultado> {
   const u = estado.ctx.usuario;
+  if ((nome === 'listar_demandas' || nome === 'resumo_vendas') && depoisDe(entrada.de, entrada.ate)) return falha('A data inicial é depois da final.');
   // Admin vê tudo; os demais, só o que o banco deixa (setores deles e o que respondem).
   const visivelPara = u.papel === 'admin' ? null : { usuarioId: u.id, setorIds: u.setores };
   switch (nome) {
@@ -89,8 +101,8 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       }
       const setorId = entrada.setor ? estado.ctx.setores.find((s) => s.nome.toLowerCase() === entrada.setor.toLowerCase())?.id ?? null : undefined;
       if (entrada.setor && !setorId) return falha(`Setor não encontrado. Setores: ${estado.ctx.setores.map((s) => s.nome).join(', ')}.`);
-      const lista = (await d.repos.chamadosRecentes({ status: entrada.status, abertas: entrada.abertas, ...periodoEmIso(entrada.de, entrada.ate), clienteIds, soNotas: entrada.so_notas, visivelPara }))
-        .filter((c) => podeVerChamado(u, c) && (setorId === undefined || c.setor_id === setorId)).slice(0, 30);
+      const lista = (await d.repos.chamadosRecentes({ status: entrada.status, abertas: entrada.abertas, ...periodoEmIso(entrada.de, entrada.ate), clienteIds, soNotas: entrada.so_notas, setorId: setorId ?? undefined, visivelPara, limite: 30 }))
+        .filter((c) => podeVerChamado(u, c));
       return ok({ demandas: lista.map((c) => ({
         numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor ?? 'Triagem', empresa: c.empresa, criada_em: dataCurta(c.criado_em),
         responsavel: c.responsavel, total_pedido: c.pedido_venda ? formatarReais(totalDoPedido(c.pedido_venda)) : null,
@@ -152,7 +164,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
     case 'resumo_vendas': {
       const lista = (await d.repos.chamadosRecentes({ ...periodoEmIso(entrada.de, entrada.ate), clienteIds: entrada.cliente_id ? [entrada.cliente_id] : undefined, comPedido: true, visivelPara }))
         .filter((c) => c.pedido_venda && podeVerChamado(u, c));
-      const redes = await d.repos.nomesDasRedes(lista.flatMap((c) => (c.pedido_venda!.unidade_id ? [c.pedido_venda!.unidade_id] : [])));
+      const redes = await d.repos.nomesDasRedes([...new Set(lista.flatMap((c) => (c.pedido_venda!.unidade_id ? [c.pedido_venda!.unidade_id] : [])))]);
       const t = totaisDeVendas(lista.map((c) => ({ salvo: c.pedido_venda!, rede: (c.pedido_venda!.unidade_id && redes[c.pedido_venda!.unidade_id]) || c.pedido_venda!.texto_destinatario })));
       return ok({ pedidos: t.pedidos, total: formatarReais(t.total), por_rede: t.porRede.map((r) => ({ rede: r.rede, pedidos: r.pedidos, total: formatarReais(r.total) })) });
     }
@@ -168,7 +180,13 @@ export async function executarFerramentaAssistente(d: DepsAssistente, estado: Es
   if (!(nome in Entradas)) r = falha(`Ferramenta desconhecida: ${nome}`);
   else {
     const v = Entradas[nome as keyof typeof Entradas].safeParse(entrada);
-    r = v.success ? await executarValidada(d, estado, nome as keyof typeof Entradas, v.data) : falha(`Entrada inválida: ${v.error.issues.map((i) => i.message).join('; ')}`);
+    if (!v.success) r = falha(`Entrada inválida: ${v.error.issues.map((i) => i.message).join('; ')}`);
+    else {
+      try { r = await executarValidada(d, estado, nome as keyof typeof Entradas, v.data); } catch (e) {
+        console.error('[assistente] ferramenta', nome, e);
+        r = falha('Não consegui consultar agora; tente de novo.');
+      }
+    }
   }
   await d.repos.registrarDecisao({ conversaId: null, clienteId: null, etapa: `assistente:${nome}`, entrada, saida: JSON.parse(r.resultado) });
   return r;

@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { limparBanco } from '@escritorio/db/teste';
 import { carregarContextoAssistente } from '../../src/assistente/contexto';
 import { executarFerramentaAssistente, type EstadoAssistente } from '../../src/assistente/ferramentas';
@@ -55,16 +56,41 @@ describe('consultas do assistente (pedido do dono, 2026-09-29)', () => {
     expect(JSON.stringify(v)).not.toContain('segredo da triagem');
   });
 
-  it('atendente ainda vê a demanda do setor dele quando há mais novas de outros setores', async () => {
+  it('atendente ainda vê a demanda do setor dele com 35 mais novas de outro setor', async () => {
     const outro = await setorId('Financeiro');
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 35; i++) {
       await repos.abrirChamado({ clienteId: empresaId, conversaId: null, setorId: outro, responsavelId: null, titulo: `Boleto ${i}`, resumo: 'r', foraDoContrato: false, origem: 'agente' });
     }
     const e = await estadoDe(await criarUsuarioTeste({ email: 'ana@teste-consultas.local', papel: 'atendente', setores: ['Fiscal'] }));
-    const r = await usar(e, 'listar_demandas', { abertas: true });
-    expect(r.demandas.map((d: { numero: number }) => d.numero)).toEqual([fiscal.numero]);
-    const s = await usar(e, 'listar_demandas', { setor: 'Fiscal' });
-    expect(s.demandas.map((d: { numero: number }) => d.numero)).toEqual([fiscal.numero]);
+    expect((await usar(e, 'listar_demandas', { abertas: true })).demandas.map((d: { numero: number }) => d.numero)).toEqual([fiscal.numero]);
+    expect((await usar(e, 'listar_demandas', { setor: 'Fiscal' })).demandas.map((d: { numero: number }) => d.numero)).toEqual([fiscal.numero]);
+    const admin = await estadoDe(await criarUsuarioTeste({ email: 'dono@teste-consultas.local' }));
+    expect((await usar(admin, 'listar_demandas', {})).demandas).toHaveLength(30);
+  });
+
+  it('entradas ruins viram erro da ferramenta, sem exceção', async () => {
+    const e = await estadoDe(await criarUsuarioTeste({ email: 'dono@teste-consultas.local' }));
+    expect((await usar(e, 'resumo_vendas', { de: '31/02/2026', ate: '01/03/2026' }))._erro).toBe(true);
+    expect((await usar(e, 'resumo_vendas', { de: '45/13/2026', ate: '01/03/2027' }))._erro).toBe(true);
+    expect((await usar(e, 'consultar_preco', { cliente_id: 'Indústria X', unidade_id: cad.brasilEfigenia, produto_id: cad.costela }))._erro).toBe(true);
+    const spy = vi.spyOn(repos, 'buscarEmpresas').mockRejectedValueOnce(new Error('banco caiu'));
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await usar(e, 'buscar_empresas', { texto: 'industria' });
+    expect(r._erro).toBe(true);
+    spy.mockRestore(); err.mockRestore();
+  });
+
+  it('período com data inicial depois da final é recusado', async () => {
+    const e = await estadoDe(await criarUsuarioTeste({ email: 'dono@teste-consultas.local' }));
+    expect(await usar(e, 'resumo_vendas', { de: '02/10/2026', ate: '01/10/2026' })).toMatchObject({ _erro: true, erro: 'A data inicial é depois da final.' });
+    expect(await usar(e, 'listar_demandas', { de: '02/10/2026', ate: '01/10/2026' })).toMatchObject({ _erro: true, erro: 'A data inicial é depois da final.' });
+  });
+
+  it('nomesDasRedes: ids repetidos dão uma entrada e lista longa funciona em blocos', async () => {
+    const ids = [cad.brasilEfigenia, cad.brasilEfigenia, ...Array.from({ length: 148 }, () => randomUUID())];
+    const r = await repos.nomesDasRedes(ids);
+    expect(Object.keys(r)).toEqual([cad.brasilEfigenia]);
+    expect(r[cad.brasilEfigenia]).toBe('Supermercado Brasil');
   });
 
   it('ver_demanda mostra o pedido com valores, total e pendências do CSV', async () => {
