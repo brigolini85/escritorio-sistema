@@ -17,7 +17,8 @@ create policy leitura on public.assistente_mensagens for select to authenticated
   using (usuario_id = auth.uid() and eh_usuario_ativo());
 create policy pergunta on public.assistente_mensagens for insert to authenticated
   with check (usuario_id = auth.uid() and papel = 'usuario' and canal = 'site' and processada_em is null
-    and exists (select 1 from usuarios u where u.id = auth.uid() and u.ativo and 'assistente_site' = any (u.permissoes)));
+    and exists (select 1 from usuarios u where u.id = auth.uid() and u.ativo and 'assistente_site' = any (u.permissoes))
+    and (conversa_id is null or exists (select 1 from public.conversas c where c.id = conversa_id)));
 alter publication supabase_realtime add table public.assistente_mensagens;
 
 -- Telefone de usuário ativo com o assistente pelo WhatsApp (com ou sem o 9: compara DDI+DDD e os 8 últimos dígitos).
@@ -29,6 +30,7 @@ language sql stable security definer set search_path = public as $$
       and (u.telefone = p or (left(u.telefone, 4) = left(p, 4) and right(u.telefone, 8) = right(p, 8)))
   )
 $$;
+revoke execute on function public.eh_telefone_do_assistente(text) from public, anon;
 
 -- As conversas internas (WhatsApp do assistente) não aparecem no Atendimento.
 create or replace view public.caixa_entrada with (security_invoker = true) as
