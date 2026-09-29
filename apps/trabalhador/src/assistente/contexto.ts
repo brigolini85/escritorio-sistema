@@ -10,12 +10,20 @@ export type ContextoAssistente = {
   setores: { id: string; nome: string }[]; conversa: ConversaDoContexto | null;
 };
 
+/** Igual a pode_ver_conversa do banco (o trabalhador usa a chave de serviço, então a regra é repetida aqui). */
+async function podeVerConversa(repos: Repos, u: UsuarioAssistente, conversaId: string): Promise<boolean> {
+  if (u.papel === 'admin') return true;
+  const c = await repos.obterConversa(conversaId);
+  if (c.atendente_id === u.id) return true;
+  return (await repos.chamadosDaConversaParaVisibilidade(conversaId)).some((x) => podeVerChamado(u, x));
+}
+
 export async function carregarContextoAssistente(
   repos: Repos, usuario: UsuarioAssistente, canal: CanalAssistente, conversaId: string | null, agora: Date,
 ): Promise<ContextoAssistente> {
   const [config, setores] = await Promise.all([repos.obterConfiguracoes(), repos.setoresAtivos()]);
   let conversa: ConversaDoContexto | null = null;
-  if (conversaId) {
+  if (conversaId && (await podeVerConversa(repos, usuario, conversaId))) {
     const c = await repos.obterConversa(conversaId);
     const contato = await repos.buscarContato(c.telefone);
     const empresa = contato?.empresas.find((e) => e.id === c.cliente_em_foco) ?? contato?.empresas[0] ?? null;

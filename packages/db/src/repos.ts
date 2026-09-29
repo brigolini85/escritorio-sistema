@@ -243,6 +243,11 @@ export function criarRepos(db: Db) {
       checar(await db.from('chamados').update({ pedido_venda: pedido as never }).eq('id', chamadoId), 'anexarPedidoVenda');
     },
 
+    /** Todas as demandas da conversa (abertas ou não), só com o necessário para conferir visibilidade. */
+    async chamadosDaConversaParaVisibilidade(conversaId: string): Promise<{ id: string; setor_id: string | null; responsavel_id: string | null }[]> {
+      return checar(await db.from('chamados').select('id, setor_id, responsavel_id').eq('conversa_id', conversaId), 'chamadosDaConversaParaVisibilidade');
+    },
+
     async chamadosAbertosDaConversa(conversaId: string): Promise<Chamado[]> {
       return checar(await db.from('chamados').select('*').eq('conversa_id', conversaId).neq('status', 'concluido'), 'chamadosAbertosDaConversa');
     },

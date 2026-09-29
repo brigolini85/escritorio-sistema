@@ -17,7 +17,7 @@ export async function executarAssistente(d: DepsAssistente, ctx: ContextoAssiste
   for (let i = 0; i < MAX_VOLTAS; i++) {
     const r = await d.ia.criar({ model: ctx.config.modeloConversa, max_tokens: 16000, system, tools: FERRAMENTAS_ASSISTENTE, messages, output_config: { effort: 'medium' } });
     const uso = { entrada: r.usage.input_tokens, saida: r.usage.output_tokens, cacheLeitura: r.usage.cache_read_input_tokens ?? 0, cacheEscrita: r.usage.cache_creation_input_tokens ?? 0 };
-    await d.repos.registrarUsoIa({ conversaId: ctx.conversaId, modelo: ctx.config.modeloConversa, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
+    await d.repos.registrarUsoIa({ conversaId: null, modelo: ctx.config.modeloConversa, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
       tokensCacheLeitura: uso.cacheLeitura, tokensCacheEscrita: uso.cacheEscrita, custoUsd: calcularCustoUsd(uso, preco) });
     const usos = r.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
     if (r.stop_reason !== 'tool_use' || usos.length === 0) {

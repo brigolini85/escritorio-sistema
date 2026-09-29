@@ -37,6 +37,6 @@ export async function executarFerramentaAssistente(d: DepsAssistente, estado: Es
     const v = Entradas[nome as keyof typeof Entradas].safeParse(entrada);
     r = v.success ? await executarValidada(d, estado, nome as keyof typeof Entradas, v.data) : falha(`Entrada inválida: ${v.error.issues.map((i) => i.message).join('; ')}`);
   }
-  await d.repos.registrarDecisao({ conversaId: estado.ctx.conversaId, clienteId: null, etapa: `assistente:${nome}`, entrada, saida: JSON.parse(r.resultado) });
+  await d.repos.registrarDecisao({ conversaId: null, clienteId: null, etapa: `assistente:${nome}`, entrada, saida: JSON.parse(r.resultado) });
   return r;
 }
