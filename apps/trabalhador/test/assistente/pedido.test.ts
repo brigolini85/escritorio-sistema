@@ -36,6 +36,12 @@ describe('corrigir pedido (assistente, 2026-09-29)', () => {
     expect(d).toContain('Transportadora: T');
     expect(d).toContain('Observações: O');
   });
+  it('mostra o endereço de entrega quando há um (revisão final, H)', () => {
+    const entrega = { endereco: 'Rua das Flores', numero: '10', complemento: null, bairro: 'Centro', cidade: 'Contagem', uf: 'MG', cep: '32000000' };
+    expect(descreverPedido({ ...salvo, entrega }, 'Brasil / Santa Efigênia').split('\n').slice(0, 2))
+      .toEqual(['Destinatário: Brasil / Santa Efigênia', 'Entrega em: Rua das Flores, 10 – Centro – Contagem/MG – CEP 32000-000']);
+    expect(descreverPedido(salvo)).not.toContain('Entrega em');
+  });
   it('recupera o pedido original do resumo da demanda', () => {
     expect(pedidoOriginalDoResumo('Destinatário: X\n\nPedido original: "tira nota, 10 costela"')).toBe('tira nota, 10 costela');
     expect(pedidoOriginalDoResumo('sem original')).toBe('');

@@ -39,6 +39,35 @@ describe('repositório do assistente (pedido do dono, 2026-09-29)', () => {
       .toEqual(['usuario:oi', 'usuario:quais notas?', 'assistente:Nenhuma.']);
   });
 
+  it('pendentes com limite, perguntas paradas e a última chamada de correção de qualquer resultado (revisão final)', async () => {
+    const id = await usuario('ana@teste-repos.local', { permissoes: ['assistente_whatsapp'], telefone: '5531977776666' });
+    for (const c of ['1', '2', '3']) await repos.registrarMensagemAssistente({ usuarioId: id, canal: 'whatsapp', conversaId: null, papel: 'usuario', conteudo: c });
+    expect((await repos.perguntasPendentes(id, 'whatsapp', null, 2)).map((m) => m.conteudo)).toEqual(['1', '2']);
+    expect(await repos.perguntasAssistenteParadas(2)).toEqual([]);
+    await db.from('assistente_mensagens').update({ criado_em: new Date(Date.now() - 10 * 60_000).toISOString() }).eq('usuario_id', id);
+    expect(await repos.perguntasAssistenteParadas(2)).toEqual([{ usuarioId: id, canal: 'whatsapp', conversaId: null, telefone: '5531977776666' }]);
+
+    const etapa = 'assistente:alterar_pedido_venda';
+    await repos.registrarDecisao({ conversaId: null, clienteId: null, etapa, entrada: { numero: 7, confirmado: false }, saida: { gravado: false, conferencia: 'abc', usuario: id } });
+    const previa = await repos.ultimaPreviaDoAssistente(id, 7, new Date(Date.now() - 60_000));
+    expect(previa).toMatchObject({ entrada: { numero: 7 }, saida: { gravado: false, conferencia: 'abc' } });
+    expect(previa!.criadoEm).toBeInstanceOf(Date);
+    await repos.registrarDecisao({ conversaId: null, clienteId: null, etapa, entrada: { numero: 7, confirmado: true }, saida: { erro: 'x', usuario: id } });
+    expect((await repos.ultimaPreviaDoAssistente(id, 7, new Date(Date.now() - 60_000)))!.saida).toEqual({ erro: 'x', usuario: id });
+    expect(await repos.ultimaPreviaDoAssistente(id, 8, new Date(Date.now() - 60_000))).toBeNull();
+  });
+
+  it('unidades e produtos inativos só com incluirInativos (revisão final, P)', async () => {
+    const { data: c } = await db.from('clientes').insert({ razao_social: 'Indústria P', cnpj: '33444555000166' }).select().single();
+    const { data: g } = await db.from('parceiros_grupos').insert({ cliente_id: c!.id, tipo: 'cliente', nome: 'Rede', ativo: false }).select().single();
+    await db.from('parceiros_unidades').insert({ cliente_id: c!.id, grupo_id: g!.id, nome_unidade: 'Loja' });
+    await db.from('produtos').insert({ cliente_id: c!.id, codigo: '1', descricao: 'Velho', ativo: false });
+    expect(await repos.unidadesDaEmpresa(c!.id, 'cliente')).toEqual([]);
+    expect((await repos.unidadesDaEmpresa(c!.id, 'cliente', { incluirInativos: true })).map((u) => u.unidade)).toEqual(['Loja']);
+    expect(await repos.produtosDaEmpresa(c!.id)).toEqual([]);
+    expect((await repos.produtosDaEmpresa(c!.id, { incluirInativos: true })).map((p) => p.descricao)).toEqual(['Velho']);
+  });
+
   it('busca demanda pelo número com setor, empresa e pedido; busca empresas', async () => {
     const { data: c } = await db.from('clientes').insert({ razao_social: 'Indústria X Ltda', nome_fantasia: 'Indústria X', cnpj: '11222333000181' }).select().single();
     const { id: chamadoId, numero } = await repos.abrirChamado({ clienteId: c!.id, conversaId: null, setorId: await repos.setorPorNome('Fiscal'),

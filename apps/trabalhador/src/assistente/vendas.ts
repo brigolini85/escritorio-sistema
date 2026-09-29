@@ -16,16 +16,25 @@ export function totalDoPedido(p: PedidoVendaSalvo): number {
   return centavos(itens + (p.valor_frete ?? 0));
 }
 
+/** Itens que ficam fora do total por não terem preço (ou quantidade). */
+export function itensSemPreco(p: PedidoVendaSalvo): number {
+  return p.itens.filter((i) => i.quantidade === null || i.valor_unitario === null).length;
+}
+
 export function totaisDeVendas(pedidos: { salvo: PedidoVendaSalvo; rede: string }[]) {
-  const porRede = new Map<string, { rede: string; pedidos: number; total: number }>();
+  const porRede = new Map<string, { rede: string; pedidos: number; total: number; itensSemPreco: number }>();
   let total = 0;
+  let semPreco = 0;
   for (const p of pedidos) {
     const t = totalDoPedido(p.salvo);
+    const n = itensSemPreco(p.salvo);
     total += t;
-    const r = porRede.get(p.rede) ?? { rede: p.rede, pedidos: 0, total: 0 };
+    semPreco += n;
+    const r = porRede.get(p.rede) ?? { rede: p.rede, pedidos: 0, total: 0, itensSemPreco: 0 };
     r.pedidos += 1;
     r.total = centavos(r.total + t);
+    r.itensSemPreco += n;
     porRede.set(p.rede, r);
   }
-  return { pedidos: pedidos.length, total: centavos(total), porRede: [...porRede.values()].sort((a, b) => b.total - a.total) };
+  return { pedidos: pedidos.length, total: centavos(total), itensSemPreco: semPreco, porRede: [...porRede.values()].sort((a, b) => b.total - a.total) };
 }

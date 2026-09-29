@@ -3,7 +3,7 @@ import type { Alertas } from './alertas';
 import type { CanalWhatsApp } from './canal/tipos';
 import type { Email } from './email';
 import { enviarDoSistema, type DepsEnvio } from './envio';
-import { FILAS, type Fila } from './fila';
+import { FILAS, agendarAssistente, type Fila } from './fila';
 
 export type DepsTarefas = { repos: Repos; canal: CanalWhatsApp; alertas: Alertas; envio: DepsEnvio; email: Email; fila: Fila; relogio: () => Date };
 
@@ -15,6 +15,10 @@ export async function batimento(d: DepsTarefas): Promise<void> {
   // Resposta do painel que não entrou na fila (ex.: falha ao enfileirar) é reenfileirada.
   for (const mensagemId of await d.repos.respostasPendentesAntigas(2)) {
     await d.fila.enviar(FILAS.enviarMensagem, { mensagemId }, { singletonKey: mensagemId });
+  }
+  // Pergunta ao assistente sem resposta há mais de 2 minutos (o job não entrou ou se perdeu) volta para a fila.
+  for (const p of await d.repos.perguntasAssistenteParadas(2)) {
+    await agendarAssistente(d.fila, { usuarioId: p.usuarioId, canal: p.canal, conversaId: p.conversaId, telefone: p.canal === 'whatsapp' ? p.telefone : null });
   }
   const conectado = await d.canal.status().then((s) => s.conectado).catch(() => false);
   if (conectado) {

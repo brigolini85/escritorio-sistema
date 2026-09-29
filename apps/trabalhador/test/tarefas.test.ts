@@ -7,6 +7,7 @@ import { MSG_WHATSAPP_DESCONECTADO, alertaFila, batimento, inicioDoDiaSP, montar
 import { db, repos, setorId } from './apoio/cenario';
 import { EmailFalso } from './apoio/email-falso';
 import { FilaFalsa } from './apoio/fila-falsa';
+import { criarUsuarioTeste } from './apoio/usuario';
 
 let canal: CanalFalso;
 let email: EmailFalso;
@@ -42,6 +43,23 @@ describe('batimento', () => {
       conteudo: 'Segue', status_envio: 'pendente', criado_em: new Date(Date.now() - 5 * 60_000).toISOString() }).select().single();
     await batimento(deps());
     expect(fila.enviados).toEqual([{ nome: 'enviar-mensagem', dados: { mensagemId: m!.id }, opcoes: { singletonKey: m!.id } }]);
+  });
+  it('reenfileira perguntas ao assistente paradas há mais de 2 minutos, uma vez por pessoa e contexto (revisão final, E3)', async () => {
+    const dono = await criarUsuarioTeste({ email: 'dono@teste-tarefas.local', permissoes: ['assistente_site', 'assistente_whatsapp'], telefone: '5531988887777' });
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    const ha = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+    const pergunta = (canal: 'site' | 'whatsapp', conteudo: string, criado_em: string, extra: object = {}) =>
+      db.from('assistente_mensagens').insert({ usuario_id: dono, canal, papel: 'usuario', conteudo, criado_em, ...extra }).then((r) => expect(r.error).toBeNull());
+    await pergunta('whatsapp', 'a', ha(6));
+    await pergunta('whatsapp', 'b', ha(5));
+    await pergunta('site', 'c', ha(4), { conversa_id: conversa.id });
+    await pergunta('site', 'recente', ha(0));
+    await pergunta('site', 'respondida', ha(6), { processada_em: ha(5) });
+    await batimento(deps());
+    expect(fila.enviados.filter((e) => e.nome === 'assistente').map((e) => e.dados)).toEqual([
+      { usuarioId: dono, canal: 'whatsapp', conversaId: null, telefone: '5531988887777' },
+      { usuarioId: dono, canal: 'site', conversaId: conversa.id, telefone: null },
+    ]);
   });
   it('WhatsApp desconectado gera um único alerta crítico em 30 minutos', async () => {
     canal.conectado = false;

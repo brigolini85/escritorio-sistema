@@ -59,6 +59,18 @@ describe('montarPedidoNota', () => {
     expect(r.titulo).toBe('NF de devolução – Frigorífico Boi Bom / Matriz');
     expect(r.resumo.split('\n').slice(0, 2)).toEqual(['Fornecedor: Frigorífico Boi Bom / Matriz', '3 PAC Costela com Requeijão (cód. 12)']);
   });
+
+  it('item não cadastrado com preço informado pela equipe entra no total, como no pedido e no CSV (revisão final, O)', () => {
+    const itens = [
+      { produto: costela, texto: 'costela', quantidade: 20, unidade: 'PAC', preco: 9.5 },
+      { produto: null, texto: 'lasanha', quantidade: 3, unidade: 'cx', preco: 12, precoInformado: true },
+    ];
+    const r = montarPedidoNota({ tipo: 'venda', destino: efigenia, textoDestinatario: 'Brasil', pedidoOriginal: 'x', semPermissao: false, itens });
+    expect(r.resumo).toContain('3 CX lasanha (não cadastrado) × R$ 12,00 = R$ 36,00 (preço informado)');
+    expect(r.resumo).toContain('Total (itens com preço): R$ 226,00');
+    const venda = montarPedidoVenda({ agora: new Date('2026-09-29T15:00:00Z'), destino: efigenia, textoDestinatario: 'Brasil', itens, extras: {} });
+    expect(venda.itens[1]).toEqual({ produto: 'lasanha', sku: null, un: 'CX', quantidade: 3, valor_unitario: 12 });
+  });
 });
 
 describe('revisão final: unidade do cliente diferente da cadastrada', () => {

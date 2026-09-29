@@ -41,6 +41,14 @@ describe('WhatsApp da equipe e o assistente (pedido do dono, 2026-09-29)', () =>
     expect(ia.recebidos).toHaveLength(0);   // o agente de clientes não responde
   });
 
+  it('falha ao agendar o assistente: a mensagem continua pendente para a nova tentativa (revisão final, E2)', async () => {
+    await criarUsuarioTeste({ email: 'dono@teste-wpp.local', permissoes: ['assistente_whatsapp'], telefone: '5531988887777' });
+    const conversaId = await mensagemDe('553188887777', 'quais notas estão abertas?');
+    fila.enviar = async () => { throw new Error('fila fora do ar'); };
+    await expect(processarConversa(deps(), conversaId, false)).rejects.toThrow('fila fora do ar');
+    expect((await repos.mensagensNaoProcessadas(conversaId)).map((m) => m.conteudo)).toEqual(['quais notas estão abertas?']);
+  });
+
   it('usuário sem a marcação, ou desativado: segue ignorado como telefone interno', async () => {
     const id = await criarUsuarioTeste({ email: 'ana@teste-wpp.local', permissoes: ['assistente_site'], telefone: '5531977776666' });
     expect(await processarConversa(deps(), await mensagemDe('5531977776666', 'oi'), true)).toBe('interno');

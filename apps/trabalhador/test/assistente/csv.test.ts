@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { limparBanco } from '@escritorio/db/teste';
 import { carregarContextoAssistente } from '../../src/assistente/contexto';
-import { executarFerramentaAssistente, type EstadoAssistente } from '../../src/assistente/ferramentas';
-import { processarAssistente } from '../../src/assistente/processar';
+import { executarFerramentaAssistente, novoEstado, type EstadoAssistente } from '../../src/assistente/ferramentas';
+import { AVISO_ARQUIVO_FALHOU, processarAssistente } from '../../src/assistente/processar';
 import { montarPedidoVenda } from '../../src/agente/pedido-nota';
 import { CanalFalso } from '../../src/canal/falso';
 import { contatoComEmpresas, criarCadastrosExemplo, db, repos, setorId } from '../apoio/cenario';
@@ -47,7 +47,7 @@ const rodar = async (canalAssistente: 'site' | 'whatsapp', roteiro: ConstructorP
 
 const estadoDe = async (usuarioId: string, canalAssistente: 'site' | 'whatsapp'): Promise<EstadoAssistente> => {
   const u = (await repos.obterUsuarioAssistente(usuarioId))!;
-  return { ctx: await carregarContextoAssistente(repos, u, canalAssistente, null, new Date('2026-09-29T15:00:00Z')), resposta: [], arquivo: null, csvs: [], previas: new Set(), acoes: [] };
+  return novoEstado(await carregarContextoAssistente(repos, u, canalAssistente, null, new Date('2026-09-29T15:00:00Z')));
 };
 
 describe('gerar_csv_bling pelo assistente (pedido do dono, 2026-09-29)', () => {
@@ -59,14 +59,58 @@ describe('gerar_csv_bling pelo assistente (pedido do dono, 2026-09-29)', () => {
     expect(canal.enviados).toEqual([]);
   });
 
-  it('WhatsApp: manda o texto e o CSV como documento', async () => {
+  it('WhatsApp: manda o CSV como documento e depois o texto (revisão final, D)', async () => {
     await rodar('whatsapp', [usarFerramentas({ nome: 'gerar_csv_bling', entrada: { numeros: [numero] } }), usarFerramentas({ nome: 'responder', entrada: { texto: 'Segue o arquivo.' } }), fim()]);
-    expect(canal.enviados[0]).toEqual({ telefone: '553188887777', texto: 'Segue o arquivo.' });
+    expect(canal.enviados).toEqual([{ telefone: '553188887777', arquivo: expect.stringMatching(/\.csv$/) }, { telefone: '553188887777', texto: 'Segue o arquivo.' }]);
     expect(canal.arquivosEnviados).toHaveLength(1);
     const csv = Buffer.from(canal.arquivosEnviados[0]!.url.replace('data:text/csv;base64,', ''), 'base64').toString('utf8');
     expect(csv.split('\n')[1]).toContain(`${numero},Supermercado Brasil Ltda`);
     const { data: aud } = await db.from('auditoria_acessos').select('acao, detalhes').eq('entidade', 'csv_bling');
     expect(aud).toMatchObject([{ acao: 'download', detalhes: { canal: 'whatsapp', pedidos: [numero] } }]);
+  });
+
+  it('WhatsApp, falha no arquivo antes da última tentativa: repassa o erro sem ter mandado texto (revisão final, D)', async () => {
+    canal.falharArquivo = true;
+    await repos.registrarMensagemAssistente({ usuarioId: dono, canal: 'whatsapp', conversaId: null, papel: 'usuario', conteudo: `gera o CSV do pedido ${numero}` });
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'gerar_csv_bling', entrada: { numeros: [numero] } }), usarFerramentas({ nome: 'responder', entrada: { texto: 'Segue o arquivo.' } }), fim()]);
+    await expect(processarAssistente({ repos, ia, canal }, { usuarioId: dono, canal: 'whatsapp', conversaId: null, telefone: '553188887777' }, false)).rejects.toThrow('falha simulada');
+    expect(canal.enviados).toEqual([]);
+    expect(await repos.perguntasPendentes(dono, 'whatsapp', null)).toHaveLength(1);
+  });
+
+  it('WhatsApp, falha no arquivo na última tentativa: manda o texto avisando e grava sem arquivo (revisão final, D)', async () => {
+    canal.falharArquivo = true;
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await rodar('whatsapp', [usarFerramentas({ nome: 'gerar_csv_bling', entrada: { numeros: [numero] } }), usarFerramentas({ nome: 'responder', entrada: { texto: 'Segue o arquivo.' } }), fim()]);
+    err.mockRestore();
+    const texto = `Segue o arquivo.\n\n${AVISO_ARQUIVO_FALHOU}`;
+    expect(canal.enviados).toEqual([{ telefone: '553188887777', texto }]);
+    const ultima = (await repos.historicoAssistente(dono, 'whatsapp', null, 5)).at(-1)!;
+    expect(ultima).toMatchObject({ papel: 'assistente', conteudo: texto, arquivo: null });
+    expect(await repos.perguntasPendentes(dono, 'whatsapp', null)).toEqual([]);
+  });
+
+  it('prévia numa mensagem, "sim" na seguinte: grava e só então gera o CSV (revisão final, A3/B)', async () => {
+    const job = { usuarioId: dono, canal: 'whatsapp' as const, conversaId: null, telefone: '553188887777' };
+    const itens = [{ produto_id: costela.id, texto: 'costela', quantidade: 15, unidade: 'PAC' }];
+    await repos.registrarMensagemAssistente({ usuarioId: dono, canal: 'whatsapp', conversaId: null, papel: 'usuario', conteudo: `o pedido ${numero} era 15 costela, corrige e manda o CSV` });
+    await processarAssistente({ repos, ia: new IaRoteirizada([
+      usarFerramentas({ nome: 'alterar_pedido_venda', entrada: { numero, itens, confirmado: false } }),
+      usarFerramentas({ nome: 'gerar_csv_bling', entrada: { numeros: [numero] } }),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Posso gravar?' } }), fim(),
+    ]), canal }, job, true);
+    expect(canal.arquivosEnviados).toHaveLength(0);
+    expect((await db.from('chamados').select('pedido_venda').eq('id', chamadoId).single()).data!.pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
+    expect(canal.enviados.at(-1)!.texto).toContain('Prévia do pedido');
+
+    await repos.registrarMensagemAssistente({ usuarioId: dono, canal: 'whatsapp', conversaId: null, papel: 'usuario', conteudo: 'sim, pode gravar' });
+    await processarAssistente({ repos, ia: new IaRoteirizada([
+      usarFerramentas({ nome: 'alterar_pedido_venda', entrada: { numero, confirmado: true } }),
+      usarFerramentas({ nome: 'gerar_csv_bling', entrada: { numeros: [numero] } }),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Gravado; segue o CSV.' } }), fim(),
+    ]), canal }, job, true);
+    expect((await db.from('chamados').select('pedido_venda').eq('id', chamadoId).single()).data!.pedido_venda).toMatchObject({ itens: [{ quantidade: 15 }] });
+    expect(canal.arquivosEnviados).toHaveLength(1);
   });
 
   it('com pendência não gera e devolve a lista para explicar', async () => {

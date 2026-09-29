@@ -6,19 +6,27 @@ import { dividirPedidosBling, montarCsvVendaBling, nomeArquivoVendaBling, proble
 import type { ArquivoAssistente, Repos } from '@escritorio/db';
 import type { ClienteIa } from '../agente/cliente-ia';
 import { buscarParceiros, buscarProdutos } from '../agente/cadastros';
-import { cnpjFormatado, formatarReais, mesmaUnidade, montarPedidoNota } from '../agente/pedido-nota';
+import { cnpjFormatado, entregaDoPedido, formatarReais, mesmaUnidade, montarPedidoNota } from '../agente/pedido-nota';
 import type { CanalWhatsApp } from '../canal/tipos';
-import type { ContextoAssistente } from './contexto';
-import { periodoEmIso, totaisDeVendas, totalDoPedido } from './vendas';
+import { contextoDoAssistente, type ContextoAssistente } from './contexto';
+import { neutro } from './prompt';
+import { itensSemPreco, periodoEmIso, totaisDeVendas, totalDoPedido } from './vendas';
 import { corrigirPedido, descreverPedido, pedidoOriginalDoResumo } from './pedido';
 import { podeCorrigirPedidos, podeVerChamado } from './visibilidade';
 
 export type DepsAssistente = { repos: Repos; ia: ClienteIa; canal: CanalWhatsApp };
 export type EstadoAssistente = { ctx: ContextoAssistente; resposta: string[]; arquivo: ArquivoAssistente | null; csvs: { nome: string; conteudo: string }[];
   /** Prévias de correção mostradas nesta execução: só valem como confirmação na mensagem seguinte. */ previas: Set<string>;
+  /** Antes e depois de cada prévia mostrada nesta execução: vão na resposta mesmo que o modelo não os escreva. */
+  previasMostradas: { numero: number; antes: string; depois: string }[];
   /** O que foi feito de verdade nesta execução (gravações e arquivos); alimenta a resposta quando o modelo não escreve uma. */ acoes: string[] };
 
-type Resultado = { resultado: string; erro: boolean };
+export function novoEstado(ctx: ContextoAssistente): EstadoAssistente {
+  return { ctx, resposta: [], arquivo: null, csvs: [], previas: new Set(), previasMostradas: [], acoes: [] };
+}
+
+/** `registro` é o que fica em decisoes_agente quando difere do que o modelo recebe. */
+type Resultado = { resultado: string; erro: boolean; registro?: object };
 export const ok = (dados: object): Resultado => ({ resultado: JSON.stringify(dados), erro: false });
 export const falha = (mensagem: string): Resultado => ({ resultado: JSON.stringify({ erro: mensagem }), erro: true });
 export const objeto = (properties: Record<string, object>, required: string[]) =>
@@ -53,7 +61,7 @@ export const FERRAMENTAS_ASSISTENTE: Anthropic.Tool[] = [
     input_schema: objeto({ de: { type: 'string', description: 'DD/MM/AAAA' }, ate: { type: 'string', description: 'DD/MM/AAAA' }, cliente_id: { type: 'string' } }, ['de', 'ate']) },
   {
     name: 'alterar_pedido_venda',
-    description: 'Corrige o pedido de venda de uma demanda de nota (itens, quantidades, unidade, preço, destinatário, pagamento, entrega). Sem confirmado mostra o antes e o depois sem gravar. Depois do "sim" da pessoa, chame só com numero e confirmado = true: o sistema grava a última prévia mostrada (os outros campos são ignorados). Na prévia, itens substitui a lista inteira; sem valor_unitario usa o preço da tabela.',
+    description: 'Corrige o pedido de venda de uma demanda de nota (itens, quantidades, unidade, preço, destinatário, pagamento, endereço de entrega). Sem confirmado mostra o antes e o depois sem gravar. Depois do "sim" da pessoa, chame só com numero e confirmado = true (nenhum outro campo): o sistema grava a última prévia mostrada. Para mudar mais alguma coisa, faça uma nova prévia. Na prévia, itens substitui a lista inteira; sem valor_unitario usa o preço da tabela.',
     input_schema: objeto({
       numero: { type: 'integer' },
       unidade_id: { type: 'string', description: 'Novo destinatário (buscar_parceiros, tipo cliente).' },
@@ -63,6 +71,15 @@ export const FERRAMENTAS_ASSISTENTE: Anthropic.Tool[] = [
       }, ['produto_id', 'texto', 'quantidade', 'unidade']) },
       forma_pagamento: { type: 'string' }, data_prevista: { type: 'string', description: 'DD/MM/AAAA' }, valor_frete: { type: 'number' },
       tipo_frete: { type: 'string', enum: ['R', 'D'] }, transportadora: { type: 'string' }, observacoes: { type: 'string' },
+      entrega: {
+        type: ['object', 'null'],
+        description: 'Endereço de entrega diferente do cadastro do destinatário. null = entrega no endereço cadastrado. Ao trocar o destinatário sem informar, volta a ser o do cadastro.',
+        properties: {
+          endereco: { type: 'string', description: 'Rua/avenida, sem o número.' }, numero: { type: ['string', 'null'] }, complemento: { type: ['string', 'null'] },
+          bairro: { type: ['string', 'null'] }, cidade: { type: ['string', 'null'] }, uf: { type: ['string', 'null'] }, cep: { type: ['string', 'null'] },
+        },
+        required: ['endereco'],
+      },
       confirmado: { type: 'boolean' },
     }, ['numero', 'confirmado']),
   },
@@ -105,6 +122,10 @@ const Entradas = {
     itens: z.array(z.object({ produto_id: ID.nullable(), texto: z.string().min(1).max(200), quantidade: z.number().positive(), unidade: z.string().max(20), valor_unitario: z.number().positive().nullish() })).min(1).max(50).optional(),
     forma_pagamento: z.string().max(60).optional(), data_prevista: DATA.optional(), valor_frete: z.number().min(0).optional(),
     tipo_frete: z.enum(['R', 'D']).optional(), transportadora: z.string().max(120).optional(), observacoes: z.string().max(500).optional(),
+    entrega: z.object({
+      endereco: z.string().trim().min(1).max(200), numero: z.string().max(20).nullish(), complemento: z.string().max(100).nullish(),
+      bairro: z.string().max(100).nullish(), cidade: z.string().max(100).nullish(), uf: z.string().max(2).nullish(), cep: z.string().max(10).nullish(),
+    }).nullable().optional(),
     confirmado: z.boolean(),
   }),
   gerar_csv_bling: z.object({ numeros: z.array(z.number().int().positive()).min(1).max(1000).optional(), abertas: z.boolean().optional() })
@@ -140,6 +161,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       return ok({ demandas: lista.map((c) => ({
         numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor ?? 'Triagem', empresa: c.empresa, criada_em: dataCurta(c.criado_em),
         responsavel: c.responsavel, total_pedido: c.pedido_venda ? formatarReais(totalDoPedido(c.pedido_venda)) : null,
+        ...(c.pedido_venda ? { itens_sem_preco: itensSemPreco(c.pedido_venda) } : {}),
       })) });
     }
 
@@ -158,11 +180,17 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
           pendencias_csv: bling ? problemasPedidoBling(bling) : [],
         };
       }
-      return ok({
-        numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor ?? 'Triagem', responsavel: c.responsavel, empresa: c.empresa, cliente_id: c.cliente_id,
-        criada_em: dataCurta(c.criado_em), resumo: c.resumo,
-        eventos: eventos.map((e) => `${dataCurta(e.criado_em)} ${e.tipo}${e.usuario ? ` (${e.usuario})` : ''}${e.texto ? `: ${e.texto}` : ''}`), pedido,
-      });
+      // Resumo e textos dos eventos podem trazer o que o cliente escreveu: vão como dado, nunca como instrução.
+      const doCliente = (t: string) => `<texto_do_cliente>${neutro(t)}</texto_do_cliente>`;
+      return {
+        ...ok({
+          numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor ?? 'Triagem', responsavel: c.responsavel, empresa: c.empresa, cliente_id: c.cliente_id,
+          criada_em: dataCurta(c.criado_em), resumo: doCliente(c.resumo),
+          eventos: eventos.map((e) => `${dataCurta(e.criado_em)} ${e.tipo}${e.usuario ? ` (${e.usuario})` : ''}${e.texto ? `: ${doCliente(e.texto)}` : ''}`), pedido,
+        }),
+        // LGPD: o registro não guarda resumo, eventos nem pedido (dados do cliente que a anonimização não alcançaria).
+        registro: { numero: c.numero, status: c.status },
+      };
     }
 
     case 'buscar_empresas':
@@ -202,63 +230,77 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
         .filter((c) => c.pedido_venda && podeVerChamado(u, c));
       const redes = await d.repos.nomesDasRedes([...new Set(lista.flatMap((c) => (c.pedido_venda!.unidade_id ? [c.pedido_venda!.unidade_id] : [])))]);
       const t = totaisDeVendas(lista.map((c) => ({ salvo: c.pedido_venda!, rede: (c.pedido_venda!.unidade_id && redes[c.pedido_venda!.unidade_id]) || c.pedido_venda!.texto_destinatario })));
-      return ok({ pedidos: t.pedidos, total: formatarReais(t.total), por_rede: t.porRede.map((r) => ({ rede: r.rede, pedidos: r.pedidos, total: formatarReais(r.total) })) });
+      return ok({ pedidos: t.pedidos, total: formatarReais(t.total), itens_sem_preco: t.itensSemPreco,
+        por_rede: t.porRede.map((r) => ({ rede: r.rede, pedidos: r.pedidos, total: formatarReais(r.total), itens_sem_preco: r.itensSemPreco })) });
     }
 
     case 'alterar_pedido_venda': {
       if (!podeCorrigirPedidos(u)) return falha('Você não tem permissão para corrigir pedidos de nota. Peça ao administrador para marcar "Corrigir pedidos de nota e gerar CSV do Bling" na aba Usuários.');
-      let previaGuardada: { entrada: unknown; conferencia: string } | null = null;
+      const DE_NOVO = 'Mostre o antes e o depois de novo e espere a confirmação.';
+      let conferenciaDaPrevia: string | null = null;
       if (entrada.confirmado) {
-        // A confirmação só vale para a última prévia mostrada: o que o modelo mandar além do número é ignorado.
-        const SEM_PREVIA = 'Não achei a prévia deste pedido. Mostre o antes e o depois de novo e espere a confirmação.';
-        previaGuardada = await d.repos.ultimaPreviaDoAssistente(u.id, entrada.numero, new Date(Date.now() - 24 * 3600 * 1000));
-        if (!previaGuardada) return falha(SEM_PREVIA);
-        const guardada = Entradas.alterar_pedido_venda.safeParse(previaGuardada.entrada);
-        if (!guardada.success) return falha(SEM_PREVIA);
+        // A confirmação grava a última prévia mostrada, e só ela (campos a mais já foram recusados em executarFerramentaAssistente).
+        const ultima = await d.repos.ultimaPreviaDoAssistente(u.id, entrada.numero, new Date(Date.now() - 24 * 3600 * 1000));
+        if (!ultima) return falha(`Não achei a prévia deste pedido. ${DE_NOVO}`);
+        // Qualquer chamada depois da prévia (erro, confirmação, gravação) a consome.
+        if (ultima.saida.gravado !== false || typeof ultima.saida.conferencia !== 'string') return falha(DE_NOVO);
+        if (ultima.saida.contexto !== contextoDoAssistente(estado.ctx)) return falha(`A prévia foi mostrada em outra conversa. ${DE_NOVO}`);
+        // O "sim" tem de ser uma mensagem da pessoa que chegou depois da prévia.
+        const pergunta = estado.ctx.perguntaMaisRecenteEm;
+        if (!pergunta || ultima.criadoEm.getTime() >= pergunta.getTime()) return falha('Mostre o antes e o depois e espere a confirmação na próxima mensagem.');
+        const guardada = Entradas.alterar_pedido_venda.safeParse(ultima.entrada);
+        if (!guardada.success || guardada.data.confirmado) return falha(DE_NOVO);
+        conferenciaDaPrevia = ultima.saida.conferencia;
         entrada = { ...guardada.data, numero: entrada.numero, confirmado: true };
       }
       const c = await d.repos.chamadoPorNumero(entrada.numero);
       if (!c || !podeVerChamado(u, c)) return falha('Demanda não encontrada entre as que você pode ver.');
       if (!c.pedido_venda || !c.cliente_id) return falha('Esta demanda não tem pedido de venda (só as notas de venda passadas pelo agente têm).');
       if (c.status === 'concluido') return falha('Esta demanda já foi concluída; o pedido não pode mudar.');
-      const unidades = await d.repos.unidadesDaEmpresa(c.cliente_id, 'cliente');
+      // Destinatário e produtos novos têm de estar ativos; os que o pedido já usa valem mesmo desativados depois.
+      const [unidadesAtivas, unidades, produtosAtivos, produtos] = await Promise.all([
+        d.repos.unidadesDaEmpresa(c.cliente_id, 'cliente'), d.repos.unidadesDaEmpresa(c.cliente_id, 'cliente', { incluirInativos: true }),
+        d.repos.produtosDaEmpresa(c.cliente_id), d.repos.produtosDaEmpresa(c.cliente_id, { incluirInativos: true }),
+      ]);
+      const trocou = !!entrada.unidade_id && entrada.unidade_id !== c.pedido_venda.unidade_id;
       const unidadeId = entrada.unidade_id ?? c.pedido_venda.unidade_id;
-      const destino = unidadeId ? unidades.find((x) => x.id === unidadeId) ?? null : null;
-      if (entrada.unidade_id && !destino) return falha('Esse destinatário não é cliente desta empresa. Use buscar_parceiros com tipo "cliente".');
-      const produtos = await d.repos.produtosDaEmpresa(c.cliente_id);
-      if (entrada.itens?.some((i: { produto_id: string | null }) => i.produto_id && !produtos.some((p) => p.id === i.produto_id))) {
+      const destino = unidadeId ? (trocou ? unidadesAtivas : unidades).find((x) => x.id === unidadeId) ?? null : null;
+      if (trocou && !destino) return falha('Esse destinatário não é cliente desta empresa. Use buscar_parceiros com tipo "cliente".');
+      if (entrada.itens?.some((i: { produto_id: string | null }) => i.produto_id && !produtosAtivos.some((p) => p.id === i.produto_id))) {
         return falha('Produto não é desta empresa. Use buscar_produtos.');
       }
       const precos = destino && entrada.itens
         ? await d.repos.precosVigentes(c.cliente_id, destino.grupoId, entrada.itens.flatMap((i: { produto_id: string | null }) => (i.produto_id ? [i.produto_id] : [])))
         : {};
-      const trocou = !!entrada.unidade_id && entrada.unidade_id !== c.pedido_venda.unidade_id;
       if (trocou && !entrada.itens) return falha('Ao trocar o destinatário, mande os itens de novo para eu recalcular os preços da nova rede.');
-      const { numero: _n, itens, unidade_id: _u, confirmado, ...resto } = entrada;
-      const extras = trocou && destino ? { ...resto, texto_destinatario: `${destino.rede} / ${destino.unidade}` } : resto;
-      const { novo, itensPedido } = corrigirPedido({ salvo: { ...c.pedido_venda, unidade_id: unidadeId }, destino, itens: itens ?? null, produtos, precos, extras, agora: estado.ctx.agora });
+      const { numero: _n, itens, unidade_id: _u, confirmado, entrega, ...resto } = entrada;
+      const extras = {
+        ...resto,
+        ...(trocou && destino ? { texto_destinatario: `${destino.rede} / ${destino.unidade}` } : {}),
+        // Endereço de entrega informado vale; trocar o destinatário sem informar volta para o endereço do cadastro.
+        ...(entrega !== undefined ? { entrega: entregaDoPedido(entrega) } : trocou ? { entrega: null } : {}),
+      };
+      const { novo, itensPedido } = corrigirPedido({ salvo: { ...c.pedido_venda, unidade_id: unidadeId }, destino, itens: itens ?? null, produtos: produtosAtivos, precos, extras, agora: estado.ctx.agora });
       const nomeDe = (p: PedidoVendaSalvo) => { const x = unidades.find((y) => y.id === p.unidade_id); return x ? `${x.rede} / ${x.unidade}` : p.texto_destinatario; };
       const antes = descreverPedido(c.pedido_venda, nomeDe(c.pedido_venda));
       const depois = descreverPedido(novo, nomeDe(novo));
-      const conferencia = createHash('sha1').update(JSON.stringify({ numero: c.numero, novo })).digest('hex').slice(0, 12);
-      if (confirmado) {
-        if (conferencia !== previaGuardada!.conferencia) return falha('O pedido ou os preços mudaram desde a prévia. Mostre o antes e o depois de novo.');
-        if (estado.previas.has(conferencia)) return falha('Mostre o antes e o depois e espere a confirmação na próxima mensagem.');
-        if (!(await d.repos.previaDoAssistente(conferencia, u.id, new Date(Date.now() - 24 * 3600 * 1000)))) {
-          return falha('O pedido mudou ou ainda não foi mostrado. Mostre o antes e o depois de novo e espere a confirmação.');
-        }
-        if (isDeepStrictEqual(novo, c.pedido_venda)) { estado.acoes.push(`pedido #${c.numero} alterado`); return ok({ gravado: true, numero: c.numero, depois, ja_estava: true }); }
-      }
+      // A conferência cobre o pedido de antes também: se alguém mudou o pedido entre a prévia e o "sim", recusa.
+      const conferencia = createHash('sha1').update(JSON.stringify({ numero: c.numero, antes: c.pedido_venda, novo })).digest('hex').slice(0, 12);
       if (!confirmado) {
         estado.previas.add(conferencia);
-        return ok({ gravado: false, antes, depois, conferencia, usuario: u.id, instrucao: 'Mostre o antes e o depois e pergunte se pode gravar. Só chame de novo com confirmado = true depois de um sim.' });
+        estado.previasMostradas.push({ numero: c.numero, antes, depois });
+        const mostrado = { gravado: false, antes, depois, instrucao: 'Mostre o antes e o depois e pergunte se pode gravar. Só chame de novo com confirmado = true depois de um sim.' };
+        return { ...ok(mostrado), registro: { ...mostrado, conferencia, contexto: contextoDoAssistente(estado.ctx) } };
       }
+      if (conferencia !== conferenciaDaPrevia) return falha(`O pedido mudou desde a prévia (ou os preços da tabela). ${DE_NOVO}`);
+      if (estado.previas.has(conferencia)) return falha('Mostre o antes e o depois e espere a confirmação na próxima mensagem.');
+      if (isDeepStrictEqual(novo, c.pedido_venda)) { estado.acoes.push(`pedido #${c.numero} alterado`); return ok({ gravado: true, numero: c.numero, depois, ja_estava: true }); }
 
-      const itensResumo = itensPedido ?? novo.itens.map((i) => ({
-        produto: produtos.find((p) => p.codigo === i.sku) ?? null, texto: i.produto ?? '', quantidade: i.quantidade ?? 0,
-        unidade: i.un ?? 'UN', preco: i.valor_unitario,
-        precoInformado: i.valor_unitario !== null && !!produtos.find((p) => p.codigo === i.sku) && !mesmaUnidade(i.un ?? 'UN', produtos.find((p) => p.codigo === i.sku)!.unidade),
-      }));
+      const itensResumo = itensPedido ?? novo.itens.map((i) => {
+        const produto = produtos.find((p) => p.codigo === i.sku) ?? null;
+        return { produto, texto: i.produto ?? '', quantidade: i.quantidade ?? 0, unidade: i.un ?? 'UN', preco: i.valor_unitario,
+          precoInformado: i.valor_unitario !== null && (!produto || !mesmaUnidade(i.un ?? 'UN', produto.unidade)) };
+      });
       const { titulo, resumo } = montarPedidoNota({ tipo: 'venda', destino, textoDestinatario: novo.texto_destinatario, itens: itensResumo,
         pedidoOriginal: pedidoOriginalDoResumo(c.resumo), semPermissao: c.resumo.includes('Observação: contato sem permissão para pedir nota.') });
       await d.repos.atualizarPedidoVenda(c.id, { pedido: novo, resumo, ...(trocou ? { titulo } : {}) });
@@ -276,6 +318,9 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
         : await d.repos.chamadosRecentes({ abertas: true, comPedido: true, visivelPara });
       const escolhidos = chamados.filter((c) => c.pedido_venda && podeVerChamado(u, c));
       if (escolhidos.length === 0) return falha('Nenhuma demanda de venda com pedido entre as que você pode ver.');
+      // Correção mostrada nesta execução ainda não foi gravada (o "sim" vem na próxima mensagem): o arquivo sairia com o pedido antigo.
+      const semGravar = escolhidos.find((c) => estado.previasMostradas.some((p) => p.numero === c.numero));
+      if (semGravar) return falha(`Grave a correção do pedido #${semGravar.numero} antes de gerar o CSV.`);
       const pedidos = await d.repos.pedidosVendaParaBling(escolhidos.map((c) => c.id));
       const problemas = pedidos.flatMap(problemasPedidoBling);
       if (problemas.length) return falha(`Não dá para gerar ainda: ${problemas.join('; ')}.`);
@@ -305,11 +350,13 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
 
 export async function executarFerramentaAssistente(d: DepsAssistente, estado: EstadoAssistente, nome: string, entrada: unknown): Promise<Resultado> {
   let r: Resultado;
-  if (!(nome in Entradas)) r = falha(`Ferramenta desconhecida: ${nome}`);
-  else {
-    const bruta = nome === 'alterar_pedido_venda' && (entrada as { confirmado?: unknown } | null)?.confirmado === true
-      ? { numero: (entrada as { numero?: unknown }).numero, confirmado: true } : entrada;
-    const v = Entradas[nome as keyof typeof Entradas].safeParse(bruta);
+  const bruta = (entrada ?? {}) as Record<string, unknown>;
+  if (!Object.hasOwn(Entradas, nome)) r = falha(`Ferramenta desconhecida: ${nome}`);
+  // A confirmação grava a última prévia, e só ela: campos a mais seriam ignorados sem a pessoa ver; recusa em vez de descartar.
+  else if (nome === 'alterar_pedido_venda' && bruta.confirmado === true && Object.keys(bruta).some((k) => k !== 'numero' && k !== 'confirmado')) {
+    r = falha('Para mudar mais alguma coisa, faça uma nova prévia.');
+  } else {
+    const v = Entradas[nome as keyof typeof Entradas].safeParse(entrada);
     if (!v.success) r = falha(`Entrada inválida: ${v.error.issues.map((i) => i.message).join('; ')}`);
     else {
       try { r = await executarValidada(d, estado, nome as keyof typeof Entradas, v.data); } catch (e) {
@@ -318,6 +365,8 @@ export async function executarFerramentaAssistente(d: DepsAssistente, estado: Es
       }
     }
   }
-  await d.repos.registrarDecisao({ conversaId: null, clienteId: null, etapa: `assistente:${nome}`, entrada, saida: JSON.parse(r.resultado) });
+  // `usuario` em todo registro: a confirmação procura a última chamada desta pessoa para o pedido.
+  const saida = { ...(r.registro ?? JSON.parse(r.resultado)), usuario: estado.ctx.usuario.id };
+  await d.repos.registrarDecisao({ conversaId: null, clienteId: null, etapa: `assistente:${nome}`, entrada, saida });
   return r;
 }

@@ -8,7 +8,12 @@ export type ConversaDoContexto = {
 export type ContextoAssistente = {
   usuario: UsuarioAssistente; canal: CanalAssistente; conversaId: string | null; agora: Date; config: Configuracoes;
   setores: { id: string; nome: string }[]; conversa: ConversaDoContexto | null;
+  /** Quando chegou a pergunta pendente mais nova desta execução: o "sim" que confirma uma prévia tem de ser posterior a ela. */
+  perguntaMaisRecenteEm?: Date | null;
 };
+
+/** Onde a conversa com o assistente acontece: canal e atendimento (a prévia só vale na mesma conversa em que foi mostrada). */
+export const contextoDoAssistente = (ctx: Pick<ContextoAssistente, 'canal' | 'conversaId'>) => `${ctx.canal}:${ctx.conversaId ?? '-'}`;
 
 /** Igual a pode_ver_conversa do banco (o trabalhador usa a chave de serviço, então a regra é repetida aqui). */
 async function podeVerConversa(repos: Repos, u: UsuarioAssistente, conversaId: string): Promise<boolean> {

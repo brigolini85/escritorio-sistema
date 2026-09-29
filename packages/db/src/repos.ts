@@ -377,12 +377,13 @@ export function criarRepos(db: Db) {
       checar(await db.from('chamados').update({ alertado_fila_em: new Date().toISOString() }).in('id', ids), 'marcarAlertadoFila');
     },
 
-    async unidadesDaEmpresa(clienteId: string, tipo: TipoParceiro): Promise<UnidadeParceiro[]> {
-      const linhas = checar(await db.from('parceiros_unidades')
+    /** Com `incluirInativos`, traz também unidades e redes desativadas (para descrever um pedido que já as usa). */
+    async unidadesDaEmpresa(clienteId: string, tipo: TipoParceiro, opcoes: { incluirInativos?: boolean } = {}): Promise<UnidadeParceiro[]> {
+      let q = db.from('parceiros_unidades')
         .select('id, nome_unidade, razao_social, cnpj, inscricao_estadual, endereco, numero, complemento, cep, bairro, cidade, uf, palavras_chave, parceiros_grupos!inner(id, nome, tipo, palavras_chave, ativo)')
-        .eq('cliente_id', clienteId).eq('ativo', true)
-        .eq('parceiros_grupos.tipo', tipo).eq('parceiros_grupos.ativo', true)
-        .order('nome_unidade'), 'unidadesDaEmpresa');
+        .eq('cliente_id', clienteId).eq('parceiros_grupos.tipo', tipo);
+      if (!opcoes.incluirInativos) q = q.eq('ativo', true).eq('parceiros_grupos.ativo', true);
+      const linhas = checar(await q.order('nome_unidade'), 'unidadesDaEmpresa');
       return linhas.map((l) => ({
         id: l.id, grupoId: l.parceiros_grupos.id, tipo: l.parceiros_grupos.tipo, rede: l.parceiros_grupos.nome, unidade: l.nome_unidade,
         razaoSocial: l.razao_social, cnpj: l.cnpj, ie: l.inscricao_estadual, bairro: l.bairro, cidade: l.cidade, uf: l.uf,
@@ -391,9 +392,11 @@ export function criarRepos(db: Db) {
       }));
     },
 
-    async produtosDaEmpresa(clienteId: string): Promise<ProdutoEmpresa[]> {
-      const linhas = checar(await db.from('produtos').select('id, codigo, descricao, unidade, apelidos')
-        .eq('cliente_id', clienteId).eq('ativo', true).order('descricao'), 'produtosDaEmpresa');
+    /** Com `incluirInativos`, traz também os produtos desativados (para descrever um pedido que já os usa). */
+    async produtosDaEmpresa(clienteId: string, opcoes: { incluirInativos?: boolean } = {}): Promise<ProdutoEmpresa[]> {
+      let q = db.from('produtos').select('id, codigo, descricao, unidade, apelidos').eq('cliente_id', clienteId);
+      if (!opcoes.incluirInativos) q = q.eq('ativo', true);
+      const linhas = checar(await q.order('descricao'), 'produtosDaEmpresa');
       return linhas.map((p) => ({ id: p.id, codigo: p.codigo, descricao: p.descricao, unidade: p.unidade, apelidos: p.apelidos }));
     },
 
@@ -459,10 +462,24 @@ export function criarRepos(db: Db) {
       return linhas.reverse();
     },
 
-    async perguntasPendentes(usuarioId: string, canal: CanalAssistente, conversaId: string | null): Promise<MensagemAssistente[]> {
+    async perguntasPendentes(usuarioId: string, canal: CanalAssistente, conversaId: string | null, limite?: number): Promise<MensagemAssistente[]> {
       let q = db.from('assistente_mensagens').select('*').eq('usuario_id', usuarioId).eq('canal', canal).eq('papel', 'usuario').is('processada_em', null);
       q = conversaId ? q.eq('conversa_id', conversaId) : q.is('conversa_id', null);
-      return checar(await q.order('criado_em'), 'perguntasPendentes');
+      const ordenada = q.order('criado_em');
+      return checar(await (limite ? ordenada.limit(limite) : ordenada), 'perguntasPendentes');
+    },
+
+    /** Pessoas e contextos com pergunta ao assistente sem resposta há mais de `minutos` (o job se perdeu): um por pessoa, canal e conversa. */
+    async perguntasAssistenteParadas(minutos: number): Promise<{ usuarioId: string; canal: CanalAssistente; conversaId: string | null; telefone: string | null }[]> {
+      const corte = new Date(Date.now() - minutos * 60_000).toISOString();
+      const linhas = checar(await db.from('assistente_mensagens').select('usuario_id, canal, conversa_id, usuarios(telefone)')
+        .eq('papel', 'usuario').is('processada_em', null).lt('criado_em', corte).order('criado_em').limit(1000), 'perguntasAssistenteParadas');
+      const unicos = new Map<string, { usuarioId: string; canal: CanalAssistente; conversaId: string | null; telefone: string | null }>();
+      for (const l of linhas) {
+        const chave = `${l.usuario_id}:${l.canal}:${l.conversa_id ?? '-'}`;
+        if (!unicos.has(chave)) unicos.set(chave, { usuarioId: l.usuario_id, canal: l.canal as CanalAssistente, conversaId: l.conversa_id, telefone: l.usuarios?.telefone ?? null });
+      }
+      return [...unicos.values()];
     },
 
     async marcarPerguntasRespondidas(ids: string[]): Promise<void> {
@@ -511,21 +528,17 @@ export function criarRepos(db: Db) {
       checar(await db.from('chamados').update({ pedido_venda: p.pedido as never, resumo: p.resumo, ...(p.titulo ? { titulo: p.titulo } : {}), atualizado_em: new Date().toISOString() }).eq('id', chamadoId), 'atualizarPedidoVenda');
     },
 
-    /** O assistente já mostrou esta prévia (antes/depois) a esta pessoa desde `desde`? */
-    async previaDoAssistente(conferencia: string, usuarioId: string, desde: Date): Promise<boolean> {
-      const linhas = checar(await db.from('decisoes_agente').select('id').eq('etapa', 'assistente:alterar_pedido_venda')
-        .eq('saida->>conferencia', conferencia).eq('saida->>usuario', usuarioId).gte('criado_em', desde.toISOString()).limit(1), 'previaDoAssistente');
-      return linhas.length > 0;
-    },
-
-    /** Última prévia (antes/depois) que o assistente mostrou a esta pessoa para este pedido desde `desde`: o que foi pedido e a conferência. */
-    async ultimaPreviaDoAssistente(usuarioId: string, numero: number, desde: Date): Promise<{ entrada: unknown; conferencia: string } | null> {
-      const linhas = checar(await db.from('decisoes_agente').select('entrada, saida').eq('etapa', 'assistente:alterar_pedido_venda')
-        .eq('saida->>usuario', usuarioId).eq('entrada->>numero', String(numero)).not('saida->>conferencia', 'is', null)
+    /**
+     * A última chamada de alterar_pedido_venda desta pessoa para este pedido desde `desde`, qualquer que tenha sido o resultado
+     * (prévia, confirmação, erro). A confirmação só vale se ela for uma prévia: gravar ou chamar de novo consome a prévia.
+     */
+    async ultimaPreviaDoAssistente(usuarioId: string, numero: number, desde: Date): Promise<{ entrada: unknown; saida: Record<string, unknown>; criadoEm: Date } | null> {
+      const linhas = checar(await db.from('decisoes_agente').select('entrada, saida, criado_em').eq('etapa', 'assistente:alterar_pedido_venda')
+        .eq('saida->>usuario', usuarioId).eq('entrada->>numero', String(numero))
         .gte('criado_em', desde.toISOString()).order('criado_em', { ascending: false }).limit(1), 'ultimaPreviaDoAssistente');
       const l = linhas[0];
       if (!l) return null;
-      return { entrada: l.entrada, conferencia: (l.saida as { conferencia: string }).conferencia };
+      return { entrada: l.entrada, saida: (l.saida ?? {}) as Record<string, unknown>, criadoEm: new Date(l.criado_em) };
     },
 
     async registrarNotaInterna(chamadoId: string, clienteId: string | null, usuarioId: string, texto: string): Promise<void> {

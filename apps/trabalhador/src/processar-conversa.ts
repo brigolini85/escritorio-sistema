@@ -108,8 +108,9 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
         : m.conteudo ?? '';
       if (texto.trim()) await d.repos.registrarMensagemAssistente({ usuarioId: usuario.id, canal: 'whatsapp', conversaId: null, papel: 'usuario', conteudo: texto });
     }
-    await d.repos.marcarProcessadas(ids);
+    // Agenda antes de marcar: se o agendamento falhar, a mensagem continua pendente e a fila tenta de novo.
     await agendarAssistente(d.fila, { usuarioId: usuario.id, canal: 'whatsapp', conversaId: null, telefone: conversa.telefone });
+    await d.repos.marcarProcessadas(ids);
     return 'assistente';
   }
 

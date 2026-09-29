@@ -51,6 +51,14 @@ export function montarPedidoNota(p: {
   let algumPreco = false;
   for (const i of p.itens) {
     if (!i.produto) {
+      // Preço informado pela equipe para item não cadastrado: entra no total, como no pedido e no CSV.
+      if (venda && i.precoInformado && i.preco !== null) {
+        const subtotal = Math.round(i.quantidade * i.preco * 100) / 100;
+        total += subtotal;
+        algumPreco = true;
+        linhas.push(`${numero(i.quantidade)} ${i.unidade.trim().toUpperCase() || 'UN'} ${i.texto} (não cadastrado) × ${formatarReais(i.preco)} = ${formatarReais(subtotal)} (preço informado)`);
+        continue;
+      }
       linhas.push(`${numero(i.quantidade)} ${i.unidade} ${i.texto} – PRODUTO NÃO CADASTRADO`);
       continue;
     }
@@ -95,7 +103,6 @@ export function montarPedidoVenda(p: {
   };
 }): PedidoVendaSalvo {
   const x = p.extras;
-  const e = x.entrega;
   return {
     unidade_id: p.destino?.id ?? null, texto_destinatario: p.textoDestinatario,
     data: new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO_HORARIO, day: '2-digit', month: '2-digit', year: 'numeric' }).format(p.agora),
@@ -113,17 +120,22 @@ export function montarPedidoVenda(p: {
     }),
     data_prevista: x.data_prevista ?? null, forma_pagamento: x.forma_pagamento ?? null, valor_frete: x.valor_frete ?? null,
     tipo_frete: x.tipo_frete ?? null, transportadora: x.transportadora ?? null, observacoes: x.observacoes ?? null,
-    entrega: e ? {
-      endereco: e.endereco, numero: e.numero ?? null, complemento: e.complemento ?? null, bairro: e.bairro ?? null,
-      cidade: e.cidade ?? null, uf: e.uf?.toUpperCase() ?? null, cep: e.cep ? e.cep.replace(/\D/g, '') : null,
-    } : null,
+    entrega: entregaDoPedido(x.entrega),
   };
 }
 
 type Endereco = { endereco?: Texto; numero?: Texto; complemento?: Texto; bairro?: Texto; cidade?: Texto; uf?: Texto; cep?: Texto };
 
+/** Endereço de entrega como fica guardado no pedido: campos ausentes viram null, UF em maiúsculas e CEP só com dígitos. */
+export function entregaDoPedido(e: (Endereco & { endereco: string }) | null | undefined): PedidoVendaSalvo['entrega'] {
+  return e ? {
+    endereco: e.endereco, numero: e.numero ?? null, complemento: e.complemento ?? null, bairro: e.bairro ?? null,
+    cidade: e.cidade ?? null, uf: e.uf?.toUpperCase() ?? null, cep: e.cep ? e.cep.replace(/\D/g, '') : null,
+  } : null;
+}
+
 /** "Rua Salinas, 1200, loja 2 – Santa Efigênia – Belo Horizonte/MG – CEP 30150-230"; null se não houver nada. */
-function enderecoPorExtenso(e: Endereco): string | null {
+export function enderecoPorExtenso(e: Endereco): string | null {
   const rua = [e.endereco, e.numero, e.complemento].filter(Boolean).join(', ');
   const cidade = e.cidade ? (e.uf ? `${e.cidade}/${e.uf}` : e.cidade) : e.uf ?? '';
   const cep = (e.cep ?? '').replace(/\D/g, '');

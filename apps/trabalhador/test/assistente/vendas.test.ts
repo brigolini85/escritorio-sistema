@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PedidoVendaSalvo } from '@escritorio/core';
-import { periodoEmIso, totaisDeVendas, totalDoPedido } from '../../src/assistente/vendas';
+import { itensSemPreco, periodoEmIso, totaisDeVendas, totalDoPedido } from '../../src/assistente/vendas';
 
 const pedido = (itens: [number, number | null][], frete: number | null = null): PedidoVendaSalvo => ({
   unidade_id: 'u1', texto_destinatario: 'x', data: '29/09/2026', data_prevista: null, forma_pagamento: null, valor_frete: frete,
@@ -21,6 +21,14 @@ describe('vendas (assistente, 2026-09-29)', () => {
       { salvo: pedido([[10, 9.5]]), rede: 'Supermercado Brasil' },
       { salvo: pedido([[1, 100]]), rede: 'Hortsul' },
       { salvo: pedido([[5, 9.5]]), rede: 'Supermercado Brasil' },
-    ])).toEqual({ pedidos: 3, total: 242.5, porRede: [{ rede: 'Supermercado Brasil', pedidos: 2, total: 142.5 }, { rede: 'Hortsul', pedidos: 1, total: 100 }] });
+    ])).toEqual({ pedidos: 3, total: 242.5, itensSemPreco: 0,
+      porRede: [{ rede: 'Supermercado Brasil', pedidos: 2, total: 142.5, itensSemPreco: 0 }, { rede: 'Hortsul', pedidos: 1, total: 100, itensSemPreco: 0 }] });
+  });
+  it('conta os itens sem preço que ficaram fora do total (revisão final, Q)', () => {
+    expect(itensSemPreco(pedido([[10, 9.5], [2, null], [3, null]]))).toBe(2);
+    expect(totaisDeVendas([
+      { salvo: pedido([[10, 9.5], [2, null]]), rede: 'Supermercado Brasil' },
+      { salvo: pedido([[1, null]]), rede: 'Hortsul' },
+    ])).toMatchObject({ total: 95, itensSemPreco: 2, porRede: [{ rede: 'Supermercado Brasil', itensSemPreco: 1 }, { rede: 'Hortsul', itensSemPreco: 1 }] });
   });
 });

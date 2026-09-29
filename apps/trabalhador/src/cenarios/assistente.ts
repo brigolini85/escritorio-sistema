@@ -10,13 +10,17 @@ type CenarioAssistente = {
   nome: string; papel?: 'admin' | 'atendente'; permissoes?: string[]; setores?: string[];
   rodadas: string[]; canal?: 'site' | 'whatsapp';
   espera: { respostaContem?: string[]; quantidadeFinal?: number; arquivoCsv?: boolean; semAlteracao?: boolean };
+  /** Conferido logo depois da primeira rodada (antes do "sim"). */
+  esperaRodada1?: { semAlteracao?: boolean; semArquivo?: boolean };
 };
 
 const CENARIOS: CenarioAssistente[] = [
   { nome: 'lista as notas abertas', rodadas: ['quais notas estão abertas?'], espera: { respostaContem: ['#'] } },
   { nome: 'total vendido para a rede', rodadas: ['quanto vendi pro Supermercado Brasil em setembro de 2026?'], espera: { respostaContem: ['95'] } },
   { nome: 'corrige a quantidade só depois do sim e manda o CSV no WhatsApp', canal: 'whatsapp', permissoes: ['assistente_whatsapp'],
-    rodadas: ['o pedido {N} era 15 PAC de costela, corrige e me manda o CSV', 'sim, pode gravar'], espera: { quantidadeFinal: 15, arquivoCsv: true } },
+    rodadas: ['o pedido {N} era 15 PAC de costela, corrige e me manda o CSV', 'sim, pode gravar'], espera: { quantidadeFinal: 15, arquivoCsv: true },
+    // Revisão final (B): antes do "sim" nada é gravado e nenhum CSV sai (sairia com o pedido antigo).
+    esperaRodada1: { semAlteracao: true, semArquivo: true } },
   { nome: 'atendente sem permissão não corrige', papel: 'atendente', setores: ['Fiscal'], permissoes: ['assistente_site'],
     rodadas: ['o pedido {N} era 15 PAC, corrige', 'sim, pode'], espera: { semAlteracao: true, respostaContem: ['permiss'] } },
 ];
@@ -41,13 +45,19 @@ async function rodar(c: CenarioAssistente): Promise<string[]> {
   const canal = new CanalFalso();
   const deps = { repos, ia: criarClienteIa(process.env.ANTHROPIC_API_KEY!), canal };
   const resultados: string[] = [];
-  for (const texto of c.rodadas) {
+  const quantidadeAtual = async () =>
+    ((await db.from('chamados').select('pedido_venda').eq('id', chamadoId).single()).data!.pedido_venda as { itens: { quantidade: number }[] }).itens[0]!.quantidade;
+  const falhas: string[] = [];
+  for (const [i, texto] of c.rodadas.entries()) {
     await repos.registrarMensagemAssistente({ usuarioId, canal: canalAssistente, conversaId: null, papel: 'usuario', conteudo: texto.replace('{N}', String(numero)) });
     resultados.push(await processarAssistente(deps, { usuarioId, canal: canalAssistente, conversaId: null, telefone: canalAssistente === 'whatsapp' ? '553188887777' : null }, true));
+    if (i === 0 && c.esperaRodada1) {
+      if (c.esperaRodada1.semAlteracao && (await quantidadeAtual()) !== 10) falhas.push('a primeira rodada (antes do "sim") não deveria gravar');
+      if (c.esperaRodada1.semArquivo && canal.arquivosEnviados.length > 0) falhas.push(`a primeira rodada (antes do "sim") não deveria mandar CSV; enviados ${canal.arquivosEnviados.length}`);
+    }
   }
   const respostas = (await repos.historicoAssistente(usuarioId, canalAssistente, null, 50)).filter((m) => m.papel === 'assistente').map((m) => m.conteudo).join('\n');
   const pedido = (await db.from('chamados').select('pedido_venda').eq('id', chamadoId).single()).data!.pedido_venda as { itens: { quantidade: number }[] };
-  const falhas: string[] = [];
   for (const t of c.espera.respostaContem ?? []) if (!respostas.toLowerCase().includes(t.toLowerCase())) falhas.push(`resposta deveria conter "${t}": ${respostas}`);
   if (c.espera.quantidadeFinal !== undefined && pedido.itens[0]!.quantidade !== c.espera.quantidadeFinal) falhas.push(`quantidade final ${pedido.itens[0]!.quantidade}`);
   if (c.espera.semAlteracao && pedido.itens[0]!.quantidade !== 10) falhas.push('não deveria alterar o pedido');
