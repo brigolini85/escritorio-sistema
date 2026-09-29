@@ -29,3 +29,35 @@ test('administrador cria resposta pronta', async ({ page }) => {
   await page.getByRole('button', { name: 'Adicionar resposta' }).click();
   await expect(page.getByText('De segunda a sexta, das 8h às 18h.')).toBeVisible();
 });
+
+test('atendente não acessa Usuários', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'ana@teste.com', senha: 'senha-forte-123', nome: 'Ana', papel: 'atendente' });
+  await entrar(page, 'ana@teste.com', 'senha-forte-123');
+  await page.goto('/usuarios');
+  await expect(page).toHaveURL(/\/inicio/);
+});
+
+test('administrador convida pessoa na aba Usuários e vê aviso ao faltar telefone', async ({ page }) => {
+  const { data: lista } = await db.auth.admin.listUsers();
+  const antigo = lista.users.find((u) => u.email === 'nova@teste.com');
+  if (antigo) await db.auth.admin.deleteUser(antigo.id);
+  await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
+  await entrar(page, 'admin@teste.com', 'senha-forte-123');
+  await page.getByRole('link', { name: 'Usuários' }).click();
+  const preencher = async () => {
+    await page.getByPlaceholder('Nome').last().fill('Nova Pessoa');
+    await page.getByPlaceholder('E-mail').last().fill('nova@teste.com');
+    await page.getByLabel('Usar o assistente pelo WhatsApp (pelo telefone acima)').last().check();
+  };
+  await preencher();
+  await page.getByRole('button', { name: 'Enviar convite' }).click();
+  await expect(page.getByText('Informe o telefone para usar o assistente pelo WhatsApp')).toBeVisible();
+  await preencher();
+  await page.getByPlaceholder('Telefone com DDD (para o assistente pelo WhatsApp)').last().fill('(31) 95555-0001');
+  await page.getByRole('button', { name: 'Enviar convite' }).click();
+  await expect(page.getByText('Nova Pessoa · Atendente · assistente no WhatsApp')).toBeVisible();
+  const { data } = await db.from('usuarios').select('permissoes, telefone').eq('email', 'nova@teste.com').single();
+  expect(data).toEqual({ permissoes: ['assistente_whatsapp'], telefone: '5531955550001' });
+  const { data: depois } = await db.auth.admin.listUsers();
+  await db.auth.admin.deleteUser(depois.users.find((u) => u.email === 'nova@teste.com')!.id);
+});

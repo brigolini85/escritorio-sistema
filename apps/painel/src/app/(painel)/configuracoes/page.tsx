@@ -1,10 +1,9 @@
 import { exigirAdmin } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import {
-  adicionarFeriado, convidarUsuario, removerFeriado, removerResposta, salvarGerais, salvarMensagens,
-  salvarResposta, salvarServico, salvarSetor, salvarUsuario,
+  adicionarFeriado, removerFeriado, removerResposta, salvarGerais, salvarMensagens,
+  salvarResposta, salvarServico, salvarSetor,
 } from './acoes';
-import { PERMISSOES } from './esquemas';
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const caixa = 'rounded-lg border bg-white p-4 space-y-3';
@@ -13,9 +12,8 @@ const input = 'rounded border p-2';
 export default async function Configuracoes() {
   await exigirAdmin();
   const sb = await supabaseServidor();
-  const [{ data: cfg }, { data: usuarios }, { data: setores }, { data: servicos }, { data: respostas }, { data: feriados }, { data: sinais }] = await Promise.all([
+  const [{ data: cfg }, { data: setores }, { data: servicos }, { data: respostas }, { data: feriados }, { data: sinais }] = await Promise.all([
     sb.from('configuracoes').select('*').eq('id', 1).single(),
-    sb.from('usuarios').select('*, usuario_setores(setor_id)').order('nome'),
     sb.from('setores').select('*').order('nome'),
     sb.from('servicos').select('*').order('nome'),
     sb.from('respostas_prontas').select('*').order('pergunta'),
@@ -25,48 +23,15 @@ export default async function Configuracoes() {
   const mensagens = (cfg?.mensagens ?? {}) as Record<string, string>;
   const sinal = (c: string) => sinais?.find((s) => s.componente === c)?.visto_em;
 
-  const camposUsuario = (u?: NonNullable<typeof usuarios>[number]) => (
-    <>
-      <input name="nome" defaultValue={u?.nome} placeholder="Nome" required className={input} />
-      <input name="email" defaultValue={u?.email} placeholder="E-mail" required readOnly={Boolean(u)} className={input} />
-      <input name="telefone" defaultValue={u?.telefone ?? ''} placeholder="Telefone (opcional)" className={input} />
-      <select name="papel" defaultValue={u?.papel ?? 'atendente'} className={input}><option value="atendente">Atendente</option><option value="admin">Administrador</option></select>
-      <div className="flex flex-wrap gap-3 text-sm">
-        {(setores ?? []).map((s) => <label key={s.id} className="flex items-center gap-1"><input type="checkbox" name="setor" value={s.id} defaultChecked={u?.usuario_setores.some((x) => x.setor_id === s.id)} />{s.nome}</label>)}
-      </div>
-      <div className="flex flex-wrap gap-3 text-sm">
-        {PERMISSOES.map((p) => <label key={p.valor} className="flex items-center gap-1"><input type="checkbox" name="permissao" value={p.valor} defaultChecked={u?.permissoes.includes(p.valor)} />{p.rotulo}</label>)}
-      </div>
-    </>
-  );
-
   return (
     <div className="max-w-4xl space-y-6">
       <h1 className="text-xl font-semibold">Configurações</h1>
+      <p className="text-sm text-slate-500">Usuários e permissões ficam na aba Usuários.</p>
 
       <section className={caixa}>
         <h2 className="font-semibold">Integrações</h2>
         <p className="text-sm">WhatsApp: {sinal('whatsapp') ? `conectado (último sinal ${new Date(sinal('whatsapp')!).toLocaleString('pt-BR')})` : 'sem sinal — verifique a Z-API'}</p>
         <p className="text-sm">Trabalhador/fila: {sinal('fila') ? `ativo (último sinal ${new Date(sinal('fila')!).toLocaleString('pt-BR')})` : 'sem sinal'}</p>
-      </section>
-
-      <section className={caixa}>
-        <h2 className="font-semibold">Usuários</h2>
-        {(usuarios ?? []).map((u) => (
-          <details key={u.id} className="rounded border p-2">
-            <summary className="cursor-pointer">{u.nome} · {u.papel === 'admin' ? 'Administrador' : 'Atendente'}{u.ativo ? '' : ' · desativado'}</summary>
-            <form action={salvarUsuario.bind(null, u.id)} className="mt-2 grid gap-2">
-              {camposUsuario(u)}
-              <label className="flex items-center gap-1 text-sm"><input type="checkbox" name="ativo" defaultChecked={u.ativo} /> Ativo</label>
-              <button className="w-fit rounded bg-slate-900 px-3 py-1 text-white">Salvar usuário</button>
-            </form>
-          </details>
-        ))}
-        <form action={convidarUsuario} className="grid gap-2 border-t pt-3">
-          <p className="text-sm font-medium">Convidar pessoa (ela recebe um e-mail para definir a senha)</p>
-          {camposUsuario()}
-          <button className="w-fit rounded bg-slate-900 px-3 py-1 text-white">Enviar convite</button>
-        </form>
       </section>
 
       <section className={caixa}>

@@ -1,28 +1,7 @@
 import { z } from 'zod';
 import { normalizarTelefone } from '@escritorio/core';
 
-export const PERMISSOES = [
-  { valor: 'editar_clientes', rotulo: 'Editar clientes e contatos' },
-  { valor: 'editar_precos', rotulo: 'Editar preços (etapa 2)' },
-  { valor: 'emitir_notas', rotulo: 'Emitir notas (etapa 2)' },
-] as const;
-
 const telefoneOpcional = z.preprocess((v) => (v ? normalizarTelefone(String(v)) : null), z.string().nullable());
-
-export const UsuarioConvite = z.preprocess((v) => {
-  const f = v as FormData;
-  return {
-    nome: f.get('nome'), email: f.get('email'), papel: f.get('papel'),
-    telefone: f.get('telefone') || null, setores: f.getAll('setor'), permissoes: f.getAll('permissao'),
-  };
-}, z.object({
-  nome: z.string().trim().min(2),
-  email: z.string().trim().toLowerCase().email(),
-  papel: z.enum(['admin', 'atendente']),
-  telefone: telefoneOpcional,
-  setores: z.array(z.string()),
-  permissoes: z.array(z.enum(PERMISSOES.map((p) => p.valor) as [string, ...string[]])),
-}));
 
 export const GeraisForm = z.preprocess((v) => {
   const f = v as FormData;

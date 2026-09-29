@@ -3,32 +3,11 @@ import { revalidatePath } from 'next/cache';
 import { exigirAdmin } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { GeraisForm, UsuarioConvite } from './esquemas';
+import { GeraisForm } from './esquemas';
 
 const recarregar = () => revalidatePath('/configuracoes');
 function checar(r: { error: { message: string } | null }) {
   if (r.error) throw new Error(r.error.message);
-}
-
-export async function convidarUsuario(formData: FormData) {
-  await exigirAdmin();
-  const d = UsuarioConvite.parse(formData);
-  const servico = supabaseServico();
-  const { data, error } = await servico.auth.admin.inviteUserByEmail(d.email, { redirectTo: `${process.env.PAINEL_URL}/auth/confirm` });
-  if (error) throw new Error(`Não foi possível convidar: ${error.message}`);
-  checar(await servico.from('usuarios').insert({ id: data.user.id, nome: d.nome, email: d.email, papel: d.papel, telefone: d.telefone, permissoes: d.permissoes }));
-  if (d.setores.length) checar(await servico.from('usuario_setores').insert(d.setores.map((setor_id) => ({ usuario_id: data.user.id, setor_id }))));
-  recarregar();
-}
-
-export async function salvarUsuario(id: string, formData: FormData) {
-  await exigirAdmin();
-  const d = UsuarioConvite.parse(formData);
-  const sb = await supabaseServidor();
-  checar(await sb.from('usuarios').update({ nome: d.nome, papel: d.papel, telefone: d.telefone, permissoes: d.permissoes, ativo: formData.get('ativo') === 'on' }).eq('id', id));
-  checar(await sb.from('usuario_setores').delete().eq('usuario_id', id));
-  if (d.setores.length) checar(await sb.from('usuario_setores').insert(d.setores.map((setor_id) => ({ usuario_id: id, setor_id }))));
-  recarregar();
 }
 
 export async function salvarSetor(id: string | null, formData: FormData) {

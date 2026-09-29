@@ -11,7 +11,7 @@ export default async function LayoutPainel({ children }: { children: ReactNode }
       <nav className="w-52 shrink-0 border-r bg-white p-4">
         <p className="mb-6 text-sm text-slate-500">Olá, {u.nome}</p>
         <ul className="space-y-1">
-          {itensDoMenu(u.papel).map((i) => (
+          {itensDoMenu(u).map((i) => (
             <li key={i.href}><Link href={i.href} className="block rounded px-2 py-1 hover:bg-slate-100">{i.rotulo}</Link></li>
           ))}
         </ul>
