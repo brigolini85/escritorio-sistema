@@ -261,7 +261,7 @@ export function criarRepos(db: Db) {
       return linhas.map(({ setores, ...c }) => ({ ...c, setor_nome: setores?.nome ?? null }));
     },
 
-    async registrarDecisao(d: { conversaId: string; clienteId: string | null; etapa: string; entrada: unknown; saida: unknown; justificativa?: string }): Promise<void> {
+    async registrarDecisao(d: { conversaId: string | null; clienteId: string | null; etapa: string; entrada: unknown; saida: unknown; justificativa?: string }): Promise<void> {
       checar(await db.from('decisoes_agente').insert({ conversa_id: d.conversaId, cliente_id: d.clienteId, etapa: d.etapa,
         entrada: d.entrada as never, saida: d.saida as never, justificativa: d.justificativa ?? null }), 'registrarDecisao');
     },

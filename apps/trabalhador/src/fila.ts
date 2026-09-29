@@ -9,6 +9,7 @@ export const FILAS = {
   resumoDiario: 'resumo-diario',
   limpezaRetencao: 'limpeza-retencao',
   removerArquivos: 'remover-arquivos',
+  assistente: 'assistente',
 } as const;
 
 export interface Fila {
@@ -28,12 +29,20 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   await boss.start();
   // "stately": no máximo um job por estado e por singletonKey — um aguardando e um em execução por conversa.
   await boss.createQueue(FILAS.processarConversa, { name: FILAS.processarConversa, policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
+  await boss.createQueue(FILAS.assistente, { name: FILAS.assistente, policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
   await boss.createQueue(FILAS.enviarMensagem, { name: FILAS.enviarMensagem, retryLimit: 5, retryDelay: 10, retryBackoff: true });
   await boss.createQueue(FILAS.removerArquivos, { name: FILAS.removerArquivos, retryLimit: 10, retryDelay: 60, retryBackoff: true });
   for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao]) {
     await boss.createQueue(nome, { name: nome, retryLimit: 2 });
   }
   return boss;
+}
+
+export type JobAssistente = { usuarioId: string; canal: 'site' | 'whatsapp'; conversaId: string | null; telefone: string | null };
+
+/** Uma execução por usuário, canal e contexto: perguntas seguidas são respondidas juntas. */
+export async function agendarAssistente(fila: Fila, j: JobAssistente): Promise<void> {
+  await fila.enviar(FILAS.assistente, j, { singletonKey: `${j.usuarioId}:${j.canal}:${j.conversaId ?? '-'}` });
 }
 
 export function filaDe(boss: PgBoss): Fila {
