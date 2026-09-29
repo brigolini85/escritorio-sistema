@@ -42,6 +42,37 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"assistente_mensagens": {
+                  Row: {
+                    "arquivo": Json | null,"canal": string,"conteudo": string,"conversa_id": string | null,"criado_em": string,"id": string,"papel": string,"processada_em": string | null,"usuario_id": string
+                  }
+                  Insert: {
+                    "arquivo"?: Json | null,"canal": string,"conteudo": string,"conversa_id"?: string | null,"criado_em"?: string,"id"?: string,"papel": string,"processada_em"?: string | null,"usuario_id": string
+                  }
+                  Update: {
+                    "arquivo"?: Json | null,"canal"?: string,"conteudo"?: string,"conversa_id"?: string | null,"criado_em"?: string,"id"?: string,"papel"?: string,"processada_em"?: string | null,"usuario_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "assistente_mensagens_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "caixa_entrada"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "assistente_mensagens_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "conversas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "assistente_mensagens_usuario_id_fkey"
+      columns: ["usuario_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"auditoria_acessos": {
                   Row: {
                     "acao": string,"criado_em": string,"detalhes": Json | null,"entidade": string,"entidade_id": string | null,"id": string,"usuario_id": string | null
@@ -661,6 +692,9 @@ isOneToOne: false
                            },
 "eh_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"eh_telefone_do_assistente":
+{ Args: { "p": string }; Returns: boolean
                            },
 "eh_usuario_ativo":
 { Args: Record<PropertyKey, never>; Returns: boolean
