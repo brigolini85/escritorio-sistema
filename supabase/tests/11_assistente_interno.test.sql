@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(15);
 
 -- Assistente interno (pedido do dono, 2026-09-29).
 insert into auth.users (id, email) values
@@ -59,6 +59,24 @@ select throws_ok($$ insert into public.assistente_mensagens (usuario_id, canal, 
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000a3","role":"authenticated"}', true);
 select throws_ok($$ insert into public.assistente_mensagens (usuario_id, canal, papel, conteudo)
   values ('00000000-0000-0000-0000-0000000000a3', 'site', 'usuario', 'oi') $$, '42501', null, 'admin sem assistente_site não pergunta');
+
+-- Revisão final (K2): a equipe logada (e o serviço) pode chamar a função, que a view caixa_entrada usa.
+reset role;
+select ok(has_function_privilege('authenticated', 'public.eh_telefone_do_assistente(text)', 'execute'), 'authenticated chama eh_telefone_do_assistente');
+select ok(has_function_privilege('service_role', 'public.eh_telefone_do_assistente(text)', 'execute'), 'service_role chama eh_telefone_do_assistente');
+
+-- Revisão final (N): apagar os dados do contato apaga a conversa da equipe com o assistente dentro do atendimento dele.
+insert into public.contatos (id, nome, telefone) values ('60000000-0000-0000-0000-000000000001', 'Cliente LGPD', '5531999990001');
+insert into public.assistente_mensagens (usuario_id, canal, conversa_id, papel, conteudo) values
+  ('00000000-0000-0000-0000-0000000000a1', 'site', '20000000-0000-0000-0000-000000000002', 'usuario', 'o que o Cliente LGPD pediu?'),
+  ('00000000-0000-0000-0000-0000000000a1', 'site', '20000000-0000-0000-0000-000000000002', 'assistente', 'Ele pediu 10 costelas.');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+select public.anonimizar_contato('60000000-0000-0000-0000-000000000001');
+reset role;
+select is((select count(*) from public.assistente_mensagens where conversa_id = '20000000-0000-0000-0000-000000000002')::int, 0,
+  'anonimizar_contato apaga as mensagens do assistente sobre a conversa do contato');
+select ok((select count(*) from public.assistente_mensagens where conversa_id is null) >= 1, 'as conversas gerais com o assistente ficam');
 
 select * from finish();
 rollback;
