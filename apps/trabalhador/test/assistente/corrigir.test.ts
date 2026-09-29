@@ -5,7 +5,8 @@ import { executarFerramentaAssistente, type EstadoAssistente } from '../../src/a
 import { montarPedidoNota, montarPedidoVenda } from '../../src/agente/pedido-nota';
 import { CanalFalso } from '../../src/canal/falso';
 import { contatoComEmpresas, criarCadastrosExemplo, db, repos, setorId, type CadastrosExemplo } from '../apoio/cenario';
-import { IaRoteirizada } from '../apoio/ia-roteirizada';
+import { IaRoteirizada, fimVazio, textoSolto, usarFerramentas } from '../apoio/ia-roteirizada';
+import { executarAssistente } from '../../src/assistente/executar';
 import { criarUsuarioTeste } from '../apoio/usuario';
 
 let cad: CadastrosExemplo;
@@ -13,7 +14,7 @@ let pedido: { id: string; numero: number };
 
 async function estadoDe(usuarioId: string): Promise<EstadoAssistente> {
   const u = (await repos.obterUsuarioAssistente(usuarioId))!;
-  return { ctx: await carregarContextoAssistente(repos, u, 'site', null, new Date('2026-09-29T15:00:00Z')), resposta: [], arquivo: null, csvs: [], previas: new Set() };
+  return { ctx: await carregarContextoAssistente(repos, u, 'site', null, new Date('2026-09-29T15:00:00Z')), resposta: [], arquivo: null, csvs: [], previas: new Set(), acoes: [] };
 }
 const usar = async (estado: EstadoAssistente, entrada: object) => {
   const r = await executarFerramentaAssistente({ repos, ia: new IaRoteirizada([]), canal: new CanalFalso() }, estado, 'alterar_pedido_venda', entrada);
@@ -75,7 +76,7 @@ describe('alterar_pedido_venda (pedido do dono, 2026-09-29)', () => {
   it('demanda concluída não muda', async () => {
     await db.from('chamados').update({ status: 'concluido' }).eq('id', pedido.id);
     const e = await estadoDe(await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' }));
-    expect(JSON.stringify(await usar(e, { numero: pedido.numero, itens: itens15(), confirmado: true }))).toContain('concluída');
+    expect(JSON.stringify(await usar(e, { numero: pedido.numero, itens: itens15(), confirmado: false }))).toContain('concluída');
   });
 
   it('produto de outra empresa é recusado', async () => {
@@ -98,7 +99,7 @@ describe('alterar_pedido_venda (pedido do dono, 2026-09-29)', () => {
     const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
     const r = await usar(await estadoDe(dono), { numero: pedido.numero, itens: itens15(), confirmado: true });
     expect(r._erro).toBe(true);
-    expect(r.erro).toContain('ainda não foi mostrado');
+    expect(r.erro).toContain('Não achei a prévia');
     expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
   });
 
@@ -111,11 +112,31 @@ describe('alterar_pedido_venda (pedido do dono, 2026-09-29)', () => {
     expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
   });
 
-  it('prévia com 15 e confirmação com 16: recusa', async () => {
+  it('a confirmação grava a prévia guardada, mesmo que o modelo mande outros dados (99 em vez de 15)', async () => {
     const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
     await previa(dono, { numero: pedido.numero, itens: itens15(), confirmado: false });
-    const r = await usar(await estadoDe(dono), { numero: pedido.numero, itens: [{ ...itens15()[0]!, quantidade: 16 }], confirmado: true });
+    const r = await usar(await estadoDe(dono), { numero: pedido.numero, itens: [{ ...itens15()[0]!, quantidade: 99 }], confirmado: true });
+    expect(r).toMatchObject({ _erro: false, gravado: true });
+    expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 15, valor_unitario: 9.5 }] });
+  });
+
+  it('a confirmação só com numero e confirmado grava a prévia (produto e preço da prévia)', async () => {
+    const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+    await previa(dono, { numero: pedido.numero, itens: itens15(), confirmado: false });
+    const e = await estadoDe(dono);
+    const r = await usar(e, { numero: pedido.numero, confirmado: true });
+    expect(r).toMatchObject({ _erro: false, gravado: true });
+    expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 15, valor_unitario: 9.5 }] });
+    expect(e.acoes).toEqual([`pedido #${pedido.numero} alterado`]);
+  });
+
+  it('preço da tabela mudou entre a prévia e a confirmação: recusa', async () => {
+    const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+    await previa(dono, { numero: pedido.numero, itens: itens15(), confirmado: false });
+    await db.from('precos').update({ valor: 10 }).eq('produto_id', cad.costela);
+    const r = await usar(await estadoDe(dono), { numero: pedido.numero, confirmado: true });
     expect(r._erro).toBe(true);
+    expect(r.erro).toContain('mudaram desde a prévia');
     expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
   });
 
@@ -125,6 +146,7 @@ describe('alterar_pedido_venda (pedido do dono, 2026-09-29)', () => {
     await previa(dono, { numero: pedido.numero, itens: itens15(), confirmado: false });
     const r = await usar(await estadoDe(outro), { numero: pedido.numero, itens: itens15(), confirmado: true });
     expect(r._erro).toBe(true);
+    expect(r.erro).toContain('Não achei a prévia');
   });
 
   it('observações, transportadora e tipo de frete aparecem no antes e depois', async () => {
@@ -168,5 +190,36 @@ describe('alterar_pedido_venda (pedido do dono, 2026-09-29)', () => {
     const b = await salvo();
     expect(b.resumo).toBe(a.resumo);
     expect(b.pedido_venda).toMatchObject({ itens: [{ un: 'KG', valor_unitario: 30 }], observacoes: 'Manhã' });
+  });
+
+  it('ver_demanda devolve cliente_id e o produto_id de cada item', async () => {
+    const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+    const r = await executarFerramentaAssistente({ repos, ia: new IaRoteirizada([]), canal: new CanalFalso() }, await estadoDe(dono), 'ver_demanda', { numero: pedido.numero });
+    const j = JSON.parse(r.resultado);
+    expect(j.cliente_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(j.pedido.itens_produto_id).toEqual([{ codigo: '12', produto_id: cad.costela }]);
+  });
+});
+
+describe('resposta final verdadeira (pedido do dono, 2026-09-29)', () => {
+  const rodar = async (dono: string, roteiro: ConstructorParameters<typeof IaRoteirizada>[0]) => {
+    await repos.registrarMensagemAssistente({ usuarioId: dono, canal: 'site', conversaId: null, papel: 'usuario', conteudo: 'sim, pode gravar' });
+    const e = await estadoDe(dono);
+    const historico = await repos.historicoAssistente(dono, 'site', null, 30);
+    return executarAssistente({ repos, ia: new IaRoteirizada(roteiro), canal: new CanalFalso() }, e.ctx, historico);
+  };
+
+  it('o laço termina em texto solto: esse texto é a resposta', async () => {
+    const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+    const e = await rodar(dono, [textoSolto('ok, gravei'), textoSolto('ok, gravei')]);
+    expect(e.resposta).toEqual(['ok, gravei']);
+  });
+
+  it('gravou e o modelo termina vazio duas vezes: responde "Feito: pedido #N alterado"', async () => {
+    const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+    await previa(dono, { numero: pedido.numero, itens: itens15(), confirmado: false });
+    const e = await rodar(dono, [usarFerramentas({ nome: 'alterar_pedido_venda', entrada: { numero: pedido.numero, confirmado: true } }), fimVazio(), fimVazio()]);
+    expect(e.resposta).toEqual([`Feito: pedido #${pedido.numero} alterado.`]);
+    expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 15 }] });
   });
 });

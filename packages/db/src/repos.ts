@@ -518,6 +518,16 @@ export function criarRepos(db: Db) {
       return linhas.length > 0;
     },
 
+    /** Última prévia (antes/depois) que o assistente mostrou a esta pessoa para este pedido desde `desde`: o que foi pedido e a conferência. */
+    async ultimaPreviaDoAssistente(usuarioId: string, numero: number, desde: Date): Promise<{ entrada: unknown; conferencia: string } | null> {
+      const linhas = checar(await db.from('decisoes_agente').select('entrada, saida').eq('etapa', 'assistente:alterar_pedido_venda')
+        .eq('saida->>usuario', usuarioId).eq('entrada->>numero', String(numero)).not('saida->>conferencia', 'is', null)
+        .gte('criado_em', desde.toISOString()).order('criado_em', { ascending: false }).limit(1), 'ultimaPreviaDoAssistente');
+      const l = linhas[0];
+      if (!l) return null;
+      return { entrada: l.entrada, conferencia: (l.saida as { conferencia: string }).conferencia };
+    },
+
     async registrarNotaInterna(chamadoId: string, clienteId: string | null, usuarioId: string, texto: string): Promise<void> {
       checar(await db.from('chamado_eventos').insert({ chamado_id: chamadoId, cliente_id: clienteId, tipo: 'nota_interna', usuario_id: usuarioId, texto }), 'registrarNotaInterna');
     },

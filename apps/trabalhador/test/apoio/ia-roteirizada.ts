@@ -32,3 +32,5 @@ export class IaRoteirizada implements ClienteIa {
     return (ultima.content as { type: string; content: string; is_error?: boolean }[]).filter((b) => b.type === 'tool_result');
   }
 }
+export const fimVazio = (): Anthropic.Message => mensagem([], 'end_turn');
+export const textoSolto = (texto: string): Anthropic.Message => mensagem([{ type: 'text', text: texto }], 'end_turn');

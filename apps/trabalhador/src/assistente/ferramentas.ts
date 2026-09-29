@@ -15,7 +15,8 @@ import { podeCorrigirPedidos, podeVerChamado } from './visibilidade';
 
 export type DepsAssistente = { repos: Repos; ia: ClienteIa; canal: CanalWhatsApp };
 export type EstadoAssistente = { ctx: ContextoAssistente; resposta: string[]; arquivo: ArquivoAssistente | null; csvs: { nome: string; conteudo: string }[];
-  /** Prévias de correção mostradas nesta execução: só valem como confirmação na mensagem seguinte. */ previas: Set<string> };
+  /** Prévias de correção mostradas nesta execução: só valem como confirmação na mensagem seguinte. */ previas: Set<string>;
+  /** O que foi feito de verdade nesta execução (gravações e arquivos); alimenta a resposta quando o modelo não escreve uma. */ acoes: string[] };
 
 type Resultado = { resultado: string; erro: boolean };
 export const ok = (dados: object): Resultado => ({ resultado: JSON.stringify(dados), erro: false });
@@ -52,7 +53,7 @@ export const FERRAMENTAS_ASSISTENTE: Anthropic.Tool[] = [
     input_schema: objeto({ de: { type: 'string', description: 'DD/MM/AAAA' }, ate: { type: 'string', description: 'DD/MM/AAAA' }, cliente_id: { type: 'string' } }, ['de', 'ate']) },
   {
     name: 'alterar_pedido_venda',
-    description: 'Corrige o pedido de venda de uma demanda de nota (itens, quantidades, unidade, preço, destinatário, pagamento, entrega). Sem confirmado mostra o antes e o depois sem gravar; com confirmado = true grava (só depois de a pessoa confirmar). itens substitui a lista inteira; sem valor_unitario usa o preço da tabela.',
+    description: 'Corrige o pedido de venda de uma demanda de nota (itens, quantidades, unidade, preço, destinatário, pagamento, entrega). Sem confirmado mostra o antes e o depois sem gravar. Depois do "sim" da pessoa, chame só com numero e confirmado = true: o sistema grava a última prévia mostrada (os outros campos são ignorados). Na prévia, itens substitui a lista inteira; sem valor_unitario usa o preço da tabela.',
     input_schema: objeto({
       numero: { type: 'integer' },
       unidade_id: { type: 'string', description: 'Novo destinatário (buscar_parceiros, tipo cliente).' },
@@ -149,14 +150,16 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       let pedido: object | null = null;
       if (c.pedido_venda) {
         const [bling] = await d.repos.pedidosVendaParaBling([c.id]);
+        const produtosDaEmpresa = c.cliente_id ? await d.repos.produtosDaEmpresa(c.cliente_id) : [];
         pedido = {
-          itens: c.pedido_venda.itens.map(linhaItem), total: formatarReais(totalDoPedido(c.pedido_venda)),
+          itens: c.pedido_venda.itens.map(linhaItem),
+          itens_produto_id: c.pedido_venda.itens.map((i) => ({ codigo: i.sku, produto_id: (i.sku && produtosDaEmpresa.find((p) => p.codigo === i.sku)?.id) || null })), total: formatarReais(totalDoPedido(c.pedido_venda)),
           forma_pagamento: c.pedido_venda.forma_pagamento, data_prevista: c.pedido_venda.data_prevista,
           pendencias_csv: bling ? problemasPedidoBling(bling) : [],
         };
       }
       return ok({
-        numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor ?? 'Triagem', responsavel: c.responsavel, empresa: c.empresa,
+        numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor ?? 'Triagem', responsavel: c.responsavel, empresa: c.empresa, cliente_id: c.cliente_id,
         criada_em: dataCurta(c.criado_em), resumo: c.resumo,
         eventos: eventos.map((e) => `${dataCurta(e.criado_em)} ${e.tipo}${e.usuario ? ` (${e.usuario})` : ''}${e.texto ? `: ${e.texto}` : ''}`), pedido,
       });
@@ -204,6 +207,16 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
 
     case 'alterar_pedido_venda': {
       if (!podeCorrigirPedidos(u)) return falha('Você não tem permissão para corrigir pedidos de nota. Peça ao administrador para marcar "Corrigir pedidos de nota e gerar CSV do Bling" na aba Usuários.');
+      let previaGuardada: { entrada: unknown; conferencia: string } | null = null;
+      if (entrada.confirmado) {
+        // A confirmação só vale para a última prévia mostrada: o que o modelo mandar além do número é ignorado.
+        const SEM_PREVIA = 'Não achei a prévia deste pedido. Mostre o antes e o depois de novo e espere a confirmação.';
+        previaGuardada = await d.repos.ultimaPreviaDoAssistente(u.id, entrada.numero, new Date(Date.now() - 24 * 3600 * 1000));
+        if (!previaGuardada) return falha(SEM_PREVIA);
+        const guardada = Entradas.alterar_pedido_venda.safeParse(previaGuardada.entrada);
+        if (!guardada.success) return falha(SEM_PREVIA);
+        entrada = { ...guardada.data, numero: entrada.numero, confirmado: true };
+      }
       const c = await d.repos.chamadoPorNumero(entrada.numero);
       if (!c || !podeVerChamado(u, c)) return falha('Demanda não encontrada entre as que você pode ver.');
       if (!c.pedido_venda || !c.cliente_id) return falha('Esta demanda não tem pedido de venda (só as notas de venda passadas pelo agente têm).');
@@ -229,11 +242,12 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       const depois = descreverPedido(novo, nomeDe(novo));
       const conferencia = createHash('sha1').update(JSON.stringify({ numero: c.numero, novo })).digest('hex').slice(0, 12);
       if (confirmado) {
+        if (conferencia !== previaGuardada!.conferencia) return falha('O pedido ou os preços mudaram desde a prévia. Mostre o antes e o depois de novo.');
         if (estado.previas.has(conferencia)) return falha('Mostre o antes e o depois e espere a confirmação na próxima mensagem.');
         if (!(await d.repos.previaDoAssistente(conferencia, u.id, new Date(Date.now() - 24 * 3600 * 1000)))) {
           return falha('O pedido mudou ou ainda não foi mostrado. Mostre o antes e o depois de novo e espere a confirmação.');
         }
-        if (isDeepStrictEqual(novo, c.pedido_venda)) return ok({ gravado: true, numero: c.numero, depois, ja_estava: true });
+        if (isDeepStrictEqual(novo, c.pedido_venda)) { estado.acoes.push(`pedido #${c.numero} alterado`); return ok({ gravado: true, numero: c.numero, depois, ja_estava: true }); }
       }
       if (!confirmado) {
         estado.previas.add(conferencia);
@@ -250,6 +264,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       await d.repos.atualizarPedidoVenda(c.id, { pedido: novo, resumo, ...(trocou ? { titulo } : {}) });
       await d.repos.registrarNotaInterna(c.id, c.cliente_id, u.id, `Pedido alterado pelo assistente a pedido de ${u.nome}.\nAntes:\n${antes}\nDepois:\n${depois}`);
       await d.repos.registrarAuditoria({ usuarioId: u.id, acao: 'assistente', entidade: 'pedido_venda', entidadeId: c.id, detalhes: { canal: estado.ctx.canal, antes: c.pedido_venda, depois: novo } });
+      estado.acoes.push(`pedido #${c.numero} alterado`);
       return ok({ gravado: true, numero: c.numero, depois });
     }
 
@@ -273,6 +288,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       }
       await d.repos.registrarAuditoria({ usuarioId: u.id, acao: 'download', entidade: 'csv_bling', entidadeId: escolhidos.map((c) => c.id).join(','),
         detalhes: { canal: estado.ctx.canal, pedidos: pedidos.map((p) => p.numero), arquivos: nomes } });
+      estado.acoes.push(`CSV gerado (${nomes.join(', ')})`);
       const incluidos = pedidos.map((p) => p.numero).sort((a, b) => a - b);
       const ignorados = numeros ? numeros.filter((n) => !incluidos.includes(n)).sort((a, b) => a - b) : [];
       return ok({ pedidos: pedidos.length, arquivos: nomes, incluidos,
@@ -291,7 +307,9 @@ export async function executarFerramentaAssistente(d: DepsAssistente, estado: Es
   let r: Resultado;
   if (!(nome in Entradas)) r = falha(`Ferramenta desconhecida: ${nome}`);
   else {
-    const v = Entradas[nome as keyof typeof Entradas].safeParse(entrada);
+    const bruta = nome === 'alterar_pedido_venda' && (entrada as { confirmado?: unknown } | null)?.confirmado === true
+      ? { numero: (entrada as { numero?: unknown }).numero, confirmado: true } : entrada;
+    const v = Entradas[nome as keyof typeof Entradas].safeParse(bruta);
     if (!v.success) r = falha(`Entrada inválida: ${v.error.issues.map((i) => i.message).join('; ')}`);
     else {
       try { r = await executarValidada(d, estado, nome as keyof typeof Entradas, v.data); } catch (e) {

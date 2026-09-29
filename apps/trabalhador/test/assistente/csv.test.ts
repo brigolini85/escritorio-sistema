@@ -47,7 +47,7 @@ const rodar = async (canalAssistente: 'site' | 'whatsapp', roteiro: ConstructorP
 
 const estadoDe = async (usuarioId: string, canalAssistente: 'site' | 'whatsapp'): Promise<EstadoAssistente> => {
   const u = (await repos.obterUsuarioAssistente(usuarioId))!;
-  return { ctx: await carregarContextoAssistente(repos, u, canalAssistente, null, new Date('2026-09-29T15:00:00Z')), resposta: [], arquivo: null, csvs: [], previas: new Set() };
+  return { ctx: await carregarContextoAssistente(repos, u, canalAssistente, null, new Date('2026-09-29T15:00:00Z')), resposta: [], arquivo: null, csvs: [], previas: new Set(), acoes: [] };
 };
 
 describe('gerar_csv_bling pelo assistente (pedido do dono, 2026-09-29)', () => {
