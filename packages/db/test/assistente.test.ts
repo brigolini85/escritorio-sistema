@@ -48,5 +48,31 @@ describe('repositório do assistente (pedido do dono, 2026-09-29)', () => {
     expect(await repos.chamadoPorNumero(999999)).toBeNull();
     expect((await repos.buscarEmpresas('industria x')).map((e) => e.nome)).toEqual(['Indústria X']);
     expect((await repos.buscarEmpresas('11.222.333')).map((e) => e.cnpj)).toEqual(['11222333000181']);
+    expect(await repos.buscarEmpresas('   ')).toEqual([]);
+    expect(await repos.buscarEmpresas('"')).toEqual([]);
+  });
+
+  it('lista demandas só as visíveis para o usuário, só com pedido, com limite e sem limite', async () => {
+    const { data: c } = await db.from('clientes').insert({ razao_social: 'Cliente V Ltda', cnpj: '22333444000155' }).select().single();
+    const { data: setores } = await db.from('setores').select('id, nome').eq('ativo', true).limit(2);
+    const [meu, outro] = [setores![0]!.id, setores![1]!.id];
+    const ana = await usuario('ana-vis@teste-repos.local');
+    const abrir = (titulo: string, setorId: string | null, responsavelId: string | null) =>
+      repos.abrirChamado({ clienteId: c!.id, conversaId: null, setorId, responsavelId, titulo, resumo: 'r', foraDoContrato: false, origem: 'agente' });
+    const doSetor = await abrir('do meu setor', meu, null);
+    await abrir('de outro setor', outro, null);
+    await abrir('triagem', null, null);
+    const minha = await abrir('sou responsável', outro, ana);
+    const visiveis = await repos.chamadosRecentes({ visivelPara: { usuarioId: ana, setorIds: [meu] } });
+    expect(visiveis.map((v) => v.titulo).sort()).toEqual(['do meu setor', 'sou responsável']);
+    expect(visiveis.map((v) => v.id).sort()).toEqual([doSetor.id, minha.id].sort());
+    const semSetor = await repos.chamadosRecentes({ visivelPara: { usuarioId: ana, setorIds: [] } });
+    expect(semSetor.map((v) => v.titulo)).toEqual(['sou responsável']);
+    expect(await repos.chamadosRecentes({ visivelPara: null })).toHaveLength(4);
+
+    await repos.atualizarPedidoVenda(doSetor.id, { pedido: { unidade_id: null } as never, resumo: 'com pedido' });
+    expect((await repos.chamadosRecentes({ comPedido: true })).map((v) => v.id)).toEqual([doSetor.id]);
+    expect(await repos.chamadosRecentes({ limite: 1 })).toHaveLength(1);
+    expect(await repos.chamadosRecentes({})).toHaveLength(4);
   });
 });

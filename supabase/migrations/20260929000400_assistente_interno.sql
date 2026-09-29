@@ -27,7 +27,9 @@ language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from usuarios u
     where u.ativo and 'assistente_whatsapp' = any (u.permissoes) and u.telefone is not null
-      and (u.telefone = p or (left(u.telefone, 4) = left(p, 4) and right(u.telefone, 8) = right(p, 8)))
+      and (u.telefone = p
+        or (length(p) = 12 and p ~ '^\d{4}[6-9]' and u.telefone = left(p, 4) || '9' || substr(p, 5))
+        or (length(p) = 13 and substr(p, 5, 1) = '9' and u.telefone = left(p, 4) || substr(p, 6)))
   )
 $$;
 revoke execute on function public.eh_telefone_do_assistente(text) from public, anon;

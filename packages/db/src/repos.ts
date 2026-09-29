@@ -79,7 +79,10 @@ function paraChamadoResumo(c: any): ChamadoResumo {
   };
 }
 
-const semAcento = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+/** Máximo de linhas por consulta no Supabase (max_rows). */
+const PAGINA = 1000;
+
+const semAcento = (t: string) => t.normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '').toLowerCase();
 
 export function criarRepos(db: Db) {
   return {
@@ -461,15 +464,30 @@ export function criarRepos(db: Db) {
       if (ids.length) checar(await db.from('assistente_mensagens').update({ processada_em: new Date().toISOString() }).in('id', ids), 'marcarPerguntasRespondidas');
     },
 
-    async chamadosRecentes(f: { status?: string; abertas?: boolean; de?: string; ate?: string; clienteIds?: string[]; soNotas?: boolean }): Promise<ChamadoResumo[]> {
-      let q = db.from('chamados').select(SELECT_CHAMADO_RESUMO);
-      if (f.status) q = q.eq('status', f.status as never);
-      if (f.abertas) q = q.neq('status', 'concluido');
-      if (f.de) q = q.gte('criado_em', f.de);
-      if (f.ate) q = q.lte('criado_em', f.ate);
-      if (f.clienteIds) q = q.in('cliente_id', f.clienteIds);
-      if (f.soNotas) q = q.like('titulo', 'NF de %');
-      return checar(await q.order('criado_em', { ascending: false }).limit(500), 'chamadosRecentes').map(paraChamadoResumo);
+    async chamadosRecentes(f: { status?: string; abertas?: boolean; de?: string; ate?: string; clienteIds?: string[]; soNotas?: boolean; comPedido?: boolean; visivelPara?: { usuarioId: string; setorIds: string[] } | null; limite?: number }): Promise<ChamadoResumo[]> {
+      const montar = () => {
+        let q = db.from('chamados').select(SELECT_CHAMADO_RESUMO);
+        if (f.status) q = q.eq('status', f.status as never);
+        if (f.abertas) q = q.neq('status', 'concluido');
+        if (f.de) q = q.gte('criado_em', f.de);
+        if (f.ate) q = q.lte('criado_em', f.ate);
+        if (f.clienteIds) q = q.in('cliente_id', f.clienteIds);
+        if (f.soNotas) q = q.like('titulo', 'NF de %');
+        if (f.comPedido) q = q.not('pedido_venda', 'is', null);
+        if (f.visivelPara) {
+          const { usuarioId, setorIds } = f.visivelPara;
+          q = q.or([`responsavel_id.eq.${usuarioId}`, ...(setorIds.length ? [`setor_id.in.(${setorIds.join(',')})`] : [])].join(','));
+        }
+        // "id" desempata linhas com o mesmo horário, para a paginação não repetir nem pular.
+        return q.order('criado_em', { ascending: false }).order('id');
+      };
+      if (f.limite !== undefined) return checar(await montar().limit(f.limite), 'chamadosRecentes').map(paraChamadoResumo);
+      const todos: ChamadoResumo[] = [];
+      for (let de = 0; ; de += PAGINA) {
+        const pagina = checar(await montar().range(de, de + PAGINA - 1), 'chamadosRecentes');
+        todos.push(...pagina.map(paraChamadoResumo));
+        if (pagina.length < PAGINA) return todos;
+      }
     },
 
     async chamadoPorNumero(numero: number): Promise<ChamadoResumo | null> {
@@ -496,7 +514,8 @@ export function criarRepos(db: Db) {
     },
 
     async buscarEmpresas(texto: string): Promise<{ id: string; nome: string; cnpj: string }[]> {
-      const limpo = texto.replace(/[,()*%\\]/g, ' ').trim();
+      const limpo = texto.replace(/[,()*%"\\]/g, ' ').trim();
+      if (!limpo) return [];
       const digitos = limpo.replace(/\D/g, '');
       const filtros = [`razao_social.ilike.%${limpo}%`, `nome_fantasia.ilike.%${limpo}%`, ...(digitos.length >= 3 ? [`cnpj.like.%${digitos}%`] : [])];
       let linhas = checar(await db.from('clientes').select('id, razao_social, nome_fantasia, cnpj').or(filtros.join(',')).eq('ativo', true).order('razao_social').limit(10), 'buscarEmpresas');

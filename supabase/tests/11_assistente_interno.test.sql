@@ -1,18 +1,20 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(11);
 
 -- Assistente interno (pedido do dono, 2026-09-29).
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a1', 'dono@pgtap.local'),
   ('00000000-0000-0000-0000-0000000000a2', 'ana@pgtap.local'),
   ('00000000-0000-0000-0000-0000000000a3', 'admin_sem_permissao@pgtap.local'),
-  ('00000000-0000-0000-0000-0000000000a4', 'carlos@pgtap.local');
+  ('00000000-0000-0000-0000-0000000000a4', 'carlos@pgtap.local'),
+  ('00000000-0000-0000-0000-0000000000a5', 'celular@pgtap.local');
 insert into public.usuarios (id, nome, email, papel, telefone, permissoes) values
   ('00000000-0000-0000-0000-0000000000a1', 'Dono', 'dono@pgtap.local', 'admin', '5531988887777', '{assistente_site,assistente_whatsapp}'),
   ('00000000-0000-0000-0000-0000000000a2', 'Ana', 'ana@pgtap.local', 'atendente', null, '{}'),
   ('00000000-0000-0000-0000-0000000000a3', 'Admin Sem Permissão', 'admin_sem_permissao@pgtap.local', 'admin', null, '{}'),
-  ('00000000-0000-0000-0000-0000000000a4', 'Carlos', 'carlos@pgtap.local', 'atendente', null, '{assistente_site}');
+  ('00000000-0000-0000-0000-0000000000a4', 'Carlos', 'carlos@pgtap.local', 'atendente', null, '{assistente_site}'),
+  ('00000000-0000-0000-0000-0000000000a5', 'Celular', 'celular@pgtap.local', 'atendente', '5531932227777', '{assistente_whatsapp}');
 insert into public.setores (id, nome) values
   ('30000000-0000-0000-0000-000000000001', 'Setor Fiscal');
 insert into public.usuario_setores (usuario_id, setor_id) values
@@ -30,6 +32,7 @@ insert into public.chamados (id, conversa_id, cliente_id, setor_id, titulo) valu
    (select id from public.setores where nome != 'Setor Fiscal' limit 1), 'Chamado Invisível para Carlos');
 
 select ok(public.eh_telefone_do_assistente('553188887777'), 'reconhece o telefone do usuário mesmo sem o 9');
+select ok(not public.eh_telefone_do_assistente('553132227777'), 'telefone fixo não se confunde com o celular da equipe');
 select ok(not public.eh_telefone_do_assistente('5531999990001'), 'telefone de cliente não é do assistente');
 
 set local role authenticated;
