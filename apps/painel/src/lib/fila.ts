@@ -12,6 +12,7 @@ function obterBoss(): Promise<PgBoss> {
     // Idempotente: garante as filas mesmo se o painel subir antes do trabalhador. Mesma configuração da Task 9.
     await b.createQueue('enviar-mensagem', { name: 'enviar-mensagem', retryLimit: 5, retryDelay: 10, retryBackoff: true });
     await b.createQueue('remover-arquivos', { name: 'remover-arquivos', retryLimit: 10, retryDelay: 60, retryBackoff: true });
+    await b.createQueue('assistente', { name: 'assistente', policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
     return b;
   })();
   return boss;
@@ -20,6 +21,12 @@ function obterBoss(): Promise<PgBoss> {
 /** Se falhar, a resposta fica "pendente" e o batimento do trabalhador reenfileira depois de 2 minutos. */
 export async function enfileirarEnvio(mensagemId: string): Promise<void> {
   await (await obterBoss()).send('enviar-mensagem', { mensagemId });
+}
+
+/** Pergunta ao assistente pelo painel: uma execução por pessoa e contexto (mesma chave do trabalhador). */
+export async function enfileirarAssistente(j: { usuarioId: string; conversaId: string | null }): Promise<void> {
+  await (await obterBoss()).send('assistente', { usuarioId: j.usuarioId, canal: 'site', conversaId: j.conversaId, telefone: null },
+    { singletonKey: `${j.usuarioId}:site:${j.conversaId ?? '-'}` });
 }
 
 export async function enfileirarRemocaoArquivos(paths: string[]): Promise<void> {

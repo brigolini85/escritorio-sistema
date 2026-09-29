@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { AtualizarAoVivo } from '../atualizar-ao-vivo';
+import { ConversaAssistente } from '../../assistente/conversa-assistente';
 import { ContatoDaConversa } from './contato-da-conversa';
 import { alterarStatus, assumir, concluir, devolverAoAgente, notaInterna, responder, transferir } from '../acoes';
 
@@ -25,7 +26,7 @@ export default async function Conversa({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="grid grid-cols-[1fr_22rem] gap-6">
-      <AtualizarAoVivo conversaId={id} />
+      <AtualizarAoVivo conversaId={id} assistenteDe={u.permissoes.includes('assistente_site') ? u.id : undefined} />
       <section className="flex flex-col rounded-lg border bg-white">
         <header className="flex items-center justify-between border-b p-3">
           <div>
@@ -55,6 +56,13 @@ export default async function Conversa({ params }: { params: Promise<{ id: strin
       </section>
 
       <aside className="space-y-4">
+        {u.permissoes.includes('assistente_site') && (
+          <details className="rounded-lg border bg-white p-3 text-sm" open>
+            <summary className="cursor-pointer font-semibold">Assistente</summary>
+            <p className="my-2 text-xs text-slate-500">Já sabe deste cliente e das demandas desta conversa.</p>
+            <ConversaAssistente usuarioId={u.id} conversaId={id} compacta />
+          </details>
+        )}
         <ContatoDaConversa conversaId={id} contato={conversa.contatos} pode={temPermissao(u, 'editar_clientes')} />
         {(chamados ?? []).map((c) => (
           <div key={c.id} className="rounded-lg border bg-white p-3 text-sm">
