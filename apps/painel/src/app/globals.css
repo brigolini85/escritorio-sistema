@@ -57,6 +57,8 @@
   /* Larguras fixas de layout pedidas pela spec (valores em tokens.css): w-sidebar, w-sidebar-recolhida */
   --spacing-sidebar: var(--sidebar-width);
   --spacing-sidebar-recolhida: var(--sidebar-width-collapsed);
+  --spacing-lista-conversas: var(--conversation-list-width);
+  --spacing-painel-conversa: var(--conversation-panel-width);
 
   /* Animações curtas (<= 150ms, ease-out) usadas pelos primitivos; zeradas com prefers-reduced-motion */
   --animate-aparecer: aparecer 150ms ease-out;
@@ -110,6 +112,22 @@
 }
 @keyframes deslizar-esquerda {
   from { translate: -100% 0; }
+}
+
+/*
+ * Altura da área de trabalho abaixo do cabeçalho fixo (faixa de ambiente + barra do topo): telas estilo caixa
+ * de entrada (Atendimento) rolam cada coluna por dentro. --altura-cabecalho é medida pela casca (app-shell.tsx);
+ * antes disso (primeira pintura) vale a estimativa: barra do topo (h-14) mais a faixa de ambiente, se houver.
+ */
+@utility altura-trabalho {
+  height: calc(100dvh - var(--altura-cabecalho, var(--altura-cabecalho-estimada)));
+}
+
+:root {
+  --altura-cabecalho-estimada: 3.5rem;
+}
+:root:has([data-faixa-ambiente]) {
+  --altura-cabecalho-estimada: 4.75rem;
 }
 
 /* Números alinhados (valores, CNPJ, quantidades, horários) */

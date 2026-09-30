@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { EstadoAgente } from '@/components/patterns/agent-state-indicator';
 import type { EscolhaTema } from '@/components/tema/tema';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
@@ -46,6 +46,19 @@ export function AppShell({
 
   const aoVivo = useAoVivo({ contadores, estadoAgente });
 
+  // Altura do cabeçalho fixo em --altura-cabecalho: telas estilo caixa de entrada (Atendimento) usam
+  // o utilitário altura-trabalho para ocupar exatamente o resto da tela.
+  const cabecalho = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = cabecalho.current;
+    if (!el) return;
+    const publicar = () => document.documentElement.style.setProperty('--altura-cabecalho', `${el.offsetHeight}px`);
+    publicar();
+    const obs = new ResizeObserver(publicar);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   return (
     <div className="flex min-h-screen">
       <aside
@@ -66,7 +79,7 @@ export function AppShell({
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40">
+        <header ref={cabecalho} className="sticky top-0 z-40">
           <FaixaAmbiente rotulo={ambiente} />
           <Topbar usuario={usuario} tema={tema} estadoAgente={aoVivo.estadoAgente} onAbrirMenu={() => setGaveta(true)} />
         </header>

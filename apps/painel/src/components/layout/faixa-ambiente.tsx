@@ -2,7 +2,7 @@
 export function FaixaAmbiente({ rotulo }: { rotulo: string | null }) {
   if (!rotulo) return null;
   return (
-    <div className="bg-warning-soft py-0.5 text-center text-xs font-semibold tracking-wide text-warning">
+    <div data-faixa-ambiente="" className="bg-warning-soft py-0.5 text-center text-xs font-semibold tracking-wide text-warning">
       <span className="sr-only">Ambiente: </span>
       {rotulo}
     </div>
