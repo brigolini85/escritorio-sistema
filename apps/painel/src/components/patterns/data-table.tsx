@@ -82,11 +82,14 @@ export function DataTable<T>({
   aoMudarSelecao, acoesLinha, hrefLinha, aoClicarLinha, linhaAtiva = null, vazio, erro, className,
 }: Props<T>) {
   const ids = linhas.map(chave);
+  // Linha clicável: um texto só para leitor de tela diz que Enter abre (id estável a partir do rótulo).
+  const idDica = hrefLinha || aoClicarLinha ? `dica-linha-${rotulo.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[^a-z0-9]+/g, '-')}` : undefined;
   const totalColunas = colunas.length + (selecionavel ? 1 : 0) + (acoesLinha ? 1 : 0);
 
   const tabela = (
     <div className={cn('flex flex-col gap-2', className)}>
       {selecionavel && acoesEmMassa}
+      {idDica && <p id={idDica} className="sr-only">Enter ou clique abre os detalhes da linha.</p>}
       <div className="overflow-hidden rounded-lg border border-border bg-surface">
         <Table aria-label={rotulo}>
           <TableHeader>
@@ -123,6 +126,7 @@ export function DataTable<T>({
                     href={hrefLinha?.(l)}
                     aoClicar={aoClicarLinha ? () => aoClicarLinha(l) : undefined}
                     ativa={linhaAtiva === id}
+                    dica={idDica}
                   >
                     {selecionavel && <TableCell className="w-10"><CaixaSelecaoLinha id={id} rotulo={rotuloSelecao?.(l) ?? 'Selecionar linha'} /></TableCell>}
                     {colunas.map((c) => (

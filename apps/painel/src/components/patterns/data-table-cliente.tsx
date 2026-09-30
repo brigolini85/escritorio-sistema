@@ -9,7 +9,7 @@ import { cn } from '@/lib/cn';
 
 /**
  * Partes interativas do DataTable (seleção, clique na linha, "Tentar de novo").
- * A seleção vive no navegador; para uma ação em massa (server action), coloque <CamposSelecionados name="ids" />
+ * A seleção vive no navegador; para uma ação em massa, coloque <CamposSelecionados name="ids" />
  * dentro do <form>: ele gera um <input type="hidden"> por linha marcada.
  */
 
@@ -72,10 +72,19 @@ export function CaixaSelecaoTodas({ rotulo = 'Selecionar todas as linhas desta p
   return <Checkbox aria-label={rotulo} disabled={todos.length === 0} checked={estado} onCheckedChange={() => alternarTodos(estado !== true)} />;
 }
 
-/** Um <input type="hidden" name={name}> por linha marcada, para o <form> da ação em massa. */
-export function CamposSelecionados({ name }: { name: string }) {
+/**
+ * Campo(s) hidden com as linhas marcadas, para o <form> da ação em massa.
+ * Padrão: UM campo com os ids separados por vírgula (ids=a,b,c), o formato que /api/csv-bling?ids= lê
+ * (um <form method="get" action="/api/csv-bling"> funciona direto). A server action lê com
+ * String(dados.get('ids')).split(','). `separados`: um campo por linha (dados.getAll('ids')).
+ * Sem linha marcada, não gera campo.
+ */
+export function CamposSelecionados({ name, separados = false }: { name: string; separados?: boolean }) {
   const { selecionados } = useSelecao();
-  return <>{[...selecionados].map((id) => <input key={id} type="hidden" name={name} value={id} />)}</>;
+  const ids = [...selecionados];
+  if (ids.length === 0) return null;
+  if (!separados) return <input type="hidden" name={name} value={ids.join(',')} />;
+  return <>{ids.map((id) => <input key={id} type="hidden" name={name} value={id} />)}</>;
 }
 
 /** Barra das ações em massa: aparece quando há linha marcada. */
@@ -110,6 +119,7 @@ export function LinhaTabela({
   href,
   aoClicar,
   ativa = false,
+  dica,
   className,
   children,
 }: {
@@ -117,6 +127,8 @@ export function LinhaTabela({
   href?: string;
   aoClicar?: () => void;
   ativa?: boolean;
+  /** id do texto (só para leitor de tela) que explica que Enter abre a linha. */
+  dica?: string;
   className?: string;
   children: ReactNode;
 }) {
@@ -130,7 +142,9 @@ export function LinhaTabela({
     else aoClicar?.();
   };
   const aoClicarLinha = (e: MouseEvent<HTMLTableRowElement>) => {
-    if (!clicavel || (e.target as HTMLElement).closest(INTERATIVO)) return;
+    if (!clicavel) return;
+    // Eventos do React sobem também de portais (menu, janela abertos a partir da linha): só vale clique dentro da linha.
+    if (!e.currentTarget.contains(e.target as Node) || (e.target as HTMLElement).closest(INTERATIVO)) return;
     if (window.getSelection()?.toString()) return;
     abrir(e.ctrlKey || e.metaKey);
   };
@@ -144,6 +158,7 @@ export function LinhaTabela({
     <tr
       data-state={selecionados.has(id) ? 'selected' : undefined}
       aria-current={ativa || undefined}
+      aria-describedby={clicavel ? dica : undefined}
       tabIndex={clicavel ? 0 : undefined}
       onClick={clicavel ? aoClicarLinha : undefined}
       onKeyDown={clicavel ? aoTeclar : undefined}

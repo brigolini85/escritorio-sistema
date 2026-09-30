@@ -22,7 +22,7 @@ describe('resumirPedido', () => {
   it('com cadastro: CNPJ mascarado e endereço por extenso', () => {
     const r = resumirPedido(pedido, comprador)!;
     expect(r.destinatario).toEqual({
-      nome: 'Supermercado Brasil Ltda', documento: '11.222.333/0001-81', cadastrado: true,
+      nome: 'Supermercado Brasil Ltda', documento: '11.222.333/0001-81', rotuloDocumento: 'CNPJ', cadastrado: true,
       endereco: 'Rua Pouso Alegre, 1200 - Santa Efigênia, Belo Horizonte/MG, CEP 30260-000',
     });
   });
@@ -31,18 +31,20 @@ describe('resumirPedido', () => {
     expect(r.itens[0]).toEqual({ produto: 'Costela com Requeijão', codigo: '12', unidade: 'PAC', quantidade: 15, valorUnitario: 9.5, subtotal: 142.5, aConferir: false });
     expect(r.itens[1]).toMatchObject({ unidade: 'KG', quantidade: 2.5, valorUnitario: null, subtotal: null, aConferir: true });
     expect(r.itens[2]).toMatchObject({ valorUnitario: null, aConferir: true, codigo: null });
-    expect(r.total).toBe(142.5);
+    expect(r.subtotalItens).toBe(142.5);
+    expect(r.total).toBe(157.5); // com o frete de 15, como a prévia do assistente e o CSV do Bling
     expect(r.totalParcial).toBe(true);
     expect(r.itensAConferir).toBe(2);
   });
   it('sem cadastro vale o texto do cliente; combinado e frete', () => {
     const r = resumirPedido(pedido)!;
-    expect(r.destinatario).toEqual({ nome: 'Supermercado Brasil Santa Efigênia', documento: null, endereco: null, cadastrado: false });
+    expect(r.destinatario).toEqual({ nome: 'Supermercado Brasil Santa Efigênia', documento: null, rotuloDocumento: 'CPF/CNPJ', endereco: null, cadastrado: false });
     expect(r).toMatchObject({ pagamento: 'Boleto 28 dias', dataPrevista: '02/10/2026', frete: { valor: 15, tipo: 'por conta do destinatário' }, observacoes: 'Entregar pela manhã', entrega: null });
   });
   it('todos com valor: total completo, somado em centavos', () => {
     const r = resumirPedido({ ...pedido, itens: [{ produto: 'A', sku: null, un: null, quantidade: 3, valor_unitario: 0.1 }, { produto: 'B', sku: null, un: 'un', quantidade: 1, valor_unitario: 0.2 }] })!;
-    expect(r.total).toBe(0.5);
+    expect(r.subtotalItens).toBe(0.5);
+    expect(r.total).toBe(15.5);
     expect(r.totalParcial).toBe(false);
     expect(r.itens[0]!.unidade).toBe('UN');
   });
@@ -55,6 +57,21 @@ describe('resumirPedido', () => {
     expect(r.destinatario.nome).toBe('Destinatário não informado');
     expect(r.frete.tipo).toBeNull();
     expect(r.entrega).toBe('Contagem/MG');
+  });
+});
+
+describe('total igual ao do assistente e do Bling', () => {
+  // Mesma conta de totalDoPedido (apps/trabalhador/src/assistente/vendas.ts) e do "Total Pedido" do core.
+  const totalDoPedido = (p: PedidoVendaSalvo) =>
+    Math.round((p.itens.reduce((s, i) => s + (i.quantidade !== null && i.valor_unitario !== null ? i.quantidade * i.valor_unitario : 0), 0) + (p.valor_frete ?? 0)) * 100) / 100;
+  it('pedido do /_design e variações', () => {
+    for (const p of [pedido, { ...pedido, valor_frete: null }, { ...pedido, itens: [{ produto: 'X', sku: null, un: 'UN', quantidade: 3, valor_unitario: 0.1 }] }]) {
+      expect(resumirPedido(p)!.total).toBe(totalDoPedido(p));
+    }
+  });
+  it('CPF de pessoa física e CNPJ alfanumérico', () => {
+    expect(resumirPedido(pedido, { ...comprador, cnpj: '12345678909' })!.destinatario).toMatchObject({ documento: '123.456.789-09', rotuloDocumento: 'CPF' });
+    expect(resumirPedido(pedido, { ...comprador, cnpj: '12ABC34501DE35' })!.destinatario).toMatchObject({ documento: '12.ABC.345/01DE-35', rotuloDocumento: 'CNPJ' });
   });
 });
 

@@ -59,8 +59,10 @@ function lerItem(linha: string): ItemPrevia | null {
 function lerCampos(linha: string): CampoPrevia[] | null {
   const partes = linha.split(' · ');
   const campos = partes.map((p) => CAMPO.exec(p.trim()));
-  if (campos.some((c) => !c)) return null;
-  return campos.map((c) => ({ rotulo: normalizar(c![1]!), valor: normalizar(c![2]!) }));
+  if (campos.every(Boolean)) return campos.map((c) => ({ rotulo: normalizar(c![1]!), valor: normalizar(c![2]!) }));
+  // "Observações: entregar · pela manhã": o " · " é do texto, não separa campos.
+  const inteiro = CAMPO.exec(linha);
+  return inteiro ? [{ rotulo: normalizar(inteiro[1]!), valor: normalizar(inteiro[2]!) }] : null;
 }
 
 function lerLinha(linha: string): Linha[] {
@@ -72,6 +74,24 @@ function lerLinha(linha: string): Linha[] {
 }
 
 const reconhecida = (l: Linha) => l.tipo !== 'texto';
+const OBSERVACOES = /^observa/i;
+const QUEBRA = String.fromCharCode(10);
+
+/** Linhas de um lado. Observação com quebra de linha: as linhas seguintes continuam o valor dela. */
+function lerBloco(linhas: string[]): Linha[] {
+  const saida: Linha[] = [];
+  for (const bruta of linhas) {
+    if (!bruta.trim()) continue;
+    const anterior = saida.at(-1);
+    const lidas = lerLinha(bruta);
+    if (anterior?.tipo === 'campo' && OBSERVACOES.test(anterior.campo.rotulo) && lidas.every((l) => l.tipo === 'texto')) {
+      anterior.campo.valor = [anterior.campo.valor, bruta.trim()].join(QUEBRA);
+      continue;
+    }
+    saida.push(...lidas);
+  }
+  return saida;
+}
 
 export function interpretarPrevia(texto: string): PreviaInterpretada | null {
   const linhas = texto.replace(/\r\n?/g, '\n').split('\n');
@@ -81,14 +101,14 @@ export function interpretarPrevia(texto: string): PreviaInterpretada | null {
   if (iDepois < 0) return null;
 
   const cabecalho = linhas.slice(0, iAntes).join('\n').trim();
-  const antes = linhas.slice(iAntes + 1, iDepois).filter((l) => l.trim()).flatMap(lerLinha);
+  const antes = lerBloco(linhas.slice(iAntes + 1, iDepois));
 
   // O lado "depois" vai até a primeira linha em branco; o que sobra (e frases soltas no fim, como "Posso gravar?") é rodapé.
   const resto = linhas.slice(iDepois + 1);
   const primeiraVazia = resto.findIndex((l, i) => !l.trim() && resto.slice(0, i).some((x) => x.trim()));
-  const blocoDepois = (primeiraVazia < 0 ? resto : resto.slice(0, primeiraVazia)).filter((l) => l.trim());
+  const blocoDepois = primeiraVazia < 0 ? resto : resto.slice(0, primeiraVazia);
   const rodapeLinhas = primeiraVazia < 0 ? [] : resto.slice(primeiraVazia);
-  const depois = blocoDepois.flatMap(lerLinha);
+  const depois = lerBloco(blocoDepois);
   const soltas: string[] = [];
   while (depois.length && !reconhecida(depois.at(-1)!)) soltas.unshift((depois.pop() as { texto: string }).texto);
 
@@ -101,8 +121,19 @@ export function interpretarPrevia(texto: string): PreviaInterpretada | null {
   };
 }
 
+/**
+ * Uma resposta pode ter várias prévias (uma por pedido, separadas por linha em branco). Cada uma é lida à parte;
+ * o texto entre elas vira o cabeçalho da seguinte. Nenhuma prévia → null.
+ */
+export function interpretarPrevias(texto: string): PreviaInterpretada[] | null {
+  const primeira = interpretarPrevia(texto);
+  if (!primeira) return null;
+  const seguintes = primeira.rodape ? interpretarPrevias(primeira.rodape) : null;
+  return seguintes ? [{ ...primeira, rodape: '' }, ...seguintes] : [primeira];
+}
+
 export type Mudanca = 'igual' | 'alterado' | 'adicionado' | 'removido';
-export type AlteracoesItem = { quantidade: boolean; unidade: boolean; preco: boolean; subtotal: boolean };
+export type AlteracoesItem = { quantidade: boolean; unidade: boolean; produto: boolean; preco: boolean; subtotal: boolean };
 export type LinhaComparada =
   | { tipo: 'item'; mudanca: Mudanca; item: ItemPrevia; anterior: ItemPrevia | null; alteracoes: AlteracoesItem | null }
   | { tipo: 'campo'; mudanca: Mudanca; rotulo: string; valor: string; anterior: string | null }
@@ -130,8 +161,11 @@ function comparar(anterior: Linha | null, atual: Linha, mudancaSemPar: Mudanca):
     const a = anterior?.tipo === 'item' ? anterior.item : null;
     if (!a) return { tipo: 'item', mudanca: mudancaSemPar, item: atual.item, anterior: null, alteracoes: null };
     const i = atual.item;
-    const alteracoes = { quantidade: a.quantidade !== i.quantidade, unidade: a.unidade !== i.unidade, preco: a.preco !== i.preco, subtotal: a.subtotal !== i.subtotal };
-    const mudou = Object.values(alteracoes).some(Boolean) || a.produto !== i.produto;
+    const alteracoes = {
+      quantidade: a.quantidade !== i.quantidade, unidade: a.unidade !== i.unidade, produto: chaveTexto(a.produto) !== chaveTexto(i.produto),
+      preco: a.preco !== i.preco, subtotal: a.subtotal !== i.subtotal,
+    };
+    const mudou = Object.values(alteracoes).some(Boolean);
     return { tipo: 'item', mudanca: mudou ? 'alterado' : 'igual', item: i, anterior: mudou ? a : null, alteracoes: mudou ? alteracoes : null };
   }
   if (atual.tipo === 'campo') {

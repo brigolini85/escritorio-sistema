@@ -105,7 +105,7 @@ export function DemoTabela({
         acoesEmMassa={
           <BarraSelecao>
             <form
-              action={(dados) => { toast.success(`Exportar CSV Bling: ${dados.getAll('ids').length} demanda(s) (campos ids enviados).`); }}
+              action={(dados) => { toast.success(`Exportar CSV Bling: ids=${String(dados.get('ids'))} (o mesmo formato de /api/csv-bling?ids=).`); }}
               className="flex"
             >
               <CamposSelecionados name="ids" />

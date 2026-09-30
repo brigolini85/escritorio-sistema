@@ -39,22 +39,23 @@ export function HealthSignal({
 }) {
   const agora = useAgora(15_000);
   const situacao = situacaoDoSinal(ultimoSinal, agora, limites);
-  const quando = ultimoSinal ? tempoRelativo(ultimoSinal, agora) : 'nenhum sinal';
+  const quando = (ultimoSinal && tempoRelativo(ultimoSinal, agora)) || 'nenhum sinal';
+  const completa = ultimoSinal ? formatarDataHora(ultimoSinal) : '';
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span tabIndex={0} className={cn('inline-flex items-center gap-2 rounded-sm text-sm', className)}>
+        <button type="button" className={cn('inline-flex cursor-default items-center gap-2 rounded-sm text-left text-sm', className)}>
           <span aria-hidden className={cn('size-2 shrink-0 rounded-full', COR[situacao])} />
           <span className="font-medium text-foreground">{rotulo}</span>
           <span className={cn('tabular', TEXTO[situacao])} suppressHydrationWarning>
             {situacao === 'ok' && <span className="sr-only">{ROTULO_SITUACAO.ok}, </span>}
             {situacao === 'ok' ? quando : `${ROTULO_SITUACAO[situacao]} · ${quando}`}
           </span>
-        </span>
+        </button>
       </TooltipTrigger>
       <TooltipContent>
         <p>{ROTULO_SITUACAO[situacao]}</p>
-        <p>{ultimoSinal ? `Último sinal: ${formatarDataHora(ultimoSinal)} (horário de Brasília)` : 'Nenhum sinal registrado.'}</p>
+        <p>{completa ? `Último sinal: ${completa} (horário de Brasília)` : 'Nenhum sinal registrado.'}</p>
         {detalhe && <p>{detalhe}</p>}
       </TooltipContent>
     </Tooltip>

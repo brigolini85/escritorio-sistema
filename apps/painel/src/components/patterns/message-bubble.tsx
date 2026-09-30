@@ -1,7 +1,7 @@
 import { Bot, CircleAlert, Info, Mic, Paperclip, Sparkles, StickyNote, UserRound, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
-import { formatarDataHora, formatarHora } from '@/lib/formatos';
+import { formatarDataHora, formatarHora, isoOuNulo } from '@/lib/formatos';
 
 /**
  * Autor da mensagem. Conversa com cliente: cliente, agente (robô do WhatsApp), atendente (equipe), sistema, nota interna.
@@ -25,7 +25,7 @@ const ESTILO: Record<Exclude<AutorMensagem, 'sistema'>, Estilo> = {
 
 function Hora({ iso, className }: { iso: string; className?: string }) {
   return (
-    <time dateTime={iso} title={`${formatarDataHora(iso)} (horário de Brasília)`} className={cn('tabular', className)}>
+    <time dateTime={isoOuNulo(iso) ?? undefined} title={`${formatarDataHora(iso)} (horário de Brasília)`} className={cn('tabular', className)}>
       {formatarHora(iso)}
     </time>
   );

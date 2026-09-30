@@ -1,7 +1,7 @@
 import { Minus, PenLine, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
-import { compararPrevia, interpretarPrevia, type LinhaComparada, type Mudanca } from '@/lib/previa-pedido';
+import { compararPrevia, interpretarPrevias, type LinhaComparada, type Mudanca, type PreviaInterpretada } from '@/lib/previa-pedido';
 
 /**
  * Prévia antes → depois do assistente para correção de pedido. Recebe o texto que o assistente já escreve
@@ -46,7 +46,7 @@ function Conteudo({ l }: { l: LinhaComparada }) {
       <span className="tabular">
         <Valor atual={`${i.quantidade} ${i.unidade}`} anterior={a ? `${a.quantidade} ${a.unidade}` : null} mudou={!!m && (m.quantidade || m.unidade)} />
       </span>{' '}
-      {nome}
+      <Valor atual={nome} anterior={a ? `${a.produto}${a.codigo ? ` (cód. ${a.codigo})` : ''}` : null} mudou={!!m?.produto} />
       {' · '}
       {i.semPreco ? (
         <Valor atual="sem preço" anterior={a?.preco} mudou={!!m?.preco} />
@@ -62,8 +62,17 @@ function Conteudo({ l }: { l: LinhaComparada }) {
 }
 
 export function DiffPreview({ texto, className }: { texto: string; className?: string }) {
-  const previa = interpretarPrevia(texto);
-  if (!previa) return <p className={cn('whitespace-pre-wrap', className)}>{texto}</p>;
+  const previas = interpretarPrevias(texto);
+  if (!previas) return <p className={cn('whitespace-pre-wrap', className)}>{texto}</p>;
+  // Uma resposta pode trazer uma prévia por pedido: cada uma com a sua comparação.
+  return (
+    <div className={cn('flex flex-col gap-3', className)}>
+      {previas.map((p, i) => <UmaPrevia key={i} previa={p} />)}
+    </div>
+  );
+}
+
+function UmaPrevia({ previa }: { previa: PreviaInterpretada }) {
   const linhas = compararPrevia(previa);
   const resumo = (['alterado', 'adicionado', 'removido'] as const)
     .map((m) => {
@@ -73,7 +82,7 @@ export function DiffPreview({ texto, className }: { texto: string; className?: s
     .filter(Boolean).join(', ') || 'Nenhuma mudança';
 
   return (
-    <div className={cn('flex flex-col gap-2', className)}>
+    <div className="flex flex-col gap-2">
       {previa.cabecalho && <p className="whitespace-pre-wrap font-medium">{previa.cabecalho}</p>}
       <div className="overflow-hidden rounded-md border border-border bg-surface">
         <p className="flex items-center justify-between gap-2 border-b border-border bg-surface-muted px-3 py-1.5 text-xs font-medium text-muted">

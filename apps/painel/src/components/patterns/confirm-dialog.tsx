@@ -42,10 +42,26 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
   useEffect(() => {
     if (!aberto || !externo) return;
     const form = document.getElementById(externo);
-    if (!(form instanceof HTMLFormElement)) return;
+    if (!(form instanceof HTMLFormElement)) {
+      console.warn(`[ConfirmDialog] formulário "${externo}" não encontrado: o botão de confirmar não vai enviar nada.`);
+      return;
+    }
     const aoEnviar = () => setTimeout(() => setAberto(false), 0);
+    // Validação do navegador barrou o envio (campo obrigatório atrás da janela): fecha e mostra o aviso no campo.
+    let avisando = false;
+    const aoInvalidar = () => {
+      if (avisando) return;
+      avisando = true;
+      setAberto(false);
+      // Depois da janela fechar e devolver o foco ao gatilho (animação de 100ms).
+      setTimeout(() => { form.reportValidity(); avisando = false; }, 150);
+    };
     form.addEventListener('submit', aoEnviar);
-    return () => form.removeEventListener('submit', aoEnviar);
+    form.addEventListener('invalid', aoInvalidar, true);
+    return () => {
+      form.removeEventListener('submit', aoEnviar);
+      form.removeEventListener('invalid', aoInvalidar, true);
+    };
   }, [aberto, externo]);
 
   const mudarAberto = (v: boolean) => {

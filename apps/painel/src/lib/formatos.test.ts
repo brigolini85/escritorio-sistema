@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
-  formatarBRL, formatarData, formatarDataHora, formatarHora, formatarNumero, mascararCEP, mascararCNPJ, mascararCPF, mascararDocumento, mascararTelefone,
-  tempoRelativo,
+  formatarBRL, formatarData, formatarDataHora, formatarHora, formatarNumero, isoOuNulo, tipoDocumento, mascararCEP, mascararCNPJ, mascararCPF, mascararDocumento, mascararTelefone,
+  NBSP, tempoRelativo,
 } from './formatos';
 
-const sem = (t: string) => t.replace(/ /g, ' ');
+const sem = (t: string) => t.replaceAll(NBSP, ' ');
 
 describe('formatarBRL', () => {
   it('reais com milhar, centavos e espaço que não quebra', () => {
-    expect(formatarBRL(1280)).toBe('R$ 1.280,00');
+    expect(formatarBRL(1280)).toBe(`R$${NBSP}1.280,00`);
+    expect(formatarBRL(1280).charCodeAt(2)).toBe(0xa0);
     expect(sem(formatarBRL(9.5))).toBe('R$ 9,50');
     expect(sem(formatarBRL(142.5))).toBe('R$ 142,50');
     expect(sem(formatarBRL(1234567.891))).toBe('R$ 1.234.567,89');
@@ -37,6 +38,15 @@ describe('máscaras', () => {
     expect(mascararCPF('12345678909')).toBe('123.456.789-09');
     expect(mascararDocumento('11222333000181')).toBe('11.222.333/0001-81');
     expect(mascararDocumento('123.456.789-09')).toBe('123.456.789-09');
+  });
+  it('CNPJ alfanumérico (Receita, jul/2026): 12 letras/números + 2 dígitos', () => {
+    expect(mascararCNPJ('12ABC34501DE35')).toBe('12.ABC.345/01DE-35');
+    expect(mascararCNPJ('12.abc.345/01de-35')).toBe('12.ABC.345/01DE-35');
+    expect(mascararDocumento('12ABC34501DE35')).toBe('12.ABC.345/01DE-35');
+    expect(tipoDocumento('12ABC34501DE35')).toBe('cnpj');
+    expect(tipoDocumento('123.456.789-09')).toBe('cpf');
+    expect(tipoDocumento('12ABC34501DEXY')).toBeNull(); // dígitos verificadores têm de ser números
+    expect(mascararCNPJ('12ABC34501DEXY')).toBe('12ABC34501DEXY');
   });
   it('tamanho errado volta como veio (não inventa dígitos)', () => {
     expect(mascararCNPJ('1122233300018')).toBe('1122233300018');
@@ -85,7 +95,12 @@ describe('tempoRelativo', () => {
     expect(tempoRelativo(new Date(agora.getTime() + 30_000), agora)).toBe('agora');
     expect(tempoRelativo(new Date(agora.getTime() + 5 * 60_000), agora)).toBe('em 5 min');
   });
-  it('data inválida vira texto vazio', () => {
+  it('data inválida vira texto vazio (não lança)', () => {
     expect(tempoRelativo('nada', agora)).toBe('');
+    expect(formatarDataHora('nada')).toBe('');
+    expect(formatarData(new Date(Number.NaN))).toBe('');
+    expect(formatarHora('')).toBe('');
+    expect(isoOuNulo('nada')).toBeNull();
+    expect(isoOuNulo('2026-09-30T17:05:00Z')).toBe('2026-09-30T17:05:00.000Z');
   });
 });

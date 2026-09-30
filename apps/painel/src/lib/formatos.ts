@@ -6,7 +6,7 @@
 export const FUSO = 'America/Sao_Paulo';
 
 /** Espaço que não quebra: "R$ 9,50" nunca se parte no fim da linha. */
-const NBSP = ' ';
+export const NBSP = String.fromCharCode(0xa0);
 
 const agrupar = (inteiro: string) => inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
@@ -28,10 +28,19 @@ export function formatarNumero(valor: number, casas = 3): string {
 
 export const somenteDigitos = (texto: string | null | undefined) => (texto ?? '').replace(/\D/g, '');
 
-/** "11222333000181" → "11.222.333/0001-81". Tamanho diferente de 14 volta como veio. */
+/** CNPJ só com letras e números, em maiúsculas; null se não for um CNPJ (12 letras/números + 2 dígitos). */
+function cnpjLimpo(texto: string): string | null {
+  const c = texto.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+  return /^[0-9A-Z]{12}[0-9]{2}$/.test(c) ? c : null;
+}
+
+/**
+ * "11222333000181" → "11.222.333/0001-81". Aceita o CNPJ alfanumérico da Receita (desde jul/2026):
+ * "12ABC34501DE35" → "12.ABC.345/01DE-35". Fora do padrão volta como veio.
+ */
 export function mascararCNPJ(texto: string): string {
-  const d = somenteDigitos(texto);
-  if (d.length !== 14) return texto.trim();
+  const d = cnpjLimpo(texto);
+  if (!d) return texto.trim();
   return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
 }
 
@@ -42,11 +51,18 @@ export function mascararCPF(texto: string): string {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
-/** CPF (11 dígitos) ou CNPJ (14), pelo tamanho. */
+/** Qual documento é: CNPJ (14, pode ter letras), CPF (11 dígitos) ou nenhum. */
+export function tipoDocumento(texto: string): 'cnpj' | 'cpf' | null {
+  if (cnpjLimpo(texto)) return 'cnpj';
+  if (/^[\d.\-\s]+$/.test(texto.trim()) && somenteDigitos(texto).length === 11) return 'cpf';
+  return null;
+}
+
+/** CPF (11 dígitos) ou CNPJ (14, numérico ou alfanumérico), pelo tamanho. */
 export function mascararDocumento(texto: string): string {
-  const d = somenteDigitos(texto);
-  if (d.length === 14) return mascararCNPJ(d);
-  if (d.length === 11) return mascararCPF(d);
+  const tipo = tipoDocumento(texto);
+  if (tipo === 'cnpj') return mascararCNPJ(texto);
+  if (tipo === 'cpf') return mascararCPF(texto);
   return texto.trim();
 }
 
@@ -72,7 +88,11 @@ export function mascararTelefone(texto: string): string {
 type Data = Date | string | number;
 const paraData = (d: Data) => (d instanceof Date ? d : new Date(d));
 
-function partes(d: Date): Record<'day' | 'month' | 'year' | 'hour' | 'minute', string> {
+type Partes = Record<'day' | 'month' | 'year' | 'hour' | 'minute', string>;
+
+/** Partes da data em Brasília; data inválida → null (dado ruim não derruba a tela). */
+function partes(d: Date): Partes | null {
+  if (Number.isNaN(d.getTime())) return null;
   const p = new Intl.DateTimeFormat('pt-BR', {
     timeZone: FUSO, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).formatToParts(d);
@@ -80,22 +100,28 @@ function partes(d: Date): Record<'day' | 'month' | 'year' | 'hour' | 'minute', s
   return { day: valor('day'), month: valor('month'), year: valor('year'), hour: valor('hour'), minute: valor('minute') };
 }
 
+/** ISO da data, ou null se inválida (para o atributo dateTime). */
+export function isoOuNulo(data: Data): string | null {
+  const d = paraData(data);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 /** "30/09/2026" no horário de Brasília. */
 export function formatarData(data: Data): string {
   const p = partes(paraData(data));
-  return `${p.day}/${p.month}/${p.year}`;
+  return p ? `${p.day}/${p.month}/${p.year}` : '';
 }
 
 /** "14:05" no horário de Brasília (hora das mensagens). */
 export function formatarHora(data: Data): string {
   const p = partes(paraData(data));
-  return `${p.hour}:${p.minute}`;
+  return p ? `${p.hour}:${p.minute}` : '';
 }
 
 /** "30/09/2026 às 14:05" no horário de Brasília (tooltip do RelativeTime). */
 export function formatarDataHora(data: Data): string {
   const p = partes(paraData(data));
-  return `${p.day}/${p.month}/${p.year} às ${p.hour}:${p.minute}`;
+  return p ? `${p.day}/${p.month}/${p.year} às ${p.hour}:${p.minute}` : '';
 }
 
 /**

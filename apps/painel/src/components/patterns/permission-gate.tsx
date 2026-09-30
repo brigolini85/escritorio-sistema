@@ -47,15 +47,19 @@ export function PermissionGate({
     className: [children.props.className, 'pointer-events-none opacity-50'].filter(Boolean).join(' '),
   });
 
+  // O invólucro recebe o foco (o elemento desabilitado não recebe) e é um grupo descrito pelo motivo.
+  // O texto do motivo fica fora dele, para o leitor de tela não ler duas vezes.
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span tabIndex={0} aria-describedby={idMotivo} className="inline-flex cursor-not-allowed rounded-md">
-          {desabilitado}
-          <span id={idMotivo} className="sr-only">{motivo}</span>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>{motivo}</TooltipContent>
-    </Tooltip>
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span role="group" tabIndex={0} aria-describedby={idMotivo} className="inline-flex cursor-not-allowed rounded-md">
+            {desabilitado}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{motivo}</TooltipContent>
+      </Tooltip>
+      <span id={idMotivo} hidden>{motivo}</span>
+    </>
   );
 }

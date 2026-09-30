@@ -58,18 +58,29 @@ export function FilterBar({
   const buscaUrl = sp.get(paramBusca) ?? '';
   const [texto, setTexto] = useState(buscaUrl);
   const espera = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Última busca que este campo mandou para a URL. Quando a URL chega com ela, é eco da própria digitação
+  // (a pessoa pode já ter digitado mais letras): o campo não é sobrescrito.
+  const ultimoEnviado = useRef(buscaUrl);
 
-  // Voltar/avançar do navegador ou link externo: o campo acompanha a URL.
-  useEffect(() => setTexto(buscaUrl), [buscaUrl]);
+  // Voltar/avançar do navegador, "Limpar filtros" ou link externo: o campo acompanha a URL.
+  useEffect(() => {
+    if (buscaUrl === ultimoEnviado.current) return;
+    ultimoEnviado.current = buscaUrl;
+    setTexto(buscaUrl);
+  }, [buscaUrl]);
   useEffect(() => () => clearTimeout(espera.current), []);
 
   const ir = (mudancas: Record<string, string | null>) => {
     iniciar(() => router.replace(`${pathname}${hrefComParams(paraParams(new URLSearchParams(sp.toString())), mudancas)}`, { scroll: false }));
   };
+  const enviarBusca = (v: string) => {
+    ultimoEnviado.current = v.trim();
+    ir({ [paramBusca]: v.trim() || null });
+  };
   const aoDigitar = (v: string) => {
     setTexto(v);
     clearTimeout(espera.current);
-    espera.current = setTimeout(() => ir({ [paramBusca]: v.trim() || null }), ESPERA_BUSCA_MS);
+    espera.current = setTimeout(() => enviarBusca(v), ESPERA_BUSCA_MS);
   };
 
   const ativos = [...(busca && buscaUrl ? [paramBusca] : []), ...filtros.filter((f) => sp.get(f.param)).map((f) => f.param)];
@@ -88,7 +99,7 @@ export function FilterBar({
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 clearTimeout(espera.current);
-                ir({ [paramBusca]: texto.trim() || null });
+                enviarBusca(texto);
               }
             }}
             placeholder={busca.placeholder}
@@ -117,7 +128,7 @@ export function FilterBar({
       })}
       {children}
       {ativos.length > 0 && (
-        <Button type="button" variant="ghost" size="sm" onClick={() => ir(Object.fromEntries(ativos.map((p) => [p, null])))}>
+        <Button type="button" variant="ghost" size="sm" onClick={() => { clearTimeout(espera.current); ir(Object.fromEntries(ativos.map((p) => [p, null]))); }}>
           <X aria-hidden size={16} strokeWidth={1.75} />
           Limpar filtros
         </Button>

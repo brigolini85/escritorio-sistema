@@ -1,5 +1,5 @@
 import type { CompradorCadastrado, EnderecoBling, PedidoVendaSalvo } from '@escritorio/core';
-import { mascararCEP, mascararDocumento } from './formatos';
+import { mascararCEP, mascararDocumento, tipoDocumento } from './formatos';
 
 /**
  * Pedido de nota de venda (chamados.pedido_venda, jsonb no formato PedidoVendaSalvo) pronto para o OrderSummary.
@@ -18,9 +18,12 @@ export type ItemResumo = {
 };
 
 export type ResumoPedido = {
-  destinatario: { nome: string; documento: string | null; endereco: string | null; cadastrado: boolean };
+  destinatario: { nome: string; documento: string | null; rotuloDocumento: 'CNPJ' | 'CPF' | 'CPF/CNPJ'; endereco: string | null; cadastrado: boolean };
   data: string | null;
   itens: ItemResumo[];
+  /** Soma dos itens com quantidade e valor. */
+  subtotalItens: number;
+  /** Itens + frete: o mesmo total da prévia do assistente (totalDoPedido) e do "Total Pedido" do CSV do Bling. */
   total: number;
   /** Algum item sem valor: o total não é o final. */
   totalParcial: boolean;
@@ -49,6 +52,11 @@ export function enderecoPorExtenso(e: Partial<EnderecoBling> | null | undefined)
   return partes.length ? partes.join(', ') : null;
 }
 
+function rotuloDoDocumento(doc: string | null): 'CNPJ' | 'CPF' | 'CPF/CNPJ' {
+  const tipo = doc ? tipoDocumento(doc) : null;
+  return tipo === 'cnpj' ? 'CNPJ' : tipo === 'cpf' ? 'CPF' : 'CPF/CNPJ';
+}
+
 /** Lê o jsonb com cuidado (dado antigo ou incompleto não quebra a tela); formato irreconhecível → null. */
 export function resumirPedido(bruto: unknown, comprador: CompradorCadastrado | null = null): ResumoPedido | null {
   if (!bruto || typeof bruto !== 'object' || !Array.isArray((bruto as { itens?: unknown }).itens)) return null;
@@ -71,6 +79,13 @@ export function resumirPedido(bruto: unknown, comprador: CompradorCadastrado | n
     }];
   });
 
+  // Mesma conta do core/trabalhador: quantidade × valor sempre que os dois existem (valor 0 soma 0).
+  const subtotalItens = centavos(p.itens.reduce<number>((s, cru) => {
+    const i = (cru && typeof cru === 'object' ? cru : {}) as Record<string, unknown>;
+    const q = numero(i.quantidade);
+    const v = numero(i.valor_unitario);
+    return s + (q !== null && v !== null ? q * v : 0);
+  }, 0));
   const tipoFrete = p.tipo_frete === 'R' || p.tipo_frete === 'D' ? TIPO_FRETE[p.tipo_frete] : null;
   const itensAConferir = itens.filter((i) => i.aConferir).length;
   return {
@@ -78,13 +93,15 @@ export function resumirPedido(bruto: unknown, comprador: CompradorCadastrado | n
       ? {
           nome: comprador.razao_social ?? comprador.nome_unidade,
           documento: comprador.cnpj ? mascararDocumento(comprador.cnpj) : null,
+          rotuloDocumento: rotuloDoDocumento(comprador.cnpj),
           endereco: enderecoPorExtenso(comprador),
           cadastrado: true,
         }
-      : { nome: texto(p.texto_destinatario) ?? 'Destinatário não informado', documento: null, endereco: null, cadastrado: false },
+      : { nome: texto(p.texto_destinatario) ?? 'Destinatário não informado', documento: null, rotuloDocumento: 'CPF/CNPJ', endereco: null, cadastrado: false },
     data: texto(p.data),
     itens,
-    total: centavos(itens.reduce((s, i) => s + (i.subtotal ?? 0), 0)),
+    subtotalItens,
+    total: centavos(subtotalItens + (numero(p.valor_frete) ?? 0)),
     totalParcial: itensAConferir > 0,
     itensAConferir,
     pagamento: texto(p.forma_pagamento),

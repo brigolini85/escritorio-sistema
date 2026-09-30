@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
-import { formatarDataHora, tempoRelativo } from '@/lib/formatos';
+import { formatarDataHora, isoOuNulo, tempoRelativo } from '@/lib/formatos';
 
 /** Hora atual que se atualiza sozinha (padrão: a cada 30s), para textos "há 3 min" não ficarem velhos. */
 export function useAgora(intervaloMs = 30_000): number {
@@ -21,7 +21,9 @@ export function useAgora(intervaloMs = 30_000): number {
  */
 export function RelativeTime({ data, focavel = false, className }: { data: string | Date; focavel?: boolean; className?: string }) {
   const agora = useAgora();
-  const iso = data instanceof Date ? data.toISOString() : data;
+  const iso = isoOuNulo(data);
+  // Data ruim no banco não derruba a tela: mostra um traço.
+  if (!iso) return <span className={cn('text-subtle', className)}>—</span>;
   const completa = formatarDataHora(iso);
   return (
     <Tooltip>

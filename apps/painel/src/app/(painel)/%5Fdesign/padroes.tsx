@@ -228,6 +228,10 @@ export function Padroes({ params }: { params: ParamsBusca }) {
         <Exemplo titulo="DiffPreview" className="flex flex-col gap-4">
           <DiffPreview texto={PREVIA_COMPLETA} />
           <div>
+            <p className="mb-1 text-xs text-subtle">Duas prévias na mesma resposta (uma por pedido):</p>
+            <DiffPreview texto={[PREVIA_REAL, PREVIA_REAL.replace('#1042', '#1044').replace('15 PAC', '12 PAC').replace('142,50', '114,00').replace('142,50', '114,00')].join('\n\n')} />
+          </div>
+          <div>
             <p className="mb-1 text-xs text-subtle">Texto fora do formato (mostra como veio):</p>
             <DiffPreview texto="Pronto, gravei o pedido #1042. Quer que eu gere o CSV do Bling?" />
           </div>

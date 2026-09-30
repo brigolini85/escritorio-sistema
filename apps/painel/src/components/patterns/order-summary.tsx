@@ -3,13 +3,13 @@ import { TriangleAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/cn';
-import { formatarBRL, formatarNumero } from '@/lib/formatos';
+import { formatarNumero } from '@/lib/formatos';
 import { resumirPedido } from '@/lib/resumo-pedido';
 import { MoneyText } from './money-text';
 
 /**
  * Resumo do pedido de nota (chamados.pedido_venda): destinatário (CNPJ, endereço), itens (código, unidade, qtd,
- * preço, subtotal), total e o combinado (pagamento, entrega, frete). Item sem valor fica destacado "a conferir pelo Fiscal".
+ * preço, subtotal), subtotal dos itens, frete e total (com frete, igual à prévia do assistente e ao CSV do Bling) e o combinado (pagamento, entrega, frete). Item sem valor fica destacado "a conferir pelo Fiscal".
  * `comprador`: cadastro da unidade (parceiros_unidades), como no CSV do Bling; sem ele vale o texto do cliente.
  */
 export function OrderSummary({
@@ -27,7 +27,7 @@ export function OrderSummary({
   const combinado: [string, string | null][] = [
     ['Pagamento', r.pagamento],
     ['Entrega prevista', r.dataPrevista],
-    ['Frete', [r.frete.valor ? formatarBRL(r.frete.valor) : null, r.frete.tipo].filter(Boolean).join(', ') || null],
+    ['Tipo de frete', r.frete.tipo],
     ['Transportadora', r.transportadora],
     ['Entregar em', r.entrega],
     ['Observações', r.observacoes],
@@ -38,7 +38,7 @@ export function OrderSummary({
       <div className="rounded-md border border-border bg-surface p-3">
         <p className="text-xs font-medium text-muted">Destinatário</p>
         <p className="font-medium text-foreground">{r.destinatario.nome}</p>
-        {r.destinatario.documento && <p className="tabular text-sm text-muted">CNPJ {r.destinatario.documento}</p>}
+        {r.destinatario.documento && <p className="tabular text-sm text-muted">{r.destinatario.rotuloDocumento} {r.destinatario.documento}</p>}
         {r.destinatario.endereco && <p className="text-sm text-muted">{r.destinatario.endereco}</p>}
         {!r.destinatario.cadastrado && (
           <p className="mt-1 flex items-center gap-1.5 text-sm text-warning">
@@ -85,6 +85,14 @@ export function OrderSummary({
             ))}
           </TableBody>
           <TableFooter>
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={5} className="text-right font-normal text-muted">Subtotal dos itens</TableCell>
+              <TableCell className="text-right font-normal"><MoneyText valor={r.subtotalItens} /></TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={5} className="text-right font-normal text-muted">Frete</TableCell>
+              <TableCell className="text-right font-normal"><MoneyText valor={r.frete.valor ?? 0} /></TableCell>
+            </TableRow>
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={5} className="text-right">{r.totalParcial ? 'Total parcial' : 'Total'}</TableCell>
               <TableCell className="text-right font-semibold"><MoneyText valor={r.total} /></TableCell>
