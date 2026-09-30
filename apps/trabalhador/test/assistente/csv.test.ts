@@ -26,9 +26,7 @@ const abrirVenda = async (setor: string, titulo: string) => {
 };
 
 beforeEach(async () => {
-  await limparBanco();
-  await db.from('auditoria_acessos').delete().eq('entidade', 'csv_bling'); // limparBanco não zera a auditoria
-  canal = new CanalFalso();
+  await limparBanco();  canal = new CanalFalso();
   dono = await criarUsuarioTeste({ email: 'dono@teste-csv.local', permissoes: ['assistente_site', 'assistente_whatsapp'], telefone: '5531988887777' });
   const { empresas } = await contatoComEmpresas(['Indústria X']);
   clienteId = empresas[0]!.id;

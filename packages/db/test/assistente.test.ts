@@ -1,17 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { criarClienteServico, criarRepos } from '../src';
 import { limparBanco } from './limpar';
+import { criarUsuario } from './usuario';
 
 const db = criarClienteServico(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 const repos = criarRepos(db);
-
-async function usuario(email: string, extra: object = {}) {
-  const antigo = (await db.from('usuarios').select('id').eq('email', email).maybeSingle()).data;
-  if (antigo) await db.auth.admin.deleteUser(antigo.id);
-  const { data } = await db.auth.admin.createUser({ email, password: 'Senha-teste-123', email_confirm: true });
-  await db.from('usuarios').insert({ id: data.user!.id, nome: 'Dono', email, ...extra });
-  return data.user!.id;
-}
+const usuario = (email: string, extra: object = {}) => criarUsuario(db, email, extra);
 
 beforeEach(async () => { await limparBanco(); });
 

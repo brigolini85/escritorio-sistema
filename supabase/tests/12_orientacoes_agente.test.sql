@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(65);
 
 -- Treinar o agente (pedido do dono, 2026-09-30): orientações, versões e simulações.
 insert into auth.users (id, email) values
@@ -15,6 +15,12 @@ insert into public.usuarios (id, nome, email, papel, permissoes, ativo) values
   ('00000000-0000-0000-0000-0000000000b4', 'Inativa', 'inativa@pgtap.local', 'atendente', '{treinar_agente}', false);
 insert into public.clientes (id, razao_social, cnpj) values
   ('40000000-0000-0000-0000-0000000000b1', 'Indústria Treino', '99888777000166');
+insert into public.clientes (id, razao_social, cnpj, ativo) values
+  ('40000000-0000-0000-0000-0000000000b2', 'Indústria Inativa', '99888777000247', false);
+insert into public.setores (id, nome, ativo) values
+  ('30000000-0000-0000-0000-0000000000b1', 'Setor Desativado', false);
+-- Simulação da pessoa sem permissão (gravada direto): nem ela lê.
+insert into public.simulacoes_agente (usuario_id, mensagem) values ('00000000-0000-0000-0000-0000000000b3', 'antiga');
 
 set local role authenticated;
 
@@ -41,6 +47,8 @@ select is((select ativo from public.orientacoes_agente where id = current_settin
 select is((select array_agg(acao order by criado_em) from public.orientacoes_agente_versoes
   where orientacao_id = current_setting('teste.o1')::uuid), array['criar', 'editar', 'desligar'], 'cada mudança grava uma versão');
 select is((select count(*) from public.orientacoes_agente_versoes)::int, 3, 'marcada lê as versões');
+select is(public.alternar_orientacao(current_setting('teste.o1')::uuid, false), false, 'desligar o que já está desligado devolve o estado');
+select is((select count(*) from public.orientacoes_agente_versoes)::int, 3, 'sem mudança não grava versão');
 
 -- Restaurar a primeira versão: volta o texto e a empresa; ligada/desligada fica como está.
 select lives_ok($$ select public.restaurar_orientacao((select id from public.orientacoes_agente_versoes
@@ -75,6 +83,38 @@ select throws_ok($$ select public.salvar_orientacao('99999999-0000-0000-0000-000
   'P0001', 'Orientação não encontrada.', 'editar orientação inexistente');
 select lives_ok($$ select public.salvar_orientacao(null, 'Fiscal', 'Guia de DAS: peça o mês.', 'situacao', null,
   (select id from public.setores where nome = 'Fiscal'), false) $$, 'orientação de setor');
+select lives_ok($$ select public.salvar_orientacao(null, 'Só título', 'Padrões omitidos.', 'jeito') $$,
+  'empresa, setor e ativo podem ser omitidos');
+select throws_ok($$ select public.salvar_orientacao(null, 'T', 'x', 'situacao', '40000000-0000-0000-0000-0000000000b2', null, false) $$,
+  'P0001', 'Esta empresa está inativa. Escolha outra empresa ou reative o cadastro.', 'empresa inativa');
+select throws_ok($$ select public.salvar_orientacao(null, 'T', 'x', 'situacao', null, '30000000-0000-0000-0000-0000000000b1', false) $$,
+  'P0001', 'Este setor está inativo. Escolha outro setor ou reative o setor.', 'setor inativo');
+
+-- Empresa desativada depois: ligar e restaurar recusam; desligar continua valendo.
+select set_config('teste.o2', public.salvar_orientacao(null, 'Empresa', 'Só para a Treino.', 'regra',
+  '40000000-0000-0000-0000-0000000000b1', null, true)::text, true);
+reset role;
+update public.clientes set ativo = false where id = '40000000-0000-0000-0000-0000000000b1';
+set local role authenticated;
+select is(public.alternar_orientacao(current_setting('teste.o2')::uuid, false), false, 'desliga a da empresa desativada');
+select throws_ok($$ select public.alternar_orientacao(current_setting('teste.o2')::uuid, true) $$, 'P0001',
+  'Esta empresa está inativa. Escolha outra empresa ou reative o cadastro.', 'não liga com empresa inativa');
+select throws_ok($$ select public.restaurar_orientacao((select id from public.orientacoes_agente_versoes
+  where orientacao_id = current_setting('teste.o2')::uuid and acao = 'criar')) $$, 'P0001',
+  'Esta empresa está inativa. Escolha outra empresa ou reative o cadastro.', 'não restaura versão com empresa inativa');
+select throws_ok($$ select public.criar_simulacao('oi', '40000000-0000-0000-0000-0000000000b1') $$, 'P0001',
+  'Esta empresa está inativa. Escolha outra empresa ou reative o cadastro.', 'não testa com empresa inativa');
+reset role;
+update public.clientes set ativo = true where id = '40000000-0000-0000-0000-0000000000b1';
+set local role authenticated;
+
+-- Nem a pessoa marcada grava direto nas tabelas (só pelas funções).
+select throws_ok($$ insert into public.orientacoes_agente (titulo, texto, tipo) values ('T', 'x', 'jeito') $$, '42501', null,
+  'marcada não insere direto');
+select throws_ok($$ update public.orientacoes_agente set ativo = true $$, '42501', null, 'marcada não altera direto');
+select throws_ok($$ delete from public.orientacoes_agente $$, '42501', null, 'marcada não apaga direto');
+select throws_ok($$ insert into public.orientacoes_agente_versoes (orientacao_id, acao, titulo, texto, tipo, ativo)
+  values (current_setting('teste.o1')::uuid, 'editar', 'T', 'x', 'jeito', true) $$, '42501', null, 'marcada não forja versão');
 
 -- Simulações.
 select lives_ok($$ select set_config('teste.s1', public.criar_simulacao(' Oi, preciso de nota ', '40000000-0000-0000-0000-0000000000b1',
@@ -98,6 +138,9 @@ select throws_ok($$ select public.criar_simulacao('oi', null, '{"texto":"x","tip
   'Rascunho da orientação inválido.', 'rascunho com id inválido');
 select throws_ok($$ select public.criar_simulacao('oi', null, '{"texto":"x","tipo":"nenhum","titulo":"T"}') $$, 'P0001',
   'Escolha o tipo da orientação.', 'rascunho validado como orientação');
+select throws_ok($$ update public.simulacoes_agente set status = 'pronta', respostas = '{"mensagens":["forjada"]}' $$, '42501', null,
+  'marcada não forja o resultado da própria simulação');
+select is((select count(*) from public.simulacoes_agente)::int, 2, 'marcada lê só as suas simulações');
 
 -- Admin lê as orientações mas não as simulações da outra pessoa.
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000b1","role":"authenticated"}', true);
@@ -113,17 +156,28 @@ select throws_ok($$ select public.alternar_orientacao(current_setting('teste.o1'
   'Você não tem permissão para treinar o agente.', 'sem permissão não liga');
 select throws_ok($$ select public.criar_simulacao('oi', null, null) $$, 'P0001',
   'Você não tem permissão para treinar o agente.', 'sem permissão não testa');
+select throws_ok($$ select public.restaurar_orientacao((select id from public.orientacoes_agente_versoes limit 1)) $$, 'P0001',
+  'Você não tem permissão para treinar o agente.', 'sem permissão não restaura');
 select throws_ok($$ insert into public.orientacoes_agente (titulo, texto, tipo) values ('T', 'x', 'jeito') $$, '42501', null,
   'gravação direta na tabela é recusada');
+select is((select count(*) from public.simulacoes_agente)::int, 0, 'sem permissão não lê nem a própria simulação');
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000b4","role":"authenticated"}', true);
 select is((select count(*) from public.orientacoes_agente)::int, 0, 'usuária inativa não lê');
+select throws_ok($$ select public.salvar_orientacao(null, 'T', 'x', 'jeito') $$, 'P0001',
+  'Você não tem permissão para treinar o agente.', 'usuária inativa não cria');
+select throws_ok($$ select public.criar_simulacao('oi') $$, 'P0001',
+  'Você não tem permissão para treinar o agente.', 'usuária inativa não testa');
 
 set local role anon;
 select throws_ok($$ select public.salvar_orientacao(null, 'T', 'x', 'jeito', null, null, true) $$, '42501', null, 'anon não chama a função');
 
 reset role;
-select ok((select count(*) from public.auditoria_acessos where entidade = 'orientacoes_agente'
-  and entidade_id = current_setting('teste.o1')) >= 4, 'auditoria registra criar, editar, desligar e restaurar');
+select is((select array_agg(acao || ':' || coalesce(detalhes->'depois'->>'ativo', '') order by acao || ':' || coalesce(detalhes->'depois'->>'ativo', '')) from public.auditoria_acessos
+  where entidade = 'orientacoes_agente' and entidade_id = current_setting('teste.o1')),
+  array['insert:true', 'update:false', 'update:false', 'update:true'],
+  'auditoria registra criar, editar, desligar e restaurar (o desligar repetido não conta)');
+select ok(not has_function_privilege('authenticated', 'interno.validar_orientacao(text, text, text, uuid, uuid)', 'execute'),
+  'função interna fora do alcance do navegador');
 
 select * from finish();
 rollback;

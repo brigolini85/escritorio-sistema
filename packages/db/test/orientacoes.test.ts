@@ -1,17 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { criarClienteServico, criarRepos } from '../src';
 import { limparBanco } from './limpar';
+import { criarUsuario } from './usuario';
 
 const db = criarClienteServico(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 const repos = criarRepos(db);
-
-async function usuario(email: string) {
-  const antigo = (await db.from('usuarios').select('id').eq('email', email).maybeSingle()).data;
-  if (antigo) await db.auth.admin.deleteUser(antigo.id);
-  const { data } = await db.auth.admin.createUser({ email, password: 'Senha-teste-123', email_confirm: true });
-  await db.from('usuarios').insert({ id: data.user!.id, nome: 'Marcada', email, permissoes: ['treinar_agente'] });
-  return data.user!.id;
-}
 
 beforeEach(async () => { await limparBanco(); });
 
@@ -36,7 +29,7 @@ describe('repositório de Treinar o agente (pedido do dono, 2026-09-30)', () => 
   });
 
   it('lê a simulação e grava o resultado só uma vez', async () => {
-    const id = await usuario('marcada@teste-orientacoes.local');
+    const id = await criarUsuario(db, 'marcada@teste-orientacoes.local', { nome: 'Marcada', permissoes: ['treinar_agente'] });
     const rascunho = { titulo: 'R', texto: 'Peça o CNPJ.', tipo: 'regra', cliente_id: null, setor_id: null };
     const { data: s } = await db.from('simulacoes_agente').insert({ usuario_id: id, mensagem: 'oi', rascunho }).select('id').single();
 

@@ -22,7 +22,7 @@ create index orientacoes_agente_cliente_idx on public.orientacoes_agente (client
 create index orientacoes_agente_setor_idx on public.orientacoes_agente (setor_id) where setor_id is not null;
 
 -- Cada criação, edição, ligar/desligar e restauração grava uma versão (retrato dos campos + quem + quando + ação).
--- Sem chave estrangeira em cliente_id/setor_id: é um retrato; restaurar confere se a empresa/setor ainda existem.
+-- Sem chave estrangeira em cliente_id/setor_id: é um retrato; restaurar confere se a empresa/setor ainda existem e estão ativos.
 create table public.orientacoes_agente_versoes (
   id uuid primary key default gen_random_uuid(),
   orientacao_id uuid not null references public.orientacoes_agente (id) on delete cascade,
@@ -74,8 +74,22 @@ alter publication supabase_realtime add table public.simulacoes_agente;
 create trigger auditoria after insert or update or delete on public.orientacoes_agente
   for each row execute function public.registrar_auditoria();
 
--- Validação comum de salvar_orientacao e do rascunho da simulação. Mensagens aparecem para a pessoa no painel.
-create function public.validar_orientacao(p_titulo text, p_texto text, p_tipo text, p_cliente_id uuid, p_setor_id uuid)
+-- Funções internas num esquema fora da API (não aparecem no PostgREST nem nos tipos gerados).
+create schema interno;
+revoke all on schema interno from public, anon, authenticated;
+
+create function interno.validar_empresa(p_cliente_id uuid) returns void
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if p_cliente_id is null then return; end if;
+  if not exists (select 1 from clientes where id = p_cliente_id) then raise exception 'Empresa não encontrada.'; end if;
+  if not exists (select 1 from clientes where id = p_cliente_id and ativo) then
+    raise exception 'Esta empresa está inativa. Escolha outra empresa ou reative o cadastro.';
+  end if;
+end $$;
+
+-- Validação comum de salvar, ligar, restaurar e do rascunho da simulação. Mensagens aparecem para a pessoa no painel.
+create function interno.validar_orientacao(p_titulo text, p_texto text, p_tipo text, p_cliente_id uuid, p_setor_id uuid)
 returns void
 language plpgsql stable security definer set search_path = public as $$
 begin
@@ -87,56 +101,61 @@ begin
   if p_cliente_id is not null and p_setor_id is not null then
     raise exception 'A orientação vale para uma empresa ou para um setor, não para os dois.';
   end if;
-  if p_cliente_id is not null and not exists (select 1 from clientes where id = p_cliente_id) then
-    raise exception 'Empresa não encontrada.';
-  end if;
-  if p_setor_id is not null and not exists (select 1 from setores where id = p_setor_id) then
-    raise exception 'Setor não encontrado.';
+  perform interno.validar_empresa(p_cliente_id);
+  if p_setor_id is not null then
+    if not exists (select 1 from setores where id = p_setor_id) then raise exception 'Setor não encontrado.'; end if;
+    if not exists (select 1 from setores where id = p_setor_id and ativo) then
+      raise exception 'Este setor está inativo. Escolha outro setor ou reative o setor.';
+    end if;
   end if;
 end $$;
-revoke execute on function public.validar_orientacao(text, text, text, uuid, uuid) from public, anon, authenticated;
 
-create function public.gravar_versao_orientacao(p_id uuid, p_acao text) returns void
+create function interno.gravar_versao_orientacao(p_id uuid, p_acao text) returns void
 language sql security definer set search_path = public as $$
   insert into orientacoes_agente_versoes (orientacao_id, acao, titulo, texto, tipo, cliente_id, setor_id, ativo, usuario_id)
   select id, p_acao, titulo, texto, tipo, cliente_id, setor_id, ativo, auth.uid() from orientacoes_agente where id = p_id
 $$;
-revoke execute on function public.gravar_versao_orientacao(uuid, text) from public, anon, authenticated;
 
--- Cria (p_id nulo) ou edita uma orientação. Devolve o id.
+revoke execute on all functions in schema interno from public, anon, authenticated;
+
+-- Cria (p_id nulo) ou edita uma orientação. Devolve o id. Empresa, setor e ativo têm padrão nulo para os tipos gerados
+-- deixarem omitir (ativo nulo: false ao criar, mantém ao editar).
 create function public.salvar_orientacao(p_id uuid, p_titulo text, p_texto text, p_tipo text,
-  p_cliente_id uuid, p_setor_id uuid, p_ativo boolean) returns uuid
+  p_cliente_id uuid default null, p_setor_id uuid default null, p_ativo boolean default null) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare v_id uuid;
 begin
   if not tem_permissao('treinar_agente') then raise exception 'Você não tem permissão para treinar o agente.'; end if;
-  perform validar_orientacao(p_titulo, p_texto, p_tipo, p_cliente_id, p_setor_id);
+  perform interno.validar_orientacao(p_titulo, p_texto, p_tipo, p_cliente_id, p_setor_id);
   if p_id is null then
     insert into orientacoes_agente (titulo, texto, tipo, cliente_id, setor_id, ativo, criado_por, atualizado_por)
     values (trim(p_titulo), trim(p_texto), p_tipo, p_cliente_id, p_setor_id, coalesce(p_ativo, false), auth.uid(), auth.uid())
     returning id into v_id;
-    perform gravar_versao_orientacao(v_id, 'criar');
+    perform interno.gravar_versao_orientacao(v_id, 'criar');
   else
     update orientacoes_agente set titulo = trim(p_titulo), texto = trim(p_texto), tipo = p_tipo, cliente_id = p_cliente_id,
       setor_id = p_setor_id, ativo = coalesce(p_ativo, ativo), atualizado_por = auth.uid(), atualizado_em = now()
     where id = p_id returning id into v_id;
     if v_id is null then raise exception 'Orientação não encontrada.'; end if;
-    perform gravar_versao_orientacao(v_id, 'editar');
+    perform interno.gravar_versao_orientacao(v_id, 'editar');
   end if;
   return v_id;
 end $$;
 
--- Liga ou desliga. Devolve o novo estado.
+-- Liga ou desliga. Se já estava assim, não mexe em nada (sem versão, sem auditoria). Devolve o estado atual.
+-- Ligar confere se a empresa/setor ainda estão ativos.
 create function public.alternar_orientacao(p_id uuid, p_ativo boolean) returns boolean
 language plpgsql security definer set search_path = public as $$
-declare v_id uuid;
+declare o orientacoes_agente%rowtype;
 begin
   if not tem_permissao('treinar_agente') then raise exception 'Você não tem permissão para treinar o agente.'; end if;
   if p_ativo is null then raise exception 'Informe se a orientação fica ligada ou desligada.'; end if;
-  update orientacoes_agente set ativo = p_ativo, atualizado_por = auth.uid(), atualizado_em = now()
-  where id = p_id returning id into v_id;
-  if v_id is null then raise exception 'Orientação não encontrada.'; end if;
-  perform gravar_versao_orientacao(v_id, case when p_ativo then 'ligar' else 'desligar' end);
+  select * into o from orientacoes_agente where id = p_id for update;
+  if o.id is null then raise exception 'Orientação não encontrada.'; end if;
+  if o.ativo = p_ativo then return o.ativo; end if;
+  if p_ativo then perform interno.validar_orientacao(o.titulo, o.texto, o.tipo, o.cliente_id, o.setor_id); end if;
+  update orientacoes_agente set ativo = p_ativo, atualizado_por = auth.uid(), atualizado_em = now() where id = p_id;
+  perform interno.gravar_versao_orientacao(p_id, case when p_ativo then 'ligar' else 'desligar' end);
   return p_ativo;
 end $$;
 
@@ -149,31 +168,25 @@ begin
   if not tem_permissao('treinar_agente') then raise exception 'Você não tem permissão para treinar o agente.'; end if;
   select * into v from orientacoes_agente_versoes where id = p_versao_id;
   if v.id is null then raise exception 'Versão não encontrada.'; end if;
-  if v.cliente_id is not null and not exists (select 1 from clientes where id = v.cliente_id) then
-    raise exception 'A empresa desta versão não existe mais.';
-  end if;
-  if v.setor_id is not null and not exists (select 1 from setores where id = v.setor_id) then
-    raise exception 'O setor desta versão não existe mais.';
-  end if;
+  perform interno.validar_orientacao(v.titulo, v.texto, v.tipo, v.cliente_id, v.setor_id);
   update orientacoes_agente set titulo = v.titulo, texto = v.texto, tipo = v.tipo, cliente_id = v.cliente_id,
     setor_id = v.setor_id, atualizado_por = auth.uid(), atualizado_em = now()
   where id = v.orientacao_id;
-  perform gravar_versao_orientacao(v.orientacao_id, 'restaurar');
+  perform interno.gravar_versao_orientacao(v.orientacao_id, 'restaurar');
   return v.orientacao_id;
 end $$;
 
 -- Pede um teste do agente. Uma simulação pendente por pessoa; pendente há mais de 5 minutos conta como abandonada.
 -- O rascunho (orientação ainda não salva) é conferido com as mesmas regras de salvar_orientacao e guardado limpo.
-create function public.criar_simulacao(p_mensagem text, p_cliente_id uuid, p_rascunho jsonb) returns uuid
+create function public.criar_simulacao(p_mensagem text, p_cliente_id uuid default null, p_rascunho jsonb default null)
+returns uuid
 language plpgsql security definer set search_path = public as $$
 declare v_id uuid; v_rascunho jsonb; v_cliente uuid; v_setor uuid;
 begin
   if not tem_permissao('treinar_agente') then raise exception 'Você não tem permissão para treinar o agente.'; end if;
   if p_mensagem is null or length(trim(p_mensagem)) = 0 then raise exception 'Escreva a mensagem do cliente para o teste.'; end if;
   if length(trim(p_mensagem)) > 2000 then raise exception 'A mensagem de teste pode ter no máximo 2000 caracteres.'; end if;
-  if p_cliente_id is not null and not exists (select 1 from clientes where id = p_cliente_id) then
-    raise exception 'Empresa não encontrada.';
-  end if;
+  perform interno.validar_empresa(p_cliente_id);
 
   if p_rascunho is not null and jsonb_typeof(p_rascunho) <> 'null' then
     if jsonb_typeof(p_rascunho) <> 'object' then raise exception 'Rascunho da orientação inválido.'; end if;
@@ -187,7 +200,7 @@ begin
     exception when invalid_text_representation then
       raise exception 'Rascunho da orientação inválido.';
     end;
-    perform validar_orientacao(p_rascunho->>'titulo', p_rascunho->>'texto', p_rascunho->>'tipo', v_cliente, v_setor);
+    perform interno.validar_orientacao(p_rascunho->>'titulo', p_rascunho->>'texto', p_rascunho->>'tipo', v_cliente, v_setor);
     v_rascunho := jsonb_build_object('titulo', trim(p_rascunho->>'titulo'), 'texto', trim(p_rascunho->>'texto'),
       'tipo', p_rascunho->>'tipo', 'cliente_id', v_cliente, 'setor_id', v_setor);
   end if;

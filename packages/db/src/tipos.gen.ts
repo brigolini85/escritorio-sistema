@@ -769,7 +769,7 @@ isOneToOne: false
 { Args: { "p_chamado": string }; Returns: undefined
                            },
 "criar_simulacao":
-{ Args: { "p_cliente_id": string,"p_mensagem": string,"p_rascunho": Json }; Returns: string
+{ Args: { "p_cliente_id"?: string,"p_mensagem": string,"p_rascunho"?: Json }; Returns: string
                            },
 "custo_ia_periodo":
 { Args: { "p_fim": string,"p_inicio": string }; Returns: number
@@ -791,9 +791,6 @@ isOneToOne: false
                            },
 "eh_usuario_ativo":
 { Args: Record<PropertyKey, never>; Returns: boolean
-                           },
-"gravar_versao_orientacao":
-{ Args: { "p_acao": string,"p_id": string }; Returns: undefined
                            },
 "marcar_alerta_lido":
 { Args: { "p_alerta": string }; Returns: undefined
@@ -817,16 +814,13 @@ isOneToOne: false
 { Args: { "p_versao_id": string }; Returns: string
                            },
 "salvar_orientacao":
-{ Args: { "p_ativo": boolean,"p_cliente_id": string,"p_id": string,"p_setor_id": string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
+{ Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
                            },
 "tem_permissao":
 { Args: { "p": string }; Returns: boolean
                            },
 "transferir_chamado":
 { Args: { "p_chamado": string,"p_responsavel": string,"p_setor": string }; Returns: undefined
-                           },
-"validar_orientacao":
-{ Args: { "p_cliente_id": string,"p_setor_id": string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: undefined
                            },
 "vincular_contato_conversa":
 { Args: { "p_contato": string,"p_conversa": string }; Returns: undefined
