@@ -19,10 +19,12 @@ export type EstadoAssistente = { ctx: ContextoAssistente; resposta: string[]; ar
   /** Antes e depois de cada prévia mostrada nesta execução e ainda não gravada: vão na resposta mesmo que o modelo não os escreva,
    * e o CSV dessas demandas espera a gravação. */
   previasMostradas: { numero: number; antes: string; depois: string }[];
+  /** Conferência da última prévia feita nesta execução, por pedido: se difere da prévia aprovada, a pessoa pediu outra mudança. */
+  previas: Map<number, string>;
   /** O que foi feito de verdade nesta execução (gravações e arquivos); alimenta a resposta quando o modelo não escreve uma. */ acoes: string[] };
 
 export function novoEstado(ctx: ContextoAssistente): EstadoAssistente {
-  return { ctx, resposta: [], arquivo: null, csvs: [], previasMostradas: [], acoes: [] };
+  return { ctx, resposta: [], arquivo: null, csvs: [], previas: new Map(), previasMostradas: [], acoes: [] };
 }
 
 /** `registro` é o que fica em decisoes_agente quando difere do que o modelo recebe. */
@@ -275,6 +277,13 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
         // Qualquer chamada depois da prévia e antes da pergunta (erro, confirmação, gravação) a consome.
         if (mostrada.saida.gravado !== false || typeof mostrada.saida.conferencia !== 'string') return falha(DE_NOVO);
         if (mostrada.saida.contexto !== contextoDoAssistente(estado.ctx)) return falha(`A prévia foi mostrada em outra conversa. ${DE_NOVO}`);
+        // "Sim, mas muda pra 20": a última prévia deste job é outra; gravar a aprovada contrariaria a pessoa. Esta recusa não
+        // consome a prévia nova (nao_consome): ela vai na resposta e o "sim" da mensagem seguinte a grava.
+        const doJob = estado.previas.get(entrada.numero);
+        if (doJob !== undefined && doJob !== mostrada.saida.conferencia) {
+          return { ...falha('A pessoa pediu uma mudança diferente da prévia aprovada. Mostre a nova prévia e espere a confirmação na próxima mensagem.'),
+            registro: { erro: 'mudança diferente da prévia aprovada', nao_consome: true } };
+        }
         const guardada = Entradas.alterar_pedido_venda.safeParse(mostrada.entrada);
         if (!guardada.success || guardada.data.confirmado) return falha(DE_NOVO);
         conferenciaDaPrevia = mostrada.saida.conferencia;
@@ -316,6 +325,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       const conferencia = createHash('sha1').update(JSON.stringify({ numero: c.numero, antes: c.pedido_venda, novo })).digest('hex').slice(0, 12);
       if (!confirmado) {
         estado.previasMostradas.push({ numero: c.numero, antes, depois });
+        estado.previas.set(c.numero, conferencia);
         // O modelo refez, no job do "sim", a mesma prévia que a pessoa já viu: empurra para a confirmação em vez de perguntar de novo.
         const pergunta = estado.ctx.perguntaMaisRecenteEm;
         const anterior = pergunta ? await d.repos.ultimaPreviaDoAssistente(u.id, c.numero, new Date(Date.now() - 24 * 3600 * 1000), pergunta) : null;

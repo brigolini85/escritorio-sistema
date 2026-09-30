@@ -532,10 +532,12 @@ export function criarRepos(db: Db) {
      * A última chamada de alterar_pedido_venda desta pessoa para este pedido desde `desde`, qualquer que tenha sido o resultado
      * (prévia, confirmação, erro). A confirmação só vale se ela for uma prévia: gravar ou chamar de novo consome a prévia.
      * Com `ate`, só as chamadas anteriores a ele (a confirmação usa a pergunta mais nova: o que veio depois a pessoa não viu).
+     * Recusas marcadas com `nao_consome` (ex.: a pessoa pediu outra mudança no "sim") não contam: não consomem a prévia nova.
      */
     async ultimaPreviaDoAssistente(usuarioId: string, numero: number, desde: Date, ate?: Date): Promise<{ entrada: unknown; saida: Record<string, unknown>; criadoEm: Date } | null> {
       let q = db.from('decisoes_agente').select('entrada, saida, criado_em').eq('etapa', 'assistente:alterar_pedido_venda')
-        .eq('saida->>usuario', usuarioId).eq('entrada->>numero', String(numero)).gte('criado_em', desde.toISOString());
+        .eq('saida->>usuario', usuarioId).eq('entrada->>numero', String(numero)).gte('criado_em', desde.toISOString())
+        .is('saida->>nao_consome', null);
       if (ate) q = q.lt('criado_em', ate.toISOString());
       const linhas = checar(await q.order('criado_em', { ascending: false }).limit(1), 'ultimaPreviaDoAssistente');
       const l = linhas[0];

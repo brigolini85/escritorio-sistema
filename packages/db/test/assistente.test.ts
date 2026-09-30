@@ -60,6 +60,9 @@ describe('repositório do assistente (pedido do dono, 2026-09-29)', () => {
     const segunda = new Date(linhas![1]!.criado_em);
     expect((await repos.ultimaPreviaDoAssistente(id, 7, new Date(Date.now() - 60_000), segunda))!.saida).toMatchObject({ conferencia: 'abc' });
     expect(await repos.ultimaPreviaDoAssistente(id, 7, new Date(Date.now() - 60_000), new Date(linhas![0]!.criado_em))).toBeNull();
+    // Recusa marcada com nao_consome não conta.
+    await repos.registrarDecisao({ conversaId: null, clienteId: null, etapa, entrada: { numero: 7, confirmado: true }, saida: { erro: 'y', nao_consome: true, usuario: id } });
+    expect((await repos.ultimaPreviaDoAssistente(id, 7, new Date(Date.now() - 60_000)))!.saida).toEqual({ erro: 'x', usuario: id });
   });
 
   it('unidades e produtos inativos só com incluirInativos (revisão final, P)', async () => {

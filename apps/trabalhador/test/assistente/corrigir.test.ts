@@ -230,6 +230,25 @@ describe('alterar_pedido_venda (pedido do dono, 2026-09-29)', () => {
       expect((await csv(e)).erro ?? '').not.toContain('Grave a correção');
     });
 
+    it('"sim, mas muda pra 20": nova prévia diferente no job e confirmação é recusada; no "sim" seguinte grava 20', async () => {
+      const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+      await previa(dono, { numero: pedido.numero, itens: itens15(), confirmado: false });   // P1 (15), mostrada
+      const e = await estadoDoSim(dono);
+      const itens20 = [{ ...itens15()[0]!, quantidade: 20 }];
+      expect(await usar(e, { numero: pedido.numero, itens: itens20, confirmado: false })).toMatchObject({ _erro: false, gravado: false });
+      expect(await usar(e, { numero: pedido.numero, confirmado: true })).toMatchObject({ _erro: true,
+        erro: 'A pessoa pediu uma mudança diferente da prévia aprovada. Mostre a nova prévia e espere a confirmação na próxima mensagem.' });
+      expect(await csv(e)).toMatchObject({ _erro: true, erro: `Grave a correção do pedido #${pedido.numero} antes de gerar o CSV.` });
+      expect(e.arquivo).toBeNull();
+      expect(e.acoes).toEqual([]);
+      expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
+      // A pessoa viu a prévia de 20 e diz "sim" na mensagem seguinte: grava 20.
+      const e3 = await estadoDoSim(dono);
+      expect(await usar(e3, { numero: pedido.numero, confirmado: true })).toMatchObject({ _erro: false, gravado: true });
+      expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 20 }] });
+      expect(e3.acoes).toEqual([`pedido #${pedido.numero} alterado`]);
+    });
+
     it('no job do "sim", CSV pedido antes de confirmar continua recusado (B)', async () => {
       const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
       await previa(dono, { numero: pedido.numero, itens: itens15(), confirmado: false });
