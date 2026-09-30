@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import type { EstadoAgente } from '@/components/patterns/agent-state-indicator';
+import { estadoPelaPausaGeral as estadoDoAgente, type EstadoAgente } from '@/components/patterns/estado-agente';
 import { toast } from '@/components/ui/toaster';
 import { contarConversasAguardando, contarDemandasAbertas, deveAvisarNovaConversa, lerAgentePausado } from '@/lib/contadores';
 import { autenticarTempoReal, supabaseNavegador } from '@/lib/supabase/navegador';
@@ -10,11 +10,6 @@ import type { Contadores } from './sidebar';
 
 const ESPERA_EVENTOS_MS = 500;
 const RELEITURA_AGENTE_MS = 60_000;
-
-function estadoDoAgente(pausado: boolean | null): EstadoAgente | null {
-  if (pausado === null) return null;
-  return pausado ? { tipo: 'pausado', motivo: 'Pausa geral' } : { tipo: 'ativo' };
-}
 
 /**
  * Contadores do menu e estado do agente ao vivo, sem recarregar a página:
@@ -66,11 +61,20 @@ export function useAoVivo(inicial: { contadores: Contadores; estadoAgente: Estad
     let canal: ReturnType<typeof sb.channel> | undefined;
 
     async function reler(origem: 'tempo-real' | 'aba') {
-      const [a, d, p] = await Promise.all([
-        contarConversasAguardando(sb),
-        contarDemandasAbertas(sb),
-        leAgente ? lerAgentePausado(sb) : Promise.resolve(null),
-      ]);
+      let a: number | null;
+      let d: number | null;
+      let p: boolean | null;
+      try {
+        [a, d, p] = await Promise.all([
+          contarConversasAguardando(sb),
+          contarDemandasAbertas(sb),
+          leAgente ? lerAgentePausado(sb) : Promise.resolve(null),
+        ]);
+      } catch (e) {
+        // Rede fora ou erro inesperado: mantém os números da tela e continua ouvindo os próximos eventos.
+        console.error('[casca] falha ao reler contadores', e);
+        return;
+      }
       if (!ativo) return;
       const antes = atual.current;
       const novo = { atendimento: a ?? antes.atendimento, demandas: d ?? antes.demandas };

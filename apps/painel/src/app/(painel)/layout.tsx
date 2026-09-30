@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import { COOKIE_MENU, menuRecolhidoDoCookie } from '@/components/layout/preferencias';
+import { estadoPelaPausaGeral } from '@/components/patterns/estado-agente';
 import { COOKIE_TEMA, escolhaDoCookie } from '@/components/tema/tema';
 import { rotuloAmbiente } from '@/lib/ambiente';
 import { contarConversasAguardando, contarDemandasAbertas, lerAgentePausado } from '@/lib/contadores';
@@ -24,7 +25,7 @@ export default async function LayoutPainel({ children }: { children: ReactNode }
       usuario={{ nome: u.nome, papel: u.papel }}
       itens={itensDoMenu(u)}
       contadores={{ atendimento, demandas }}
-      estadoAgente={pausado === null ? null : pausado ? { tipo: 'pausado', motivo: 'Pausa geral' } : { tipo: 'ativo' }}
+      estadoAgente={estadoPelaPausaGeral(pausado)}
       ambiente={rotuloAmbiente(process.env.NEXT_PUBLIC_AMBIENTE ?? process.env.AMBIENTE)}
       tema={escolhaDoCookie(loja.get(COOKIE_TEMA)?.value)}
       recolhidoInicial={menuRecolhidoDoCookie(loja.get(COOKIE_MENU)?.value)}
