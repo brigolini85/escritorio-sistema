@@ -31,7 +31,10 @@ describe('estadoDaConversa', () => {
     expect(estadoDaConversa({ ...base, contatoPausado: true })).toEqual({ tipo: 'pausado', motivo: 'contato' });
     expect(estadoDaConversa(base)).toEqual({ tipo: 'ativo' });
   });
-  it('pausa geral desconhecida (sem permissão de leitura) não conta', () => {
-    expect(estadoDaConversa({ assumidaPor: null, pausaGeral: null })).toEqual({ tipo: 'ativo' });
+  it('pausa geral desconhecida (sem permissão de leitura): nunca afirma ativo', () => {
+    expect(estadoDaConversa({ assumidaPor: null, pausaGeral: null })).toEqual({ tipo: 'com_agente' });
+    expect(tituloEstadoAgente({ tipo: 'com_agente' })).toBe('Com o agente');
+    expect(estadoDaConversa({ assumidaPor: null, pausaGeral: null, contatoPausado: true })).toEqual({ tipo: 'pausado', motivo: 'contato' });
+    expect(estadoDaConversa({ assumidaPor: 'Ana', pausaGeral: null })).toEqual({ tipo: 'assumido', por: 'Ana' });
   });
 });

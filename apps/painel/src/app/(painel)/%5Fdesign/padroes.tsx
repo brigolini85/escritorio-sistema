@@ -143,6 +143,7 @@ export function Padroes({ params }: { params: ParamsBusca }) {
       <Exemplo titulo="AgentStateIndicator" className="grid gap-3">
         <div className="flex flex-wrap gap-2">
           <AgentStateIndicator estado={{ tipo: 'ativo' }} />
+          <AgentStateIndicator estado={{ tipo: 'com_agente' }} />
           <AgentStateIndicator estado={{ tipo: 'pausado', motivo: 'geral' }} />
           <AgentStateIndicator estado={{ tipo: 'pausado', motivo: 'contato', detalhe: 'João Lima' }} />
           <AgentStateIndicator estado={{ tipo: 'pausado', motivo: 'empresa', detalhe: 'Padaria Pão Quente' }} />

@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ignorarAtalho } from '../atalhos-lista';
 import { cookiePainelConversa } from './preferencias-conversa';
@@ -17,6 +18,8 @@ type Estado = {
   /** Demanda escolhida (id) sobre a qual agem Transferir, Aguardando cliente, Concluir e a nota interna (quando há mais de uma aberta). Pode ter sido concluída numa atualização ao vivo: use demandaEmFoco(). */
   demandaId: string | null;
   setDemandaId: (id: string) => void;
+  /** Aviso de erro do assistente (?erro=), guardado aqui porque o parâmetro sai da URL depois de mostrado. */
+  avisoAtual: string | null;
 };
 
 const Contexto = createContext<Estado | null>(null);
@@ -58,6 +61,10 @@ export function EstadoConversa({
   const [aba, setAba] = useState<AbaPainel>(abaInicial);
   const [modo, setModo] = useState<ModoCompositor>('responder');
   const [demandaId, setDemandaId] = useState<string | null>(demandaInicial);
+  const [avisoAtual, setAvisoAtual] = useState<string | null>(aviso ?? null);
+  const router = useRouter();
+  const caminho = usePathname();
+  const params = useSearchParams();
 
   const alternarPainel = useCallback((aberto?: boolean) => {
     if (!window.matchMedia(PAINEL_RECOLHIVEL).matches) return;
@@ -74,12 +81,18 @@ export function EstadoConversa({
     }
   }, [painelAberto]);
 
-  // Redirect com ?erro= para esta mesma conversa: o aviso fica na aba Assistente, que precisa estar visível.
+  // Redirect com ?erro= (do assistente) para esta mesma conversa: guarda o aviso, abre o painel na aba Assistente
+  // e tira o ?erro= da URL. Assim um segundo erro igual, logo depois, muda a URL de novo e reabre o painel.
   useEffect(() => {
     if (!aviso) return;
+    setAvisoAtual(aviso);
     setPainelAberto(true);
     if (abaInicial === 'assistente') setAba('assistente');
-  }, [aviso, abaInicial]);
+    const resto = new URLSearchParams(params.toString());
+    resto.delete('erro');
+    const q = resto.toString();
+    router.replace(q ? `${caminho}?${q}` : caminho, { scroll: false });
+  }, [aviso, abaInicial, params, caminho, router]);
 
   useEffect(() => {
     const aoTeclar = (e: KeyboardEvent) => {
@@ -113,8 +126,8 @@ export function EstadoConversa({
   }, [painelAberto, alternarPainel]);
 
   const valor = useMemo(
-    () => ({ painelAberto, alternarPainel, aba, setAba, modo, setModo, demandaId, setDemandaId }),
-    [painelAberto, alternarPainel, aba, modo, demandaId],
+    () => ({ painelAberto, alternarPainel, aba, setAba, modo, setModo, demandaId, setDemandaId, avisoAtual }),
+    [painelAberto, alternarPainel, aba, modo, demandaId, avisoAtual],
   );
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }
@@ -122,4 +135,11 @@ export function EstadoConversa({
 /** A demanda escolhida, se ainda estiver aberta; senão a primeira. */
 export function demandaEmFoco<T extends { id: string }>(demandas: T[], id: string | null): T | null {
   return demandas.find((d) => d.id === id) ?? demandas[0] ?? null;
+}
+
+/** Aviso de erro do assistente, na aba Assistente (continua na tela depois que ?erro= sai da URL). */
+export function AvisoAssistente() {
+  const { avisoAtual } = useEstadoConversa();
+  if (!avisoAtual) return null;
+  return <p role="alert" className="rounded-md border border-danger bg-danger-soft p-3 text-sm text-danger">{avisoAtual}</p>;
 }

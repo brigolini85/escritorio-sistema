@@ -123,6 +123,7 @@ export async function ListaConversas({
                     href={`/atendimento/${l.id}${sufixo}`}
                     data-conversa-item=""
                     data-realce={l.ultima_em ?? undefined}
+                    data-realce-proprio={ativa ? '' : undefined}
                     aria-current={ativa ? 'page' : undefined}
                     scroll={false}
                     className={cn(

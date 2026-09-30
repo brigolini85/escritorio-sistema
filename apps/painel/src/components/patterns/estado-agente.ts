@@ -8,6 +8,8 @@ export type MotivoPausa = 'geral' | 'contato' | 'empresa' | 'teto_ia';
 
 export type EstadoAgente =
   | { tipo: 'ativo' }
+  /** Com o agente, mas sem como saber se há pausa geral (só o administrador lê configuracoes): não afirma 'ativo'. */
+  | { tipo: 'com_agente' }
   /** `detalhe`: complemento opcional, ex.: nome do contato ou da empresa pausada. */
   | { tipo: 'pausado'; motivo?: MotivoPausa; detalhe?: string }
   | { tipo: 'assumido'; por: string };
@@ -27,6 +29,7 @@ export function estadoPelaPausaGeral(pausado: boolean | null): EstadoAgente | nu
 
 export function tituloEstadoAgente(e: EstadoAgente): string {
   if (e.tipo === 'ativo') return 'Agente ativo';
+  if (e.tipo === 'com_agente') return 'Com o agente';
   if (e.tipo === 'pausado') return 'Agente pausado';
   return `Assumida por ${e.por}`;
 }
@@ -34,6 +37,7 @@ export function tituloEstadoAgente(e: EstadoAgente): string {
 /** Segunda linha (variante completa) e complemento do tooltip/leitor de tela. */
 export function detalheEstadoAgente(e: EstadoAgente): string | null {
   if (e.tipo === 'ativo') return 'Respondendo aos clientes';
+  if (e.tipo === 'com_agente') return 'Ninguém assumiu esta conversa. A pausa geral do agente só o administrador vê.';
   if (e.tipo === 'assumido') return 'O agente não responde nesta conversa';
   if (!e.motivo) return e.detalhe ?? null;
   return e.detalhe ? `${MOTIVOS_PAUSA[e.motivo]}: ${e.detalhe}` : MOTIVOS_PAUSA[e.motivo];
@@ -42,7 +46,7 @@ export function detalheEstadoAgente(e: EstadoAgente): string | null {
 /**
  * Estado do agente numa conversa, do mais forte para o mais fraco: assumida por alguém > pausa geral >
  * pausado para a empresa > pausado para o contato > ativo. `pausaGeral` null = não dá para saber
- * (só o administrador lê configuracoes): nesse caso a pausa geral não entra na conta.
+ * (só o administrador lê configuracoes): nesse caso nunca afirma "ativo"; vira o estado neutro "Com o agente".
  */
 export function estadoDaConversa(c: {
   assumidaPor: string | null;
@@ -54,5 +58,5 @@ export function estadoDaConversa(c: {
   if (c.pausaGeral) return { tipo: 'pausado', motivo: 'geral' };
   if (c.empresaPausada) return { tipo: 'pausado', motivo: 'empresa' };
   if (c.contatoPausado) return { tipo: 'pausado', motivo: 'contato' };
-  return { tipo: 'ativo' };
+  return c.pausaGeral === null ? { tipo: 'com_agente' } : { tipo: 'ativo' };
 }

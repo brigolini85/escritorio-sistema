@@ -68,6 +68,9 @@ export function AcoesConversa({
   const d = demandaEmFoco(demandas, demandaId);
 
   return (
+    // Container query: com pouco espaço (a 1280px, por exemplo) Transferir, Aguardando cliente e Concluir ficam só com o
+    // ícone; o texto continua como nome acessível (sr-only) e aparece no title.
+    <div className="@container">
     <div className="flex flex-wrap items-center gap-2">
       {!minha ? (
         <form action={assumir}>
@@ -91,18 +94,18 @@ export function AcoesConversa({
           <Transferir key={`t-${d.id}`} demanda={d} setores={setores} pessoas={pessoas} />
           {d.status !== 'aguardando_cliente' && (
             <form action={d.aguardandoCliente}>
-              <Button size="sm" variant="outline">
+              <Button size="sm" variant="outline" title="Aguardando cliente">
                 <Clock aria-hidden size={16} strokeWidth={1.75} />
-                Aguardando cliente
+                <span className="@max-3xl:sr-only">Aguardando cliente</span>
               </Button>
             </form>
           )}
           <ConfirmDialog
             key={`c-${d.id}`}
             gatilho={(
-              <Button size="sm" variant="outline">
+              <Button size="sm" variant="outline" title="Concluir">
                 <CircleCheck aria-hidden size={16} strokeWidth={1.75} />
-                Concluir
+                <span className="@max-3xl:sr-only">Concluir</span>
               </Button>
             )}
             titulo={`Concluir a demanda #${d.numero}?`}
@@ -114,7 +117,7 @@ export function AcoesConversa({
           />
         </>
       )}
-
+    </div>
     </div>
   );
 }
@@ -125,9 +128,9 @@ function Transferir({ demanda, setores, pessoas }: { demanda: DemandaDaConversa;
   return (
     <Dialog open={aberto} onOpenChange={setAberto}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" title="Transferir">
           <ArrowRightLeft aria-hidden size={16} strokeWidth={1.75} />
-          Transferir
+          <span className="@max-3xl:sr-only">Transferir</span>
         </Button>
       </DialogTrigger>
       <DialogContent>

@@ -13,6 +13,8 @@ export { estadoPelaPausaGeral, MOTIVOS_PAUSA } from './estado-agente';
 
 const ESTILO = {
   ativo: { Icone: Bot, cor: 'bg-agent-active-soft text-agent-active' },
+  // Neutro: sem a cor de 'ativo', porque não dá para saber se há pausa geral.
+  com_agente: { Icone: Bot, cor: 'bg-surface-muted text-muted' },
   pausado: { Icone: CirclePause, cor: 'bg-agent-paused-soft text-agent-paused' },
   assumido: { Icone: UserRound, cor: 'bg-human-owned-soft text-human-owned' },
 } as const;

@@ -59,14 +59,17 @@ export function PainelLateral({ assistente, detalhes }: { assistente?: ReactNode
 }
 
 /** Seção da conversa: cabeçalho, histórico e compositor em grade; com o painel aberto em 2xl, uma coluna a mais. */
-export function GradeConversa({ children }: { children: ReactNode }) {
+export function GradeConversa({ children, painel }: { children: ReactNode; painel: ReactNode }) {
   const { painelAberto } = useEstadoConversa();
   return (
     <section
       aria-labelledby="titulo-conversa"
       className={cn('relative flex min-w-0 flex-1 flex-col bg-background lg:grid lg:grade-conversa', painelAberto && '2xl:grade-conversa-com-painel')}
     >
-      {children}
+      {/* Abaixo de lg: cabeçalho, histórico e compositor ocupam a tela (o compositor sempre à vista) e o painel vem depois.
+          A partir de lg este invólucro some (display: contents) e os três viram linhas da grade. */}
+      <div className="flex min-h-0 flex-col max-lg:altura-trabalho lg:contents">{children}</div>
+      {painel}
     </section>
   );
 }

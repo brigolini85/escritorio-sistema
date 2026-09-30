@@ -18,7 +18,7 @@ import { Realce } from '../realce';
 import { AcoesConversa, BotaoPainel, type DemandaDaConversa } from './acoes-conversa';
 import { Compositor } from './compositor';
 import { DetalhesConversa, type DemandaDetalhe } from './detalhes-conversa';
-import { EstadoConversa } from './estado-conversa';
+import { AvisoAssistente, EstadoConversa } from './estado-conversa';
 import { Historico } from './historico';
 import { GradeConversa, PainelLateral } from './painel-lateral';
 import { COOKIE_PAINEL_CONVERSA, painelAbertoDoCookie } from './preferencias-conversa';
@@ -26,8 +26,8 @@ import { COOKIE_PAINEL_CONVERSA, painelAbertoDoCookie } from './preferencias-con
 const AUTOR: Record<string, AutorMensagem> = { cliente: 'cliente', agente: 'agente', atendente: 'atendente', sistema: 'sistema' };
 
 type ItemHistorico =
-  | { id: string; criado_em: string; tipo: 'mensagem'; autor: AutorMensagem; nome: string | null; conteudo: string | null; transcricao: string | null; arquivo: { nome: string; href: string } | null; falhou: boolean }
-  | { id: string; criado_em: string; tipo: 'nota'; nome: string | null; conteudo: string | null; demanda: number | null };
+  | { id: string; criado_em: string; tipo: 'mensagem'; autor: AutorMensagem; nome: string | null; propria: boolean; conteudo: string | null; transcricao: string | null; arquivo: { nome: string; href: string } | null; falhou: boolean }
+  | { id: string; criado_em: string; tipo: 'nota'; nome: string | null; propria: boolean; conteudo: string | null; demanda: number | null };
 
 export type Empresa = { id: string; nome: string };
 
@@ -54,7 +54,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     sb.from('chamados').select('*, setores(nome), usuarios(nome), chamado_eventos(tipo, texto, criado_em, usuarios(nome))')
       .eq('conversa_id', id).neq('status', 'concluido').order('numero').order('criado_em', { referencedTable: 'chamado_eventos' }),
     // Notas internas de todas as demandas da conversa (também as já concluídas) entram no histórico.
-    sb.from('chamado_eventos').select('id, texto, criado_em, usuarios(nome), chamados!inner(numero, conversa_id)')
+    sb.from('chamado_eventos').select('id, texto, criado_em, usuario_id, usuarios(nome), chamados!inner(numero, conversa_id)')
       .eq('chamados.conversa_id', id).eq('tipo', 'nota_interna'),
     sb.from('decisoes_agente').select('etapa, entrada, saida, justificativa, criado_em').eq('conversa_id', id).order('criado_em', { ascending: false }).limit(30),
     sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
@@ -98,13 +98,13 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   const itens: ItemHistorico[] = [
     ...(mensagens ?? []).map((m): ItemHistorico => ({
       id: m.id, criado_em: m.criado_em, tipo: 'mensagem', autor: AUTOR[m.autor] ?? 'sistema',
-      nome: m.autor === 'atendente' ? m.usuarios?.nome ?? null : null,
+      nome: m.autor === 'atendente' ? m.usuarios?.nome ?? null : null, propria: m.atendente_id === u.id,
       conteudo: m.conteudo, transcricao: m.transcricao,
       arquivo: m.arquivo_path ? { nome: m.arquivo_nome ?? 'Abrir anexo', href: `/api/arquivos?path=${encodeURIComponent(m.arquivo_path)}` } : null,
       falhou: m.status_envio === 'falhou',
     })),
     ...(notas ?? []).map((n): ItemHistorico => ({
-      id: n.id, criado_em: n.criado_em, tipo: 'nota', nome: n.usuarios?.nome ?? null, conteudo: n.texto, demanda: n.chamados?.numero ?? null,
+      id: n.id, criado_em: n.criado_em, tipo: 'nota', nome: n.usuarios?.nome ?? null, propria: n.usuario_id === u.id, conteudo: n.texto, demanda: n.chamados?.numero ?? null,
     })),
   ];
   const historico = linhaDoTempo(itens);
@@ -130,7 +130,32 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
       demandaInicial={abertas[0]?.id ?? null}
       aviso={erro}
     >
-      <GradeConversa>
+      <GradeConversa
+        painel={(
+          <PainelLateral
+            assistente={podeAssistente ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-muted">Já sabe deste cliente e das demandas desta conversa.</p>
+                <AvisoAssistente />
+                <ConversaAssistente usuarioId={u.id} conversaId={id} podeCsv={podeCsv} compacta />
+              </div>
+            ) : undefined}
+            detalhes={(
+              <DetalhesConversa
+                conversaId={id}
+                empresa={empresa}
+                outrasEmpresas={outrasEmpresas}
+                contato={conversa.contatos}
+                podeEditarContato={temPermissao(u, 'editar_clientes')}
+                demandas={demandasDetalhe}
+                compradores={new Map((compradores ?? []).map((c) => [c.id, c as CompradorCadastrado]))}
+                podeCsv={podeCsv}
+                decisoes={(decisoes ?? []).map((d) => ({ ...d, justificativa: d.justificativa ?? null }))}
+              />
+            )}
+          />
+        )}
+      >
         <header className="flex flex-col gap-2 border-b border-border bg-surface px-4 py-3 lg:col-start-1 lg:row-start-1">
           <div className="flex items-start gap-2">
             <Link
@@ -176,8 +201,8 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
           />
         </header>
 
-        <Historico quantidade={itens.length} className="max-lg:altura-trabalho lg:col-start-1 lg:row-start-2">
-          <Realce chave={`historico-${id}`} className="flex flex-col gap-2">
+        <Historico quantidade={itens.length} className="lg:col-start-1 lg:row-start-2">
+          <Realce chave={`historico-${id}`} lembrar={false} className="flex flex-col gap-2">
             {historico.length === 0 && <p className="py-10 text-center text-sm text-muted">Nenhuma mensagem nesta conversa ainda.</p>}
             {historico.map((h) => {
               if (h.tipo === 'dia') {
@@ -191,7 +216,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
               }
               const m = h.item;
               return (
-                <div key={h.chave} data-realce={m.criado_em} className="flex flex-col rounded-lg">
+                <div key={h.chave} data-realce={m.criado_em} data-realce-proprio={m.propria ? '' : undefined} className="flex flex-col rounded-lg">
                   {m.tipo === 'nota' ? (
                     <MessageBubble autor="nota_interna" hora={m.criado_em} conteudo={m.conteudo}>
                       {(m.nome || m.demanda) && (
@@ -220,29 +245,6 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
         <div className="lg:col-start-1 lg:row-start-3">
           <Compositor responder={responder.bind(null, id)} demandas={demandasAcoes} respostas={respostas ?? []} />
         </div>
-
-        <PainelLateral
-          assistente={podeAssistente ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-xs text-muted">Já sabe deste cliente e das demandas desta conversa.</p>
-              {erro && <p role="alert" className="rounded-md border border-danger bg-danger-soft p-3 text-sm text-danger">{erro}</p>}
-              <ConversaAssistente usuarioId={u.id} conversaId={id} podeCsv={podeCsv} compacta />
-            </div>
-          ) : undefined}
-          detalhes={(
-            <DetalhesConversa
-              conversaId={id}
-              empresa={empresa}
-              outrasEmpresas={outrasEmpresas}
-              contato={conversa.contatos}
-              podeEditarContato={temPermissao(u, 'editar_clientes')}
-              demandas={demandasDetalhe}
-              compradores={new Map((compradores ?? []).map((c) => [c.id, c as CompradorCadastrado]))}
-              podeCsv={podeCsv}
-              decisoes={(decisoes ?? []).map((d) => ({ ...d, justificativa: d.justificativa ?? null }))}
-            />
-          )}
-        />
       </GradeConversa>
     </EstadoConversa>
   );

@@ -58,7 +58,18 @@ export function AtualizarAoVivo({ conversaAberta, assistenteDe }: { conversaAber
       agendar(Boolean(conversaAberta) && id === conversaAberta);
     };
     const aoMudarVisibilidade = () => {
-      if (!document.hidden && pendenteEscondido) {
+      if (document.hidden) {
+        // Recarga já agendada fica para quando a aba voltar.
+        if (espera) {
+          clearTimeout(espera);
+          espera = undefined;
+          primeiroPendente = 0;
+          urgentePendente = false;
+          pendenteEscondido = true;
+        }
+        return;
+      }
+      if (pendenteEscondido) {
         pendenteEscondido = false;
         recarregar();
       }
