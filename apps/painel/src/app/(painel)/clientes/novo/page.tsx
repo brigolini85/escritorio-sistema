@@ -1,6 +1,13 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { PageHeader } from '@/components/layout/page-header';
+import { FormField } from '@/components/patterns/form-field';
+import { Button, variantesBotao } from '@/components/ui/button';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { salvarCliente } from '../acoes';
+import { AvisoErro } from '../aviso-erro';
 
 export default async function NovoCliente({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
   const { erro } = await searchParams;
@@ -8,14 +15,31 @@ export default async function NovoCliente({ searchParams }: { searchParams: Prom
   if (!temPermissao(u, 'editar_clientes')) redirect('/clientes');
   return (
     <section className="max-w-xl">
-      <h1 className="mb-4 text-xl font-semibold">Novo cliente</h1>
-      {erro && <p role="alert" className="mb-3 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">Não foi possível salvar: {erro}</p>}
-      <form action={salvarCliente.bind(null, null)} className="space-y-3 rounded-lg border bg-white p-4">
-        <label className="block text-sm">Razão social<input name="razao_social" required className="mt-1 w-full rounded border p-2" /></label>
-        <label className="block text-sm">Nome fantasia<input name="nome_fantasia" className="mt-1 w-full rounded border p-2" /></label>
-        <label className="block text-sm">CNPJ<input name="cnpj" required className="mt-1 w-full rounded border p-2" /></label>
-        <button className="rounded bg-slate-900 px-4 py-2 text-white">Salvar</button>
-      </form>
+      <PageHeader
+        titulo="Novo cliente"
+        descricao="Depois de salvar, a ficha da empresa abre para cadastrar contatos, produtos e preços."
+        migalhas={[{ rotulo: 'Clientes', href: '/clientes' }, { rotulo: 'Novo cliente' }]}
+      />
+      <AvisoErro erro={erro} />
+      <Card className="mt-4">
+        <form action={salvarCliente.bind(null, null)}>
+          <CardContent className="flex flex-col gap-4">
+            <FormField id="novo-razao" rotulo="Razão social" obrigatorio>
+              <Input name="razao_social" required autoComplete="off" />
+            </FormField>
+            <FormField id="novo-fantasia" rotulo="Nome fantasia" ajuda="Como a empresa é conhecida, se for diferente da razão social.">
+              <Input name="nome_fantasia" autoComplete="off" />
+            </FormField>
+            <FormField id="novo-cnpj" rotulo="CNPJ" obrigatorio>
+              <Input name="cnpj" required inputMode="numeric" placeholder="00.000.000/0000-00" autoComplete="off" />
+            </FormField>
+          </CardContent>
+          <CardFooter className="justify-end">
+            <Link href="/clientes" className={variantesBotao({ variant: 'outline' })}>Voltar</Link>
+            <Button type="submit">Salvar</Button>
+          </CardFooter>
+        </form>
+      </Card>
     </section>
   );
 }

@@ -1,60 +1,189 @@
+import { FilterX, UserPlus, UsersRound } from 'lucide-react';
 import Link from 'next/link';
+import { Suspense } from 'react';
+import { PageHeader } from '@/components/layout/page-header';
+import { DataTable, type ColunaTabela } from '@/components/patterns/data-table';
+import { EmptyState } from '@/components/patterns/empty-state';
+import { FilterBar } from '@/components/patterns/filter-bar';
+import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
+import { SwitchAgenteContato } from '@/components/patterns/switch-agente-contato';
+import { Badge } from '@/components/ui/badge';
+import { Button, variantesBotao } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
+import { faixaDaConsulta, hrefComParams, lerOrdem, lerPagina, paginar, PARAM_PAGINA, valorParam, type Paginacao, type ParamsBusca } from '@/lib/tabela-url';
 import { alternarAgenteContato } from '../atendimento/acoes';
 import { cadastrarContato } from './acoes';
+import { DetalheContato, EsqueletoContato } from './detalhe-contato';
+import { MarcacoesContato, nomeEmpresa, type Vinculo } from './marcacoes';
 
-/** Todos os contatos cadastrados, com as empresas a que estão ligados e se o agente atende cada um. */
-export default async function Contatos({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+const POR_PAGINA = 50;
+const OPCOES_AGENTE = [{ valor: 'atende', rotulo: 'Agente atende' }, { valor: 'desligado', rotulo: 'Agente desligado' }];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type Linha = { id: string; nome: string; telefone: string; agente_pausado: boolean; ativo: boolean; vinculos: Vinculo[] };
+type Filtravel<Q> = { or(filtro: string): Q; eq(coluna: string, valor: boolean): Q };
+
+/**
+ * Todos os contatos cadastrados, com as empresas a que estão ligados, as marcações e se o agente atende cada um.
+ * Busca (?q=, como antes), filtro do agente, ordem e página na URL; ?contato=<id> abre o painel lateral.
+ */
+export default async function Contatos({ searchParams }: { searchParams: Promise<ParamsBusca> }) {
+  const params = await searchParams;
   const u = await obterUsuario();
   const pode = temPermissao(u, 'editar_clientes');
   // Vírgula, parênteses e * têm significado no filtro `or` do PostgREST.
-  const q = ((await searchParams).q ?? '').replace(/[,()*%\\]/g, ' ').trim();
+  const q = (valorParam(params, 'q') ?? '').replace(/[,()*%\\]/g, ' ').trim();
+  const agente = valorParam(params, 'agente');
+  const aberto = valorParam(params, 'contato');
+  const contatoAberto = aberto && UUID.test(aberto) ? aberto : null;
+  const ordem = lerOrdem(params, ['nome'], { coluna: 'nome', direcao: 'asc' })!;
   const sb = await supabaseServidor();
-  let consulta = sb.from('contatos')
-    .select('id, nome, telefone, agente_pausado, ativo, contato_clientes(clientes(id, razao_social, nome_fantasia))')
-    .order('nome');
-  if (q) consulta = consulta.or(`nome.ilike.%${q}%,telefone.ilike.%${q.replace(/\D/g, '') || q}%`);
-  const { data: contatos } = await consulta;
+
+  const filtrar = <Q extends Filtravel<Q>>(consulta: Q): Q => {
+    let r = consulta;
+    if (q) r = r.or(`nome.ilike.%${q}%,telefone.ilike.%${q.replace(/\D/g, '') || q}%`);
+    if (agente === 'atende') r = r.eq('agente_pausado', false);
+    else if (agente === 'desligado') r = r.eq('agente_pausado', true);
+    return r;
+  };
+  const contados = await filtrar(sb.from('contatos').select('id', { count: 'exact', head: true }));
+  const total = contados.count ?? 0;
+  const lerPaginaDaLista = (p: Paginacao) => {
+    const [de, ate] = faixaDaConsulta(p, POR_PAGINA);
+    return filtrar(sb.from('contatos').select('id, nome, telefone, agente_pausado, ativo, contato_clientes(pode_pedir_nota, pode_atualizar_preco, clientes(id, razao_social, nome_fantasia))'))
+      .order('nome', { ascending: ordem.direcao === 'asc' }).order('id').range(de, ate);
+  };
+  let paginacao = paginar(total, lerPagina(params), POR_PAGINA);
+  let resultado = contados.error ? { data: null, error: contados.error } : await lerPaginaDaLista(paginacao);
+  if (resultado.error?.code === 'PGRST103') {
+    paginacao = paginar(total, 1, POR_PAGINA);
+    resultado = await lerPaginaDaLista(paginacao);
+  }
+  if (resultado.error) console.error('[contatos] falha ao ler a lista', resultado.error);
+
+  const linhas: Linha[] = (resultado.data ?? []).map((c) => ({
+    id: c.id, nome: c.nome, telefone: c.telefone, agente_pausado: c.agente_pausado, ativo: c.ativo,
+    vinculos: c.contato_clientes.flatMap((v) => (v.clientes
+      ? [{ empresaId: v.clientes.id, empresa: nomeEmpresa(v.clientes), podePedirNota: v.pode_pedir_nota, podeMudarPreco: v.pode_atualizar_preco }]
+      : [])),
+  }));
+
+  // Abrir e fechar o painel mantém a página da tabela.
+  const pagina = paginacao.pagina > 1 ? paginacao.pagina : null;
+  const hrefContato = (id: string | null) => `/contatos${hrefComParams(params, { contato: id, [PARAM_PAGINA]: pagina })}`;
+
+  const colunas: ColunaTabela<Linha>[] = [
+    {
+      id: 'nome', titulo: 'Nome', ordenavel: true, className: 'max-w-56',
+      celula: (c) => (
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate font-medium text-foreground">{c.nome}</span>
+          {!c.ativo && <Badge variant="neutral">Inativo</Badge>}
+        </span>
+      ),
+    },
+    { id: 'telefone', titulo: 'Telefone', celula: (c) => <span className="tabular text-muted">{c.telefone}</span> },
+    {
+      id: 'empresas', titulo: 'Empresas', className: 'w-full min-w-48 max-w-0',
+      celula: (c) => c.vinculos.length === 0 ? <span className="text-subtle">sem empresa</span> : (
+        <span className="block truncate">
+          {c.vinculos.map((v, i) => (
+            <span key={v.empresaId}>
+              {i > 0 && ', '}
+              <Link href={`/clientes/${v.empresaId}?aba=contatos`} className="text-foreground hover:underline">{v.empresa}</Link>
+            </span>
+          ))}
+        </span>
+      ),
+    },
+    { id: 'marcacoes', titulo: 'Marcações', celula: (c) => <MarcacoesContato vinculos={c.vinculos} vazio={<span className="text-subtle">—</span>} /> },
+    {
+      id: 'agente', titulo: 'Agente',
+      celula: (c) => (
+        <SwitchAgenteContato
+          acao={alternarAgenteContato.bind(null, c.id, null, c.agente_pausado)}
+          desligado={c.agente_pausado}
+          nome={c.nome}
+          pode={pode}
+          mostrarEstado
+        />
+      ),
+    },
+  ];
+  const filtrando = Boolean(q || agente);
 
   return (
-    <section className="max-w-4xl space-y-4">
-      <h1 className="text-xl font-semibold">Contatos</h1>
-      <p className="text-sm text-slate-500">Para ligar um contato a uma empresa, abra a empresa em Clientes → aba Contatos → "Vincular contato já cadastrado".</p>
-      <form><input name="q" defaultValue={q} placeholder="Buscar por nome ou telefone" className="w-80 rounded border p-2" /></form>
-      {(contatos ?? []).length === 0 && <p className="text-slate-500">Nenhum contato encontrado.</p>}
-      <ul className="divide-y rounded-lg border bg-white text-sm">
-        {(contatos ?? []).map((c) => {
-          const empresas = c.contato_clientes.flatMap((v) => (v.clientes ? [v.clientes] : []));
-          return (
-            <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-              <div>
-                <p className="font-medium">{c.nome} · {c.telefone}{c.ativo ? '' : ' · inativo'}</p>
-                <p className="text-slate-500">
-                  {empresas.length === 0 ? 'sem empresa' : empresas.map((e, i) => (
-                    <span key={e.id}>{i > 0 ? ', ' : ''}<Link href={`/clientes/${e.id}?aba=contatos`} className="underline">{e.nome_fantasia ?? e.razao_social}</Link></span>
-                  ))}
-                  {' · '}
-                  <span className={c.agente_pausado ? 'text-amber-700' : 'text-emerald-700'}>{c.agente_pausado ? 'agente desligado' : 'agente atende'}</span>
-                </p>
-              </div>
-              {pode && (
-                <form action={alternarAgenteContato.bind(null, c.id, null, c.agente_pausado)}>
-                  <button className="rounded border px-2 py-1">{c.agente_pausado ? 'Ligar o agente' : 'Desligar o agente'}</button>
-                </form>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+    <section>
+      <PageHeader
+        titulo="Contatos"
+        descricao="Quem fala com o escritório pelo WhatsApp, as empresas de cada um e se o agente atende."
+        acoes={pode ? (
+          <a href="#novo-contato" className={variantesBotao({ size: 'sm' })}>
+            <UserPlus aria-hidden size={16} strokeWidth={1.75} />
+            Novo contato
+          </a>
+        ) : undefined}
+      />
+      <FilterBar
+        className="mb-3"
+        total={total}
+        busca={{ placeholder: 'Buscar por nome ou telefone' }}
+        filtros={[{ param: 'agente', rotulo: 'Agente', todos: 'Todos', opcoes: OPCOES_AGENTE }]}
+      />
+      <DataTable
+        rotulo="Contatos"
+        linhas={linhas}
+        colunas={colunas}
+        chave={(c) => c.id}
+        params={params}
+        ordem={ordem}
+        paginacao={paginacao}
+        hrefLinha={(c) => hrefContato(c.id)}
+        linhaAtiva={contatoAberto}
+        erro={resultado.error ? 'Não consegui carregar os contatos agora.' : undefined}
+        vazio={filtrando ? (
+          <EmptyState
+            icone={FilterX}
+            titulo="Nenhum contato encontrado."
+            descricao="Confira o nome ou o telefone, ou limpe os filtros."
+            acao={<Link href="/contatos" className={variantesBotao({ variant: 'outline', size: 'sm' })}>Limpar filtros</Link>}
+          />
+        ) : (
+          <EmptyState icone={UsersRound} titulo="Nenhum contato cadastrado." descricao="Os contatos aparecem aqui quando alguém os cadastra pela conversa, pela ficha da empresa ou abaixo." />
+        )}
+      />
+
       {pode && (
-        <form action={cadastrarContato} className="flex flex-wrap items-center gap-2 rounded-lg border bg-white p-3 text-sm">
-          <input name="nome" required placeholder="Nome" className="rounded border p-2" />
-          <input name="telefone" required placeholder="Telefone (com DDD)" className="rounded border p-2" />
-          <label className="flex items-center gap-1"><input type="checkbox" name="agente_atende" defaultChecked /> O agente atende</label>
-          <button className="rounded bg-slate-900 px-3 py-2 text-white">Cadastrar contato</button>
-        </form>
+        <Card id="novo-contato" className="mt-6 scroll-mt-20">
+          <CardHeader>
+            <CardTitle>Cadastrar contato</CardTitle>
+            <CardDescription>Com ou sem empresa. Para ligar a uma empresa, abra a empresa em Clientes → aba Contatos → &quot;Vincular contato já cadastrado&quot;.</CardDescription>
+          </CardHeader>
+          <form action={cadastrarContato}>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <Input name="nome" required placeholder="Nome" aria-label="Nome do contato" autoComplete="off" className="sm:w-56" />
+              <Input name="telefone" required placeholder="Telefone (com DDD)" aria-label="Telefone (com DDD)" inputMode="tel" autoComplete="off" className="sm:w-56" />
+              <label className="flex items-center gap-2 text-base text-foreground">
+                <input type="checkbox" name="agente_atende" defaultChecked className="size-4 shrink-0 accent-brand" />
+                O agente atende
+              </label>
+              <Button type="submit" size="sm" className="sm:ml-auto">Cadastrar contato</Button>
+            </CardContent>
+          </form>
+        </Card>
       )}
+
+      {/* Sempre montado: abre na hora com esqueleto ao clicar na linha; o detalhe chega à parte (Suspense). */}
+      <PainelLateralUrl param="contato" id={contatoAberto} hrefFechar={hrefContato(null)} esqueleto={<EsqueletoContato />} className="sm:max-w-lg">
+        {contatoAberto && (
+          <Suspense key={contatoAberto} fallback={<EsqueletoContato />}>
+            <DetalheContato id={contatoAberto} pode={pode} admin={u.papel === 'admin'} />
+          </Suspense>
+        )}
+      </PainelLateralUrl>
     </section>
   );
 }

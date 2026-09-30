@@ -19,18 +19,20 @@ test('aba Contatos lista os cadastrados com empresas e agente, e cadastra contat
   await entrar(page, 'admin@teste.com', 'senha-forte-123');
 
   await page.getByRole('link', { name: 'Contatos', exact: true }).click();
-  const linha = page.getByRole('listitem').filter({ hasText: 'Maria Contato' });
+  const linha = page.getByRole('row').filter({ hasText: 'Maria Contato' });
   await expect(linha).toContainText(TEL_A);
   await expect(linha).toContainText('Empresa Contatos Teste');
   await expect(linha).toContainText('agente desligado');
 
-  await linha.getByRole('button', { name: 'Ligar o agente' }).click();
-  await expect(page.getByRole('listitem').filter({ hasText: 'Maria Contato' }).getByRole('button', { name: 'Desligar o agente' })).toBeVisible();
+  await linha.getByRole('switch', { name: 'Ligar o agente' }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'Maria Contato' }).getByRole('switch', { name: 'Desligar o agente' })).toBeVisible();
+  // A chave muda na hora (otimista): conferir também que a ação gravou.
+  await expect.poll(async () => (await db.from('contatos').select('agente_pausado').eq('id', maria!.id).single()).data!.agente_pausado).toBe(false);
 
   await page.getByPlaceholder('Nome', { exact: true }).fill('Zé Sem Empresa');
   await page.getByPlaceholder('Telefone (com DDD)').fill('(31) 99999-0502');
   await page.getByRole('button', { name: 'Cadastrar contato' }).click();
-  const ze = page.getByRole('listitem').filter({ hasText: 'Zé Sem Empresa' });
+  const ze = page.getByRole('row').filter({ hasText: 'Zé Sem Empresa' });
   await expect(ze).toContainText('sem empresa');
 });
 

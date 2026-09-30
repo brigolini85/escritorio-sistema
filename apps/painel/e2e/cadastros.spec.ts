@@ -14,7 +14,7 @@ test('administrador cadastra rede, unidade com CNPJ e fornecedor', async ({ page
   await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
   await entrar(page, 'admin@teste.com', 'senha-forte-123');
   await page.goto(`/clientes/${id}`);
-  await page.getByRole('link', { name: 'Clientes da empresa' }).click();
+  await page.getByRole('link', { name: 'Clientes e fornecedores' }).click();
   await page.getByPlaceholder('Nova rede/cliente (ex.: Supermercado Brasil)').fill('Supermercado Brasil');
   await page.getByPlaceholder('Palavras-chave, separadas por vírgula').last().fill('brasil');
   await page.getByRole('button', { name: 'Criar rede' }).click();
@@ -26,7 +26,7 @@ test('administrador cadastra rede, unidade com CNPJ e fornecedor', async ({ page
   await page.getByRole('button', { name: 'Adicionar unidade' }).click();
   await expect(page.getByText('Santa Efigênia · Santa Efigênia · CNPJ 11222333000181')).toBeVisible();
 
-  await page.getByRole('link', { name: 'Fornecedores' }).click();
+  await page.getByRole('link', { name: 'Fornecedores', exact: true }).click();
   await page.getByPlaceholder('Novo fornecedor').fill('Frigorífico Boi Bom');
   await page.getByRole('button', { name: 'Criar fornecedor' }).click();
   await expect(page.getByLabel('Nome de Frigorífico Boi Bom')).toBeVisible();

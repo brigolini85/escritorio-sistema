@@ -64,7 +64,7 @@ test('na ficha da empresa, a aba Contatos mostra e troca o agente do contato', a
 
   await page.goto(`/clientes/${empresa!.id}?aba=contatos`);
   await expect(page.getByText('agente desligado')).toBeVisible();
-  await page.getByRole('button', { name: 'Ligar o agente' }).click();
-  await expect(page.getByRole('button', { name: 'Desligar o agente' })).toBeVisible();
+  await page.getByRole('switch', { name: 'Ligar o agente' }).click();
+  await expect(page.getByRole('switch', { name: 'Desligar o agente' })).toBeVisible();
   await expect.poll(async () => (await db.from('contatos').select('agente_pausado').eq('id', contato!.id).single()).data!.agente_pausado).toBe(false);
 });
