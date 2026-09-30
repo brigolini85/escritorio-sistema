@@ -1,4 +1,4 @@
-import { pedidoVendaBling, problemasPedidoBling, type CompradorCadastrado, type PedidoVendaSalvo } from '@escritorio/core';
+import type { CompradorCadastrado, PedidoVendaSalvo } from '@escritorio/core';
 import { Building2, ChevronRight, Lightbulb } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -10,7 +10,8 @@ import { StatusBadge, type StatusDemanda } from '@/components/patterns/status-ba
 import { Badge } from '@/components/ui/badge';
 import { camposLegiveis, rotuloEtapa, type CampoLegivel } from '@/lib/decisoes';
 import { formatarDataHora } from '@/lib/formatos';
-import { resumirPedido } from '@/lib/resumo-pedido';
+import { pendenciasCsvBling, resumirPedido } from '@/lib/resumo-pedido';
+import { LinhaDoTempoDemanda, type EventoDemanda } from '@/components/patterns/linha-do-tempo-demanda';
 import { MoneyText } from '@/components/patterns/money-text';
 import { ContatoDaConversa } from './contato-da-conversa';
 import { VerPedido } from './ver-pedido';
@@ -26,18 +27,10 @@ export type DemandaDetalhe = {
   fora_do_contrato: boolean;
   criado_em: string;
   pedido_venda: unknown;
-  eventos: { tipo: string; texto: string | null; criado_em: string; usuario: string | null }[];
+  eventos: EventoDemanda[];
 };
 
 export type Decisao = { etapa: string; entrada: unknown; saida: unknown; justificativa: string | null; criado_em: string };
-
-const EVENTO: Record<string, string> = {
-  criacao: 'Demanda aberta',
-  assumido: 'Assumida',
-  transferencia: 'Transferida',
-  nota_interna: 'Nota interna',
-  conclusao: 'Concluída',
-};
 
 function Secao({ titulo, children }: { titulo: ReactNode; children: ReactNode }) {
   return (
@@ -111,14 +104,7 @@ export function DetalhesConversa({
         {demandas.map((d) => {
           const salvo = d.pedido_venda as PedidoVendaSalvo | null;
           const comprador = salvo?.unidade_id ? compradores.get(salvo.unidade_id) ?? null : null;
-          let problemas: string[] = [];
-          if (salvo && Array.isArray(salvo.itens)) {
-            try {
-              problemas = problemasPedidoBling(pedidoVendaBling(d.numero, salvo, comprador));
-            } catch {
-              problemas = []; // pedido estranho: a rota do CSV confere de novo e avisa
-            }
-          }
+          const problemas = pendenciasCsvBling(d.numero, d.pedido_venda, comprador);
           return (
             <article key={d.id} className="flex flex-col gap-2 rounded-md border border-border p-3">
               <div className="flex items-start justify-between gap-2">
@@ -141,20 +127,7 @@ export function DetalhesConversa({
                   {podeCsv && <BlingExportButton href={`/api/csv-bling?id=${d.id}`} problemas={problemas} />}
                 </ResumoPedidoCurto>
               ) : null}
-              {d.eventos.length > 0 && (
-                <ol aria-label={`Linha do tempo da demanda #${d.numero}`} className="ml-1 flex flex-col gap-2 border-l border-border pl-3">
-                  {d.eventos.map((e, i) => (
-                    <li key={i} className="relative text-xs">
-                      <span aria-hidden className="absolute -left-4 top-1 size-2 rounded-full bg-border" />
-                      <p className="text-muted">
-                        <span className="font-medium text-foreground">{EVENTO[e.tipo] ?? e.tipo}</span>
-                        {e.usuario ? ` por ${e.usuario}` : ''} · <time dateTime={e.criado_em} className="tabular">{formatarDataHora(e.criado_em)}</time>
-                      </p>
-                      {e.texto && <p className="whitespace-pre-wrap text-foreground">{e.texto}</p>}
-                    </li>
-                  ))}
-                </ol>
-              )}
+              <LinhaDoTempoDemanda numero={d.numero} eventos={d.eventos} />
             </article>
           );
         })}

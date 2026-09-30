@@ -6,9 +6,12 @@ test('administrador pausa e retoma o agente pelo Início', async ({ page }) => {
   await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
   await entrar(page, 'admin@teste.com', 'senha-forte-123');
   await page.getByRole('button', { name: 'Pausar agente' }).click();
+  // Pausar e retomar pedem confirmação (ConfirmDialog): o botão da janela envia a mesma action.
+  await page.getByRole('dialog').getByRole('button', { name: 'Pausar agente' }).click();
   await expect(page.getByText('O agente está PAUSADO')).toBeVisible();
   expect((await db.from('configuracoes').select('agente_pausado').single()).data?.agente_pausado).toBe(true);
   await page.getByRole('button', { name: 'Retomar agente' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Retomar agente' }).click();
   await expect(page.getByText('O agente está atendendo normalmente.')).toBeVisible();
 });
 
