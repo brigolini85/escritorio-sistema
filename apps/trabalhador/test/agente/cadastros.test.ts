@@ -117,6 +117,27 @@ describe('pedido de nota: resumo para o cliente e demanda no Fiscal', () => {
     expect((await abrir())._erro).toBe(false);
   });
 
+  it('depois do "sim", o agente remonta o pedido sem os ids e com outra unidade de contagem: abre o pedido do resumo conferido (bug do dono, 2026-09-30)', async () => {
+    await usar('resumir_pedido_nota', base({ forma_pagamento: 'PIX' }));
+    const r = await abrir({
+      unidade_id: null, forma_pagamento: undefined,
+      itens: [{ produto_id: null, texto: '20 pac de costela', quantidade: 20, unidade: 'PC' }, { produto_id: null, texto: 'lasanha', quantidade: 3, unidade: 'pct' }],
+    });
+    expect(r._erro).toBe(false);
+    const { data } = await db.from('chamados').select('resumo, pedido_venda').single();
+    expect(data!.resumo).toContain('20 PAC Costela com Requeijão (cód. 12) × R$ 9,50 = R$ 190,00');
+    expect(data!.pedido_venda).toMatchObject({ unidade_id: cad.brasilEfigenia, forma_pagamento: 'PIX' });
+  });
+
+  it('dois resumos que servem para o mesmo pedido remontado sem ids: pede para indicar qual, não abre às cegas', async () => {
+    await usar('resumir_pedido_nota', base());
+    await usar('resumir_pedido_nota', base({ unidade_id: cad.brasilMatilde, texto_destinatario: 'Brasil Santa Matilde' }));
+    const r = await abrir({ unidade_id: null, itens: [{ produto_id: null, texto: 'costela', quantidade: 20, unidade: 'PAC' }, { produto_id: null, texto: 'lasanha', quantidade: 3, unidade: 'PAC' }] });
+    expect(r._erro).toBe(true);
+    expect(JSON.stringify(r)).toContain('unidade_id');
+    expect((await db.from('chamados').select('id')).data).toHaveLength(0);
+  });
+
   it('venda: guarda na demanda o pedido de venda para o arquivo do Bling (pedido do dono, 2026-09-29)', async () => {
     await conferirEAbrir({ forma_pagamento: 'PIX', data_prevista: '02/10/2026',
       itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 20, unidade: 'PAC' }, { produto_id: cad.frango, texto: 'frango', quantidade: 2, unidade: 'kg' },

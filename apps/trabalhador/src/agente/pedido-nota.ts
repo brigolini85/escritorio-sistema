@@ -205,6 +205,34 @@ export function montarResumoParaCliente(p: {
 }
 
 /** Identifica o pedido que o cliente conferiu: destinatário e itens (quantidade e unidade). A demanda só abre se bater com um resumo enviado. */
+type PedidoConferivel = {
+  tipo: 'venda' | 'devolucao'; unidade_id: string | null; itens: { produto_id: string | null; texto: string; quantidade: number; unidade: string }[];
+};
+
+/**
+ * Qual resumo enviado ao cliente é este pedido. Depois do "sim", o modelo remonta o pedido de memória e costuma perder
+ * os ids (unidade e produto) ou trocar PAC por PC; por isso, além da chave exata, vale o resumo com o mesmo tipo e os
+ * mesmos itens na mesma ordem (quantidade igual, unidade de contagem equivalente, produto igual quando o modelo informa),
+ * e a mesma unidade quando o modelo informa. Mais de um resumo diferente servindo = ambíguo: não abre às cegas.
+ */
+export function acharResumoConferido<R extends { entrada: unknown; conferencia: string }>(
+  pedido: PedidoConferivel, resumos: R[], valido: (e: unknown) => e is PedidoConferivel,
+): { resumo: R } | { ambiguo: true } | null {
+  const exato = resumos.find((r) => r.conferencia === chaveConferencia(pedido));
+  if (exato) return { resumo: exato };
+  const serve = (e: PedidoConferivel) => e.tipo === pedido.tipo
+    && (pedido.unidade_id === null || pedido.unidade_id === e.unidade_id)
+    && e.itens.length === pedido.itens.length
+    && e.itens.every((i, n) => {
+      const p = pedido.itens[n]!;
+      return p.quantidade === i.quantidade && mesmaUnidade(p.unidade, i.unidade) && (p.produto_id === null || p.produto_id === i.produto_id);
+    });
+  const candidatos = resumos.filter((r) => valido(r.entrada) && serve(r.entrada));
+  if (candidatos.length === 0) return null;
+  if (new Set(candidatos.map((r) => r.conferencia)).size > 1) return { ambiguo: true };
+  return { resumo: candidatos[0]! };
+}
+
 export function chaveConferencia(p: {
   tipo: 'venda' | 'devolucao'; unidade_id: string | null; itens: { produto_id: string | null; texto: string; quantidade: number; unidade: string }[];
 }): string {
