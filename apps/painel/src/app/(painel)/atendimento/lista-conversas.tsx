@@ -1,17 +1,20 @@
 import { Inbox, SearchX } from 'lucide-react';
 import Link from 'next/link';
 import { AgentStateIndicator, type EstadoAgente } from '@/components/patterns/agent-state-indicator';
+import { estadoDaConversa } from '@/components/patterns/estado-agente';
 import { BotaoTentarDeNovo } from '@/components/patterns/data-table-cliente';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { RelativeTime } from '@/components/patterns/relative-time';
 import { StatusBadge } from '@/components/patterns/status-badge';
 import { interpretarBusca } from '@/lib/busca';
+import { lerAgentePausado } from '@/lib/contadores';
 import { consultaCaixa, ordenarCaixa, passaNoFiltro, rotuloFiltroCaixa, type FiltroCaixa } from '@/lib/caixa';
 import { cn } from '@/lib/cn';
 import { mascararTelefone } from '@/lib/formatos';
 import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { FiltrosCaixa } from './filtros-caixa';
+import { Realce } from './realce';
 
 /**
  * Coluna da esquerda do Atendimento (320px), usada na lista (/atendimento) e ao lado da conversa aberta
@@ -27,6 +30,8 @@ export async function ListaConversas({
   caminho,
   selecionada,
   titulo,
+  pausaGeral: pausaPronta,
+  nomes: nomesProntos,
   className,
 }: {
   u: UsuarioPainel;
@@ -37,6 +42,10 @@ export async function ListaConversas({
   selecionada?: string;
   /** Na lista, o título da página (h1); ao lado da conversa, um título de seção (h2). */
   titulo: 'h1' | 'h2';
+  /** configuracoes.agente_pausado (null quando o RLS não deixa ler): vale para toda conversa não assumida. Sem valor, a lista lê. */
+  pausaGeral?: boolean | null;
+  /** Nomes da equipe já lidos pela página (evita ler usuarios duas vezes). */
+  nomes?: Map<string, string>;
   className?: string;
 }) {
   const sb = await supabaseServidor();
@@ -46,16 +55,17 @@ export async function ListaConversas({
   else if (filtro === 'sem_responsavel') consulta = consulta.eq('sem_responsavel', true);
   else if (filtro === 'aguardando') consulta = consulta.eq('aguardando_cliente', true);
   else if (filtro === 'agente') consulta = consulta.eq('estado', 'agente').eq('sem_responsavel', false);
-  else if (filtro === 'concluidas') consulta = consulta.eq('chamados_abertos', 0);
+  else if (filtro === 'concluidas') consulta = consulta.eq('estado', 'agente').eq('chamados_abertos', 0);
   const busca = interpretarBusca(q);
   if (busca) {
     consulta = consulta.or(`nome_contato.ilike.%${busca.termo}%,empresa.ilike.%${busca.termo}%,telefone.ilike.%${busca.digitos || busca.termo}%`);
   }
-  const [{ data, error }, { data: pessoas }] = await Promise.all([
+  const [{ data, error }, { data: pessoas }, pausaGeral] = await Promise.all([
     consulta.order('ultima_em', { ascending: false, nullsFirst: false }).limit(200),
-    sb.from('usuarios').select('id, nome'),
+    nomesProntos ? Promise.resolve({ data: null }) : sb.from('usuarios').select('id, nome'),
+    pausaPronta !== undefined ? Promise.resolve(pausaPronta) : lerAgentePausado(sb),
   ]);
-  const nomes = new Map((pessoas ?? []).map((p) => [p.id, p.nome]));
+  const nomes = nomesProntos ?? new Map((pessoas ?? []).map((p) => [p.id, p.nome]));
   const linhas = ordenarCaixa((data ?? []).filter((l) => passaNoFiltro({
     id: l.id!, atendente_id: l.atendente_id, setores_abertos: l.setores_abertos ?? [],
     sem_responsavel: Boolean(l.sem_responsavel), aguardando_cliente: Boolean(l.aguardando_cliente),
@@ -96,19 +106,23 @@ export async function ListaConversas({
               acao={filtro !== 'todas' ? <Link href={`${caminho}${consultaCaixa({ filtro: 'todas', q })}`} className="text-sm font-medium text-brand underline-offset-4 hover:underline">Ver todas</Link> : undefined} />
           )
         ) : (
+          <Realce chave="lista-conversas">
           <ul className="divide-y divide-border">
             {linhas.map((l) => {
               const ativa = l.id === selecionada;
               const aguardando = Boolean(l.sem_responsavel);
-              const estado: EstadoAgente = l.estado === 'humano'
-                ? { tipo: 'assumido', por: (l.atendente_id && nomes.get(l.atendente_id)) || 'equipe' }
-                : { tipo: 'ativo' };
+              // A view não traz a pausa do contato nem da empresa: aqui só assumida, pausa geral ou ativo.
+              const estado: EstadoAgente = estadoDaConversa({
+                assumidaPor: l.estado === 'humano' ? (l.atendente_id && nomes.get(l.atendente_id)) || 'equipe' : null,
+                pausaGeral,
+              });
               const nome = l.nome_contato && l.nome_contato !== l.telefone ? l.nome_contato : mascararTelefone(l.telefone ?? '');
               return (
                 <li key={l.id}>
                   <Link
                     href={`/atendimento/${l.id}${sufixo}`}
                     data-conversa-item=""
+                    data-realce={l.ultima_em ?? undefined}
                     aria-current={ativa ? 'page' : undefined}
                     scroll={false}
                     className={cn(
@@ -132,6 +146,7 @@ export async function ListaConversas({
               );
             })}
           </ul>
+          </Realce>
         )}
       </div>
     </section>

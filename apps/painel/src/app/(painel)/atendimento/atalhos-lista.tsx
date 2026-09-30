@@ -1,0 +1,37 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
+/** Tecla digitada num campo, num menu ou numa janela aberta não é atalho. */
+export function ignorarAtalho(e: KeyboardEvent): boolean {
+  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return true;
+  const alvo = e.target as HTMLElement | null;
+  if (alvo?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="menu"], [role="listbox"]')) return true;
+  return Boolean(document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'));
+}
+
+/**
+ * J/K: próxima/anterior conversa da lista (mantendo filtro e busca, que estão no href de cada item).
+ * Na lista sem conversa aberta, J ou K abre a primeira.
+ */
+export function AtalhosLista() {
+  const router = useRouter();
+  useEffect(() => {
+    const aoTeclar = (e: KeyboardEvent) => {
+      const tecla = e.key.toLowerCase();
+      if ((tecla !== 'j' && tecla !== 'k') || ignorarAtalho(e)) return;
+      const itens = [...document.querySelectorAll<HTMLAnchorElement>('a[data-conversa-item]')];
+      if (!itens.length) return;
+      const atual = itens.findIndex((a) => a.getAttribute('aria-current') === 'page');
+      const destino = atual < 0 ? itens[0] : itens[Math.min(Math.max(atual + (tecla === 'j' ? 1 : -1), 0), itens.length - 1)];
+      if (!destino || destino === itens[atual]) return;
+      e.preventDefault();
+      destino.scrollIntoView({ block: 'nearest' });
+      router.push(destino.getAttribute('href')!, { scroll: false });
+    };
+    document.addEventListener('keydown', aoTeclar);
+    return () => document.removeEventListener('keydown', aoTeclar);
+  }, [router]);
+  return null;
+}

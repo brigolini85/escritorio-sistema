@@ -3,6 +3,7 @@
 import { ArrowDown } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/cn';
 
 /** Distância do fim (px) em que a pessoa ainda conta como "no fim da conversa". */
 const PERTO_DO_FIM = 48;
@@ -15,7 +16,7 @@ const JANELA_ENVIO_MS = 15_000;
  * a rolagem fica onde está e aparece "Novas mensagens ↓".
  * `quantidade`: itens do histórico (mensagens + notas); é o que diz se chegou algo novo.
  */
-export function Historico({ quantidade, children }: { quantidade: number; children: ReactNode }) {
+export function Historico({ quantidade, className, children }: { quantidade: number; className?: string; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const conteudo = useRef<HTMLDivElement>(null);
   const anterior = useRef<number | null>(null);
@@ -73,7 +74,7 @@ export function Historico({ quantidade, children }: { quantidade: number; childr
   }, []);
 
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className={cn('relative min-h-0 flex-1', className)}>
       <div
         ref={ref}
         role="log"
@@ -86,7 +87,7 @@ export function Historico({ quantidade, children }: { quantidade: number; childr
           if (noFim.current && novas) setNovas(0);
         }}
       >
-        <div ref={conteudo} className="flex flex-col gap-2 p-4">{children}</div>
+        <div ref={conteudo} className="p-4">{children}</div>
       </div>
       {novas > 0 && (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">

@@ -38,7 +38,7 @@ export function EscolherDemanda({ demandas, className }: { demandas: DemandaDaCo
   return (
     <div className={className}>
       <label htmlFor={id} className="sr-only">Demanda</label>
-      <select id={id} value={atual?.id} onChange={(e) => setDemandaId(e.target.value)} className={`${campo} max-w-64 truncate`}>
+      <select id={id} value={atual?.id} onChange={(e) => setDemandaId(e.target.value)} className={`${campo} max-w-48 truncate`}>
         {demandas.map((d) => <option key={d.id} value={d.id}>{rotuloDemanda(d)}</option>)}
       </select>
     </div>
@@ -64,7 +64,7 @@ export function AcoesConversa({
   setores: { id: string; nome: string }[];
   pessoas: { id: string; nome: string }[];
 }) {
-  const { demandaId, painelAberto, alternarPainel } = useEstadoConversa();
+  const { demandaId } = useEstadoConversa();
   const d = demandaEmFoco(demandas, demandaId);
 
   return (
@@ -115,23 +115,6 @@ export function AcoesConversa({
         </>
       )}
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="ml-auto hidden size-8 lg:inline-flex"
-            aria-label={painelAberto ? 'Esconder painel lateral' : 'Mostrar painel lateral'}
-            aria-expanded={painelAberto}
-            aria-controls="painel-conversa"
-            onClick={() => alternarPainel()}
-          >
-            {painelAberto ? <PanelRightClose aria-hidden size={16} strokeWidth={1.75} /> : <PanelRightOpen aria-hidden size={16} strokeWidth={1.75} />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{painelAberto ? 'Esconder Assistente e Detalhes (Esc)' : 'Mostrar Assistente e Detalhes'}</TooltipContent>
-      </Tooltip>
     </div>
   );
 }
@@ -185,4 +168,29 @@ function BotaoEnviar({ rotulo, enviando, aoTerminar }: { rotulo: string; enviand
     antes.current = pending;
   }, [pending, aoTerminar]);
   return <Button type="submit" disabled={pending}>{pending ? enviando : rotulo}</Button>;
+}
+
+/** Mostra ou esconde o painel Assistente/Detalhes (a partir de lg; abaixo disso ele fica embaixo da conversa). */
+export function BotaoPainel() {
+  const { painelAberto, alternarPainel } = useEstadoConversa();
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          id="botao-painel-conversa"
+          className="hidden size-8 lg:inline-flex"
+          aria-label={painelAberto ? 'Esconder painel lateral' : 'Mostrar painel lateral'}
+          aria-expanded={painelAberto}
+          aria-controls="painel-conversa"
+          onClick={() => alternarPainel()}
+        >
+          {painelAberto ? <PanelRightClose aria-hidden size={16} strokeWidth={1.75} /> : <PanelRightOpen aria-hidden size={16} strokeWidth={1.75} />}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{painelAberto ? 'Esconder Assistente e Detalhes (Esc)' : 'Mostrar Assistente e Detalhes'}</TooltipContent>
+    </Tooltip>
+  );
 }

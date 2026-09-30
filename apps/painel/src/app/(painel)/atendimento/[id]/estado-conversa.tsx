@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { ignorarAtalho } from '../atalhos-lista';
 import { cookiePainelConversa } from './preferencias-conversa';
 
 export type ModoCompositor = 'responder' | 'nota';
@@ -27,65 +27,72 @@ export function useEstadoConversa(): Estado {
   return e;
 }
 
-/** Tecla digitada num campo, num menu ou numa janela aberta não é atalho. */
-function ignorarAtalho(e: KeyboardEvent): boolean {
-  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return true;
-  const alvo = e.target as HTMLElement | null;
-  if (alvo?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="menu"], [role="listbox"]')) return true;
-  return Boolean(document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'));
-}
+/** O painel só recolhe a partir de lg; abaixo disso ele fica embaixo da conversa, sempre visível. */
+const PAINEL_RECOLHIVEL = '(min-width: 1024px)';
+/** De lg até 2xl o painel fica por cima do histórico (sobreposição): o foco entra nele ao abrir. */
+export const PAINEL_SOBREPOSTO = '(min-width: 1024px) and (max-width: 1535.98px)';
+
+const botaoPainel = () => document.getElementById('botao-painel-conversa');
+const painel = () => document.getElementById('painel-conversa');
 
 /**
- * Estado da tela da conversa compartilhado entre cabeçalho, compositor e painel lateral, e os atalhos:
- * J/K próxima/anterior conversa da lista, A assumir, N nota interna, Esc fecha o painel lateral.
+ * Estado da tela da conversa compartilhado entre cabeçalho, compositor e painel lateral, e os atalhos
+ * A (assumir), N (nota interna) e Esc (fecha o painel). J/K ficam em AtalhosLista.
  * O painel aberto/fechado fica no cookie (lido no servidor, a página já nasce certa).
+ * `aviso`: erro vindo por ?erro= (redirect do assistente): abre o painel na aba Assistente para ele aparecer.
  */
 export function EstadoConversa({
   children,
   painelInicial,
   abaInicial,
   demandaInicial,
+  aviso,
 }: {
   children: ReactNode;
   painelInicial: boolean;
   abaInicial: AbaPainel;
   demandaInicial: string | null;
+  aviso?: string;
 }) {
-  const router = useRouter();
   const [painelAberto, setPainelAberto] = useState(painelInicial);
   const [aba, setAba] = useState<AbaPainel>(abaInicial);
   const [modo, setModo] = useState<ModoCompositor>('responder');
   const [demandaId, setDemandaId] = useState<string | null>(demandaInicial);
 
-  useEffect(() => { if (abaInicial === 'assistente') setAba('assistente'); }, [abaInicial]);
-
   const alternarPainel = useCallback((aberto?: boolean) => {
-    setPainelAberto((atual) => {
-      const novo = aberto ?? !atual;
-      document.cookie = cookiePainelConversa(novo);
-      return novo;
-    });
-  }, []);
+    if (!window.matchMedia(PAINEL_RECOLHIVEL).matches) return;
+    const novo = aberto ?? !painelAberto;
+    if (novo === painelAberto) return;
+    document.cookie = cookiePainelConversa(novo);
+    setPainelAberto(novo);
+    if (!novo) {
+      // O foco estava dentro do painel que vai sumir: volta para o botão que o reabre.
+      if (painel()?.contains(document.activeElement)) setTimeout(() => botaoPainel()?.focus(), 0);
+    } else if (window.matchMedia(PAINEL_SOBREPOSTO).matches) {
+      // Sobreposição: o foco entra no painel (primeiro elemento focável).
+      setTimeout(() => painel()?.querySelector<HTMLElement>('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])')?.focus(), 0);
+    }
+  }, [painelAberto]);
+
+  // Redirect com ?erro= para esta mesma conversa: o aviso fica na aba Assistente, que precisa estar visível.
+  useEffect(() => {
+    if (!aviso) return;
+    setPainelAberto(true);
+    if (abaInicial === 'assistente') setAba('assistente');
+  }, [aviso, abaInicial]);
 
   useEffect(() => {
     const aoTeclar = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (!ignorarAtalho(e) && painelAberto) alternarPainel(false);
+        // Dentro do painel (até no campo do assistente) o Esc fecha o painel; fora dele, não atrapalha quem digita.
+        const noPainel = e.target instanceof Node && painel()?.contains(e.target);
+        const janelaAberta = document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
+        if (painelAberto && !e.defaultPrevented && !janelaAberta && (noPainel || !ignorarAtalho(e))) alternarPainel(false);
         return;
       }
       if (ignorarAtalho(e)) return;
       const tecla = e.key.toLowerCase();
-      if (tecla === 'j' || tecla === 'k') {
-        const itens = [...document.querySelectorAll<HTMLAnchorElement>('a[data-conversa-item]')];
-        if (!itens.length) return;
-        const atual = itens.findIndex((a) => a.getAttribute('aria-current') === 'page');
-        const destino = itens[Math.min(Math.max(atual + (tecla === 'j' ? 1 : -1), 0), itens.length - 1)];
-        if (destino && destino !== itens[atual]) {
-          e.preventDefault();
-          destino.scrollIntoView({ block: 'nearest' });
-          router.push(destino.getAttribute('href')!, { scroll: false });
-        }
-      } else if (tecla === 'a') {
+      if (tecla === 'a') {
         const botao = document.querySelector<HTMLButtonElement>('button[data-atalho="assumir"]');
         if (botao && !botao.disabled) {
           e.preventDefault();
@@ -103,7 +110,7 @@ export function EstadoConversa({
     };
     document.addEventListener('keydown', aoTeclar);
     return () => document.removeEventListener('keydown', aoTeclar);
-  }, [painelAberto, alternarPainel, router]);
+  }, [painelAberto, alternarPainel]);
 
   const valor = useMemo(
     () => ({ painelAberto, alternarPainel, aba, setAba, modo, setModo, demandaId, setDemandaId }),

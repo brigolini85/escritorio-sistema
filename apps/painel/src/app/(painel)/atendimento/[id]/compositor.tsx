@@ -5,7 +5,6 @@ import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
 import { EscolherDemanda, rotuloDemanda, type DemandaDaConversa } from './acoes-conversa';
 import { demandaEmFoco, useEstadoConversa, type ModoCompositor } from './estado-conversa';
@@ -37,30 +36,16 @@ export function Compositor({ responder, demandas, respostas }: { responder: Acao
 
   return (
     <div data-compositor="" className="border-t border-border bg-surface p-3">
-      <Tabs value={semDemanda ? 'responder' : modo} onValueChange={(v) => setModo(v as ModoCompositor)}>
+      <Tabs value={modo} onValueChange={(v) => setModo(v as ModoCompositor)}>
         <TabsList aria-label="Tipo de mensagem" className="h-8">
           <TabsTrigger value="responder" className="h-7">
             <SendHorizontal aria-hidden size={14} strokeWidth={1.75} />
             Responder ao cliente
           </TabsTrigger>
-          {semDemanda ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span tabIndex={0} className="rounded-sm">
-                  <TabsTrigger value="nota" disabled className="h-7">
-                    <StickyNote aria-hidden size={14} strokeWidth={1.75} />
-                    Nota interna
-                  </TabsTrigger>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-64">{SEM_DEMANDA}</TooltipContent>
-            </Tooltip>
-          ) : (
-            <TabsTrigger value="nota" className="h-7 data-[state=active]:bg-internal-note data-[state=active]:text-internal-note-foreground" aria-keyshortcuts="N" title="Nota interna (atalho N)">
-              <StickyNote aria-hidden size={14} strokeWidth={1.75} />
-              Nota interna
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="nota" className="h-7 data-[state=active]:bg-internal-note data-[state=active]:text-internal-note-foreground" aria-keyshortcuts={semDemanda ? undefined : "N"} title={semDemanda ? SEM_DEMANDA : "Nota interna (atalho N)"}>
+            <StickyNote aria-hidden size={14} strokeWidth={1.75} />
+            Nota interna
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="responder" forceMount className="mt-2 data-[state=inactive]:hidden">
@@ -68,7 +53,7 @@ export function Compositor({ responder, demandas, respostas }: { responder: Acao
         </TabsContent>
         <TabsContent value="nota" forceMount className="mt-2 data-[state=inactive]:hidden">
           {demanda ? (
-            <form action={demanda.nota} className="rounded-md border border-internal-note-border bg-internal-note">
+            <form action={demanda.nota} className="rounded-md border border-internal-note-border bg-internal-note focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-ring">
               <div className="flex flex-wrap items-center gap-2 px-3 pt-2 text-xs font-medium text-internal-note-foreground">
                 <LockKeyhole aria-hidden size={14} strokeWidth={1.75} />
                 <span>Nota interna · o cliente não vê</span>
@@ -105,7 +90,7 @@ function FormResposta({ responder, respostas }: { responder: Acao; respostas: Re
   const entrada = useRef<HTMLInputElement>(null);
   const id = useId();
   return (
-    <form action={responder} onReset={() => setArquivo(null)} className="rounded-md border border-input bg-surface shadow-sm focus-within:border-brand">
+    <form action={responder} onReset={() => setArquivo(null)} className="rounded-md border border-input bg-surface shadow-sm focus-within:border-brand focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-ring">
       <CampoComRespostas name="texto" placeholder="Escreva a resposta para o cliente" rotulo="Resposta para o cliente" respostas={respostas} />
       <div className="flex flex-wrap items-center gap-2 px-2 pb-2">
         <input
@@ -113,12 +98,12 @@ function FormResposta({ responder, respostas }: { responder: Acao; respostas: Re
           id={id}
           name="arquivo"
           type="file"
-          className="sr-only"
+          className="peer sr-only"
           onChange={(e) => setArquivo(e.target.files?.[0]?.name ?? null)}
         />
         <label
           htmlFor={id}
-          className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm font-medium text-muted transition-colors duration-150 ease-out hover:bg-surface-muted hover:text-foreground"
+          className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-1 peer-focus-visible:outline-ring text-sm font-medium text-muted transition-colors duration-150 ease-out hover:bg-surface-muted hover:text-foreground"
         >
           <Paperclip aria-hidden size={16} strokeWidth={1.75} />
           Anexar arquivo
@@ -222,9 +207,7 @@ function CampoComRespostas({
         placeholder={placeholder}
         data-atalho={dataAtalho}
         className={areaTexto}
-        role={respostas.length ? 'combobox' : undefined}
         aria-autocomplete={respostas.length ? 'list' : undefined}
-        aria-expanded={respostas.length ? aberta : undefined}
         aria-controls={aberta && opcoes.length ? idLista : undefined}
         aria-activedescendant={aberta && opcoes[ativo] ? `${idLista}-${ativo}` : undefined}
         onInput={atualizar}

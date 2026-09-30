@@ -55,6 +55,7 @@ function Secao({ titulo, children }: { titulo: ReactNode; children: ReactNode })
 export function DetalhesConversa({
   conversaId,
   empresa,
+  outrasEmpresas,
   contato,
   podeEditarContato,
   demandas,
@@ -64,6 +65,8 @@ export function DetalhesConversa({
 }: {
   conversaId: string;
   empresa: { id: string; nome: string; cnpj: string | null } | null;
+  /** Outras empresas pelas quais o contato fala (só leitura). */
+  outrasEmpresas: { id: string; nome: string }[];
   contato: { id: string; nome: string; agente_pausado: boolean } | null;
   podeEditarContato: boolean;
   demandas: DemandaDetalhe[];
@@ -86,6 +89,16 @@ export function DetalhesConversa({
           </Link>
         ) : (
           <p className="text-muted">Nenhuma empresa ligada a esta conversa.</p>
+        )}
+        {outrasEmpresas.length > 0 && (
+          <div className="text-xs text-muted">
+            <p>O contato também fala por:</p>
+            <ul className="mt-1 flex flex-col gap-0.5">
+              {outrasEmpresas.map((e) => (
+                <li key={e.id}><Link href={`/clientes/${e.id}`} className="text-brand underline-offset-4 hover:underline">{e.nome}</Link></li>
+              ))}
+            </ul>
+          </div>
         )}
       </Secao>
 

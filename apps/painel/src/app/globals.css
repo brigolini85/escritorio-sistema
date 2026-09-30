@@ -67,6 +67,8 @@
   --animate-sumir: sumir 100ms ease-out;
   --animate-deslizar-direita: deslizar-direita 150ms ease-out;
   --animate-deslizar-esquerda: deslizar-esquerda 150ms ease-out;
+  /* Exceção pedida pela spec (seção 8): item que chegou pelo tempo real ganha um fundo que some em 1,5s */
+  --animate-realce: realce 1500ms ease-out;
 }
 
 /*
@@ -110,6 +112,9 @@
 @keyframes deslizar-direita {
   from { translate: 100% 0; }
 }
+@keyframes realce {
+  from { background-color: var(--brand-soft); }
+}
 @keyframes deslizar-esquerda {
   from { translate: -100% 0; }
 }
@@ -128,6 +133,18 @@
 }
 :root:has([data-faixa-ambiente]) {
   --altura-cabecalho-estimada: 4.75rem;
+}
+
+/*
+ * Conversa aberta (Atendimento) a partir de lg: cabeçalho, histórico e compositor em linhas; o painel
+ * Assistente/Detalhes fica sobre o histórico (lg até 2xl) ou numa coluna própria de 360px (2xl em diante).
+ */
+@utility grade-conversa {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+@utility grade-conversa-com-painel {
+  grid-template-columns: minmax(0, 1fr) var(--conversation-panel-width);
 }
 
 /* Números alinhados (valores, CNPJ, quantidades, horários) */
