@@ -1,7 +1,10 @@
 /*
  * Tokens do painel: a única fonte de verdade de cor, forma, sombra e fonte.
  *
- * - Trocar a cor da marca: edite só --brand (e --brand no bloco escuro). Foco (--ring) segue a marca.
+ * - Trocar a cor da marca: edite UMA linha, --brand-base (logo abaixo), em hsl(...). --brand, --brand-soft e
+ *   --brand-foreground dos dois temas e o foco (--ring) derivam dela pela sintaxe de cor relativa
+ *   (oklch(from ...), luminosidade perceptiva fixa por papel), então o contraste AA vale para qualquer matiz.
+ *   Não edite as derivadas. tokens.test.ts confere a marca atual e várias outras (vermelho, verde, roxo, amarelo...).
  * - Os valores são cores completas (hsl(...)); o Tailwind os lê em globals.css (@theme inline),
  *   gerando utilitários como bg-brand, text-muted, border-border, bg-danger-soft.
  * - Regra das semânticas e de domínio: --x é a cor "forte" (texto sobre --surface/--x-soft e fundo
@@ -17,10 +20,11 @@
 :root {
   color-scheme: light;
 
-  /* Marca */
-  --brand: hsl(221 83% 45%); /* botão primário, links, item ativo; branco sobre ele 6.8:1, como texto em --surface 6.8:1 */
+  /* Marca: TROCAR A COR DO SISTEMA É EDITAR SÓ A LINHA ABAIXO (claro e escuro seguem juntos) */
+  --brand-base: hsl(221 83% 45%); /* a cor da marca, em hsl(); tudo o que é "marca" nos dois temas sai dela */
+  --brand: oklch(from var(--brand-base) min(l, 0.5) c h); /* botão primário, links, item ativo (derivada: a marca, escurecida se for clara demais para texto branco) */
   --brand-foreground: hsl(0 0% 100%); /* texto e ícone sobre --brand */
-  --brand-soft: hsl(221 90% 96%); /* fundo de item selecionado ou ativo; --brand sobre ele 6.0:1 */
+  --brand-soft: oklch(from var(--brand-base) 0.965 min(c, 0.02) h); /* fundo de item selecionado ou ativo (derivada: quase branco no matiz da marca) */
 
   /* Superfícies */
   --background: hsl(220 20% 97%); /* fundo da aplicação, atrás dos cards */
@@ -28,7 +32,7 @@
   --surface-muted: hsl(220 16% 94%); /* zebra, hover de linha, áreas secundárias, trilho de abas */
   --border: hsl(220 14% 88%); /* divisórias e contorno de cards (decorativo) */
   --border-input: hsl(220 9% 56%); /* contorno de campos, caixas de seleção e switches; 3.4:1 em --surface */
-  --ring: var(--brand); /* anel de foco visível de todo elemento interativo; 6.8:1 em --surface */
+  --ring: var(--brand); /* anel de foco visível de todo elemento interativo (segue a marca nos dois temas) */
   --overlay: hsl(222 30% 8% / 0.5); /* véu atrás de Dialog e Sheet */
 
   /* Texto */
@@ -87,9 +91,9 @@
 /* Tema escuro escolhido pela pessoa (cookie "tema" = escuro). Mantenha idêntico ao bloco do sistema abaixo. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --brand: hsl(217 92% 68%); /* texto escuro sobre ele 6.8:1; como texto em --surface 6.3:1 */
-  --brand-foreground: hsl(222 47% 9%);
-  --brand-soft: hsl(220 45% 20%); /* --brand sobre ele 5.1:1 */
+  --brand: oklch(from var(--brand-base) 0.74 min(c, 0.13) h); /* derivadas da marca (não edite); AA conferido no teste */
+  --brand-foreground: oklch(from var(--brand-base) 0.2 min(c, 0.04) h);
+  --brand-soft: oklch(from var(--brand-base) 0.3 min(c, 0.06) h);
   --background: hsl(222 22% 7%);
   --surface: hsl(222 18% 11%);
   --surface-muted: hsl(222 15% 16%);
@@ -134,9 +138,9 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --brand: hsl(217 92% 68%);
-    --brand-foreground: hsl(222 47% 9%);
-    --brand-soft: hsl(220 45% 20%);
+    --brand: oklch(from var(--brand-base) 0.74 min(c, 0.13) h);
+    --brand-foreground: oklch(from var(--brand-base) 0.2 min(c, 0.04) h);
+    --brand-soft: oklch(from var(--brand-base) 0.3 min(c, 0.06) h);
     --background: hsl(222 22% 7%);
     --surface: hsl(222 18% 11%);
     --surface-muted: hsl(222 15% 16%);

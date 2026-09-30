@@ -12,6 +12,8 @@ const CNPJ = '11444777000161';
 // Textos próprios deste spec: não podem conter trechos que outros specs procuram com getByText.
 const TITULO = 'Comprovante de acessibilidade (a11y)';
 
+let usuarioSemeado: string | null = null;
+
 type Ids = { conversa: string; demanda: string; cliente: string; contato: string; usuario: string };
 
 async function semear(): Promise<Ids> {
@@ -40,6 +42,7 @@ async function semear(): Promise<Ids> {
     { usuario_id: usuario, canal: 'site', papel: 'assistente', conteudo: 'Há 1 demanda aberta no Fiscal: comprovante de acessibilidade.', processada_em: new Date().toISOString() },
   ]);
   if (error) throw error;
+  usuarioSemeado = usuario;
   return { conversa: conversa!.id, demanda: demanda!.id, cliente: cliente!.id, contato: contato!.id, usuario };
 }
 
@@ -49,10 +52,15 @@ test.afterAll(async () => {
   await db.from('conversas').delete().eq('telefone', TELEFONE);
   await db.from('contatos').delete().eq('telefone', TELEFONE);
   await db.from('clientes').delete().eq('cnpj', CNPJ);
+  // Apagar o login apaga também a pessoa em usuarios e as mensagens do assistente dela (cascata).
+  if (usuarioSemeado) await db.auth.admin.deleteUser(usuarioSemeado);
+  await db.from('usuarios').delete().eq('email', EMAIL);
 });
 
-async function auditar(page: Page, rotulo: string): Promise<string[]> {
+async function auditar(page: Page, rotulo: string, tema?: 'claro' | 'escuro'): Promise<string[]> {
   await page.waitForLoadState('load');
+  // A rodada escura precisa estar mesmo no escuro (se o cookie mudar de nome, o teste não pode passar auditando o claro).
+  if (tema) await expect(page.locator('html')).toHaveAttribute('data-theme', tema === 'escuro' ? 'dark' : 'light');
   // Espera o conteúdo real (sem esqueleto de carregamento) antes de auditar; o catálogo mostra esqueletos de exemplo.
   if (!rotulo.startsWith('/_design')) await expect(page.locator('.animate-pulse')).toHaveCount(0, { timeout: 15_000 });
   const resultado = await new AxeBuilder({ page })
@@ -77,11 +85,11 @@ for (const tema of ['claro', 'escuro'] as const) {
     test(`telas públicas sem violações graves (${tema})`, async ({ page }) => {
       const erros: string[] = [];
       await page.goto('/entrar');
-      erros.push(...(await auditar(page, '/entrar')));
+      erros.push(...(await auditar(page, '/entrar', tema)));
       await page.goto('/entrar?erro=credenciais');
-      erros.push(...(await auditar(page, '/entrar?erro=credenciais')));
+      erros.push(...(await auditar(page, '/entrar?erro=credenciais', tema)));
       await page.goto('/definir-senha?erro=curta');
-      erros.push(...(await auditar(page, '/definir-senha?erro=curta')));
+      erros.push(...(await auditar(page, '/definir-senha?erro=curta', tema)));
       expect(erros, erros.join('\n')).toEqual([]);
     });
 
@@ -109,7 +117,7 @@ for (const tema of ['claro', 'escuro'] as const) {
       const erros: string[] = [];
       for (const rota of rotas) {
         await page.goto(rota);
-        erros.push(...(await auditar(page, rota)));
+        erros.push(...(await auditar(page, rota, tema)));
       }
       expect(erros, erros.join('\n')).toEqual([]);
     });
@@ -124,27 +132,35 @@ for (const tema of ['claro', 'escuro'] as const) {
       await page.keyboard.press('Control+k');
       await page.getByRole('dialog').getByRole('combobox').fill('Acess');
       await expect(page.getByRole('option').first()).toBeVisible();
-      erros.push(...(await auditar(page, 'busca (Ctrl+K)')));
+      erros.push(...(await auditar(page, 'busca (Ctrl+K)', tema)));
       await page.keyboard.press('Escape');
 
       // Fora de qualquer campo (a conversa pode ter posto o foco no compositor).
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-      await page.keyboard.press('?');
-      await expect(page.getByRole('dialog', { name: 'Atalhos do teclado' })).toBeVisible();
-      erros.push(...(await auditar(page, 'atalhos (?)')));
+      await abrirAtalhos(page);
+      erros.push(...(await auditar(page, 'atalhos (?)', tema)));
       await page.keyboard.press('Escape');
 
       await page.getByRole('button', { name: 'Menu do usuário' }).click();
       await expect(page.getByRole('menu')).toBeVisible();
-      erros.push(...(await auditar(page, 'menu do usuário')));
+      erros.push(...(await auditar(page, 'menu do usuário', tema)));
       await page.keyboard.press('Escape');
 
       await page.getByRole('button', { name: 'Concluir' }).first().click();
       await expect(page.getByRole('alertdialog').or(page.getByRole('dialog'))).toBeVisible();
-      erros.push(...(await auditar(page, 'confirmação de concluir')));
+      erros.push(...(await auditar(page, 'confirmação de concluir', tema)));
       expect(erros, erros.join('\n')).toEqual([]);
     });
   });
+}
+
+/** ? fora de campos abre a lista; repete enquanto a página hidrata (o ouvinte nasce num useEffect). */
+async function abrirAtalhos(page: Page) {
+  const janela = page.getByRole('dialog', { name: 'Atalhos do teclado' });
+  await expect(async () => {
+    await page.keyboard.press('?');
+    await expect(janela).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
 }
 
 test('teclado: ? lista os atalhos só fora de campos, Esc devolve o foco e o salto leva ao conteúdo', async ({ page }) => {
@@ -163,8 +179,7 @@ test('teclado: ? lista os atalhos só fora de campos, Esc devolve o foco e o sal
   // ? abre a lista (com os atalhos pedidos) e Esc fecha devolvendo o foco a quem tinha.
   const menuPessoa = page.getByRole('button', { name: 'Menu do usuário' });
   await menuPessoa.focus();
-  await page.keyboard.press('?');
-  await expect(janela).toBeVisible();
+  await abrirAtalhos(page);
   for (const texto of ['Abrir a busca', 'Próxima / anterior conversa', 'Assumir a conversa aberta', 'Escrever nota interna', 'Fechar a janela ou o painel lateral', 'Mostrar esta lista']) {
     await expect(janela.getByText(texto)).toBeVisible();
   }
@@ -173,7 +188,11 @@ test('teclado: ? lista os atalhos só fora de campos, Esc devolve o foco e o sal
   await expect(menuPessoa).toBeFocused();
 
   // Digitando num campo, ? é só um caractere.
+  // Antes, a página precisa estar hidratada (senão ? no campo nunca abriria a janela e o teste não provaria nada).
   await page.goto('/clientes');
+  await abrirAtalhos(page);
+  await page.keyboard.press('Escape');
+  await expect(janela).toBeHidden();
   const campo = page.getByRole('main').getByRole('searchbox').first();
   await campo.fill('');
   await campo.press('?');
@@ -186,5 +205,13 @@ test('teclado: ? lista os atalhos só fora de campos, Esc devolve o foco e o sal
   await expect(janela).toBeVisible();
   await expect(janela.getByRole('button', { name: 'Fechar' })).toBeFocused();
   await page.keyboard.press('Escape');
+  await expect(menuPessoa).toBeFocused();
+
+  // A busca aberta pelo atalho (sem clicar no botão) também devolve o foco a quem tinha.
+  await page.keyboard.press('Control+k');
+  const busca = page.getByRole('dialog', { name: 'Buscar' });
+  await expect(busca).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(busca).toBeHidden();
   await expect(menuPessoa).toBeFocused();
 });

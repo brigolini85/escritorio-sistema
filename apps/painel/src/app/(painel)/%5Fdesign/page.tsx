@@ -35,7 +35,7 @@ import { Padroes } from './padroes';
 export const metadata = { title: 'Design system | Painel do Escritório' };
 
 const CORES: { grupo: string; tokens: [string, string][] }[] = [
-  { grupo: 'Marca', tokens: [['--brand', 'ações primárias, links, foco'], ['--brand-foreground', 'texto sobre a marca'], ['--brand-soft', 'item selecionado']] },
+  { grupo: 'Marca', tokens: [['--brand-base', 'a cor da marca (a única linha a editar)'], ['--brand', 'ações primárias, links, foco'], ['--brand-foreground', 'texto sobre a marca'], ['--brand-soft', 'item selecionado']] },
   {
     grupo: 'Superfícies',
     tokens: [

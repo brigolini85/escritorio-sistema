@@ -22,6 +22,7 @@ export function CommandDialog({
   shouldFilter,
   value,
   onValueChange,
+  onCloseAutoFocus,
   children,
   ...props
 }: ComponentProps<typeof Dialog> & {
@@ -32,10 +33,12 @@ export function CommandDialog({
   /** Item selecionado controlado (value do CommandItem). */
   value?: string;
   onValueChange?: (valor: string) => void;
+  /** Para onde vai o foco ao fechar (janela aberta por atalho, sem gatilho). */
+  onCloseAutoFocus?: ComponentProps<typeof DialogContent>['onCloseAutoFocus'];
 }) {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-0" mostrarFechar={false}>
+      <DialogContent className="overflow-hidden p-0" mostrarFechar={false} onCloseAutoFocus={onCloseAutoFocus}>
         <DialogTitle className="sr-only">{titulo}</DialogTitle>
         <DialogDescription className="sr-only">{descricao}</DialogDescription>
         <Command shouldFilter={shouldFilter} value={value} onValueChange={onValueChange}>{children}</Command>

@@ -2,7 +2,7 @@
 
 import { Building2, ClipboardList, Contact, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MINIMO_BUSCA, type ItemBusca, type ResultadoBusca } from '@/lib/busca';
 import { cn } from '@/lib/cn';
 import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -33,13 +33,20 @@ export function BuscaGlobal({ className }: { className?: string }) {
   const [mac, setMac] = useState(false);
   // Item destacado: volta para o primeiro sempre que chega resultado novo (senão Enter não faz nada).
   const [selecionado, setSelecionado] = useState('');
+  // Aberta pelo atalho não há gatilho: guarda quem tinha o foco para devolver ao fechar (senão, o botão Buscar).
+  const antes = useRef<HTMLElement | null>(null);
+  const botao = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setMac(/Mac|iPhone|iPad/.test(navigator.platform));
     function atalho(e: KeyboardEvent) {
       if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        setAberta((a) => !a);
+        const ativo = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+        setAberta((a) => {
+          if (!a) antes.current = ativo;
+          return !a;
+        });
       }
     }
     window.addEventListener('keydown', atalho);
@@ -106,7 +113,11 @@ export function BuscaGlobal({ className }: { className?: string }) {
     <>
       <button
         type="button"
-        onClick={() => setAberta(true)}
+        ref={botao}
+        onClick={(e) => {
+          antes.current = e.currentTarget;
+          setAberta(true);
+        }}
         aria-keyshortcuts={mac ? 'Meta+K' : 'Control+K'}
         className={cn(
           'inline-flex h-9 w-full max-w-sm cursor-pointer items-center gap-2 rounded-md border border-input bg-surface px-3 text-base text-subtle transition-colors duration-150 ease-out hover:bg-surface-muted',
@@ -119,7 +130,20 @@ export function BuscaGlobal({ className }: { className?: string }) {
           {mac ? '⌘K' : 'Ctrl K'}
         </kbd>
       </button>
-      <CommandDialog open={aberta} onOpenChange={mudarAberta} shouldFilter={false} value={selecionado} onValueChange={setSelecionado} titulo="Buscar" descricao="Busque empresas, contatos e demandas.">
+      <CommandDialog
+        open={aberta}
+        onOpenChange={mudarAberta}
+        shouldFilter={false}
+        value={selecionado}
+        onValueChange={setSelecionado}
+        titulo="Buscar"
+        descricao="Busque empresas, contatos e demandas."
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          const alvo = antes.current?.isConnected ? antes.current : botao.current;
+          alvo?.focus();
+        }}
+      >
         <CommandInput value={q} onValueChange={setQ} placeholder="Empresa, contato, CNPJ, telefone ou #número da demanda" aria-label="Buscar empresa, contato ou demanda" />
         <div className="relative">
           {/* Linha fina no topo enquanto busca com resultados já na tela */}

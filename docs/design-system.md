@@ -15,18 +15,26 @@ Guia curto para mexer na aparência do painel (`apps/painel`) sem espalhar cor, 
 
 ## Trocar a cor da marca
 
-Edite `--brand` em `tokens.css`. São três linhas com o mesmo nome: uma no bloco claro (`:root`) e uma em cada bloco escuro. Os dois blocos escuros precisam ficar idênticos, e o teste falha se divergirem.
+Edite **uma linha** em `tokens.css`: `--brand-base`, no topo do bloco `:root`.
 
 ```css
-:root { --brand: hsl(221 83% 45%); }                  /* claro */
-:root[data-theme="dark"] { --brand: hsl(217 92% 68%); } /* escuro escolhido */
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --brand: hsl(217 92% 68%); } } /* escuro do sistema */
+--brand-base: hsl(221 83% 45%); /* troque só isto: hsl(matiz saturação% luminosidade%) */
 ```
 
-- Botão primário, links, item ativo do menu e anel de foco (`--ring`) seguem a marca.
-- `--brand-soft` é o fundo suave do item selecionado. Ajuste também se quiser o tom combinando.
-- `--brand-foreground` é o texto sobre a marca. Troque se a nova cor for clara demais para texto branco.
-- Depois rode `pnpm --filter @escritorio/painel test`: `tokens.test.ts` confere o contraste WCAG AA (texto 4,5:1; foco e bordas de campo 3:1) nos dois temas.
+- Todo o resto da marca deriva dessa linha, nos dois temas, pela sintaxe de cor relativa do CSS (`oklch(from var(--brand-base) ...)`):
+  - `--brand`: botão primário, links e item ativo;
+  - `--ring`: anel de foco;
+  - `--brand-soft`: fundo do item selecionado;
+  - no escuro, também `--brand-foreground`: texto sobre a marca.
+- Não edite as derivadas.
+- **O contraste AA vale para qualquer cor.** As derivadas usam uma luminosidade perceptiva fixa por papel e herdam só o matiz e a saturação:
+  - no tema claro, uma cor clara demais para texto branco é escurecida sozinha (luminosidade OKLCH até 0,5);
+  - no escuro, a marca fica sempre clara (0,74) e o fundo suave, escuro (0,30).
+  - Por isso não existe faixa de luminosidade a evitar. O preço: um amarelo ou verde-limão vivo aparece mais escuro (puxando para oliva) nos botões do tema claro.
+- A sintaxe de cor relativa pede navegador atual: Chrome/Edge 119+, Safari 18+ e Firefox 128+.
+- Depois rode `pnpm --filter @escritorio/painel test`. O `tokens.test.ts` calcula as derivadas como o navegador e confere o contraste WCAG AA (texto 4,5:1; foco e bordas de campo 3:1) nos dois temas.
+  - O teste usa a marca atual e mais 10 cores: vermelho, verde, roxo, laranja, amarelo, ciano, rosa, verde-folha, cinza e um azul claro.
+- Para conferir com os olhos, abra o `/_design` e use o alternador de tema.
 
 ## Raio e fonte
 
@@ -34,7 +42,7 @@ Edite `--brand` em `tokens.css`. São três linhas com o mesmo nome: uma no bloc
 - **Fonte**: `--font-sans`. A Inter vem do `next/font` em `app/layout.tsx`, pela variável `--font-inter`. Para trocar de fonte, troque o `next/font` e aponte `--font-sans` para ela. Para testar rápido, coloque a fonte direto em `--font-sans`.
 - A escala de texto é fechada (12, 13, 14, 16, 20 e 24 px) e fica em `globals.css`. Não crie tamanhos novos.
 
-Prova (fase 9): ao mudar só `--brand`, os raios e `--font-sans` em `tokens.css`, o painel inteiro mudou (captura `fase9-prova-marca.png`).
+Para conferir uma troca de marca, raio ou fonte, edite o `tokens.css` e veja o `/_design` nos dois temas. O painel inteiro muda junto.
 
 ## Regras de estilo
 
