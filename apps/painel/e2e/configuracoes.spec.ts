@@ -48,6 +48,8 @@ test('administrador convida pessoa na aba Usuários e vê aviso ao faltar telefo
   await entrar(page, 'admin@teste.com', 'senha-forte-123');
   await page.getByRole('link', { name: 'Usuários' }).click();
   const preencher = async () => {
+    // O convite fica numa janela; depois de cada envio ela fecha.
+    await page.getByRole('button', { name: 'Convidar pessoa' }).click();
     await page.getByPlaceholder('Nome').last().fill('Nova Pessoa');
     await page.getByPlaceholder('E-mail').last().fill('nova@teste.com');
     await page.getByLabel('Usar o assistente pelo WhatsApp (pelo telefone acima)').last().check();

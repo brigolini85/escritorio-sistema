@@ -129,6 +129,14 @@
   height: calc(100dvh - var(--altura-cabecalho, var(--altura-cabecalho-estimada)));
 }
 
+/* Navegação interna presa logo abaixo do cabeçalho fixo (Configurações) e âncoras que não somem atrás dele. */
+@utility abaixo-cabecalho {
+  top: calc(var(--altura-cabecalho, var(--altura-cabecalho-estimada)) + 1.5rem);
+}
+@utility ancora-abaixo-cabecalho {
+  scroll-margin-top: calc(var(--altura-cabecalho, var(--altura-cabecalho-estimada)) + 1rem);
+}
+
 :root {
   --altura-cabecalho-estimada: 3.5rem;
 }

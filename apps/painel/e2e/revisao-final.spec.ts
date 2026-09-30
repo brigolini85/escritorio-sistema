@@ -69,7 +69,8 @@ test('Usuários: telefone inválido avisa; salvar mantém setor inativo, registr
   await entrar(page, 'admin-usuarios@e2e.local', senha);
   await page.goto('/usuarios');
   await page.getByText('Bia Revisão · Atendente').click();
-  const form = page.locator('details', { hasText: 'Bia Revisão · Atendente' }).locator('form');
+  // Clicar na linha abre o painel lateral (?usuario=) com o formulário da pessoa.
+  const form = page.getByRole('dialog').locator('form');
   await expect(form.getByLabel('Setor Inativo E2E (inativo)')).toBeChecked();
 
   await form.getByPlaceholder('Telefone com DDD (para o assistente pelo WhatsApp)').fill('12345');

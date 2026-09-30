@@ -46,13 +46,16 @@ export function Sugestoes({ itens }: { itens: string[] }) {
 }
 
 /**
- * O maxlength do campo conta a quebra de linha como 1, mas o navegador a envia como "\r\n" (2), e o servidor
- * recusa acima de 4000. O navegador avisa no campo antes de enviar, em vez de a pergunta voltar com erro.
+ * O navegador avisa no campo antes de enviar, em vez de a pergunta voltar com erro:
+ * - só espaços ou quebras de linha passam pelo `required`, mas o servidor recusa a pergunta vazia ("Escreva a pergunta");
+ * - o maxlength conta a quebra de linha como 1, mas o navegador a envia como "\r\n" (2), e o servidor recusa acima de 4000.
  */
 function conferirTamanho(el: HTMLTextAreaElement) {
-  el.setCustomValidity(tamanhoEnviado(el.value) > LIMITE_PERGUNTA
-    ? `A pergunta passou de ${LIMITE_PERGUNTA} caracteres (cada quebra de linha conta como 2). Encurte um pouco.`
-    : '');
+  el.setCustomValidity(el.value !== '' && el.value.trim() === ''
+    ? 'Escreva a pergunta (só espaços não contam).'
+    : tamanhoEnviado(el.value) > LIMITE_PERGUNTA
+      ? `A pergunta passou de ${LIMITE_PERGUNTA} caracteres (cada quebra de linha conta como 2). Encurte um pouco.`
+      : '');
 }
 
 /**
