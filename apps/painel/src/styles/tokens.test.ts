@@ -20,11 +20,28 @@ function declaracoes(corpo: string): Map<string, string> {
   return m;
 }
 
-const blocoClaro = bloco(':root');
-const claro = declaracoes(blocoClaro);
-const escuroCookie = declaracoes(bloco(':root[data-theme="dark"]'));
-const escuroSistema = declaracoes(bloco(':root:not([data-theme="light"])', css.slice(css.indexOf('@media (prefers-color-scheme: dark)'))));
+// Navegador atual: blocos de tema + derivadas do @supports (cor relativa). Navegador antigo: só os blocos de tema,
+// com as reservas fixas em hsl() nas cores de marca.
+const SUPORTE = '@supports (color: oklch(from red l c h))';
+const base = css.slice(0, css.indexOf(SUPORTE));
+const suportes = css.slice(css.indexOf(SUPORTE));
+const MEDIA_ESCURO = '@media (prefers-color-scheme: dark)';
+const SISTEMA_ESCURO = ':root:not([data-theme="light"])';
+
+const blocoClaro = bloco(':root', base);
+const reservaClaro = declaracoes(blocoClaro);
+const reservaEscuroCookie = declaracoes(bloco(':root[data-theme="dark"]', base));
+const reservaEscuroSistema = declaracoes(bloco(SISTEMA_ESCURO, base.slice(base.indexOf(MEDIA_ESCURO))));
+const derivClaro = declaracoes(bloco(':root', suportes));
+const derivEscuroCookie = declaracoes(bloco(':root[data-theme="dark"]', suportes));
+const derivEscuroSistema = declaracoes(bloco(SISTEMA_ESCURO, suportes.slice(suportes.indexOf(MEDIA_ESCURO))));
+
+const claro = new Map([...reservaClaro, ...derivClaro]);
+const escuroCookie = new Map([...reservaEscuroCookie, ...derivEscuroCookie]);
+const escuroSistema = new Map([...reservaEscuroSistema, ...derivEscuroSistema]);
 const escuro = new Map([...claro, ...escuroCookie]);
+const antigoClaro = reservaClaro;
+const antigoEscuro = new Map([...reservaClaro, ...reservaEscuroCookie]);
 
 function resolver(tema: Map<string, string>, nome: string): string {
   let v = tema.get(nome);
@@ -194,6 +211,26 @@ describe('tokens.css', () => {
     expect(escuroCookie.has('--brand-base')).toBe(false);
     expect(claro.get('--ring')).toBe('var(--brand)');
   });
+
+  it('navegador antigo: toda derivada do @supports tem reserva fixa no mesmo tema, sem cor relativa', () => {
+    const pares = [[derivClaro, reservaClaro], [derivEscuroCookie, reservaEscuroCookie], [derivEscuroSistema, reservaEscuroSistema]] as const;
+    for (const [deriv, reserva] of pares) {
+      for (const nome of deriv.keys()) expect(reserva.get(nome), nome).toMatch(/^hsl\(/);
+    }
+    for (const mapa of [reservaClaro, reservaEscuroCookie, reservaEscuroSistema]) {
+      expect([...mapa.values()].filter((v) => v.includes('oklch(from'))).toEqual([]);
+    }
+    expect([...derivEscuroSistema]).toEqual([...derivEscuroCookie]);
+  });
+
+  for (const [nomeTema, tema] of [['claro', antigoClaro], ['escuro', antigoEscuro]] as const) {
+    it(`contraste AA no tema ${nomeTema} em navegador antigo (reservas)`, () => {
+      const falhas = PARES.map(([f, b, min]) => ({ par: `${f} sobre ${b}`, razao: contraste(tema, f, b), min }))
+        .filter((p) => p.razao < p.min)
+        .map((p) => `${p.par}: ${p.razao.toFixed(2)} < ${p.min}`);
+      expect(falhas).toEqual([]);
+    });
+  }
 
   for (const base of OUTRAS_MARCAS) {
     it(`contraste AA nos dois temas com a marca ${base}`, () => {

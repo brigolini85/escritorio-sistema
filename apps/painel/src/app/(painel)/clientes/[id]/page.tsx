@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
+import { AvisoErro } from '@/components/patterns/aviso-erro';
 import { DocumentText } from '@/components/patterns/document-text';
 import { Badge } from '@/components/ui/badge';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { AvisoErro } from '../aviso-erro';
 import { ABAS, AbasCliente, EscolhaParceiros, type Aba } from './abas';
 import { SecaoContatos } from './secao-contatos';
 import { SecaoDados } from './secao-dados';
@@ -45,7 +45,7 @@ export default async function FichaCliente({ params, searchParams }: {
           </span>
         )}
       />
-      <AvisoErro erro={erro} />
+      <AvisoErro erro={erro} prefixo="Não foi possível salvar: " />
       <AbasCliente id={id} atual={aba} />
       {(aba === 'clientes' || aba === 'fornecedores') && <EscolhaParceiros id={id} atual={aba} />}
       {aba === 'dados' && <SecaoDados id={id} u={u} pode={pode} c={c} erro={erro} />}

@@ -6,14 +6,18 @@ import { estadoPelaPausaGeral as estadoDoAgente, type EstadoAgente } from '@/com
 import { toast } from '@/components/ui/toaster';
 import { contarConversasAguardando, contarDemandasAbertas, deveAvisarNovaConversa, lerAgentePausado } from '@/lib/contadores';
 import { autenticarTempoReal, supabaseNavegador } from '@/lib/supabase/navegador';
+import { msDesdeRecargaPorTempoReal, paginaRecarregaAoVivo } from './recarga-pagina';
 import type { Contadores } from './sidebar';
 
 const ESPERA_EVENTOS_MS = 500;
 const RELEITURA_AGENTE_MS = 60_000;
+/** Números do servidor que chegam até este tempo depois de uma recarga do tempo real contam como "evento" (aviso). */
+const JANELA_RECARGA_TEMPO_REAL_MS = 15_000;
 
 /**
  * Contadores do menu e estado do agente ao vivo, sem recarregar a página:
- * - evento de tempo real em conversas/chamados visíveis → relê só as duas contagens pelo navegador (RLS);
+ * - evento de tempo real em conversas/chamados visíveis → relê só as duas contagens pelo navegador (RLS),
+ *   exceto quando a página já recarrega pelo tempo real (AtualizarAoVivo): aí as contagens vêm do layout;
  * - estado do agente (só quem lê configuracoes): configuracoes não está na publicação do tempo real,
  *   então é relido junto com os eventos, ao voltar para a aba e a cada minuto;
  * - valores novos vindos do servidor (server action que revalida, navegação) substituem os locais.
@@ -29,11 +33,21 @@ export function useAoVivo(inicial: { contadores: Contadores; estadoAgente: Estad
   const ultimaAcao = useRef(0);
   const leAgente = inicial.estadoAgente !== null;
 
-  // Valores do servidor mandam (o layout re-renderiza depois de server actions que revalidam).
+  const avisarSeNova = (antes: number | null, depois: number | null) => {
+    if (!deveAvisarNovaConversa(antes, depois, Date.now() - ultimaAcao.current)) return;
+    toast('Nova conversa aguardando atendimento', {
+      action: { label: 'Abrir', onClick: () => router.push('/atendimento?filtro=sem_responsavel') },
+    });
+  };
+
+  // Valores do servidor mandam (o layout re-renderiza depois de server actions que revalidam e das recargas do
+  // AtualizarAoVivo). Subida logo depois de uma recarga do tempo real é "conversa nova", como no caminho da releitura.
   const { atendimento, demandas } = inicial.contadores;
   useEffect(() => {
+    const antes = atual.current.atendimento;
     atual.current = { atendimento, demandas };
     setContadores({ atendimento, demandas });
+    if (msDesdeRecargaPorTempoReal() < JANELA_RECARGA_TEMPO_REAL_MS) avisarSeNova(antes, atendimento);
   }, [atendimento, demandas]);
   const tipoAgente = inicial.estadoAgente?.tipo;
   useEffect(() => {
@@ -81,14 +95,12 @@ export function useAoVivo(inicial: { contadores: Contadores; estadoAgente: Estad
       atual.current = novo;
       setContadores(novo);
       if (leAgente && p !== null) setEstadoAgente(estadoDoAgente(p));
-      if (origem === 'tempo-real' && deveAvisarNovaConversa(antes.atendimento, novo.atendimento, Date.now() - ultimaAcao.current)) {
-        toast('Nova conversa aguardando atendimento', {
-          action: { label: 'Abrir', onClick: () => router.push('/atendimento?filtro=sem_responsavel') },
-        });
-      }
+      if (origem === 'tempo-real') avisarSeNova(antes.atendimento, novo.atendimento);
     }
 
     const agendar = () => {
+      // A página recarrega sozinha por este evento (AtualizarAoVivo): o layout traz contagens e agente novos.
+      if (paginaRecarregaAoVivo()) return;
       clearTimeout(espera);
       espera = setTimeout(() => void reler('tempo-real'), ESPERA_EVENTOS_MS);
     };

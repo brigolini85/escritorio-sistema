@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatarCnpj, interpretarBusca, itemContato, itemDemanda, itemEmpresa, linkContato, linkDemanda, linkEmpresa } from './busca';
+import { interpretarBusca, itemContato, itemDemanda, itemEmpresa, linkContato, linkDemanda, linkEmpresa, termoSeguroPostgrest } from './busca';
 
 describe('interpretarBusca', () => {
   it('precisa de pelo menos 2 caracteres', () => {
@@ -37,9 +37,9 @@ describe('links', () => {
 });
 
 describe('itens', () => {
-  it('formata CNPJ', () => {
-    expect(formatarCnpj('11222333000181')).toBe('11.222.333/0001-81');
-    expect(formatarCnpj('123')).toBe('123');
+  it('formata CNPJ com a máscara de formatos.ts (mascararCNPJ)', () => {
+    expect(itemEmpresa({ id: 'e', razao_social: 'X', nome_fantasia: null, cnpj: '11222333000181' }).detalhe).toBe('CNPJ 11.222.333/0001-81');
+    expect(itemEmpresa({ id: 'e', razao_social: 'X', nome_fantasia: null, cnpj: '123' }).detalhe).toBe('CNPJ 123');
   });
   it('empresa mostra nome fantasia, razão social e CNPJ', () => {
     expect(itemEmpresa({ id: 'e1', razao_social: 'Mercado Teste Ltda', nome_fantasia: 'Mercado Teste', cnpj: '11222333000181' }))
@@ -54,5 +54,20 @@ describe('itens', () => {
       .toEqual({ id: 'd1', titulo: '#7 Guia do DAS', detalhe: 'X Ltda · Em andamento', href: '/atendimento/cv' });
     expect(itemDemanda({ id: 'd2', numero: 8, titulo: 'Sem conversa', status: 'aberto', conversa_id: null, clientes: null }))
       .toMatchObject({ detalhe: 'Aberta', href: '/demandas' });
+  });
+});
+
+describe('termoSeguroPostgrest', () => {
+  it('tira o que tem significado no filtro or/ilike, inclusive aspas', () => {
+    expect(termoSeguroPostgrest('Mercado "Bom" (Centro), 50%*\\')).toBe('Mercado Bom Centro 50');
+  });
+  it('vazio, nulo e só símbolos viram texto vazio', () => {
+    expect(termoSeguroPostgrest(undefined)).toBe('');
+    expect(termoSeguroPostgrest(null)).toBe('');
+    expect(termoSeguroPostgrest(' "(),* ')).toBe('');
+  });
+  it('mantém uma letra só (as listas de clientes e contatos aceitam) e corta textos enormes', () => {
+    expect(termoSeguroPostgrest('a')).toBe('a');
+    expect(termoSeguroPostgrest('b'.repeat(500))).toHaveLength(80);
   });
 });

@@ -12,7 +12,7 @@ import { blocosDoTexto } from '@/lib/texto-assistente';
 import { Realce } from '../atendimento/realce';
 import { perguntarAoAssistente } from './acoes';
 import { CompositorAssistente, ProvedorAssistente, Sugestoes } from './compositor-assistente';
-import { ListaRolante } from './lista-rolante';
+import { HistoricoRolante } from '@/components/patterns/historico-rolante';
 
 type ArquivoCsv = { tipo: string; chamados: string[]; nome: string; partes?: number };
 
@@ -46,10 +46,14 @@ export async function ConversaAssistente({ usuarioId, conversaId, podeCsv, compa
     <ProvedorAssistente>
       <div className={cn('flex min-h-0 flex-1 flex-col gap-3', compacta && 'min-h-80 max-lg:max-h-128')}>
         <Realce chave={`assistente-${conversaId ?? 'geral'}`} lembrar={false} className="flex min-h-0 flex-1 flex-col">
-          <ListaRolante
+          <HistoricoRolante
+            como="ul"
+            compositor="[data-compositor-assistente]"
+            testId="mensagens-assistente"
+            className="flex min-h-0 flex-1 flex-col"
             rotulo="Conversa com o assistente"
             ultima={`${mensagens.at(-1)?.id ?? ''}-${pensando}`}
-            className={compacta ? 'pr-1' : 'px-1 py-2'}
+            classNameLista={cn('flex min-h-0 flex-1 flex-col gap-3 focus-visible:outline-2 focus-visible:outline-ring', compacta ? 'pr-1' : 'px-1 py-2')}
           >
             {linhas.map((l) => {
               if (l.tipo === 'dia') {
@@ -111,7 +115,7 @@ export async function ConversaAssistente({ usuarioId, conversaId, podeCsv, compa
                 />
               </li>
             )}
-          </ListaRolante>
+          </HistoricoRolante>
         </Realce>
         <CompositorAssistente acao={perguntarAoAssistente.bind(null, conversaId)} compacta={compacta} />
       </div>

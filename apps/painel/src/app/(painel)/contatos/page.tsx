@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button, variantesBotao } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { termoSeguroPostgrest } from '@/lib/busca';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { faixaDaConsulta, hrefComParams, lerOrdem, lerPagina, paginar, PARAM_PAGINA, valorParam, type Paginacao, type ParamsBusca } from '@/lib/tabela-url';
@@ -34,8 +35,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const u = await obterUsuario();
   const pode = temPermissao(u, 'editar_clientes');
-  // Vírgula, parênteses e * têm significado no filtro `or` do PostgREST.
-  const q = (valorParam(params, 'q') ?? '').replace(/[,()*%\\]/g, ' ').trim();
+  const q = termoSeguroPostgrest(valorParam(params, 'q'));
   const agente = valorParam(params, 'agente');
   const aberto = valorParam(params, 'contato');
   const contatoAberto = aberto && UUID.test(aberto) ? aberto : null;

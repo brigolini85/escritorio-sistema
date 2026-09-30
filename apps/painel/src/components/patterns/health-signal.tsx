@@ -21,7 +21,8 @@ const TEXTO: Record<SituacaoSinal, string> = {
 
 /**
  * Sinal de vida (WhatsApp, fila, trabalhador): ponto colorido + nome + "há 40s".
- * A situação também vai em texto (leitor de tela e tooltip), nunca só a cor. Atualiza sozinho a cada 15s.
+ * A situação também vai em texto (leitor de tela e tooltip), nunca só a cor. Recalcula a situação a cada 15s contra
+ * `ultimoSinal`; trazer um `ultimoSinal` novo é da página (monte RecarregarPeriodico), senão ele vira "Parado" sozinho.
  */
 export function HealthSignal({
   rotulo,

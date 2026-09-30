@@ -2,6 +2,7 @@ import type { CompradorCadastrado, PedidoVendaSalvo } from '@escritorio/core';
 import { FileText, Inbox, Plus, SearchX } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AgentStateIndicator } from '@/components/patterns/agent-state-indicator';
+import { AvisoErro } from '@/components/patterns/aviso-erro';
 import { BlingExportButton } from '@/components/patterns/bling-export-button';
 import { DataTable, DataTableCarregando } from '@/components/patterns/data-table';
 import { DiffPreview } from '@/components/patterns/diff-preview';
@@ -9,6 +10,7 @@ import { DocumentText } from '@/components/patterns/document-text';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { FormField } from '@/components/patterns/form-field';
 import { HealthSignal } from '@/components/patterns/health-signal';
+import { HistoricoRolante } from '@/components/patterns/historico-rolante';
 import { MessageBubble } from '@/components/patterns/message-bubble';
 import { MoneyText } from '@/components/patterns/money-text';
 import { OrderSummary } from '@/components/patterns/order-summary';
@@ -210,6 +212,21 @@ export function Padroes({ params }: { params: ParamsBusca }) {
         <EmptyState titulo="Nenhuma conversa aguardando" descricao="Quando o agente passar uma conversa para a equipe, ela aparece aqui." />
         <EmptyState icone={SearchX} titulo="Nada encontrado para “costela”" descricao="Confira a grafia ou limpe os filtros." acao={<Button variant="outline" size="sm">Limpar filtros</Button>} />
       </Exemplo>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Exemplo titulo="HistoricoRolante (abre no fim; mensagem nova desce ou mostra “Novas mensagens ↓”)" className="flex h-64 flex-col">
+          <HistoricoRolante ultima="exemplo-3" compositor="[data-compositor-exemplo]" rotulo="Exemplo de histórico" role="log" className="min-h-0 flex-1" classNameLista="h-full">
+            <div className="flex flex-col gap-3 p-2">
+              <MessageBubble autor="cliente" nome="João Lima" hora={ha(3500)} conteudo="Bom dia! Preciso da nota do pedido de ontem." />
+              <MessageBubble autor="agente" hora={ha(3490)} conteudo="Bom dia, João! Já encaminhei para o Fiscal." />
+              <MessageBubble autor="atendente" nome="Maria Souza" hora={ha(600)} conteudo="Anotado, João. A nota sai amanhã cedo." />
+            </div>
+          </HistoricoRolante>
+        </Exemplo>
+        <Exemplo titulo="AvisoErro (?erro= das actions; com limparDaUrl ganha o botão de fechar)" className="flex flex-col gap-3">
+          <AvisoErro erro="CNPJ inválido." prefixo="Não foi possível salvar: " />
+        </Exemplo>
+      </div>
 
       <Exemplo titulo="MessageBubble" className="flex flex-col gap-3">
         <MessageBubble autor="sistema" hora={ha(3600)} conteudo="Conversa assumida por Maria Souza" />

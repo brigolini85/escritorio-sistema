@@ -4,7 +4,9 @@
  * - Trocar a cor da marca: edite UMA linha, --brand-base (logo abaixo), em hsl(...). --brand, --brand-soft e
  *   --brand-foreground dos dois temas e o foco (--ring) derivam dela pela sintaxe de cor relativa
  *   (oklch(from ...), luminosidade perceptiva fixa por papel), então o contraste AA vale para qualquer matiz.
- *   Não edite as derivadas. tokens.test.ts confere a marca atual e várias outras (vermelho, verde, roxo, amarelo...).
+ *   Não edite as derivadas (bloco @supports no fim). tokens.test.ts confere a marca atual e várias outras.
+ *   As cores de marca em hsl() nos blocos de tema são só reservas para navegador antigo (sem cor relativa):
+ *   trocá-las junto é opcional; sem trocar, quem usa navegador antigo vê a marca padrão (azul).
  * - Os valores são cores completas (hsl(...)); o Tailwind os lê em globals.css (@theme inline),
  *   gerando utilitários como bg-brand, text-muted, border-border, bg-danger-soft.
  * - Regra das semânticas e de domínio: --x é a cor "forte" (texto sobre --surface/--x-soft e fundo
@@ -22,9 +24,9 @@
 
   /* Marca: TROCAR A COR DO SISTEMA É EDITAR SÓ A LINHA ABAIXO (claro e escuro seguem juntos) */
   --brand-base: hsl(221 83% 45%); /* a cor da marca, em hsl(); tudo o que é "marca" nos dois temas sai dela */
-  --brand: oklch(from var(--brand-base) min(l, 0.5) c h); /* botão primário, links, item ativo (derivada: a marca, escurecida se for clara demais para texto branco) */
+  --brand: hsl(221 83% 45%); /* botão primário, links, item ativo (reserva p/ navegador antigo; no atual é derivada de --brand-base, ver @supports no fim) */
   --brand-foreground: hsl(0 0% 100%); /* texto e ícone sobre --brand */
-  --brand-soft: oklch(from var(--brand-base) 0.965 min(c, 0.02) h); /* fundo de item selecionado ou ativo (derivada: quase branco no matiz da marca) */
+  --brand-soft: hsl(221 90% 96%); /* fundo de item selecionado ou ativo (reserva p/ navegador antigo; no atual é derivada, ver @supports) */
 
   /* Superfícies */
   --background: hsl(220 20% 97%); /* fundo da aplicação, atrás dos cards */
@@ -91,9 +93,9 @@
 /* Tema escuro escolhido pela pessoa (cookie "tema" = escuro). Mantenha idêntico ao bloco do sistema abaixo. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --brand: oklch(from var(--brand-base) 0.74 min(c, 0.13) h); /* derivadas da marca (não edite); AA conferido no teste */
-  --brand-foreground: oklch(from var(--brand-base) 0.2 min(c, 0.04) h);
-  --brand-soft: oklch(from var(--brand-base) 0.3 min(c, 0.06) h);
+  --brand: hsl(217 92% 68%); /* reservas p/ navegador antigo; no atual valem as derivadas de --brand-base (@supports no fim) */
+  --brand-foreground: hsl(222 47% 9%);
+  --brand-soft: hsl(220 45% 20%);
   --background: hsl(222 22% 7%);
   --surface: hsl(222 18% 11%);
   --surface-muted: hsl(222 15% 16%);
@@ -138,9 +140,9 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --brand: oklch(from var(--brand-base) 0.74 min(c, 0.13) h);
-    --brand-foreground: oklch(from var(--brand-base) 0.2 min(c, 0.04) h);
-    --brand-soft: oklch(from var(--brand-base) 0.3 min(c, 0.06) h);
+    --brand: hsl(217 92% 68%);
+    --brand-foreground: hsl(222 47% 9%);
+    --brand-soft: hsl(220 45% 20%);
     --background: hsl(222 22% 7%);
     --surface: hsl(222 18% 11%);
     --surface-muted: hsl(222 15% 16%);
@@ -179,5 +181,32 @@
     --internal-note-border: hsl(44 55% 35%);
     --shadow-sm: 0 1px 2px 0 hsl(222 40% 2% / 0.5);
     --shadow-md: 0 6px 16px -4px hsl(222 40% 2% / 0.7), 0 2px 4px -2px hsl(222 40% 2% / 0.5);
+  }
+}
+
+/*
+ * Derivadas da marca (não edite): valem em todo navegador que entende a sintaxe de cor relativa (Chrome/Edge 119+,
+ * Safari 18+, Firefox 128+). Saem de --brand-base, então trocar a marca continua sendo UMA linha. Num navegador
+ * antigo ficam as reservas fixas em hsl() dos blocos acima (a marca padrão): botões e foco continuam visíveis.
+ * Mantenha os dois blocos escuros daqui idênticos, como os de cima. AA conferido em tokens.test.ts.
+ */
+@supports (color: oklch(from red l c h)) {
+  :root {
+    --brand: oklch(from var(--brand-base) min(l, 0.5) c h); /* a marca, escurecida se for clara demais para texto branco */
+    --brand-soft: oklch(from var(--brand-base) 0.965 min(c, 0.02) h); /* quase branco no matiz da marca */
+  }
+
+  :root[data-theme="dark"] {
+    --brand: oklch(from var(--brand-base) 0.74 min(c, 0.13) h);
+    --brand-foreground: oklch(from var(--brand-base) 0.2 min(c, 0.04) h);
+    --brand-soft: oklch(from var(--brand-base) 0.3 min(c, 0.06) h);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --brand: oklch(from var(--brand-base) 0.74 min(c, 0.13) h);
+      --brand-foreground: oklch(from var(--brand-base) 0.2 min(c, 0.04) h);
+      --brand-soft: oklch(from var(--brand-base) 0.3 min(c, 0.06) h);
+    }
   }
 }

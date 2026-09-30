@@ -1,8 +1,8 @@
 'use client';
 
 import { useOptimistic, useTransition } from 'react';
-import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
+import { toast } from '@/components/ui/toaster';
 import { cn } from '@/lib/cn';
 import { PermissionGate } from './permission-gate';
 

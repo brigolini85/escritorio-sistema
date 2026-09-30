@@ -2,6 +2,7 @@ import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
+import { RecarregarPeriodico } from '@/components/layout/recarregar-periodico';
 import { AgentStateIndicator } from '@/components/patterns/agent-state-indicator';
 import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
 import { EmptyState } from '@/components/patterns/empty-state';
@@ -17,6 +18,7 @@ import { formatarUSD } from '@/lib/formatos';
 import { LIMITES_BATIMENTO, lerSinaisVida, MINUTOS_SEM_RESPONSAVEL_PADRAO, situacaoTeto } from '@/lib/inicio';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
+import { AtualizarAoVivo } from '../atendimento/atualizar-ao-vivo';
 import { alternarPausaGeral, marcarAlertaLido } from './acoes';
 import { FaixaAlertas } from './faixa-alertas';
 import { gastoDoMes } from './gasto-do-mes';
@@ -30,7 +32,8 @@ const NIVEL_AVISO: Record<string, { rotulo: string; variant: 'danger' | 'warning
 /**
  * Início: painel de situação. Em ordem: faixa de alertas (só com algo errado), agente, sinais de vida, números do dia
  * e avisos. Configurações, sinais de vida e gasto de IA só o administrador lê (RLS): para as outras pessoas esses
- * cartões não aparecem. Tempo real: a casca recarrega a página quando conversas ou demandas mudam.
+ * cartões não aparecem. A página recarrega sozinha: pelo tempo real (AtualizarAoVivo, conversas e demandas) e a
+ * cada minuto com a aba visível (RecarregarPeriodico), para sinais de vida, alertas e números não ficarem velhos.
  */
 export default async function Inicio() {
   const u = await obterUsuario();
@@ -72,6 +75,8 @@ export default async function Inicio() {
 
   return (
     <div className="flex max-w-5xl flex-col gap-6">
+      <AtualizarAoVivo />
+      <RecarregarPeriodico />
       <PageHeader titulo="Início" descricao="Como está o atendimento agora." className="mb-0" />
 
       <FaixaAlertas teto={teto} sinais={sinais} />

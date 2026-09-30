@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/patterns/empty-state';
 import { FilterBar } from '@/components/patterns/filter-bar';
 import { Badge } from '@/components/ui/badge';
 import { variantesBotao } from '@/components/ui/button';
+import { termoSeguroPostgrest } from '@/lib/busca';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { faixaDaConsulta, lerOrdem, lerPagina, paginar, valorParam, type Paginacao, type ParamsBusca } from '@/lib/tabela-url';
@@ -25,8 +26,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const u = await obterUsuario();
   const pode = temPermissao(u, 'editar_clientes');
-  // Vírgula, parênteses e * têm significado no filtro `or` do PostgREST: tirar para a busca não quebrar.
-  const q = (valorParam(params, 'q') ?? '').replace(/[,()*%\\]/g, ' ').trim();
+  const q = termoSeguroPostgrest(valorParam(params, 'q'));
   const situacao = valorParam(params, 'situacao');
   const ordem = lerOrdem(params, ORDENAVEIS, { coluna: 'razao_social', direcao: 'asc' })!;
   const sb = await supabaseServidor();

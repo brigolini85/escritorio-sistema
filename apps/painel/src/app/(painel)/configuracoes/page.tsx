@@ -2,6 +2,7 @@ import { CalendarOff, MessageSquareText, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
+import { RecarregarPeriodico } from '@/components/layout/recarregar-periodico';
 import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { FormField } from '@/components/patterns/form-field';
@@ -93,6 +94,8 @@ export default async function Configuracoes() {
 
   return (
     <section>
+      {/* Sinais de vida das Integrações: recarrega a cada minuto com a aba visível (campos digitados continuam). */}
+      <RecarregarPeriodico />
       <PageHeader
         titulo="Configurações"
         descricao={<>Usuários e permissões ficam na aba <Link href="/usuarios" className="text-brand underline underline-offset-4">Usuários</Link>.</>}

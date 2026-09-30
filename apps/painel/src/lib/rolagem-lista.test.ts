@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decidirRolagem, JANELA_ENVIO_MS } from './rolagem-lista';
+import { decidirRolagem, estaNoFim, JANELA_ENVIO_MS, PERTO_DO_FIM } from './rolagem-lista';
 
 const longe = JANELA_ENVIO_MS + 1;
 
@@ -15,5 +15,22 @@ describe('decidirRolagem', () => {
     expect(decidirRolagem({ anterior: 'a-true', ultima: 'b-false', noFim: true, desdeEnvioMs: longe })).toBe('descer');
     expect(decidirRolagem({ anterior: 'a-false', ultima: 'a-true', noFim: false, desdeEnvioMs: 2000 })).toBe('descer');
     expect(decidirRolagem({ anterior: 'a-true', ultima: 'b-false', noFim: false, desdeEnvioMs: longe })).toBe('avisar');
+  });
+});
+
+describe('estaNoFim', () => {
+  it('conta como fim até PERTO_DO_FIM px antes do fim', () => {
+    expect(estaNoFim({ scrollHeight: 1000, clientHeight: 400, scrollTop: 600 })).toBe(true);
+    expect(estaNoFim({ scrollHeight: 1000, clientHeight: 400, scrollTop: 600 - PERTO_DO_FIM + 1 })).toBe(true);
+    expect(estaNoFim({ scrollHeight: 1000, clientHeight: 400, scrollTop: 600 - PERTO_DO_FIM })).toBe(false);
+  });
+  it('lista menor que a área visível está sempre no fim', () => {
+    expect(estaNoFim({ scrollHeight: 300, clientHeight: 400, scrollTop: 0 })).toBe(true);
+  });
+});
+
+describe('decidirRolagem por identidade', () => {
+  it('troca da última mensagem com a mesma quantidade ainda é novidade', () => {
+    expect(decidirRolagem({ anterior: 'm1', ultima: 'm2', noFim: false, desdeEnvioMs: longe })).toBe('avisar');
   });
 });

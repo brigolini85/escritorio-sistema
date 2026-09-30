@@ -1,6 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { marcarRecargaPorTempoReal, registrarPaginaAoVivo } from '@/components/layout/recarga-pagina';
 import { autenticarTempoReal, supabaseNavegador } from '@/lib/supabase/navegador';
 
 /** Evento da conversa aberta (ou do assistente da pessoa): recarrega quase na hora, juntando só a mesma rajada. */
@@ -17,6 +18,7 @@ type Mudanca = { new?: Record<string, unknown> | null; old?: Record<string, unkn
  * a conversa dele com o assistente). Ouve tudo o que o RLS libera, porque a lista de conversas aparece também ao
  * lado da conversa aberta; eventos da conversa aberta (`conversaAberta`) recarregam logo, os outros esperam.
  * Com a aba escondida não recarrega nada: marca pendente e recarrega ao voltar.
+ * Enquanto está montado, a casca não relê as contagens por conta própria (ver components/layout/recarga-pagina.ts).
  */
 export function AtualizarAoVivo({ conversaAberta, assistenteDe }: { conversaAberta?: string; assistenteDe?: string }) {
   const router = useRouter();
@@ -29,12 +31,14 @@ export function AtualizarAoVivo({ conversaAberta, assistenteDe }: { conversaAber
     let prazoAtual = 0;
     let urgentePendente = false;
     let pendenteEscondido = false;
+    let desregistrar = () => {};
 
     const recarregar = () => {
       clearTimeout(espera);
       espera = undefined;
       primeiroPendente = 0;
       urgentePendente = false;
+      marcarRecargaPorTempoReal();
       router.refresh();
     };
     const agendar = (urgente: boolean) => {
@@ -86,10 +90,13 @@ export function AtualizarAoVivo({ conversaAberta, assistenteDe }: { conversaAber
       if (assistenteDe) {
         canal = canal.on('postgres_changes', { event: '*', schema: 'public', table: 'assistente_mensagens', filter: `usuario_id=eq.${assistenteDe}` }, () => agendar(true));
       }
+      // A casca deixa de reler as contagens a cada evento: esta recarga já traz as do layout.
+      desregistrar = registrarPaginaAoVivo();
       canal.subscribe();
     });
     return () => {
       ativo = false;
+      desregistrar();
       clearTimeout(espera);
       document.removeEventListener('visibilitychange', aoMudarVisibilidade);
       if (canal) void sb.removeChannel(canal);

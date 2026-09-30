@@ -2,8 +2,8 @@
 
 import { ShieldAlert } from 'lucide-react';
 import { unstable_rethrow } from 'next/navigation';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { toast } from '@/components/ui/toaster';
 import { cn } from '@/lib/cn';
 import { ConfirmDialog } from './confirm-dialog';
 

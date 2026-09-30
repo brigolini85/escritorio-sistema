@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AgentStateIndicator } from '@/components/patterns/agent-state-indicator';
 import { estadoDaConversa } from '@/components/patterns/estado-agente';
+import { HistoricoRolante } from '@/components/patterns/historico-rolante';
 import { MessageBubble, type AutorMensagem } from '@/components/patterns/message-bubble';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { consultaCaixa } from '@/lib/caixa';
@@ -19,7 +20,6 @@ import { AcoesConversa, BotaoPainel, type DemandaDaConversa } from './acoes-conv
 import { Compositor } from './compositor';
 import { DetalhesConversa, type DemandaDetalhe } from './detalhes-conversa';
 import { AvisoAssistente, EstadoConversa } from './estado-conversa';
-import { Historico } from './historico';
 import { GradeConversa, PainelLateral } from './painel-lateral';
 import { COOKIE_PAINEL_CONVERSA, painelAbertoDoCookie } from './preferencias-conversa';
 
@@ -201,46 +201,55 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
           />
         </header>
 
-        <Historico quantidade={itens.length} className="lg:col-start-1 lg:row-start-2">
-          <Realce chave={`historico-${id}`} lembrar={false} className="flex flex-col gap-2">
-            {historico.length === 0 && <p className="py-10 text-center text-sm text-muted">Nenhuma mensagem nesta conversa ainda.</p>}
-            {historico.map((h) => {
-              if (h.tipo === 'dia') {
+        <HistoricoRolante
+          ultima={historico.at(-1)?.chave ?? ''}
+          compositor="[data-compositor]"
+          rotulo="Histórico da conversa"
+          role="log"
+          className="min-h-0 flex-1 lg:col-start-1 lg:row-start-2"
+          classNameLista="h-full"
+        >
+          <div className="p-4">
+            <Realce chave={`historico-${id}`} lembrar={false} className="flex flex-col gap-2">
+              {historico.length === 0 && <p className="py-10 text-center text-sm text-muted">Nenhuma mensagem nesta conversa ainda.</p>}
+              {historico.map((h) => {
+                if (h.tipo === 'dia') {
+                  return (
+                    <div key={h.chave} role="separator" aria-label={h.rotulo} className="my-2 flex items-center gap-3 text-xs font-medium text-subtle">
+                      <span className="h-px flex-1 bg-border" />
+                      {h.rotulo}
+                      <span className="h-px flex-1 bg-border" />
+                    </div>
+                  );
+                }
+                const m = h.item;
                 return (
-                  <div key={h.chave} role="separator" aria-label={h.rotulo} className="my-2 flex items-center gap-3 text-xs font-medium text-subtle">
-                    <span className="h-px flex-1 bg-border" />
-                    {h.rotulo}
-                    <span className="h-px flex-1 bg-border" />
+                  <div key={h.chave} data-realce={m.criado_em} data-realce-proprio={m.propria ? '' : undefined} className="flex flex-col rounded-lg">
+                    {m.tipo === 'nota' ? (
+                      <MessageBubble autor="nota_interna" hora={m.criado_em} conteudo={m.conteudo}>
+                        {(m.nome || m.demanda) && (
+                          <p className="text-xs text-internal-note-foreground">
+                            {m.nome ?? 'Equipe'}{m.demanda ? ` · demanda #${m.demanda}` : ''}
+                          </p>
+                        )}
+                      </MessageBubble>
+                    ) : (
+                      <MessageBubble
+                        autor={m.autor}
+                        nome={m.nome}
+                        hora={m.criado_em}
+                        conteudo={m.conteudo}
+                        transcricao={m.transcricao}
+                        arquivo={m.arquivo}
+                        falhou={m.falhou}
+                      />
+                    )}
                   </div>
                 );
-              }
-              const m = h.item;
-              return (
-                <div key={h.chave} data-realce={m.criado_em} data-realce-proprio={m.propria ? '' : undefined} className="flex flex-col rounded-lg">
-                  {m.tipo === 'nota' ? (
-                    <MessageBubble autor="nota_interna" hora={m.criado_em} conteudo={m.conteudo}>
-                      {(m.nome || m.demanda) && (
-                        <p className="text-xs text-internal-note-foreground">
-                          {m.nome ?? 'Equipe'}{m.demanda ? ` · demanda #${m.demanda}` : ''}
-                        </p>
-                      )}
-                    </MessageBubble>
-                  ) : (
-                    <MessageBubble
-                      autor={m.autor}
-                      nome={m.nome}
-                      hora={m.criado_em}
-                      conteudo={m.conteudo}
-                      transcricao={m.transcricao}
-                      arquivo={m.arquivo}
-                      falhou={m.falhou}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </Realce>
-        </Historico>
+              })}
+            </Realce>
+          </div>
+        </HistoricoRolante>
 
         <div className="lg:col-start-1 lg:row-start-3">
           <Compositor responder={responder.bind(null, id)} demandas={demandasAcoes} respostas={respostas ?? []} />

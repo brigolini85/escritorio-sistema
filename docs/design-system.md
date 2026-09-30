@@ -31,7 +31,8 @@ Edite **uma linha** em `tokens.css`: `--brand-base`, no topo do bloco `:root`.
   - no tema claro, uma cor clara demais para texto branco é escurecida sozinha (luminosidade OKLCH até 0,5);
   - no escuro, a marca fica sempre clara (0,74) e o fundo suave, escuro (0,30).
   - Por isso não existe faixa de luminosidade a evitar. O preço: um amarelo ou verde-limão vivo aparece mais escuro (puxando para oliva) nos botões do tema claro.
-- A sintaxe de cor relativa pede navegador atual: Chrome/Edge 119+, Safari 18+ e Firefox 128+.
+- As derivadas ficam num bloco `@supports (color: oklch(from red l c h))` no fim do `tokens.css` e valem nos navegadores atuais (Chrome/Edge 119+, Safari 18+, Firefox 128+).
+- Navegador antigo: usa as **reservas fixas** em `hsl()` de `--brand`, `--brand-soft` e `--brand-foreground` nos blocos de tema (a marca padrão, azul). Botões, links e anel de foco continuam visíveis. Essas reservas só contam para navegador antigo: trocá-las junto com a marca é **opcional** (sem trocar, quem tem navegador antigo vê o azul padrão). O teste confere o contraste AA delas também.
 - Depois rode `pnpm --filter @escritorio/painel test`. O `tokens.test.ts` calcula as derivadas como o navegador e confere o contraste WCAG AA (texto 4,5:1; foco e bordas de campo 3:1) nos dois temas.
   - O teste usa a marca atual e mais 10 cores: vermelho, verde, roxo, laranja, amarelo, ciano, rosa, verde-folha, cinza e um azul claro.
 - Para conferir com os olhos, abra o `/_design` e use o alternador de tema.
@@ -55,7 +56,8 @@ Para conferir uma troca de marca, raio ou fonte, edite o `tokens.css` e veja o `
 ## Quando usar ui/, patterns/ ou layout/
 
 - **`ui/`**: peças genéricas, sem regra de negócio, que serviriam em qualquer produto: botão, campo, janela, tabela, selo. Vêm do shadcn/ui (Radix) e são ajustadas aos tokens. Mude aqui só o que deve mudar em todo lugar.
-- **`patterns/`**: peças que falam a língua do escritório: DataTable com filtros na URL, StatusBadge de demanda, MessageBubble, DiffPreview, OrderSummary, BlingExportButton, ConfirmDialog, PermissionGate, FormField... Se o mesmo arranjo aparece em duas telas, ele vira um pattern.
+  - Alguns primitivos estão disponíveis sem uso nas telas ainda: `ui/popover.tsx`, `ui/scroll-area.tsx` e `ui/separator.tsx`. Ficam de propósito (demonstrados no `/_design`) para a próxima tela não copiar outro do shadcn; apague se continuarem sem uso depois de algumas fases.
+- **`patterns/`**: peças que falam a língua do escritório: DataTable com filtros na URL, StatusBadge de demanda, MessageBubble, DiffPreview, OrderSummary, BlingExportButton, ConfirmDialog, PermissionGate, FormField, HistoricoRolante (lista de mensagens que acompanha a rolagem), AvisoErro (`?erro=` das actions)... Se o mesmo arranjo aparece em duas telas, ele vira um pattern.
 - **`layout/`**: a casca que envolve todas as telas: AppShell, Sidebar, Topbar, PageHeader, busca global e lista de atalhos.
 - Uma tela (`app/(painel)/...`) monta patterns e primitivos. Ela não recria com classes soltas algo que já é um pattern.
 

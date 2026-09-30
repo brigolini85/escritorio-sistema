@@ -1,5 +1,7 @@
 // Busca global do painel (Ctrl/Cmd + K): regras puras. As consultas ficam em app/api/busca/route.ts (RLS do usuário).
 
+import { mascararCNPJ } from './formatos';
+
 export const MINIMO_BUSCA = 2;
 export const LIMITE_POR_GRUPO = 5;
 /** Texto mais longo que isso é cortado: evita filtros ilike enormes. */
@@ -19,23 +21,24 @@ export type ResultadoBusca = { empresas: ItemBusca[]; contatos: ItemBusca[]; dem
 
 export const RESULTADO_VAZIO: ResultadoBusca = { empresas: [], contatos: [], demandas: [] };
 
+/**
+ * Texto seguro para um filtro `or`/`ilike` do PostgREST: vírgula, parênteses, * e aspas têm significado no `or`;
+ * % e \ mudam o ilike. Viram espaço (espaços repetidos viram um), e o texto é cortado em `MAXIMO_BUSCA`.
+ * Usado pela busca global, pela lista de conversas e pelas listas de clientes e contatos.
+ */
+export function termoSeguroPostgrest(texto: string | null | undefined): string {
+  return (texto ?? '').slice(0, MAXIMO_BUSCA).replace(/[,()*%\\"]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 /** Interpreta o que foi digitado (cortado em 80 caracteres); null se for curto demais (menos de 2) ou não sobrar nada buscável. */
 export function interpretarBusca(q: string | null | undefined): ConsultaBusca | null {
   const bruto = (q ?? '').trim().slice(0, MAXIMO_BUSCA).trim();
   if (bruto.length < MINIMO_BUSCA) return null;
   const m = /^#?\s*(\d{1,12})$/.exec(bruto);
   const numero = m ? Number(m[1]) : null;
-  // Vírgula, parênteses, * e aspas têm significado no filtro `or` do PostgREST; % e \ mudam o ilike.
-  const termo = bruto.replace(/^#/, '').replace(/[,()*%\\"]/g, ' ').replace(/\s+/g, ' ').trim();
+  const termo = termoSeguroPostgrest(bruto.replace(/^#/, ''));
   if (!termo) return null;
   return { termo, digitos: termo.replace(/\D/g, ''), numero };
-}
-
-/** 11222333000181 → 11.222.333/0001-81 (outros valores voltam como vieram). */
-export function formatarCnpj(cnpj: string): string {
-  const d = cnpj.replace(/\D/g, '');
-  if (d.length !== 14) return cnpj;
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
 }
 
 export function linkEmpresa(id: string): string {
@@ -67,7 +70,7 @@ type DemandaLinha = {
 };
 
 export function itemEmpresa(e: EmpresaLinha): ItemBusca {
-  const detalhe = [e.nome_fantasia ? e.razao_social : null, `CNPJ ${formatarCnpj(e.cnpj)}`].filter(Boolean).join(' · ');
+  const detalhe = [e.nome_fantasia ? e.razao_social : null, `CNPJ ${mascararCNPJ(e.cnpj)}`].filter(Boolean).join(' · ');
   return { id: e.id, titulo: e.nome_fantasia ?? e.razao_social, detalhe, href: linkEmpresa(e.id) };
 }
 

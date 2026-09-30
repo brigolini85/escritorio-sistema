@@ -4,7 +4,7 @@ import type { supabaseServidor } from '@/lib/supabase/servidor';
 
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;
 
-/** O Início recarrega a cada evento de tempo real; a soma do mês (várias páginas de uso_ia) vale por este tempo. */
+/** O Início recarrega pelo tempo real (até a cada 3 s) e a cada minuto; a soma do mês (várias páginas de uso_ia) vale por este tempo. */
 const VALIDADE_MS = 60_000;
 const memoria = new Map<string, { ate: number; valor: GastoDoMes }>();
 

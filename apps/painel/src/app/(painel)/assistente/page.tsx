@@ -2,6 +2,7 @@ import { ExternalLink, MessagesSquare, SearchX, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { AvisoErro } from '@/components/patterns/aviso-erro';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { RelativeTime } from '@/components/patterns/relative-time';
 import { variantesBotao } from '@/components/ui/button';
@@ -12,7 +13,6 @@ import { mascararTelefone } from '@/lib/formatos';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { AtualizarAoVivo } from '../atendimento/atualizar-ao-vivo';
-import { AvisoErro } from './aviso-erro';
 import { ConversaAssistente } from './conversa-assistente';
 
 type ConversaVisivel = { id: string; telefone: string; contato: string | null; empresa: string | null };
@@ -119,7 +119,7 @@ export default async function Assistente({ searchParams }: { searchParams: Promi
               </p>
             )}
           </header>
-          <AvisoErro erro={sp.erro} />
+          <AvisoErro erro={sp.erro} limparDaUrl />
           {conversaId && !aberta ? (
             <EmptyState
               icone={SearchX}

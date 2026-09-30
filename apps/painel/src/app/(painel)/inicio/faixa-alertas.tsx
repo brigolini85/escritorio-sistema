@@ -7,7 +7,8 @@ import { alertasDaFaixa, type AlertaFaixa, type SinaisVida, type SituacaoTeto } 
 
 /**
  * Faixa de alertas do Início. Recalcula no navegador a cada 15s, como os HealthSignal do cartão de sinais,
- * para a faixa e o cartão nunca discordarem (um sinal que para aparece nos dois sem esperar recarga).
+ * para a faixa e o cartão nunca discordarem (um sinal que para aparece nos dois sem esperar recarga). O último sinal
+ * em si vem do servidor: a página recarrega a cada minuto (RecarregarPeriodico), senão o sinal pareceria parado.
  */
 export function FaixaAlertas({ teto, sinais }: { teto: SituacaoTeto | null; sinais: SinaisVida | null }) {
   const agora = useAgora(15_000);

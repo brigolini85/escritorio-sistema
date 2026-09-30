@@ -1,8 +1,8 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ignorarAtalho } from '@/components/layout/atalhos';
+import { AvisoErro, useTirarErroDaUrl } from '@/components/patterns/aviso-erro';
 import { cookiePainelConversa } from './preferencias-conversa';
 
 export type ModoCompositor = 'responder' | 'nota';
@@ -62,9 +62,7 @@ export function EstadoConversa({
   const [modo, setModo] = useState<ModoCompositor>('responder');
   const [demandaId, setDemandaId] = useState<string | null>(demandaInicial);
   const [avisoAtual, setAvisoAtual] = useState<string | null>(aviso ?? null);
-  const router = useRouter();
-  const caminho = usePathname();
-  const params = useSearchParams();
+  const tirarErroDaUrl = useTirarErroDaUrl();
 
   const alternarPainel = useCallback((aberto?: boolean) => {
     if (!window.matchMedia(PAINEL_RECOLHIVEL).matches) return;
@@ -88,11 +86,8 @@ export function EstadoConversa({
     setAvisoAtual(aviso);
     setPainelAberto(true);
     if (abaInicial === 'assistente') setAba('assistente');
-    const resto = new URLSearchParams(params.toString());
-    resto.delete('erro');
-    const q = resto.toString();
-    router.replace(q ? `${caminho}?${q}` : caminho, { scroll: false });
-  }, [aviso, abaInicial, params, caminho, router]);
+    tirarErroDaUrl();
+  }, [aviso, abaInicial, tirarErroDaUrl]);
 
   useEffect(() => {
     const aoTeclar = (e: KeyboardEvent) => {
@@ -141,5 +136,5 @@ export function demandaEmFoco<T extends { id: string }>(demandas: T[], id: strin
 export function AvisoAssistente() {
   const { avisoAtual } = useEstadoConversa();
   if (!avisoAtual) return null;
-  return <p role="alert" className="rounded-md border border-danger bg-danger-soft p-3 text-sm text-danger">{avisoAtual}</p>;
+  return <AvisoErro erro={avisoAtual} />;
 }

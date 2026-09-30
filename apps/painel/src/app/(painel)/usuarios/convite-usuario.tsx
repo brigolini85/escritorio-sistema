@@ -2,10 +2,10 @@
 
 import { UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
 import { useDescarteProtegido } from '@/components/patterns/formulario-alteravel';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { toast } from '@/components/ui/toaster';
 import { FormularioUsuario, type SetorOpcao } from './formulario-usuario';
 
 type Acao = (dados: FormData) => void | Promise<void>;
