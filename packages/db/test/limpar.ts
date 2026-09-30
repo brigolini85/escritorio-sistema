@@ -6,7 +6,7 @@ export async function limparBanco(): Promise<void> {
   if (!url.includes('127.0.0.1') && !url.includes('localhost')) throw new Error('limparBanco só roda no banco local');
   const c = new pg.Client({ connectionString: url });
   await c.connect();
-  await c.query(`truncate public.assistente_mensagens, public.mensagens, public.chamado_eventos, public.chamados, public.decisoes_agente,
+  await c.query(`truncate public.simulacoes_agente, public.orientacoes_agente_versoes, public.orientacoes_agente, public.assistente_mensagens,public.mensagens, public.chamado_eventos, public.chamados, public.decisoes_agente,
     public.uso_ia, public.alertas, public.sinais_vida, public.conversas, public.contato_clientes,
     public.contatos, public.cliente_responsaveis, public.cliente_servicos, public.clientes,
     public.respostas_prontas, public.feriados cascade`);

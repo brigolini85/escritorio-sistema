@@ -20,7 +20,7 @@ describe('limparRetencao', () => {
     await db.from('decisoes_agente').insert({ conversa_id: conversa.id, etapa: 'responder', criado_em: antigo });
 
     const r = await limparRetencao(db, midia, new Date('2026-09-28T12:00:00Z'));
-    expect(r).toEqual({ mensagens: 1, arquivos: 1, decisoes: 1, assistente: 0 });
+    expect(r).toEqual({ mensagens: 1, arquivos: 1, decisoes: 1, assistente: 0, simulacoes: 0 });
     expect((await db.from('mensagens').select('conteudo')).data).toEqual([{ conteudo: 'recente' }]);
     await expect(midia.ler(salvo.path)).rejects.toThrow();
   });
@@ -32,5 +32,14 @@ describe('limparRetencao', () => {
     const r = await limparRetencao(db, criarArmazenamento(db), new Date('2026-09-29T12:00:00Z'));
     expect(r.assistente).toBe(1);
     expect((await db.from('assistente_mensagens').select('conteudo')).data).toEqual([{ conteudo: 'nova' }]);
+  });
+
+  it('apaga os testes do agente com mais de 30 dias (Treinar o agente, 2026-09-30)', async () => {
+    const id = await criarUsuarioTeste({ email: 'marcada@teste-retencao.local' });
+    await db.from('simulacoes_agente').insert({ usuario_id: id, mensagem: 'antiga', status: 'pronta', criado_em: '2026-08-30T11:00:00Z' });
+    await db.from('simulacoes_agente').insert({ usuario_id: id, mensagem: 'recente', status: 'pronta', criado_em: '2026-08-31T13:00:00Z' });
+    const r = await limparRetencao(db, criarArmazenamento(db), new Date('2026-09-30T12:00:00Z'));
+    expect(r.simulacoes).toBe(1);
+    expect((await db.from('simulacoes_agente').select('mensagem')).data).toEqual([{ mensagem: 'recente' }]);
   });
 });

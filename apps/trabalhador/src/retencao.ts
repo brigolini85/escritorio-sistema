@@ -3,7 +3,10 @@ import type { ArmazenamentoMidia } from './midia/armazenamento';
 
 const LOTE = 500;
 
-/** Conversas, anexos e decisões do agente e as conversas com o assistente interno ficam guardados por 1 ano (spec, seção 9). */
+/**
+ * Conversas, anexos e decisões do agente e as conversas com o assistente interno ficam guardados por 1 ano (spec, seção 9);
+ * os testes do agente (simulacoes_agente), 30 dias.
+ */
 export async function limparRetencao(db: Db, midia: ArmazenamentoMidia, agora = new Date()) {
   const limite = new Date(agora);
   limite.setFullYear(limite.getFullYear() - 1);
@@ -25,5 +28,9 @@ export async function limparRetencao(db: Db, midia: ArmazenamentoMidia, agora = 
   if (e3) throw new Error(e3.message);
   const { data: assistente, error: e4 } = await db.from('assistente_mensagens').delete().lt('criado_em', corte).select('id');
   if (e4) throw new Error(e4.message);
-  return { mensagens, arquivos, decisoes: decisoes?.length ?? 0, assistente: assistente?.length ?? 0 };
+  // Testes do agente (Treinar o agente) ficam só 30 dias.
+  const limiteSimulacoes = new Date(agora.getTime() - 30 * 24 * 60 * 60_000).toISOString();
+  const { data: simulacoes, error: e5 } = await db.from('simulacoes_agente').delete().lt('criado_em', limiteSimulacoes).select('id');
+  if (e5) throw new Error(e5.message);
+  return { mensagens, arquivos, decisoes: decisoes?.length ?? 0, assistente: assistente?.length ?? 0, simulacoes: simulacoes?.length ?? 0 };
 }

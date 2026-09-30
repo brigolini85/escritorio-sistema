@@ -1,7 +1,7 @@
 import { pedidoVendaBling, variantesTelefone, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo } from '@escritorio/core';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { Db } from './cliente';
-import type { Database } from './tipos.gen';
+import type { Database, Json } from './tipos.gen';
 
 type Linha<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
 export type Conversa = Linha<'conversas'>;
@@ -51,6 +51,16 @@ export type DadosEmpresa = { razaoSocial: string; nomeFantasia: string | null; c
   regime: string | null; endereco: string | null; uf: string | null };
 export type ProdutoEmpresa = { id: string; codigo: string; descricao: string; unidade: string; apelidos: string[] };
 export type DocumentoEmpresa = { id: string; nome: string; arquivoPath: string; arquivoNome: string; arquivoMime: string; iaPodeEnviar: boolean };
+export type TipoOrientacao = 'jeito' | 'regra' | 'situacao';
+export type OrientacaoAgente = {
+  id: string; titulo: string; texto: string; tipo: TipoOrientacao; clienteId: string | null; setorId: string | null;
+  setorNome: string | null; atualizadoEm: Date;
+};
+/** Orientação ainda não salva incluída num teste (formato conferido por criar_simulacao). */
+export type RascunhoOrientacao = { titulo: string; texto: string; tipo: TipoOrientacao; cliente_id: string | null; setor_id: string | null };
+export type SimulacaoAgente = Omit<Linha<'simulacoes_agente'>, 'rascunho' | 'status'> & {
+  rascunho: RascunhoOrientacao | null; status: 'pendente' | 'pronta' | 'erro';
+};
 
 /** Devolve os dados de uma consulta bem-sucedida; o tipo vem só do caso de sucesso. */
 function checar<T>(r: PostgrestSingleResponse<T>, contexto: string): T {
@@ -601,6 +611,29 @@ export function criarRepos(db: Db) {
     async setorPorNome(nome: string): Promise<string | null> {
       const s = checar(await db.from('setores').select('id').eq('nome', nome).eq('ativo', true).maybeSingle(), 'setorPorNome');
       return s?.id ?? null;
+    },
+
+    /** Orientações ligadas (Treinar o agente), das mais recentes para as mais antigas. Lidas com o cliente de serviço. */
+    async orientacoesAtivas(): Promise<OrientacaoAgente[]> {
+      const linhas = checar(await db.from('orientacoes_agente')
+        .select('id, titulo, texto, tipo, cliente_id, setor_id, atualizado_em, setores(nome)')
+        .eq('ativo', true).order('atualizado_em', { ascending: false }).order('id').limit(PAGINA), 'orientacoesAtivas');
+      return linhas.map((o) => ({
+        id: o.id, titulo: o.titulo, texto: o.texto, tipo: o.tipo as TipoOrientacao, clienteId: o.cliente_id, setorId: o.setor_id,
+        setorNome: o.setores?.nome ?? null, atualizadoEm: new Date(o.atualizado_em),
+      }));
+    },
+
+    async simulacaoPorId(id: string): Promise<SimulacaoAgente | null> {
+      const s = checar(await db.from('simulacoes_agente').select('*').eq('id', id).maybeSingle(), 'simulacaoPorId');
+      return s as SimulacaoAgente | null;
+    },
+
+    /** Grava o resultado de um teste ainda pendente. Devolve false se ele já tinha sido concluído (nova tentativa da fila). */
+    async concluirSimulacao(id: string, d: { status: 'pronta' | 'erro'; respostas?: Json | null; erro?: string | null }): Promise<boolean> {
+      const r = await db.from('simulacoes_agente').update({ status: d.status, respostas: d.respostas ?? null, erro: d.erro ?? null })
+        .eq('id', id).eq('status', 'pendente').select('id');
+      return checar(r, 'concluirSimulacao').length > 0;
     },
 
     async resumoDoDia(inicio: Date) {
