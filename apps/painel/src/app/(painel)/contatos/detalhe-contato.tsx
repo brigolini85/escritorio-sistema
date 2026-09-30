@@ -1,12 +1,11 @@
 import { Building2, SearchX, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
+import { ApagarDadosContato } from '@/components/patterns/apagar-dados-contato';
 import { DocumentText } from '@/components/patterns/document-text';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { SwitchAgenteContato } from '@/components/patterns/switch-agente-contato';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { SheetBody, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -98,17 +97,7 @@ export async function DetalheContato({ id, pode, admin }: { id: string; pode: bo
             <p className="text-sm text-foreground">
               Apagar os dados a pedido do titular (LGPD): nome, telefone, mensagens, áudios e arquivos deste contato somem de vez, em todas as empresas. Não dá para desfazer.
             </p>
-            <ConfirmDialog
-              gatilho={<Button type="button" variant="danger" size="sm" className="self-start">Apagar dados (LGPD)</Button>}
-              titulo={`Apagar os dados de ${c.nome}?`}
-              descricao="Esta ação não pode ser desfeita. As conversas ficam, mas sem o conteúdo."
-              confirmar="Apagar dados"
-              enviando="Apagando…"
-              digitarParaConfirmar={c.nome}
-              acao={anonimizarContato.bind(null, vinculos[0]?.empresaId ?? '', c.id)}
-            >
-              <input type="hidden" name="confirmo" value="on" />
-            </ConfirmDialog>
+            <ApagarDadosContato variante="destaque" nome={c.nome} acao={anonimizarContato.bind(null, vinculos[0]?.empresaId ?? '', c.id)} />
           </section>
         )}
         {admin && anonimizado && <p className="my-4 text-sm text-muted">Os dados deste contato já foram apagados a pedido do titular.</p>}

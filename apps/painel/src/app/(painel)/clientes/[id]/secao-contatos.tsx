@@ -1,8 +1,7 @@
-import { ShieldAlert, UserRound, UserRoundMinus } from 'lucide-react';
-import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
+import { UserRound, UserRoundMinus } from 'lucide-react';
+import { ApagarDadosContato } from '@/components/patterns/apagar-dados-contato';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { FormField } from '@/components/patterns/form-field';
-import { SwitchAgenteContato } from '@/components/patterns/switch-agente-contato';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,6 +10,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato } from '../../atendimento/acoes';
 import { adicionarContato, anonimizarContato, removerContato, vincularContatoExistente } from '../acoes';
 import { classeCaixa, classeSelect } from '../estilos';
+import { LinhaContato } from './linha-contato';
 
 /**
  * Aba Contatos da ficha: quem fala pela empresa no WhatsApp, o que cada um pode pedir e se o agente atende.
@@ -45,52 +45,25 @@ export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPai
           ) : (
             <ul className="divide-y divide-border">
               {lista.map((v) => (
-                <li key={v.contato.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2.5">
-                  <p className="min-w-0 text-base text-foreground">
-                    <span className="font-medium">{v.contato.nome}</span>
-                    <span className="tabular text-muted"> · {v.contato.telefone}</span>
-                    <span className="text-muted">
-                      {v.pode_pedir_nota ? ' · pode pedir nota' : ''}
-                      {v.pode_atualizar_preco ? ' · pode mudar preço e cadastrar produto' : ''}
-                    </span>
-                    {v.contato.agente_pausado && <span className="text-agent-paused"> · agente desligado</span>}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <SwitchAgenteContato
-                      acao={alternarAgenteContato.bind(null, v.contato.id, null, v.contato.agente_pausado)}
-                      desligado={v.contato.agente_pausado}
-                      nome={v.contato.nome}
-                      pode={pode}
-                      className="mr-2"
-                    />
-                    {pode && (
-                      <form action={removerContato.bind(null, id, v.contato.id)}>
-                        <Button type="submit" variant="ghost" size="sm" title={`Tira ${v.contato.nome} desta empresa (o contato continua cadastrado)`}>
-                          <UserRoundMinus aria-hidden size={16} strokeWidth={1.75} />
-                          Remover
-                        </Button>
-                      </form>
-                    )}
-                    {admin && (
-                      <ConfirmDialog
-                        gatilho={(
-                          <Button type="button" variant="ghost" size="sm" className="text-danger hover:bg-danger-soft">
-                            <ShieldAlert aria-hidden size={16} strokeWidth={1.75} />
-                            Apagar dados (LGPD)
-                          </Button>
-                        )}
-                        titulo={`Apagar os dados de ${v.contato.nome}?`}
-                        descricao="Nome, telefone, mensagens, áudios e arquivos deste contato são apagados de vez, em todas as empresas. Não dá para desfazer."
-                        confirmar="Apagar dados"
-                        enviando="Apagando…"
-                        digitarParaConfirmar={v.contato.nome}
-                        acao={anonimizarContato.bind(null, id, v.contato.id)}
-                      >
-                        <input type="hidden" name="confirmo" value="on" />
-                      </ConfirmDialog>
-                    )}
-                  </div>
-                </li>
+                <LinhaContato
+                  key={v.contato.id}
+                  nome={v.contato.nome}
+                  telefone={v.contato.telefone}
+                  marcacoes={`${v.pode_pedir_nota ? ' · pode pedir nota' : ''}${v.pode_atualizar_preco ? ' · pode mudar preço e cadastrar produto' : ''}`}
+                  desligado={v.contato.agente_pausado}
+                  acao={alternarAgenteContato.bind(null, v.contato.id, null, v.contato.agente_pausado)}
+                  pode={pode}
+                >
+                  {pode && (
+                    <form action={removerContato.bind(null, id, v.contato.id)}>
+                      <Button type="submit" variant="ghost" size="sm" title={`Tira ${v.contato.nome} desta empresa (o contato continua cadastrado)`}>
+                        <UserRoundMinus aria-hidden size={16} strokeWidth={1.75} />
+                        Remover
+                      </Button>
+                    </form>
+                  )}
+                  {admin && <ApagarDadosContato nome={v.contato.nome} acao={anonimizarContato.bind(null, id, v.contato.id)} />}
+                </LinhaContato>
               ))}
             </ul>
           )}
