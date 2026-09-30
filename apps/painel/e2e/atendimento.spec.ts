@@ -25,7 +25,8 @@ test('atendente do Fiscal assume, responde e não vê conversa do Pessoal', asyn
   await expect(page.getByRole('button', { name: 'Devolver ao agente' })).toBeVisible();
   await page.getByPlaceholder('Escreva a resposta para o cliente').fill('Segue a guia em anexo.');
   await page.getByRole('button', { name: 'Enviar' }).click();
-  await expect(page.getByText('Segue a guia em anexo.')).toBeVisible();
+  // A lista ao lado também mostra a última mensagem: conferir no histórico da conversa.
+  await expect(page.getByRole('log', { name: 'Histórico da conversa' }).getByText('Segue a guia em anexo.')).toBeVisible();
 
   const { data } = await db.from('mensagens').select('status_envio, autor').eq('conversa_id', fiscal).eq('direcao', 'saida').single();
   expect(data).toEqual({ status_envio: 'pendente', autor: 'atendente' });

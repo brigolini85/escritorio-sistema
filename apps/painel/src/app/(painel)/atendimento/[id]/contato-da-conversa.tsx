@@ -1,5 +1,9 @@
+import { Bot, CirclePause, UserRoundPlus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato, cadastrarContatoDaConversa } from '../acoes';
+
+const campo = 'mt-1 h-8 w-full rounded-md border border-input bg-surface px-2 text-base text-foreground shadow-sm';
 
 /**
  * Número não cadastrado: cadastra o contato (com ou sem empresa) e escolhe se o agente atende.
@@ -10,16 +14,19 @@ export async function ContatoDaConversa({ conversaId, contato, pode }: {
 }) {
   if (contato) {
     return (
-      <div className="rounded-lg border bg-white p-3 text-sm">
-        <p className="font-semibold">{contato.nome}</p>
-        <p className={contato.agente_pausado ? 'text-amber-700' : 'text-emerald-700'}>
+      <div className="flex flex-col gap-2 text-sm">
+        <p className="text-base font-medium text-foreground">{contato.nome}</p>
+        <p className={`flex items-center gap-1.5 ${contato.agente_pausado ? 'text-agent-paused' : 'text-agent-active'}`}>
+          {contato.agente_pausado
+            ? <CirclePause aria-hidden size={16} strokeWidth={1.75} className="shrink-0" />
+            : <Bot aria-hidden size={16} strokeWidth={1.75} className="shrink-0" />}
           {contato.agente_pausado ? 'Agente desligado para este contato' : 'O agente atende este contato'}
         </p>
         {pode && (
-          <form action={alternarAgenteContato.bind(null, contato.id, conversaId, contato.agente_pausado)} className="mt-2">
-            <button className="rounded border px-2 py-1">
+          <form action={alternarAgenteContato.bind(null, contato.id, conversaId, contato.agente_pausado)}>
+            <Button size="sm" variant="outline">
               {contato.agente_pausado ? 'Ligar o agente para este contato' : 'Desligar o agente para este contato'}
-            </button>
+            </Button>
           </form>
         )}
       </div>
@@ -29,21 +36,24 @@ export async function ContatoDaConversa({ conversaId, contato, pode }: {
   const sb = await supabaseServidor();
   const { data: empresas } = await sb.from('clientes').select('id, razao_social, nome_fantasia').eq('ativo', true).order('razao_social');
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
-      <p className="mb-2 font-semibold">Contato não cadastrado</p>
-      {!pode && <p className="text-slate-600">Peça a alguém com a permissão "Editar clientes" para cadastrar este número.</p>}
+    <div className="rounded-md border border-warning bg-warning-soft p-3 text-sm text-foreground">
+      <p className="mb-2 flex items-center gap-1.5 font-semibold text-warning">
+        <UserRoundPlus aria-hidden size={16} strokeWidth={1.75} className="shrink-0" />
+        Contato não cadastrado
+      </p>
+      {!pode && <p className="text-muted">Peça a alguém com a permissão &quot;Editar clientes&quot; para cadastrar este número.</p>}
       {pode && (
-        <form action={cadastrarContatoDaConversa.bind(null, conversaId)} className="space-y-2">
-          <label className="block">Nome do contato<input name="nome" required minLength={2} className="mt-1 w-full rounded border p-1" /></label>
-          <label className="block">Empresa (opcional)
-            <select name="cliente_id" defaultValue="" className="mt-1 w-full rounded border p-1">
+        <form action={cadastrarContatoDaConversa.bind(null, conversaId)} className="flex flex-col gap-2">
+          <label className="block font-medium">Nome do contato<input name="nome" required minLength={2} className={campo} /></label>
+          <label className="block font-medium">Empresa (opcional)
+            <select name="cliente_id" defaultValue="" className={campo}>
               <option value="">Sem empresa</option>
               {(empresas ?? []).map((e) => <option key={e.id} value={e.id}>{e.nome_fantasia ?? e.razao_social}</option>)}
             </select>
           </label>
-          <label className="flex items-center gap-1"><input type="checkbox" name="pode_pedir_nota" /> Pode pedir nota</label>
-          <label className="flex items-center gap-1"><input type="checkbox" name="agente_atende" defaultChecked /> O agente atende este contato</label>
-          <button className="rounded bg-slate-900 px-3 py-1 text-white">Cadastrar contato</button>
+          <label className="flex items-center gap-2"><input type="checkbox" name="pode_pedir_nota" className="size-4 accent-brand" /> Pode pedir nota</label>
+          <label className="flex items-center gap-2"><input type="checkbox" name="agente_atende" defaultChecked className="size-4 accent-brand" /> O agente atende este contato</label>
+          <Button size="sm" className="self-start">Cadastrar contato</Button>
         </form>
       )}
     </div>

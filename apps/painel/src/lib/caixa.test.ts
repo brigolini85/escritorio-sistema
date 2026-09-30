@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FILTROS_MAIS, FILTROS_RAPIDOS, filtroPadrao, lerFiltroCaixa, ordenarCaixa, passaNoFiltro, rotuloFiltroCaixa, type LinhaCaixa } from './caixa';
+import { consultaCaixa, FILTROS_MAIS, FILTROS_RAPIDOS, filtroPadrao, lerFiltroCaixa, ordenarCaixa, passaNoFiltro, rotuloFiltroCaixa, type LinhaCaixa } from './caixa';
 
 const u = { id: 'ana', setores: ['fiscal'] };
 const linha = (p: Partial<LinhaCaixa>): LinhaCaixa => ({ id: 'c', atendente_id: null, setores_abertos: [], sem_responsavel: false, aguardando_cliente: false, ...p });
@@ -63,5 +63,13 @@ describe('ordenarCaixa', () => {
   it('aguardando humano no topo, mantendo a ordem de chegada em cada grupo', () => {
     const l = [{ id: 'a', sem_responsavel: false }, { id: 'b', sem_responsavel: true }, { id: 'c', sem_responsavel: null }, { id: 'd', sem_responsavel: true }];
     expect(ordenarCaixa(l).map((x) => x.id)).toEqual(['b', 'd', 'a', 'c']);
+  });
+});
+
+describe('consultaCaixa', () => {
+  it('só os parâmetros com valor', () => {
+    expect(consultaCaixa({ filtro: 'minhas', q: ' Maria ' })).toBe('?filtro=minhas&q=Maria');
+    expect(consultaCaixa({ filtro: null, q: '  ' })).toBe('');
+    expect(consultaCaixa({ q: 'a&b' })).toBe('?q=a%26b');
   });
 });

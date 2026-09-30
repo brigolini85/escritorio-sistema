@@ -64,3 +64,12 @@ export function rotuloFiltroCaixa(valor: FiltroCaixa): string {
 export function ordenarCaixa<T extends { sem_responsavel: boolean | null }>(linhas: T[]): T[] {
   return [...linhas.filter((l) => l.sem_responsavel), ...linhas.filter((l) => !l.sem_responsavel)];
 }
+
+/** "?filtro=…&q=…" para os links da caixa (só o que tiver valor; nada → ""). */
+export function consultaCaixa(p: { filtro?: string | null; q?: string | null }): string {
+  const sp = new URLSearchParams();
+  if (p.filtro) sp.set('filtro', p.filtro);
+  if (p.q?.trim()) sp.set('q', p.q.trim());
+  const s = sp.toString();
+  return s ? `?${s}` : '';
+}
