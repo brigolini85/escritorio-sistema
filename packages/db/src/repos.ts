@@ -272,12 +272,13 @@ export function criarRepos(db: Db) {
     },
 
     /** Chaves dos resumos de nota enviados ao cliente nesta conversa desde `desde` (a demanda só abre para um pedido conferido). */
-    async conferenciasEnviadas(conversaId: string, desde: Date): Promise<string[]> {
-      const linhas = checar(await db.from('decisoes_agente').select('saida').eq('conversa_id', conversaId)
-        .eq('etapa', 'resumir_pedido_nota').gte('criado_em', desde.toISOString()), 'conferenciasEnviadas');
+    /** Resumos de pedido de nota que chegaram ao cliente nesta conversa (o pedido como foi resumido + a chave), do mais novo ao mais antigo. */
+    async resumosEnviados(conversaId: string, desde: Date): Promise<{ entrada: unknown; conferencia: string }[]> {
+      const linhas = checar(await db.from('decisoes_agente').select('entrada, saida').eq('conversa_id', conversaId)
+        .eq('etapa', 'resumir_pedido_nota').gte('criado_em', desde.toISOString()).order('criado_em', { ascending: false }), 'resumosEnviados');
       return linhas.flatMap((l) => {
         const chave = (l.saida as { conferencia?: unknown } | null)?.conferencia;
-        return typeof chave === 'string' ? [chave] : [];
+        return typeof chave === 'string' ? [{ entrada: l.entrada, conferencia: chave }] : [];
       });
     },
 

@@ -5,7 +5,7 @@ import type { Repos, UnidadeParceiro } from '@escritorio/db';
 import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
 import { buscarParceiros, buscarProdutos } from './cadastros';
 import type { ClienteIa } from './cliente-ia';
-import { chaveConferencia, cnpjFormatado, formatarReais, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente, type ItemPedido } from './pedido-nota';
+import { acharResumoConferido, chaveConferencia, cnpjFormatado, formatarReais, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente, type ItemPedido } from './pedido-nota';
 import type { ContextoAgente } from './contexto';
 
 export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
@@ -351,17 +351,23 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       if (!entrada.cliente_confirmou_resumo) {
         return falha('Ainda não passe o pedido: mande o resumo com resumir_pedido_nota e espere o cliente confirmar que está certo e que não tem mais nota. Depois chame de novo com cliente_confirmou_resumo = true (uma chamada por nota).');
       }
-      // Trava: só abre o pedido que o cliente conferiu (mesmo destinatário e mesmos itens de um resumo enviado nas últimas 24 h).
-      const conferidas = await d.repos.conferenciasEnviadas(ctx.conversa.id, new Date(ctx.agora.getTime() - 24 * 3600_000));
-      if (!conferidas.includes(chaveConferencia(entrada))) {
+      // Trava: só abre o pedido que o cliente conferiu (um resumo enviado nas últimas 24 h). O que vai para o Fiscal é o
+      // pedido do resumo, não o remontado pelo modelo depois do "sim" (que perde ids e troca PAC por PC).
+      const resumos = await d.repos.resumosEnviados(ctx.conversa.id, new Date(ctx.agora.getTime() - 24 * 3600_000));
+      const achado = acharResumoConferido(entrada, resumos, (x): x is z.infer<typeof PedidoNota> => PedidoNota.safeParse(x).success);
+      if (achado === null) {
         return falha('O cliente não conferiu este pedido: mande o resumo com resumir_pedido_nota (com o mesmo destinatário e os mesmos itens) e espere a confirmação antes de passar para o Fiscal.');
       }
-      const p = await prepararPedido(d, e.clienteId, entrada);
+      if ('ambiguo' in achado) {
+        return falha('Mais de um resumo enviado combina com este pedido. Chame de novo com o unidade_id e os produto_id usados no resumo que o cliente confirmou.');
+      }
+      const conferido = { ...PedidoNota.parse(achado.resumo.entrada), pedido_original: entrada.pedido_original };
+      const p = await prepararPedido(d, e.clienteId, conferido);
       if ('erro' in p) return p;
       const { destino, itens } = p;
       const { titulo, resumo } = montarPedidoNota({
-        tipo: entrada.tipo, destino, textoDestinatario: entrada.texto_destinatario, itens,
-        pedidoOriginal: entrada.pedido_original, semPermissao: !ctx.empresaEmFoco!.podePedirNota,
+        tipo: conferido.tipo, destino, textoDestinatario: conferido.texto_destinatario, itens,
+        pedidoOriginal: conferido.pedido_original, semPermissao: !ctx.empresaEmFoco!.podePedirNota,
       });
       const setorId = await d.repos.setorPorNome('Fiscal');
       const responsavelId = escolherResponsavel(setorId, await d.repos.responsaveisDoCliente(e.clienteId));
@@ -370,14 +376,14 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
         titulo, resumo, foraDoContrato: false, origem: 'agente',
       });
       // Pedido de venda para a equipe baixar no painel como arquivo do Bling (o cliente nunca recebe).
-      if (entrada.tipo === 'venda') {
-        await d.repos.anexarPedidoVenda(chamadoId, montarPedidoVenda({ agora: ctx.agora, destino, textoDestinatario: entrada.texto_destinatario, itens, extras: entrada }));
+      if (conferido.tipo === 'venda') {
+        await d.repos.anexarPedidoVenda(chamadoId, montarPedidoVenda({ agora: ctx.agora, destino, textoDestinatario: conferido.texto_destinatario, itens, extras: conferido }));
       }
       await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: 0 });
       const aviso = avisoForaDoHorario(ctx);
       return ok({
         numero, setor: setorId ? 'Fiscal' : 'Triagem', itens_sem_cadastro: itens.filter((i) => !i.produto).length,
-        sem_preco: entrada.tipo === 'venda' ? itens.filter((i) => i.produto && i.preco === null).length : 0,
+        sem_preco: conferido.tipo === 'venda' ? itens.filter((i) => i.produto && i.preco === null).length : 0,
         fora_do_horario: !ctx.noExpediente, aviso_para_o_cliente: aviso,
       });
     }
