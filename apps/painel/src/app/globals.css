@@ -1,4 +1,155 @@
 @import "tailwindcss";
+@import "../styles/tokens.css";
+@import "../styles/legado.css";
 
-:root { color-scheme: light; }
-body { @apply bg-slate-50 text-slate-900; }
+/*
+ * Ponte tokens -> Tailwind. Os valores moram em src/styles/tokens.css; aqui só se dá nome aos utilitários.
+ * Raio (rounded-sm/md/lg) e fonte (font-sans/mono) usam os mesmos nomes do tema do Tailwind, então os
+ * utilitários leem direto os tokens de tokens.css e não precisam aparecer aqui.
+ */
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-input: var(--border-input);
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+
+  /* Texto: text-foreground (principal), text-muted (secundário), text-subtle (metadados) */
+  --color-foreground: var(--text);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+
+  --color-agent-active: var(--agent-active);
+  --color-agent-active-foreground: var(--agent-active-foreground);
+  --color-agent-active-soft: var(--agent-active-soft);
+  --color-agent-paused: var(--agent-paused);
+  --color-agent-paused-foreground: var(--agent-paused-foreground);
+  --color-agent-paused-soft: var(--agent-paused-soft);
+  --color-human-owned: var(--human-owned);
+  --color-human-owned-foreground: var(--human-owned-foreground);
+  --color-human-owned-soft: var(--human-owned-soft);
+  --color-assistant: var(--assistant);
+  --color-assistant-foreground: var(--assistant-foreground);
+  --color-assistant-soft: var(--assistant-soft);
+  --color-internal-note: var(--internal-note);
+  --color-internal-note-foreground: var(--internal-note-foreground);
+  --color-internal-note-border: var(--internal-note-border);
+
+  /* Animações curtas (<= 150ms, ease-out) usadas pelos primitivos; zeradas com prefers-reduced-motion */
+  --animate-aparecer: aparecer 150ms ease-out;
+  --animate-desaparecer: desaparecer 100ms ease-out;
+  --animate-surgir: surgir 150ms ease-out;
+  --animate-sumir: sumir 100ms ease-out;
+  --animate-deslizar-direita: deslizar-direita 150ms ease-out;
+  --animate-deslizar-esquerda: deslizar-esquerda 150ms ease-out;
+}
+
+/*
+ * Sombras: o Tailwind embute o valor da sombra no utilitário, por isso a ponte explícita. "reference"
+ * evita que o Tailwind emita a variável de novo em :root (ela já existe em tokens.css com o mesmo nome).
+ */
+@theme inline reference {
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+}
+
+/* Escala tipográfica fechada: xs 12 / sm 13 / base 14 / lg 16 / xl 20 / 2xl 24. Nada além disso. */
+@theme {
+  --text-*: initial;
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 14px;
+  --text-base--line-height: 20px;
+  --text-lg: 16px;
+  --text-lg--line-height: 24px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+}
+
+@keyframes aparecer {
+  from { opacity: 0; }
+}
+@keyframes desaparecer {
+  to { opacity: 0; }
+}
+@keyframes surgir {
+  from { opacity: 0; scale: 0.97; }
+}
+@keyframes sumir {
+  to { opacity: 0; scale: 0.97; }
+}
+@keyframes deslizar-direita {
+  from { translate: 100% 0; }
+}
+@keyframes deslizar-esquerda {
+  from { translate: -100% 0; }
+}
+
+/* Números alinhados (valores, CNPJ, quantidades, horários) */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--text);
+  }
+
+  /* Borda padrão das classes "border" sem cor vem do token */
+  *, ::before, ::after, ::backdrop {
+    border-color: var(--border);
+  }
+
+  /* Campos têm contorno de controle (>= 3:1), não a divisória clara */
+  input:not([type="checkbox"], [type="radio"]), select, textarea {
+    border-color: var(--border-input);
+  }
+
+  /* Foco visível em todo elemento interativo (teclado) */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Sem animação para quem pediu menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,174 @@
+/*
+ * Tokens do painel: a única fonte de verdade de cor, forma, sombra e fonte.
+ *
+ * - Trocar a cor da marca: edite só --brand (e --brand no bloco escuro). Foco (--ring) segue a marca.
+ * - Os valores são cores completas (hsl(...)); o Tailwind os lê em globals.css (@theme inline),
+ *   gerando utilitários como bg-brand, text-muted, border-border, bg-danger-soft.
+ * - Regra das semânticas e de domínio: --x é a cor "forte" (texto sobre --surface/--x-soft e fundo
+ *   de botão/selo sólido), --x-foreground é o texto sobre --x, --x-soft é o fundo suave.
+ * - Contraste WCAG AA (texto >= 4.5:1, bordas de controle e foco >= 3:1) é conferido por
+ *   src/styles/tokens.test.ts, que lê este arquivo. Razões principais anotadas ao lado de cada cor;
+ *   semânticas e de domínio (--x-foreground sobre --x, --x sobre --x-soft e sobre --surface):
+ *   claro de 5.4:1 a 7.3:1, escuro de 5.1:1 a 9.3:1.
+ * - Tema escuro: o mesmo conjunto de cores aparece em DOIS blocos idênticos (tema escolhido no
+ *   cookie e tema do sistema). O teste falha se os dois blocos divergirem.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Marca */
+  --brand: hsl(221 83% 45%); /* botão primário, links, item ativo; branco sobre ele 6.8:1, como texto em --surface 6.8:1 */
+  --brand-foreground: hsl(0 0% 100%); /* texto e ícone sobre --brand */
+  --brand-soft: hsl(221 90% 96%); /* fundo de item selecionado ou ativo; --brand sobre ele 6.0:1 */
+
+  /* Superfícies */
+  --background: hsl(220 20% 97%); /* fundo da aplicação, atrás dos cards */
+  --surface: hsl(0 0% 100%); /* cards, painéis, tabelas, diálogos, menus */
+  --surface-muted: hsl(220 16% 94%); /* zebra, hover de linha, áreas secundárias, trilho de abas */
+  --border: hsl(220 14% 88%); /* divisórias e contorno de cards (decorativo) */
+  --border-input: hsl(220 9% 56%); /* contorno de campos, caixas de seleção e switches; 3.4:1 em --surface */
+  --ring: var(--brand); /* anel de foco visível de todo elemento interativo; 6.8:1 em --surface */
+  --overlay: hsl(222 30% 8% / 0.5); /* véu atrás de Dialog e Sheet */
+
+  /* Texto */
+  --text: hsl(222 25% 12%); /* texto principal, títulos; 17.1:1 em --surface */
+  --text-muted: hsl(220 9% 38%); /* texto secundário, rótulos, descrições; 6.5:1 em --surface, 5.7:1 em --surface-muted */
+  --text-subtle: hsl(220 9% 41%); /* metadados, placeholders, horários; 5.8:1 em --surface, 5.1:1 em --surface-muted */
+
+  /* Semânticas: usar só com significado */
+  --success: hsl(152 72% 26%); /* sucesso, concluído, conectado */
+  --success-foreground: hsl(0 0% 100%); /* texto sobre --success */
+  --success-soft: hsl(150 55% 94%); /* fundo de aviso ou selo de sucesso */
+  --warning: hsl(30 92% 30%); /* atenção, pendência, prazo perto */
+  --warning-foreground: hsl(0 0% 100%); /* texto sobre --warning */
+  --warning-soft: hsl(42 95% 92%); /* fundo de aviso de atenção */
+  --danger: hsl(0 72% 42%); /* erro, ação destrutiva, alerta crítico */
+  --danger-foreground: hsl(0 0% 100%); /* texto sobre --danger */
+  --danger-soft: hsl(0 86% 96%); /* fundo de erro de formulário e alerta crítico */
+  --info: hsl(200 90% 29%); /* informação neutra, dica */
+  --info-foreground: hsl(0 0% 100%); /* texto sobre --info */
+  --info-soft: hsl(200 85% 95%); /* fundo de aviso informativo */
+
+  /* Domínio: estados que a equipe reconhece de relance */
+  --agent-active: hsl(170 80% 24%); /* agente de clientes respondendo */
+  --agent-active-foreground: hsl(0 0% 100%); /* texto sobre --agent-active */
+  --agent-active-soft: hsl(168 55% 93%); /* fundo do indicador de agente ativo */
+  --agent-paused: hsl(24 85% 34%); /* agente pausado (geral, contato, empresa, teto de IA) */
+  --agent-paused-foreground: hsl(0 0% 100%); /* texto sobre --agent-paused */
+  --agent-paused-soft: hsl(30 90% 93%); /* fundo do indicador de agente pausado */
+  --human-owned: hsl(243 55% 52%); /* conversa assumida por atendente */
+  --human-owned-foreground: hsl(0 0% 100%); /* texto sobre --human-owned */
+  --human-owned-soft: hsl(243 80% 96%); /* fundo do indicador de conversa assumida */
+  --assistant: hsl(280 55% 42%); /* assistente interno (distinto do agente de clientes) */
+  --assistant-foreground: hsl(0 0% 100%); /* texto sobre --assistant */
+  --assistant-soft: hsl(280 70% 96%); /* fundo de mensagens e caixa do assistente */
+  --internal-note: hsl(48 96% 89%); /* fundo de nota interna (o cliente não vê) */
+  --internal-note-foreground: hsl(32 85% 24%); /* rótulo "Nota interna" sobre --internal-note */
+  --internal-note-border: hsl(44 80% 55%); /* contorno da nota interna */
+
+  /* Forma e ritmo (mesmos nomes do tema do Tailwind: rounded-sm/md/lg e shadow-sm/md leem daqui) */
+  --radius-sm: 4px; /* selos, caixas de seleção, itens de menu */
+  --radius-md: 6px; /* botões, campos, abas */
+  --radius-lg: 10px; /* cards, diálogos, popovers */
+  --shadow-sm: 0 1px 2px 0 hsl(222 30% 10% / 0.06); /* cards e campos */
+  --shadow-md: 0 4px 12px -2px hsl(222 30% 10% / 0.12), 0 2px 4px -2px hsl(222 30% 10% / 0.08); /* menus, popovers, diálogos */
+
+  /* Fontes (--font-inter vem do next/font em app/layout.tsx) */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, "Segoe UI", sans-serif; /* toda a interface */
+  --font-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Menlo, Consolas, monospace; /* códigos, chaves, trechos técnicos */
+}
+
+/* Tema escuro escolhido pela pessoa (cookie "tema" = escuro). Mantenha idêntico ao bloco do sistema abaixo. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --brand: hsl(217 92% 68%); /* texto escuro sobre ele 6.8:1; como texto em --surface 6.3:1 */
+  --brand-foreground: hsl(222 47% 9%);
+  --brand-soft: hsl(220 45% 20%); /* --brand sobre ele 5.1:1 */
+  --background: hsl(222 22% 7%);
+  --surface: hsl(222 18% 11%);
+  --surface-muted: hsl(222 15% 16%);
+  --border: hsl(222 12% 22%);
+  --border-input: hsl(220 9% 44%); /* 3.3:1 em --surface */
+  --overlay: hsl(222 40% 3% / 0.7);
+  --text: hsl(220 20% 93%); /* 14.7:1 em --surface */
+  --text-muted: hsl(220 12% 70%); /* 7.9:1 em --surface */
+  --text-subtle: hsl(220 9% 60%); /* 5.9:1 em --surface, 5.1:1 em --surface-muted */
+  --success: hsl(150 55% 55%);
+  --success-foreground: hsl(150 60% 8%);
+  --success-soft: hsl(152 40% 14%);
+  --warning: hsl(38 90% 60%);
+  --warning-foreground: hsl(30 70% 9%);
+  --warning-soft: hsl(34 50% 14%);
+  --danger: hsl(0 85% 70%);
+  --danger-foreground: hsl(0 60% 10%);
+  --danger-soft: hsl(0 45% 16%);
+  --info: hsl(200 85% 64%);
+  --info-foreground: hsl(200 70% 9%);
+  --info-soft: hsl(200 50% 15%);
+  --agent-active: hsl(168 60% 52%);
+  --agent-active-foreground: hsl(168 70% 8%);
+  --agent-active-soft: hsl(170 45% 13%);
+  --agent-paused: hsl(26 90% 64%);
+  --agent-paused-foreground: hsl(24 70% 9%);
+  --agent-paused-soft: hsl(24 45% 15%);
+  --human-owned: hsl(243 85% 77%);
+  --human-owned-foreground: hsl(243 50% 12%);
+  --human-owned-soft: hsl(243 35% 20%);
+  --assistant: hsl(280 70% 76%);
+  --assistant-foreground: hsl(280 50% 11%);
+  --assistant-soft: hsl(280 30% 19%);
+  --internal-note: hsl(45 45% 15%);
+  --internal-note-foreground: hsl(45 90% 68%);
+  --internal-note-border: hsl(44 55% 35%);
+  --shadow-sm: 0 1px 2px 0 hsl(222 40% 2% / 0.5);
+  --shadow-md: 0 6px 16px -4px hsl(222 40% 2% / 0.7), 0 2px 4px -2px hsl(222 40% 2% / 0.5);
+}
+
+/* Tema escuro do sistema, quando a pessoa não escolheu "claro". Cópia exata do bloco acima. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --brand: hsl(217 92% 68%);
+    --brand-foreground: hsl(222 47% 9%);
+    --brand-soft: hsl(220 45% 20%);
+    --background: hsl(222 22% 7%);
+    --surface: hsl(222 18% 11%);
+    --surface-muted: hsl(222 15% 16%);
+    --border: hsl(222 12% 22%);
+    --border-input: hsl(220 9% 44%);
+    --overlay: hsl(222 40% 3% / 0.7);
+    --text: hsl(220 20% 93%);
+    --text-muted: hsl(220 12% 70%);
+    --text-subtle: hsl(220 9% 60%);
+    --success: hsl(150 55% 55%);
+    --success-foreground: hsl(150 60% 8%);
+    --success-soft: hsl(152 40% 14%);
+    --warning: hsl(38 90% 60%);
+    --warning-foreground: hsl(30 70% 9%);
+    --warning-soft: hsl(34 50% 14%);
+    --danger: hsl(0 85% 70%);
+    --danger-foreground: hsl(0 60% 10%);
+    --danger-soft: hsl(0 45% 16%);
+    --info: hsl(200 85% 64%);
+    --info-foreground: hsl(200 70% 9%);
+    --info-soft: hsl(200 50% 15%);
+    --agent-active: hsl(168 60% 52%);
+    --agent-active-foreground: hsl(168 70% 8%);
+    --agent-active-soft: hsl(170 45% 13%);
+    --agent-paused: hsl(26 90% 64%);
+    --agent-paused-foreground: hsl(24 70% 9%);
+    --agent-paused-soft: hsl(24 45% 15%);
+    --human-owned: hsl(243 85% 77%);
+    --human-owned-foreground: hsl(243 50% 12%);
+    --human-owned-soft: hsl(243 35% 20%);
+    --assistant: hsl(280 70% 76%);
+    --assistant-foreground: hsl(280 50% 11%);
+    --assistant-soft: hsl(280 30% 19%);
+    --internal-note: hsl(45 45% 15%);
+    --internal-note-foreground: hsl(45 90% 68%);
+    --internal-note-border: hsl(44 55% 35%);
+    --shadow-sm: 0 1px 2px 0 hsl(222 40% 2% / 0.5);
+    --shadow-md: 0 6px 16px -4px hsl(222 40% 2% / 0.7), 0 2px 4px -2px hsl(222 40% 2% / 0.5);
+  }
+}
