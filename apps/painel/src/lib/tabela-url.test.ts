@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hrefComParams, hrefOrdenar, lerOrdem, lerPagina, ordenarLinhas, paginar, proximaOrdem, valorParam } from './tabela-url';
+import { faixaDaConsulta, hrefComParams, hrefOrdenar, lerOrdem, lerPagina, ordenarLinhas, paginar, proximaOrdem, valorParam } from './tabela-url';
 
 describe('leitura da URL', () => {
   it('valor repetido pega o primeiro', () => {
@@ -69,5 +69,14 @@ describe('ordenarLinhas', () => {
     expect(ordenarLinhas(linhas, (l) => l.n, 'desc').map((l) => l.n)).toEqual([100, 10, 2, null]);
     expect(ordenarLinhas(linhas, (l) => (l.d ? new Date(l.d) : null), 'desc').map((l) => l.d)).toEqual(['2026-09-30', '2026-09-02', '2026-01-01', null]);
     expect(linhas[0]!.nome).toBe('Padaria Pão Quente');
+  });
+});
+
+describe('faixaDaConsulta', () => {
+  it('página além da última vira a faixa da última (nunca pede além do total)', () => {
+    expect(faixaDaConsulta(paginar(132, 99, 50), 50)).toEqual([100, 149]);
+    expect(faixaDaConsulta(paginar(50, 2, 50), 50)).toEqual([0, 49]); // a única da última página foi concluída
+    expect(faixaDaConsulta(paginar(0, 3, 50), 50)).toEqual([0, 49]);
+    expect(faixaDaConsulta(paginar(132, 2, 50), 50)).toEqual([50, 99]);
   });
 });

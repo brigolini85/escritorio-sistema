@@ -3,7 +3,7 @@
 // para as outras pessoas as leituras voltam null e os cartões correspondentes não aparecem.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@escritorio/db';
-import { formatarUSD } from './formatos';
+import { formatarUSD, tempoRelativo } from './formatos';
 import { situacaoDoSinal, type LimitesSinal } from './sinal-vida';
 
 type Cliente = SupabaseClient<Database>;
@@ -36,24 +36,35 @@ export function situacaoTeto(gasto: number, teto: number): SituacaoTeto {
 }
 
 const POR_PAGINA = 1000;
-const PAGINAS_MAX = 50;
+/** Páginas pedidas ao mesmo tempo. */
+const EM_PARALELO = 8;
+/** Acima disto a soma para e é marcada como parcial (200 idas ao banco). */
+export const LINHAS_MAX_GASTO = 200_000;
+
+export type GastoDoMes = { total: number; /** true: o mês tem mais linhas que LINHAS_MAX_GASTO e a soma é menor que a real. */ parcial: boolean };
 
 /**
- * Soma de uso_ia.custo_usd no mês corrente (Brasília). A API devolve no máximo 1000 linhas por consulta, então lê
- * em páginas. A soma no banco (custo_ia_periodo) não é liberada para o painel. null: sem acesso (RLS) ou erro.
+ * Soma de uso_ia.custo_usd no mês corrente (Brasília). Sem agregação no PostgREST (desligada) e sem a RPC
+ * custo_ia_periodo (revogada para o painel): conta as linhas (head) e lê as páginas de 1000 em paralelo, em ordem de id.
+ * null: sem acesso (RLS) ou erro.
  */
-export async function lerGastoIaDoMes(sb: Cliente, agora: Date): Promise<number | null> {
+export async function lerGastoIaDoMes(sb: Cliente, agora: Date): Promise<GastoDoMes | null> {
   const { inicio, fim } = mesCorrenteSP(agora);
+  const { count, error } = await sb.from('uso_ia').select('id', { count: 'exact', head: true }).gte('criado_em', inicio).lt('criado_em', fim);
+  if (error || count === null) return null;
+  const paginas = Math.ceil(Math.min(count, LINHAS_MAX_GASTO) / POR_PAGINA);
   let total = 0;
-  for (let pagina = 0; pagina < PAGINAS_MAX; pagina++) {
-    const de = pagina * POR_PAGINA;
-    const { data, error } = await sb.from('uso_ia').select('custo_usd').gte('criado_em', inicio).lt('criado_em', fim)
-      .order('criado_em').order('id').range(de, de + POR_PAGINA - 1);
-    if (error) return null;
-    for (const l of data ?? []) total += Number(l.custo_usd) || 0;
-    if ((data ?? []).length < POR_PAGINA) return total;
+  for (let i = 0; i < paginas; i += EM_PARALELO) {
+    const lote = await Promise.all(Array.from({ length: Math.min(EM_PARALELO, paginas - i) }, (_, j) => {
+      const de = (i + j) * POR_PAGINA;
+      return sb.from('uso_ia').select('custo_usd').gte('criado_em', inicio).lt('criado_em', fim).order('id').range(de, de + POR_PAGINA - 1);
+    }));
+    for (const r of lote) {
+      if (r.error) return null;
+      for (const l of r.data ?? []) total += Number(l.custo_usd) || 0;
+    }
   }
-  return total;
+  return { total, parcial: count > LINHAS_MAX_GASTO };
 }
 
 export type SinaisVida = { fila: string | null; whatsapp: string | null; ultimo: string | null };
@@ -78,12 +89,12 @@ export function alertasDaFaixa({ teto, sinais, agora }: { teto: SituacaoTeto | n
   if (teto?.nivel === 'atingido') {
     lista.push({
       id: 'teto', nivel: 'perigo', titulo: 'Teto de gasto com IA atingido',
-      texto: `O gasto do mês chegou a ${formatarUSD(teto.gasto)} de ${formatarUSD(teto.teto)}. O agente não responde: as mensagens vão para a equipe até o mês virar ou o teto subir.`,
+      texto: `O gasto do mês chegou a ${formatarUSD(teto.gasto)} de ${formatarUSD(teto.teto)}. O agente e o assistente não respondem: as mensagens dos clientes vão para a equipe até o mês virar ou o teto subir.`,
     });
   } else if (teto?.nivel === 'perto') {
     lista.push({
       id: 'teto', nivel: 'atencao', titulo: 'Gasto com IA perto do teto',
-      texto: `${Math.floor(teto.fracao * 100)}% do teto do mês (${formatarUSD(teto.gasto)} de ${formatarUSD(teto.teto)}). Ao chegar a 100%, o agente para de responder.`,
+      texto: `${Math.floor(teto.fracao * 100)}% do teto do mês (${formatarUSD(teto.gasto)} de ${formatarUSD(teto.teto)}). Ao chegar a 100%, o agente e o assistente param de responder.`,
     });
   }
   if (sinais) {
@@ -95,9 +106,11 @@ export function alertasDaFaixa({ teto, sinais, agora }: { teto: SituacaoTeto | n
         texto: 'O trabalhador não dá sinal: mensagens novas não são processadas nem enviadas. Verifique se o trabalhador está rodando.',
       });
     } else if (whatsapp === 'parado' || whatsapp === 'sem_sinal') {
+      // Não afirma "desconectado": o sinal também some se o batimento falhar antes de consultar a Z-API.
+      const quando = sinais.whatsapp ? tempoRelativo(sinais.whatsapp, agora) : '';
       lista.push({
-        id: 'whatsapp', nivel: 'perigo', titulo: 'WhatsApp desconectado',
-        texto: 'O WhatsApp do escritório não responde. Abra o painel da Z-API e leia o QR code de novo com o celular do escritório.',
+        id: 'whatsapp', nivel: 'perigo', titulo: quando ? `Sem sinal do WhatsApp ${quando}` : 'Sem sinal do WhatsApp',
+        texto: 'A fila bate, mas a conexão com a Z-API não foi confirmada. Confira no painel da Z-API se o número está conectado (se não estiver, leia o QR code de novo com o celular do escritório) e, se estiver, os registros do trabalhador.',
       });
     }
   }

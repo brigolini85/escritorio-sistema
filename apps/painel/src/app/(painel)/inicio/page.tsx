@@ -1,4 +1,4 @@
-import { Bell, CircleAlert, Gauge, TriangleAlert } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -14,10 +14,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { cn } from '@/lib/cn';
 import { contarConversasAguardando, contarDemandasAbertas } from '@/lib/contadores';
 import { formatarUSD } from '@/lib/formatos';
-import { alertasDaFaixa, LIMITES_BATIMENTO, lerGastoIaDoMes, lerSinaisVida, MINUTOS_SEM_RESPONSAVEL_PADRAO, situacaoTeto, type AlertaFaixa } from '@/lib/inicio';
+import { LIMITES_BATIMENTO, lerSinaisVida, MINUTOS_SEM_RESPONSAVEL_PADRAO, situacaoTeto } from '@/lib/inicio';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarPausaGeral, marcarAlertaLido } from './acoes';
+import { FaixaAlertas } from './faixa-alertas';
+import { gastoDoMes } from './gasto-do-mes';
 
 const NIVEL_AVISO: Record<string, { rotulo: string; variant: 'danger' | 'warning' | 'info' }> = {
   critico: { rotulo: 'Crítico', variant: 'danger' },
@@ -42,7 +44,7 @@ export default async function Inicio() {
     sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
     contarConversasAguardando(sb),
     contarDemandasAbertas(sb),
-    admin ? lerGastoIaDoMes(sb, agora) : Promise.resolve(null),
+    admin ? gastoDoMes(sb, u.id, agora) : Promise.resolve(null),
     admin ? lerSinaisVida(sb) : Promise.resolve(null),
   ]);
 
@@ -65,19 +67,14 @@ export default async function Inicio() {
     .map((s, i) => ({ ...s, total: contagens[i]?.count ?? 0 }))
     .filter((s) => s.total > 0);
 
-  const teto = cfg && gasto !== null ? situacaoTeto(gasto, Number(cfg.teto_ia_usd)) : null;
-  const faixa = alertasDaFaixa({ teto, sinais, agora });
+  const teto = cfg && gasto ? situacaoTeto(gasto.total, Number(cfg.teto_ia_usd)) : null;
   const estado = estadoGeralDoAgente(cfg?.agente_pausado ?? null, teto ? teto.nivel === 'atingido' : null);
 
   return (
     <div className="flex max-w-5xl flex-col gap-6">
       <PageHeader titulo="Início" descricao="Como está o atendimento agora." className="mb-0" />
 
-      {faixa.length > 0 && (
-        <section aria-label="Alertas" className="flex flex-col gap-2">
-          {faixa.map((a) => <ItemFaixa key={a.id} alerta={a} />)}
-        </section>
-      )}
+      <FaixaAlertas teto={teto} sinais={sinais} />
 
       {(cfg || sinais) && (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -93,7 +90,7 @@ export default async function Inicio() {
                   {cfg.agente_pausado
                     ? 'O agente está PAUSADO: todas as mensagens vão para a equipe.'
                     : estado.tipo === 'pausado'
-                      ? 'O agente não está respondendo: o gasto com IA do mês chegou ao teto e as mensagens vão para a equipe.'
+                      ? 'O agente não está respondendo: o gasto com IA do mês chegou ao teto e as mensagens vão para a equipe. O assistente da equipe também para até o mês virar ou o teto subir.'
                       : 'O agente está atendendo normalmente.'}
                 </p>
                 <div>
@@ -166,7 +163,7 @@ export default async function Inicio() {
               </span>
             )}
           />
-          {teto && <GastoIa gasto={teto.gasto} teto={teto.teto} fracao={teto.fracao} nivel={teto.nivel} />}
+          {teto && <GastoIa gasto={teto.gasto} teto={teto.teto} fracao={teto.fracao} nivel={teto.nivel} parcial={gasto?.parcial ?? false} />}
         </div>
       </section>
 
@@ -200,23 +197,6 @@ export default async function Inicio() {
   );
 }
 
-function ItemFaixa({ alerta: a }: { alerta: AlertaFaixa }) {
-  const perigo = a.nivel === 'perigo';
-  const Icone = a.id === 'teto' ? Gauge : perigo ? CircleAlert : TriangleAlert;
-  return (
-    <div
-      role={perigo ? 'alert' : 'status'}
-      className={cn('flex items-start gap-3 rounded-lg border p-3 text-sm', perigo ? 'border-danger bg-danger-soft text-danger' : 'border-warning bg-warning-soft text-warning')}
-    >
-      <Icone aria-hidden size={20} strokeWidth={1.75} className="mt-0.5 shrink-0" />
-      <div>
-        <p className="font-semibold">{a.titulo}</p>
-        <p>{a.texto}</p>
-      </div>
-    </div>
-  );
-}
-
 function Numero({ titulo, valor, destaque, rodape, children }: {
   titulo: string; valor: number | null; destaque?: 'atencao' | 'perigo'; rodape?: ReactNode; children?: ReactNode;
 }) {
@@ -232,7 +212,7 @@ function Numero({ titulo, valor, destaque, rodape, children }: {
   );
 }
 
-function GastoIa({ gasto, teto, fracao, nivel }: { gasto: number; teto: number; fracao: number; nivel: 'ok' | 'perto' | 'atingido' }) {
+function GastoIa({ gasto, teto, fracao, nivel, parcial }: { gasto: number; teto: number; fracao: number; nivel: 'ok' | 'perto' | 'atingido'; parcial: boolean }) {
   const pct = Math.min(100, Math.round(fracao * 100));
   const cor = nivel === 'atingido' ? 'bg-danger' : nivel === 'perto' ? 'bg-warning' : 'bg-brand';
   return (
@@ -251,7 +231,7 @@ function GastoIa({ gasto, teto, fracao, nivel }: { gasto: number; teto: number; 
         <div className={cn('h-full rounded-full transition-all duration-150 ease-out', cor)} style={{ width: `${pct}%` }} />
       </div>
       <p className={cn('mt-auto pt-2 text-xs', nivel === 'atingido' ? 'text-danger' : nivel === 'perto' ? 'text-warning' : 'text-muted')}>
-        {pct}% do teto de {formatarUSD(teto)}
+        {pct}% do teto de {formatarUSD(teto)}{parcial && ' · valor parcial (mês com uso demais para somar aqui; o real é maior)'}
       </p>
     </Card>
   );

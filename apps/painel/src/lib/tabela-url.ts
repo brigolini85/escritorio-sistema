@@ -95,3 +95,11 @@ export function ordenarLinhas<T>(linhas: readonly T[], valor: (l: T) => string |
     return sinal * (na - nb);
   });
 }
+
+/**
+ * Faixa para o `.range(de, ate)` do PostgREST a partir de uma página já limitada por `paginar`.
+ * Pedir além do total com count=exact dá erro 416 (PGRST103): conte primeiro, pagine, e só então peça a faixa.
+ */
+export function faixaDaConsulta(p: Paginacao, porPagina: number): [number, number] {
+  return [p.inicio, p.inicio + porPagina - 1];
+}

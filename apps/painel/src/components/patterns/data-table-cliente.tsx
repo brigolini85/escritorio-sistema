@@ -107,6 +107,10 @@ export function BarraSelecao({ children }: { children: ReactNode }) {
   );
 }
 
+/** Evento de window disparado quando uma linha com `href` é aberta (antes da navegação), para retorno imediato. */
+export const EVENTO_ABRIR_LINHA = 'tabela:abrir-linha';
+export type LinhaAbrindo = { id: string; href: string };
+
 /** Clique em elementos interativos dentro da linha (links, botões, caixas) não abre a linha. */
 const INTERATIVO = 'a, button, input, select, textarea, label, summary, [role="checkbox"], [role="button"], [role="menuitem"], [data-sem-clique-linha]';
 
@@ -138,8 +142,11 @@ export function LinhaTabela({
 
   const abrir = (novaAba: boolean) => {
     if (href && novaAba) window.open(href, '_blank', 'noopener');
-    else if (href) router.push(href, { scroll: false });
-    else aoClicar?.();
+    else if (href) {
+      // Avisa antes de navegar: quem mostra o detalhe (ex.: o Sheet de Demandas) já pode abrir com um esqueleto.
+      window.dispatchEvent(new CustomEvent<LinhaAbrindo>(EVENTO_ABRIR_LINHA, { detail: { id, href } }));
+      router.push(href, { scroll: false });
+    } else aoClicar?.();
   };
   const aoClicarLinha = (e: MouseEvent<HTMLTableRowElement>) => {
     if (!clicavel) return;

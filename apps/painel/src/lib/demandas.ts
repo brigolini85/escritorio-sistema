@@ -48,10 +48,14 @@ function daLista<T extends string>(v: string | undefined, opcoes: { valor: T }[]
   return opcoes.find((o) => o.valor === v)?.valor ?? null;
 }
 
-/** Valores estranhos na URL viram "sem filtro" (nunca vão para a consulta). */
-export function lerFiltrosDemandas(params: ParamsBusca): FiltrosDemandas {
+/**
+ * Valores estranhos na URL viram "sem filtro" (nunca vão para a consulta). `eu`: id de quem está vendo; o próprio id em
+ * ?responsavel= vira "eu" (Comigo), para o filtro aparecer marcado.
+ */
+export function lerFiltrosDemandas(params: ParamsBusca, eu?: string): FiltrosDemandas {
   const setor = valorParam(params, 'setor');
-  const responsavel = valorParam(params, 'responsavel');
+  const bruto = valorParam(params, 'responsavel');
+  const responsavel = eu && bruto === eu ? 'eu' : bruto;
   const demanda = valorParam(params, 'demanda');
   return {
     setor: setor === 'triagem' || ehUuid(setor) ? setor : 'todos',

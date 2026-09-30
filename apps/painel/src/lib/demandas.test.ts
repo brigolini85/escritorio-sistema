@@ -20,6 +20,7 @@ describe('lerFiltrosDemandas', () => {
       .toMatchObject({ status: null, responsavel: null, tipo: null, periodo: null, demanda: null });
     expect(lerFiltrosDemandas({ responsavel: ['eu', 'sem'] }).responsavel).toBe('eu');
     expect(lerFiltrosDemandas({ responsavel: ID }).responsavel).toBe(ID);
+    expect(lerFiltrosDemandas({ responsavel: ID }, ID).responsavel).toBe('eu'); // o próprio id vira Comigo
   });
   it('temFiltroAlemDoSetor', () => {
     expect(temFiltroAlemDoSetor(lerFiltrosDemandas({ setor: 'triagem' }))).toBe(false);

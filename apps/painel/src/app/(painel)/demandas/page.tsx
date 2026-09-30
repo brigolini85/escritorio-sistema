@@ -1,6 +1,8 @@
 import { PEDIDOS_POR_ARQUIVO_BLING, type CompradorCadastrado, type PedidoVendaSalvo } from '@escritorio/core';
 import { FilterX, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { BlingExportButton } from '@/components/patterns/bling-export-button';
 import { BarraSelecao, DataTable, type ColunaTabela } from '@/components/patterns/data-table';
@@ -14,14 +16,25 @@ import { cn } from '@/lib/cn';
 import { inicioDoPeriodo, lerFiltrosDemandas, OPCOES_PERIODO, OPCOES_STATUS, OPCOES_TIPO, temFiltroAlemDoSetor } from '@/lib/demandas';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { hrefComParams, lerOrdem, lerPagina, paginar, PARAM_PAGINA, type ParamsBusca } from '@/lib/tabela-url';
+import { pendenciasCsvBling } from '@/lib/resumo-pedido';
+import { faixaDaConsulta, hrefComParams, lerOrdem, lerPagina, paginar, PARAM_PAGINA, valorParam, type Paginacao, type ParamsBusca } from '@/lib/tabela-url';
 import { AtualizarAoVivo } from '../atendimento/atualizar-ao-vivo';
 import { DetalheDemanda, type DemandaAberta } from './detalhe-demanda';
 import { ExportarSelecionadas } from './exportar-selecionadas';
-import { PainelDemanda } from './painel-demanda';
+import { EsqueletoDemanda, PainelDemanda } from './painel-demanda';
 
 const POR_PAGINA = 50;
 const ORDENAVEIS = ['numero', 'aberta'] as const;
+const COLUNAS_COMPRADOR = 'id, razao_social, nome_unidade, cnpj, endereco, numero, complemento, bairro, cidade, uf, cep, telefone';
+
+/** O que o filtro da lista usa do construtor de consultas do PostgREST (para aplicar os mesmos filtros na contagem e na página). */
+type Filtravel<Q> = {
+  is(coluna: string, valor: null): Q;
+  eq(coluna: string, valor: string): Q;
+  neq(coluna: string, valor: string): Q;
+  not(coluna: string, operador: string, valor: null): Q;
+  gte(coluna: string, valor: string): Q;
+};
 
 type Linha = {
   id: string;
@@ -33,6 +46,8 @@ type Linha = {
   conversa_id: string | null;
   fora_do_contrato: boolean;
   temPedido: boolean;
+  /** Pendências do CSV do Bling (só com a permissão). */
+  pendencias: string[];
   setor: string | null;
   responsavel: string | null;
   empresa: string | null;
@@ -48,48 +63,76 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
   const u = await obterUsuario();
   // CSV do Bling só para quem pode "Corrigir pedidos de nota e gerar CSV do Bling" (o administrador sempre pode).
   const podeCsv = temPermissao(u, 'emitir_notas');
-  const f = lerFiltrosDemandas(params);
+  // O próprio id em ?responsavel= vira "eu" também na URL, para o Select mostrar "Comigo".
+  if (valorParam(params, 'responsavel') === u.id) redirect(`/demandas${hrefComParams(params, { responsavel: 'eu', [PARAM_PAGINA]: valorParam(params, PARAM_PAGINA) })}`);
+  const f = lerFiltrosDemandas(params, u.id);
   const setor = f.setor;
   const ordem = lerOrdem(params, ORDENAVEIS, { coluna: 'aberta', direcao: 'desc' })!;
   const paginaPedida = lerPagina(params);
   const sb = await supabaseServidor();
 
-  let consulta = sb.from('chamados')
-    .select('id, numero, titulo, resumo, status, criado_em, conversa_id, fora_do_contrato, pedido_venda, setores(nome), clientes(razao_social, nome_fantasia), usuarios(nome)', { count: 'exact' });
-  if (setor === 'triagem') consulta = consulta.is('setor_id', null);
-  else if (setor !== 'todos') consulta = consulta.eq('setor_id', setor);
-  consulta = f.status ? consulta.eq('status', f.status) : consulta.neq('status', 'concluido');
-  if (f.responsavel === 'sem') consulta = consulta.is('responsavel_id', null);
-  else if (f.responsavel) consulta = consulta.eq('responsavel_id', f.responsavel === 'eu' ? u.id : f.responsavel);
-  if (f.tipo === 'venda') consulta = consulta.not('pedido_venda', 'is', null);
-  else if (f.tipo === 'outras') consulta = consulta.is('pedido_venda', null);
   const desde = inicioDoPeriodo(f.periodo, new Date());
-  if (desde) consulta = consulta.gte('criado_em', desde);
-  const inicio = (paginaPedida - 1) * POR_PAGINA;
-  consulta = consulta.order(ordem.coluna === 'numero' ? 'numero' : 'criado_em', { ascending: ordem.direcao === 'asc' }).range(inicio, inicio + POR_PAGINA - 1);
+  // Os mesmos filtros na contagem e na página (a contagem vem antes: pedir uma faixa além do total dá erro 416).
+  const filtrar = <Q extends Filtravel<Q>>(q: Q): Q => {
+    let r = q;
+    if (setor === 'triagem') r = r.is('setor_id', null);
+    else if (setor !== 'todos') r = r.eq('setor_id', setor);
+    r = f.status ? r.eq('status', f.status) : r.neq('status', 'concluido');
+    if (f.responsavel === 'sem') r = r.is('responsavel_id', null);
+    else if (f.responsavel) r = r.eq('responsavel_id', f.responsavel === 'eu' ? u.id : f.responsavel);
+    if (f.tipo === 'venda') r = r.not('pedido_venda', 'is', null);
+    else if (f.tipo === 'outras') r = r.is('pedido_venda', null);
+    if (desde) r = r.gte('criado_em', desde);
+    return r;
+  };
+  const colunasLista = 'id, numero, titulo, resumo, status, criado_em, conversa_id, fora_do_contrato, pedido_venda, setores(nome), clientes(razao_social, nome_fantasia), usuarios(nome)';
+  const pagina_ = (p: Paginacao) => {
+    const [de, ate] = faixaDaConsulta(p, POR_PAGINA);
+    return filtrar(sb.from('chamados').select(colunasLista))
+      .order(ordem.coluna === 'numero' ? 'numero' : 'criado_em', { ascending: ordem.direcao === 'asc' }).range(de, ate);
+  };
 
   // Exportação para o Bling: todas as demandas de venda abertas do filtro de setor (a rota só conhece o setor), 500 pedidos por arquivo.
   let contagem = sb.from('chamados').select('id', { count: 'exact', head: true }).neq('status', 'concluido').not('pedido_venda', 'is', null);
   if (setor === 'triagem') contagem = contagem.is('setor_id', null);
   else if (setor !== 'todos') contagem = contagem.eq('setor_id', setor);
 
-  const [{ data: setores }, { data: pessoas }, resultado, { count: pedidosVenda }, aberta] = await Promise.all([
+  const [{ data: setores }, { data: pessoas }, contados, { count: pedidosVenda }] = await Promise.all([
     sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
-    sb.from('usuarios').select('id, nome').eq('ativo', true).order('nome'),
-    consulta,
+    sb.from('usuarios').select('id, nome, ativo').order('nome'),
+    filtrar(sb.from('chamados').select('id', { count: 'exact', head: true })),
     podeCsv ? contagem : Promise.resolve({ count: 0 }),
-    f.demanda ? lerDemanda(sb, f.demanda) : Promise.resolve(null),
   ]);
+  const total = contados.count ?? 0;
+  let paginacao = paginar(total, paginaPedida, POR_PAGINA);
+  let resultado = contados.error ? { data: null, error: contados.error } : await pagina_(paginacao);
+  // A lista encolheu entre a contagem e a página (tempo real): volta para a primeira página em vez de mostrar erro.
+  if (resultado.error?.code === 'PGRST103') {
+    paginacao = paginar(total, 1, POR_PAGINA);
+    resultado = await pagina_(paginacao);
+  }
   const partesBling = Math.ceil((pedidosVenda ?? 0) / PEDIDOS_POR_ARQUIVO_BLING);
-  const total = resultado.count ?? 0;
-  const paginacao = paginar(total, paginaPedida, POR_PAGINA);
 
-  const linhas: Linha[] = (resultado.data ?? []).map((d) => ({
-    id: d.id, numero: d.numero, titulo: d.titulo, resumo: d.resumo, status: d.status, criado_em: d.criado_em,
-    conversa_id: d.conversa_id, fora_do_contrato: d.fora_do_contrato, temPedido: d.pedido_venda !== null,
-    setor: d.setores?.nome ?? null, responsavel: d.usuarios?.nome ?? null,
-    empresa: d.clientes?.nome_fantasia ?? d.clientes?.razao_social ?? null,
-  }));
+  // Pendências do CSV de cada pedido desta página (mesma conta da rota, com o comprador cadastrado).
+  const unidades = [...new Set((resultado.data ?? []).flatMap((d) => {
+    const id = (d.pedido_venda as PedidoVendaSalvo | null)?.unidade_id;
+    return id ? [id] : [];
+  }))];
+  const { data: compradores } = podeCsv && unidades.length
+    ? await sb.from('parceiros_unidades').select(COLUNAS_COMPRADOR).in('id', unidades)
+    : { data: [] };
+  const porUnidade = new Map((compradores ?? []).map((c) => [c.id, c as CompradorCadastrado]));
+
+  const linhas: Linha[] = (resultado.data ?? []).map((d) => {
+    const unidade = (d.pedido_venda as PedidoVendaSalvo | null)?.unidade_id;
+    return {
+      id: d.id, numero: d.numero, titulo: d.titulo, resumo: d.resumo, status: d.status, criado_em: d.criado_em,
+      conversa_id: d.conversa_id, fora_do_contrato: d.fora_do_contrato, temPedido: d.pedido_venda !== null,
+      pendencias: d.pedido_venda && podeCsv ? pendenciasCsvBling(d.numero, d.pedido_venda, unidade ? porUnidade.get(unidade) ?? null : null) : [],
+      setor: d.setores?.nome ?? null, responsavel: d.usuarios?.nome ?? null,
+      empresa: d.clientes?.nome_fantasia ?? d.clientes?.razao_social ?? null,
+    };
+  });
 
   const nomeSetor = setor === 'todos' ? 'todos os setores' : setor === 'triagem' ? 'Triagem' : setores?.find((s) => s.id === setor)?.nome ?? 'o setor escolhido';
   const chips = [{ valor: 'todos', rotulo: 'Todos' }, ...(setores ?? []).map((s) => ({ valor: s.id, rotulo: s.nome })), { valor: 'triagem', rotulo: 'Triagem' }];
@@ -108,7 +151,9 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
         <div className="flex min-w-0 flex-col">
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="truncate font-medium text-foreground">{d.titulo}</span>
-            {d.temPedido && <Badge variant="brand">Pedido de nota</Badge>}
+            {d.temPedido && (d.pendencias.length > 0
+              ? <Badge variant="warning" title={d.pendencias.join(' · ')}>Pedido de nota incompleto</Badge>
+              : <Badge variant="brand">Pedido de nota</Badge>)}
             {d.fora_do_contrato && <Badge variant="warning">Fora do contrato</Badge>}
           </span>
           {d.resumo && <span className="truncate text-xs text-muted">{d.resumo}</span>}
@@ -175,7 +220,9 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
           { param: 'status', rotulo: 'Status', todos: 'Em aberto', opcoes: OPCOES_STATUS },
           { param: 'responsavel', rotulo: 'Responsável', todos: 'Qualquer um', opcoes: [
             { valor: 'eu', rotulo: 'Comigo' }, { valor: 'sem', rotulo: 'Sem responsável' },
-            ...(pessoas ?? []).filter((p) => p.id !== u.id).map((p) => ({ valor: p.id, rotulo: p.nome })),
+            // Inativos só aparecem quando já estão no filtro da URL (senão o Select pareceria "Qualquer um").
+            ...(pessoas ?? []).filter((p) => p.id !== u.id && (p.ativo || p.id === f.responsavel))
+              .map((p) => ({ valor: p.id, rotulo: p.ativo ? p.nome : `${p.nome} (inativo)` })),
           ] },
           { param: 'tipo', rotulo: 'Tipo', todos: 'Todos', opcoes: OPCOES_TIPO },
           { param: 'periodo', rotulo: 'Aberta', todos: 'Qualquer data', opcoes: OPCOES_PERIODO },
@@ -192,7 +239,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
         paginacao={paginacao}
         selecionavel={podeCsv}
         rotuloSelecao={(d) => `Selecionar demanda #${d.numero}`}
-        acoesEmMassa={<BarraSelecao><ExportarSelecionadas comPedido={linhas.filter((d) => d.temPedido).map((d) => d.id)} /></BarraSelecao>}
+        acoesEmMassa={<BarraSelecao><ExportarSelecionadas pedidos={Object.fromEntries(linhas.filter((d) => d.temPedido).map((d) => [d.id, d.pendencias]))} /></BarraSelecao>}
         hrefLinha={(d) => hrefDemanda(d.id)}
         linhaAtiva={f.demanda}
         acoesLinha={(d) => d.conversa_id ? (
@@ -218,16 +265,24 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
         )}
       />
 
-      {f.demanda && (
-        <PainelDemanda key={f.demanda} hrefFechar={hrefDemanda(null)}>
-          <DetalheDemanda demanda={aberta?.demanda ?? null} comprador={aberta?.comprador ?? null} podeCsv={podeCsv} />
-        </PainelDemanda>
-      )}
+      {/* Sempre montado: abre na hora com esqueleto ao clicar na linha; o detalhe chega à parte (Suspense). */}
+      <PainelDemanda demandaId={f.demanda} hrefFechar={hrefDemanda(null)}>
+        {f.demanda && (
+          <Suspense key={f.demanda} fallback={<EsqueletoDemanda />}>
+            <DetalheCarregado sb={sb} id={f.demanda} podeCsv={podeCsv} />
+          </Suspense>
+        )}
+      </PainelDemanda>
     </section>
   );
 }
 
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;
+
+async function DetalheCarregado({ sb, id, podeCsv }: { sb: Sb; id: string; podeCsv: boolean }) {
+  const aberta = await lerDemanda(sb, id);
+  return <DetalheDemanda demanda={aberta?.demanda ?? null} comprador={aberta?.comprador ?? null} podeCsv={podeCsv} />;
+}
 
 /** Demanda do painel lateral, com a linha do tempo e o cadastro do comprador (como no CSV do Bling). RLS vale. */
 async function lerDemanda(sb: Sb, id: string): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null } | null> {
@@ -237,7 +292,7 @@ async function lerDemanda(sb: Sb, id: string): Promise<{ demanda: DemandaAberta;
   if (!d) return null;
   const unidade = (d.pedido_venda as PedidoVendaSalvo | null)?.unidade_id ?? null;
   const { data: comprador } = unidade
-    ? await sb.from('parceiros_unidades').select('id, razao_social, nome_unidade, cnpj, endereco, numero, complemento, bairro, cidade, uf, cep, telefone').eq('id', unidade).maybeSingle()
+    ? await sb.from('parceiros_unidades').select(COLUNAS_COMPRADOR).eq('id', unidade).maybeSingle()
     : { data: null };
   return {
     demanda: {
