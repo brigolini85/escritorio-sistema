@@ -9,7 +9,8 @@ const EMAIL = 'a11y@teste.com';
 const SENHA = 'senha-forte-123';
 const TELEFONE = '5531999990901';
 const CNPJ = '11444777000161';
-const TITULO = 'Guia do DAS de setembro (a11y)';
+// Textos próprios deste spec: não podem conter trechos que outros specs procuram com getByText.
+const TITULO = 'Comprovante de acessibilidade (a11y)';
 
 type Ids = { conversa: string; demanda: string; cliente: string; contato: string; usuario: string };
 
@@ -27,20 +28,28 @@ async function semear(): Promise<Ids> {
   await db.from('contato_clientes').insert({ contato_id: contato!.id, cliente_id: cliente!.id, pode_pedir_nota: true });
   const { data: conversa } = await db.from('conversas').insert({ telefone: TELEFONE, contato_id: contato!.id, cliente_em_foco: cliente!.id }).select().single();
   await db.from('mensagens').insert([
-    { conversa_id: conversa!.id, direcao: 'entrada', autor: 'cliente', tipo: 'texto', conteudo: 'Bom dia, preciso da guia do DAS.' },
+    { conversa_id: conversa!.id, direcao: 'entrada', autor: 'cliente', tipo: 'texto', conteudo: 'Bom dia, preciso do comprovante de acessibilidade.' },
     { conversa_id: conversa!.id, direcao: 'saida', autor: 'agente', tipo: 'texto', conteudo: 'Bom dia! Já encaminhei para o Fiscal.' },
   ]);
   const { data: setor } = await db.from('setores').select('id').eq('nome', 'Fiscal').single();
   const { data: demanda } = await db.from('chamados')
-    .insert({ conversa_id: conversa!.id, cliente_id: cliente!.id, setor_id: setor!.id, titulo: TITULO, resumo: 'Cliente pediu a guia do DAS de setembro.' })
+    .insert({ conversa_id: conversa!.id, cliente_id: cliente!.id, setor_id: setor!.id, titulo: TITULO, resumo: 'Cliente pediu o comprovante de acessibilidade.' })
     .select('id, numero').single();
   const { error } = await db.from('assistente_mensagens').insert([
     { usuario_id: usuario, canal: 'site', papel: 'usuario', conteudo: 'quais demandas do Fiscal estão abertas?', processada_em: new Date().toISOString() },
-    { usuario_id: usuario, canal: 'site', papel: 'assistente', conteudo: 'Há 1 demanda aberta no Fiscal: guia do DAS de setembro.', processada_em: new Date().toISOString() },
+    { usuario_id: usuario, canal: 'site', papel: 'assistente', conteudo: 'Há 1 demanda aberta no Fiscal: comprovante de acessibilidade.', processada_em: new Date().toISOString() },
   ]);
   if (error) throw error;
   return { conversa: conversa!.id, demanda: demanda!.id, cliente: cliente!.id, contato: contato!.id, usuario };
 }
+
+// Sem sobras para os outros specs (listas e contagens do Atendimento e de Demandas).
+test.afterAll(async () => {
+  await db.from('chamados').delete().eq('titulo', TITULO);
+  await db.from('conversas').delete().eq('telefone', TELEFONE);
+  await db.from('contatos').delete().eq('telefone', TELEFONE);
+  await db.from('clientes').delete().eq('cnpj', CNPJ);
+});
 
 async function auditar(page: Page, rotulo: string): Promise<string[]> {
   await page.waitForLoadState('load');
