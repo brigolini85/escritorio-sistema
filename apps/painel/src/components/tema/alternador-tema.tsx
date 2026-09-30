@@ -7,17 +7,14 @@ import { useState } from 'react';
 import { cn } from '@/lib/cn';
 import { cookieDaEscolha, dataThemeDoCookie, escolhaDoCookie, type EscolhaTema } from './tema';
 
-const OPCOES: { valor: EscolhaTema; rotulo: string; Icone: typeof Sun }[] = [
+export const OPCOES_TEMA: { valor: EscolhaTema; rotulo: string; Icone: typeof Sun }[] = [
   { valor: 'claro', rotulo: 'Claro', Icone: Sun },
   { valor: 'escuro', rotulo: 'Escuro', Icone: Moon },
   { valor: 'sistema', rotulo: 'Sistema', Icone: Monitor },
 ];
 
-/**
- * Alternância manual do tema (claro, escuro ou seguir o sistema). Aplica na hora e grava no cookie.
- * Grupo de rádio do Radix: uma parada de Tab, setas trocam a opção.
- */
-export function AlternadorTema({ inicial, className }: { inicial: EscolhaTema; className?: string }) {
+/** Escolha atual do tema e a função que troca: aplica data-theme na hora, grava o cookie e atualiza a página. */
+export function useEscolhaTema(inicial: EscolhaTema): [EscolhaTema, (texto: string) => void] {
   const router = useRouter();
   const [escolha, setEscolha] = useState(inicial);
 
@@ -30,6 +27,15 @@ export function AlternadorTema({ inicial, className }: { inicial: EscolhaTema; c
     else delete document.documentElement.dataset.theme;
     router.refresh();
   }
+  return [escolha, escolher];
+}
+
+/**
+ * Alternância manual do tema (claro, escuro ou seguir o sistema). Aplica na hora e grava no cookie.
+ * Grupo de rádio do Radix: uma parada de Tab, setas trocam a opção.
+ */
+export function AlternadorTema({ inicial, className }: { inicial: EscolhaTema; className?: string }) {
+  const [escolha, escolher] = useEscolhaTema(inicial);
 
   return (
     <RadioGroup.Root
@@ -39,7 +45,7 @@ export function AlternadorTema({ inicial, className }: { inicial: EscolhaTema; c
       orientation="horizontal"
       className={cn('inline-flex rounded-md border border-border bg-surface-muted p-0.5', className)}
     >
-      {OPCOES.map(({ valor, rotulo, Icone }) => (
+      {OPCOES_TEMA.map(({ valor, rotulo, Icone }) => (
         <RadioGroup.Item
           key={valor}
           value={valor}

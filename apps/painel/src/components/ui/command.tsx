@@ -19,15 +19,16 @@ export function Command({ className, ...props }: ComponentProps<typeof CommandPr
 export function CommandDialog({
   titulo = 'Buscar',
   descricao = 'Busque empresas, contatos e demandas.',
+  shouldFilter,
   children,
   ...props
-}: ComponentProps<typeof Dialog> & { titulo?: string; descricao?: string }) {
+}: ComponentProps<typeof Dialog> & { titulo?: string; descricao?: string; shouldFilter?: boolean }) {
   return (
     <Dialog {...props}>
       <DialogContent className="overflow-hidden p-0" mostrarFechar={false}>
         <DialogTitle className="sr-only">{titulo}</DialogTitle>
         <DialogDescription className="sr-only">{descricao}</DialogDescription>
-        <Command>{children}</Command>
+        <Command shouldFilter={shouldFilter}>{children}</Command>
       </DialogContent>
     </Dialog>
   );

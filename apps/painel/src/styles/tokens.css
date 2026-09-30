@@ -71,6 +71,8 @@
   --radius-sm: 4px; /* selos, caixas de seleção, itens de menu */
   --radius-md: 6px; /* botões, campos, abas */
   --radius-lg: 10px; /* cards, diálogos, popovers */
+  --sidebar-width: 240px; /* menu lateral aberto (utilitário w-sidebar) */
+  --sidebar-width-collapsed: 64px; /* menu lateral recolhido, só ícones (utilitário w-sidebar-recolhida) */
   --shadow-sm: 0 1px 2px 0 hsl(222 30% 10% / 0.06); /* cards e campos */
   --shadow-md: 0 4px 12px -2px hsl(222 30% 10% / 0.12), 0 2px 4px -2px hsl(222 30% 10% / 0.08); /* menus, popovers, diálogos */
 

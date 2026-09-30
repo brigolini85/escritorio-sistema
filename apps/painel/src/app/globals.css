@@ -54,6 +54,10 @@
   --color-internal-note-foreground: var(--internal-note-foreground);
   --color-internal-note-border: var(--internal-note-border);
 
+  /* Larguras fixas de layout pedidas pela spec (valores em tokens.css): w-sidebar, w-sidebar-recolhida */
+  --spacing-sidebar: var(--sidebar-width);
+  --spacing-sidebar-recolhida: var(--sidebar-width-collapsed);
+
   /* Animações curtas (<= 150ms, ease-out) usadas pelos primitivos; zeradas com prefers-reduced-motion */
   --animate-aparecer: aparecer 150ms ease-out;
   --animate-desaparecer: desaparecer 100ms ease-out;
