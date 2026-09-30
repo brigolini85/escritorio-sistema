@@ -1,0 +1,31 @@
+/*
+ * TRANSIÇÃO (fase 1 até a fase 9 do redesign). Remover este arquivo e o @import em globals.css
+ * quando nenhuma tela usar mais cores cruas do Tailwind (grep por slate-/red-/amber-/emerald-/blue-/white).
+ *
+ * As telas antigas ainda usam as cores da paleta padrão (bg-white, text-slate-500, bg-slate-900...).
+ * Aqui essas poucas cores passam a apontar para os tokens, para que as telas antigas sigam o tema
+ * (claro/escuro) sem mudar o JSX delas. Código novo NUNCA usa essas classes: use os tokens.
+ */
+@theme inline {
+  --color-white: var(--surface); /* bg-white (cards), text-white (texto de botão escuro) */
+  --color-slate-50: var(--surface-muted);
+  --color-slate-100: var(--surface-muted);
+  --color-slate-400: var(--text-subtle);
+  --color-slate-500: var(--text-muted);
+  --color-slate-600: var(--text-muted);
+  --color-slate-900: var(--text); /* bg-slate-900 (botões) inverte com o tema junto com text-white */
+  --color-red-50: var(--danger-soft);
+  --color-red-300: var(--danger);
+  --color-red-600: var(--danger);
+  --color-red-700: var(--danger);
+  --color-red-800: var(--danger);
+  --color-amber-50: var(--warning-soft);
+  --color-amber-100: var(--warning-soft);
+  --color-amber-300: var(--warning);
+  --color-amber-700: var(--warning);
+  --color-amber-800: var(--warning);
+  --color-amber-900: var(--warning);
+  --color-emerald-50: var(--success-soft);
+  --color-emerald-700: var(--success);
+  --color-blue-700: var(--brand);
+}
