@@ -13,7 +13,8 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
   const sb = await supabaseServidor();
   const [{ data: usuarios }, { data: setores }, { data: contatos }] = await Promise.all([
     sb.from('usuarios').select('*, usuario_setores(setor_id)').order('nome'),
-    sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
+    // Todos os setores, inclusive os inativos: senão salvar o usuário apagaria a ligação dele com um setor desativado.
+    sb.from('setores').select('id, nome, ativo').order('nome'),
     sb.from('contatos').select('nome, telefone'),
   ]);
   /** Número que também é de um contato (cliente): com o assistente pelo WhatsApp, as mensagens vão para o assistente. */
@@ -32,7 +33,7 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
       </div>
       <p className="text-sm font-medium">Setores</p>
       <div className="flex flex-wrap gap-3 text-sm">
-        {(setores ?? []).map((s) => <label key={s.id} className="flex items-center gap-1"><input type="checkbox" name="setor" value={s.id} defaultChecked={u?.usuario_setores.some((x) => x.setor_id === s.id)} />{s.nome}</label>)}
+        {(setores ?? []).map((s) => <label key={s.id} className="flex items-center gap-1"><input type="checkbox" name="setor" value={s.id} defaultChecked={u?.usuario_setores.some((x) => x.setor_id === s.id)} />{s.nome}{s.ativo ? '' : ' (inativo)'}</label>)}
       </div>
       <p className="text-sm font-medium">Permissões</p>
       <div className="grid gap-1 text-sm">

@@ -62,7 +62,7 @@ export default async function Conversa({ params, searchParams }: { params: Promi
             <summary className="cursor-pointer font-semibold">Assistente</summary>
             <p className="my-2 text-xs text-slate-500">Já sabe deste cliente e das demandas desta conversa.</p>
             {erro && <p className="mb-2 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">{erro}</p>}
-            <ConversaAssistente usuarioId={u.id} conversaId={id} compacta />
+            <ConversaAssistente usuarioId={u.id} conversaId={id} podeCsv={temPermissao(u, 'emitir_notas')} compacta />
           </details>
         )}
         <ContatoDaConversa conversaId={id} contato={conversa.contatos} pode={temPermissao(u, 'editar_clientes')} />
@@ -71,7 +71,7 @@ export default async function Conversa({ params, searchParams }: { params: Promi
             <p className="font-semibold">#{c.numero} · {c.titulo}</p>
             <p className="text-slate-500">{c.setores?.nome ?? 'Triagem'} · {c.status.replace('_', ' ')}{c.fora_do_contrato ? ' · fora do contrato' : ''}</p>
             <p className="my-2 whitespace-pre-wrap">{c.resumo}</p>
-            {c.pedido_venda && <a href={`/api/csv-bling?id=${c.id}`} className="mb-2 inline-block text-blue-700 underline">Baixar CSV Bling</a>}
+            {c.pedido_venda && temPermissao(u, 'emitir_notas') && <a href={`/api/csv-bling?id=${c.id}`} className="mb-2 inline-block text-blue-700 underline">Baixar CSV Bling</a>}
             <ul className="mb-2 space-y-1 text-xs text-slate-500">
               {c.chamado_eventos.map((e, i) => <li key={i}>{hora(e.criado_em)} · {e.tipo.replace('_', ' ')}{e.usuarios?.nome ? ` (${e.usuarios.nome})` : ''}{e.texto ? `: ${e.texto}` : ''}</li>)}
             </ul>

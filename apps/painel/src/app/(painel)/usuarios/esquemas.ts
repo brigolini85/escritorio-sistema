@@ -10,7 +10,14 @@ export const PERMISSOES = [
   { valor: 'assistente_whatsapp', rotulo: 'Usar o assistente pelo WhatsApp (pelo telefone acima)' },
 ] as const;
 
-const telefoneOpcional = z.preprocess((v) => (v ? normalizarTelefone(String(v)) : null), z.string().nullable());
+/** Vazio = sem telefone; preenchido tem de ser um telefone com DDD (senão o WhatsApp do assistente não reconheceria a pessoa). */
+const telefoneOpcional = z.preprocess((v) => (v && String(v).trim() ? String(v) : null), z.string().nullable())
+  .transform((v, ctx) => {
+    if (v === null) return null;
+    const t = normalizarTelefone(v);
+    if (!t) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Telefone inválido' });
+    return t;
+  });
 
 export const UsuarioForm = z.preprocess((v) => {
   const f = v as FormData;

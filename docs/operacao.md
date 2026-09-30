@@ -110,7 +110,7 @@ O celular do escritório perdeu a conexão com a Z-API. Entre no painel da Z-API
 
 ### Convidar alguém
 
-Configurações → Usuários → preencha nome e e-mail, marque os setores e clique em **Enviar convite**. Para tirar o acesso de alguém, abra o usuário e desmarque **Ativo**.
+Aba **Usuários** (menu do administrador) → preencha nome e e-mail, marque os setores e clique em **Enviar convite**. Quem é do Fiscal e precisa baixar o CSV do Bling ou corrigir pedidos de nota precisa da marcação "Corrigir pedidos de nota e gerar CSV do Bling" (sem ela, os botões do CSV não aparecem). Para tirar o acesso de alguém, abra o usuário e desmarque **Ativo**.
 
 ### "Por que o agente fez isso?"
 
@@ -174,8 +174,9 @@ O arquivo segue o modelo de **pedido de venda** do Bling: 41 colunas separadas p
 
 - **Quem usa:** na aba **Usuários** (menu do administrador), marque em cada pessoa "Usar o assistente pelo site" e/ou "Usar o assistente pelo WhatsApp (pelo telefone acima)". Vale também para o administrador.
 - **No painel:** menu **Assistente** (perguntas gerais) ou a caixa **Assistente** dentro de cada atendimento (já sabe do cliente e das demandas daquela conversa).
-- **No WhatsApp:** a pessoa marcada manda mensagem do número dela para o número do agente. Essas conversas não aparecem no Atendimento. Atenção: um número com o assistente ligado deixa de falar com o agente de clientes; para testar como cliente, desmarque ou use outro número.
+- **No WhatsApp:** a pessoa marcada manda mensagem do número dela para o número do agente. Essas conversas não aparecem no Atendimento. Atenção: um número cadastrado em um usuário é sempre tratado como da equipe (com o assistente ligado, as mensagens vão para o assistente; sem ele, são ignoradas) e nunca fala com o agente de clientes. Para testar como cliente, use outro número, ou apague o telefone do usuário na aba Usuários.
 - **O que ele faz (Parte 1):** consulta demandas, pedidos, vendas por período e rede, preços e cadastros; corrige pedidos de nota (itens, quantidades, unidade, preço, destinatário, pagamento, entrega) mostrando o antes e o depois e só grava depois do "sim"; gera o CSV do Bling (botão no painel, arquivo no WhatsApp).
-- **Permissões:** corrigir pedidos e gerar CSV exigem "Corrigir pedidos de nota e gerar CSV do Bling" (o administrador sempre pode). Quem não é administrador só vê as demandas dos seus setores.
+- **Permissões:** corrigir pedidos e gerar CSV exigem "Corrigir pedidos de nota e gerar CSV do Bling" (o administrador sempre pode). Vale também para os botões "Baixar CSV Bling" e "Exportar CSV Bling" do painel: marque essa opção, na aba Usuários, para a equipe do Fiscal. Quem não é administrador só vê as demandas dos seus setores.
+- **Correção de pedido:** o assistente mostra o antes e o depois e só grava com um "sim" numa mensagem seguinte, na mesma conversa. Se o pedido mudar nesse meio-tempo (outra pessoa, preço da tabela), ou se a pessoa pedir outra mudança, ele mostra uma prévia nova. Pedido de "corrige e manda o CSV" gera o arquivo só depois do "sim".
 - **Registro:** toda alteração fica anotada na demanda ("Pedido alterado pelo assistente a pedido de Fulano") e na auditoria; o gasto entra no limite mensal de IA.
 - **Guarda das conversas:** as conversas com o assistente são apagadas depois de 1 ano, junto com as demais.

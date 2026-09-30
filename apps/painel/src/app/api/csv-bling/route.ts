@@ -2,19 +2,22 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { dividirPedidosBling, montarCsvVendaBling, nomeArquivoVendaBling } from '@escritorio/core';
 import { registrarAuditoria } from '@/lib/auditoria';
 import { carregarPedidosBling, type FiltroBling } from '@/lib/bling';
-import { obterUsuario } from '@/lib/sessao';
+import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
 const escapar = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 /** Aviso em vez do arquivo: diz qual pedido e qual campo falta. */
-function aviso(titulo: string, itens: string[]) {
+function aviso(titulo: string, itens: string[], status = 422) {
   const html = `<!doctype html><meta charset="utf-8"><title>Arquivo do Bling</title>
 <body style="font-family:system-ui;max-width:640px;margin:40px auto;padding:0 16px">
 <h1 style="font-size:20px">${escapar(titulo)}</h1><ul>${itens.map((i) => `<li>${escapar(i)}</li>`).join('')}</ul>
 <p><a href="javascript:history.back()">Voltar</a></p></body>`;
-  return new NextResponse(html, { status: 422, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  return new NextResponse(html, { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
+
+const SEM_PERMISSAO_CSV = 'Você não tem permissão para gerar o CSV do Bling. Peça ao administrador na aba Usuários.';
+const FALHA_AO_MONTAR = 'Não consegui montar o arquivo agora. Tente de novo.';
 
 /**
  * Arquivo de pedidos de venda para importar no Bling (pedido do dono, 2026-09-29).
@@ -22,6 +25,8 @@ function aviso(titulo: string, itens: string[]) {
  */
 export async function GET(req: NextRequest) {
   const u = await obterUsuario();
+  // Vale para todos os caminhos (demanda, exportação e link do assistente); o administrador sempre pode.
+  if (!temPermissao(u, 'emitir_notas')) return aviso(SEM_PERMISSAO_CSV, [], 403);
   const q = req.nextUrl.searchParams;
   const id = q.get('id');
   const ids = q.get('ids')?.split(',').filter(Boolean) ?? null;
@@ -37,7 +42,15 @@ export async function GET(req: NextRequest) {
     }
     filtro = { ids: arquivo.chamados };
   }
-  const { pedidos, problemas } = await carregarPedidosBling(sb, filtro);
+  let carregado: Awaited<ReturnType<typeof carregarPedidosBling>>;
+  try {
+    carregado = await carregarPedidosBling(sb, filtro);
+  } catch (e) {
+    // Consulta que falhou no meio: melhor nenhum arquivo do que um arquivo faltando pedidos.
+    console.error('[csv-bling]', e);
+    return aviso(FALHA_AO_MONTAR, [], 503);
+  }
+  const { pedidos, problemas } = carregado;
   if (pedidos.length === 0) return aviso('Nenhum pedido de venda para exportar.', ['Só as demandas de nota de venda abertas pelo agente geram o arquivo.']);
   if (problemas.length) return aviso('Complete os dados abaixo antes de gerar o arquivo:', problemas);
 

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { PEDIDOS_POR_ARQUIVO_BLING } from '@escritorio/core';
-import { obterUsuario } from '@/lib/sessao';
+import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { AtualizarAoVivo } from '../atendimento/atualizar-ao-vivo';
 
@@ -16,7 +16,8 @@ const hora = (iso: string) =>
 
 /** Demandas abertas pelo agente ou pela equipe. O RLS já limita cada pessoa aos setores dela. */
 export default async function Demandas({ searchParams }: { searchParams: Promise<{ setor?: string }> }) {
-  await obterUsuario();
+  // CSV do Bling só para quem pode "Corrigir pedidos de nota e gerar CSV do Bling" (o administrador sempre pode).
+  const podeCsv = temPermissao(await obterUsuario(), 'emitir_notas');
   const setor = (await searchParams).setor ?? 'todos';
   const sb = await supabaseServidor();
   const { data: setores } = await sb.from('setores').select('id, nome').eq('ativo', true).order('nome');
@@ -40,7 +41,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
       <AtualizarAoVivo />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Demandas</h1>
-        {partesBling > 0 && (
+        {podeCsv && partesBling > 0 && (
           <div className="flex flex-wrap gap-2 text-sm">
             {Array.from({ length: partesBling }, (_, i) => (
               <a key={i} href={`/api/csv-bling?setor=${setor}&parte=${i + 1}`} className="rounded border bg-white px-3 py-1">
@@ -77,7 +78,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
             <p className="mt-2 whitespace-pre-wrap">{d.resumo}</p>
             <div className="mt-2 flex gap-4">
               {d.conversa_id && <Link href={`/atendimento/${d.conversa_id}`} className="text-blue-700 underline">Abrir conversa</Link>}
-              {d.pedido_venda && <a href={`/api/csv-bling?id=${d.id}`} className="text-blue-700 underline">Baixar CSV Bling</a>}
+              {podeCsv && d.pedido_venda && <a href={`/api/csv-bling?id=${d.id}`} className="text-blue-700 underline">Baixar CSV Bling</a>}
             </div>
           </li>
         ))}

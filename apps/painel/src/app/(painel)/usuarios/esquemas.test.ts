@@ -19,6 +19,13 @@ describe('UsuarioForm (aba Usuários, pedido do dono, 2026-09-29)', () => {
     expect(r.success).toBe(false);
     expect(JSON.stringify(r.error?.issues)).toContain('Informe o telefone para usar o assistente pelo WhatsApp');
   });
+  it('telefone preenchido que não é telefone: "Telefone inválido"; vazio fica sem telefone (revisão final, K1)', () => {
+    const r = UsuarioForm.safeParse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', telefone: '12345' }));
+    expect(r.success).toBe(false);
+    expect(r.error?.issues.map((i) => i.message)).toEqual(['Telefone inválido']);
+    expect(UsuarioForm.parse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', telefone: '' })).telefone).toBeNull();
+    expect(UsuarioForm.parse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', telefone: '   ' })).telefone).toBeNull();
+  });
   it('recusa permissão desconhecida', () => {
     expect(UsuarioForm.safeParse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', permissao: 'apagar_tudo' })).success).toBe(false);
   });

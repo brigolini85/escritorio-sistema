@@ -4,8 +4,8 @@ import { defineConfig } from '@playwright/test';
 
 config({ path: fileURLToPath(new URL('../../.env', import.meta.url)) });
 
-// A porta vem de E2E_PORTA para os testes nunca usarem o painel do dono (porta 3000).
-const porta = process.env.E2E_PORTA ?? '3000';
+// A porta vem de E2E_PORTA (padrão 3100) para os testes nunca usarem o painel do dono (porta 3000).
+const porta = process.env.E2E_PORTA ?? '3100';
 
 export default defineConfig({
   testDir: './e2e',

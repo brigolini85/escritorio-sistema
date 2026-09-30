@@ -14,7 +14,11 @@ function obterBoss(): Promise<PgBoss> {
     await b.createQueue('remover-arquivos', { name: 'remover-arquivos', retryLimit: 10, retryDelay: 60, retryBackoff: true });
     await b.createQueue('assistente', { name: 'assistente', policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
     return b;
-  })();
+  })().catch((e: unknown) => {
+    // Falhou ao conectar: esquece a tentativa para a próxima chamada tentar de novo, em vez de repetir o erro para sempre.
+    boss = null;
+    throw e;
+  });
   return boss;
 }
 
