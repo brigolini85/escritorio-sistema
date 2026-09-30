@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detalheEstadoAgente, estadoDaConversa, estadoPelaPausaGeral, tituloEstadoAgente } from './estado-agente';
+import { detalheEstadoAgente, estadoDaConversa, estadoGeralDoAgente, estadoPelaPausaGeral, tituloEstadoAgente } from './estado-agente';
 
 describe('estado do agente', () => {
   it('pausa geral vem da configuração; sem leitura (RLS) não mostra nada', () => {
@@ -36,5 +36,14 @@ describe('estadoDaConversa', () => {
     expect(tituloEstadoAgente({ tipo: 'com_agente' })).toBe('Com o agente');
     expect(estadoDaConversa({ assumidaPor: null, pausaGeral: null, contatoPausado: true })).toEqual({ tipo: 'pausado', motivo: 'contato' });
     expect(estadoDaConversa({ assumidaPor: 'Ana', pausaGeral: null })).toEqual({ tipo: 'assumido', por: 'Ana' });
+  });
+});
+
+describe('estadoGeralDoAgente', () => {
+  it('pausa geral > teto de IA > ativo; sem leitura, null', () => {
+    expect(estadoGeralDoAgente(null, true)).toBeNull();
+    expect(estadoGeralDoAgente(true, true)).toEqual({ tipo: 'pausado', motivo: 'geral' });
+    expect(estadoGeralDoAgente(false, true)).toEqual({ tipo: 'pausado', motivo: 'teto_ia' });
+    expect(estadoGeralDoAgente(false, null)).toEqual({ tipo: 'ativo' });
   });
 });

@@ -1,6 +1,6 @@
 import type { CompradorCadastrado, PedidoVendaSalvo } from '@escritorio/core';
 import { describe, expect, it } from 'vitest';
-import { enderecoPorExtenso, resumirPedido } from './resumo-pedido';
+import { enderecoPorExtenso, pendenciasCsvBling, resumirPedido } from './resumo-pedido';
 
 const pedido: PedidoVendaSalvo = {
   unidade_id: 'u1', texto_destinatario: 'Supermercado Brasil Santa Efigênia', data: '30/09/2026',
@@ -90,5 +90,17 @@ describe('enderecoPorExtenso', () => {
     expect(enderecoPorExtenso(null)).toBeNull();
     expect(enderecoPorExtenso({ endereco: ' ', cidade: null })).toBeNull();
     expect(enderecoPorExtenso({ endereco: 'Av. Amazonas', numero: '10', complemento: 'loja 2', cep: '30180-001' })).toBe('Av. Amazonas, 10, loja 2, CEP 30180-001');
+  });
+});
+
+describe('pendenciasCsvBling', () => {
+  it('as mesmas pendências da rota do CSV (item sem valor)', () => {
+    const p = pendenciasCsvBling(1042, pedido, comprador);
+    expect(p.some((t) => t.includes('Pedido 1042, item 2') && t.includes('falta Valor Unitário'))).toBe(true);
+  });
+  it('pedido completo: nenhuma; pedido ilegível: nenhuma (a rota confere de novo)', () => {
+    expect(pendenciasCsvBling(7, { ...pedido, itens: [pedido.itens[0]!] }, comprador)).toEqual([]);
+    expect(pendenciasCsvBling(7, null)).toEqual([]);
+    expect(pendenciasCsvBling(7, { itens: 'x' })).toEqual([]);
   });
 });

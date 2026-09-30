@@ -60,3 +60,14 @@ export function estadoDaConversa(c: {
   if (c.contatoPausado) return { tipo: 'pausado', motivo: 'contato' };
   return c.pausaGeral === null ? { tipo: 'com_agente' } : { tipo: 'ativo' };
 }
+
+/**
+ * Estado geral do agente (Início): pausa geral > teto de gasto com IA atingido > ativo.
+ * null quando não dá para ler a pausa geral (só o administrador lê configuracoes).
+ */
+export function estadoGeralDoAgente(pausado: boolean | null, tetoAtingido: boolean | null): EstadoAgente | null {
+  if (pausado === null) return null;
+  if (pausado) return { tipo: 'pausado', motivo: 'geral' };
+  if (tetoAtingido) return { tipo: 'pausado', motivo: 'teto_ia' };
+  return { tipo: 'ativo' };
+}

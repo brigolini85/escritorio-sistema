@@ -18,6 +18,11 @@ export function formatarBRL(valor: number): string {
   return `${valor < 0 && centavos > 0 ? '-' : ''}R$${NBSP}${agrupar(inteiro)},${resto}`;
 }
 
+/** Dólar (gasto com IA, teto em configuracoes.teto_ia_usd): 12.345 → "US$ 12,35"; 1500 → "US$ 1.500,00". */
+export function formatarUSD(valor: number): string {
+  return formatarBRL(valor).replace('R$', 'US$');
+}
+
 /** Quantidade: 15 → "15"; 1.5 → "1,5"; 1234.25 → "1.234,25" (até 3 casas). */
 export function formatarNumero(valor: number, casas = 3): string {
   const fator = 10 ** casas;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  formatarBRL, formatarData, formatarDataHora, formatarHora, formatarNumero, isoOuNulo, tipoDocumento, mascararCEP, mascararCNPJ, mascararCPF, mascararDocumento, mascararTelefone,
+  formatarBRL, formatarUSD, formatarData, formatarDataHora, formatarHora, formatarNumero, isoOuNulo, tipoDocumento, mascararCEP, mascararCNPJ, mascararCPF, mascararDocumento, mascararTelefone,
   NBSP, tempoRelativo,
 } from './formatos';
 
@@ -102,5 +102,12 @@ describe('tempoRelativo', () => {
     expect(formatarHora('')).toBe('');
     expect(isoOuNulo('nada')).toBeNull();
     expect(isoOuNulo('2026-09-30T17:05:00Z')).toBe('2026-09-30T17:05:00.000Z');
+  });
+});
+
+describe('formatarUSD', () => {
+  it('dólar com vírgula e ponto do português', () => {
+    expect(formatarUSD(12.345)).toBe(`US$${NBSP}12,35`);
+    expect(formatarUSD(1500)).toBe(`US$${NBSP}1.500,00`);
   });
 });

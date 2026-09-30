@@ -1,4 +1,4 @@
-import type { CompradorCadastrado, EnderecoBling, PedidoVendaSalvo } from '@escritorio/core';
+import { pedidoVendaBling, problemasPedidoBling, type CompradorCadastrado, type EnderecoBling, type PedidoVendaSalvo } from '@escritorio/core';
 import { mascararCEP, mascararDocumento, tipoDocumento } from './formatos';
 
 /**
@@ -112,4 +112,17 @@ export function resumirPedido(bruto: unknown, comprador: CompradorCadastrado | n
     observacoes: texto(p.observacoes),
     entrega: p.entrega && typeof p.entrega === 'object' ? enderecoPorExtenso(p.entrega as EnderecoBling) : null,
   };
+}
+
+/**
+ * Pendências do pedido para o CSV do Bling (qual campo falta): a mesma conta da rota /api/csv-bling
+ * (pedidoVendaBling + problemasPedidoBling do core). Pedido ilegível: nenhuma aqui (a rota confere de novo e avisa).
+ */
+export function pendenciasCsvBling(numero: number, bruto: unknown, comprador: CompradorCadastrado | null = null): string[] {
+  if (!bruto || typeof bruto !== 'object' || !Array.isArray((bruto as { itens?: unknown }).itens)) return [];
+  try {
+    return problemasPedidoBling(pedidoVendaBling(numero, bruto as PedidoVendaSalvo, comprador));
+  } catch {
+    return [];
+  }
 }
