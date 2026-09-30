@@ -35,7 +35,7 @@ export function CommandDialog({
 
 export function CommandInput({ className, ...props }: ComponentProps<typeof CommandPrimitive.Input>) {
   return (
-    <div className="flex h-10 items-center gap-2 border-b border-border px-3">
+    <div className="flex h-10 items-center gap-2 border-b border-border px-3 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-ring">
       <Search aria-hidden size={16} strokeWidth={1.75} className="shrink-0 text-muted" />
       <CommandPrimitive.Input
         className={cn('flex h-10 w-full bg-transparent text-base outline-none placeholder:text-subtle disabled:cursor-not-allowed disabled:opacity-50', className)}

@@ -115,14 +115,15 @@
 }
 
 @layer base {
+  /* A raiz fica no tamanho do navegador (rem = 16px, grade de 4px do Tailwind intacta); o corpo é 14px. */
   html {
     font-family: var(--font-sans);
-    font-size: var(--text-base);
-    line-height: var(--text-base--line-height);
     -webkit-font-smoothing: antialiased;
   }
 
   body {
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
     background-color: var(--background);
     color: var(--text);
   }

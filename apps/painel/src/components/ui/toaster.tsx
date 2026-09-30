@@ -33,7 +33,8 @@ export function Toaster(props: ToasterProps) {
       richColors
       closeButton
       style={ESTILO}
-      toastOptions={{ classNames: { toast: 'font-sans text-base shadow-md', description: 'text-muted' } }}
+      containerAriaLabel="Avisos"
+      toastOptions={{ closeButtonAriaLabel: 'Fechar aviso', classNames: { toast: 'font-sans text-base shadow-md', description: 'text-muted' } }}
       {...props}
     />
   );

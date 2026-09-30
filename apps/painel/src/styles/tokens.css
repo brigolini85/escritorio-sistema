@@ -33,8 +33,8 @@
 
   /* Texto */
   --text: hsl(222 25% 12%); /* texto principal, títulos; 17.1:1 em --surface */
-  --text-muted: hsl(220 9% 38%); /* texto secundário, rótulos, descrições; 6.5:1 em --surface, 5.7:1 em --surface-muted */
-  --text-subtle: hsl(220 9% 41%); /* metadados, placeholders, horários; 5.8:1 em --surface, 5.1:1 em --surface-muted */
+  --text-muted: hsl(220 12% 32%); /* texto secundário, rótulos, descrições; 8.3:1 em --surface, 7.2:1 em --surface-muted */
+  --text-subtle: hsl(220 8% 43%); /* metadados, placeholders, horários; 5.4:1 em --surface, 4.7:1 em --surface-muted, 4.8:1 em --internal-note */
 
   /* Semânticas: usar só com significado */
   --success: hsl(152 72% 26%); /* sucesso, concluído, conectado */
@@ -93,7 +93,7 @@
   --overlay: hsl(222 40% 3% / 0.7);
   --text: hsl(220 20% 93%); /* 14.7:1 em --surface */
   --text-muted: hsl(220 12% 70%); /* 7.9:1 em --surface */
-  --text-subtle: hsl(220 9% 60%); /* 5.9:1 em --surface, 5.1:1 em --surface-muted */
+  --text-subtle: hsl(220 9% 62%); /* 6.3:1 em --surface, 5.4:1 em --surface-muted, 4.8:1 em --internal-note */
   --success: hsl(150 55% 55%);
   --success-foreground: hsl(150 60% 8%);
   --success-soft: hsl(152 40% 14%);
@@ -140,7 +140,7 @@
     --overlay: hsl(222 40% 3% / 0.7);
     --text: hsl(220 20% 93%);
     --text-muted: hsl(220 12% 70%);
-    --text-subtle: hsl(220 9% 60%);
+    --text-subtle: hsl(220 9% 62%);
     --success: hsl(150 55% 55%);
     --success-foreground: hsl(150 60% 8%);
     --success-soft: hsl(152 40% 14%);

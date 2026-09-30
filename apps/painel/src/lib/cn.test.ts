@@ -15,6 +15,8 @@ describe('cn', () => {
     expect(cn('text-sm', 'text-muted')).toBe('text-sm text-muted');
     expect(cn('text-muted text-xs', 'text-foreground text-2xl')).toBe('text-foreground text-2xl');
     expect(cn('text-sm', 'text-base')).toBe('text-base');
+    expect(cn('text-base', 'text-muted')).toBe('text-base text-muted');
+    expect(cn('text-base text-muted', 'text-lg')).toBe('text-muted text-lg');
   });
 
   it('cores de token do mesmo tipo se substituem', () => {
