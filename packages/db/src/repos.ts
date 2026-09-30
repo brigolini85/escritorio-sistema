@@ -369,9 +369,10 @@ export function criarRepos(db: Db) {
         .is('alertado_fila_em', null).lt('criado_em', limite), 'chamadosSemResponsavelParaAlertar');
     },
 
+    /** Ações do agente na conversa desde `desdeIso` (decide a nova tentativa). O aviso de orientações cortadas não é ação. */
     async contarDecisoesDesde(conversaId: string, desdeIso: string): Promise<number> {
       const r = await db.from('decisoes_agente').select('id', { count: 'exact', head: true })
-        .eq('conversa_id', conversaId).gte('criado_em', desdeIso);
+        .eq('conversa_id', conversaId).gte('criado_em', desdeIso).neq('etapa', 'orientacoes_cortadas');
       if (r.error) throw new Error(`contarDecisoesDesde: ${r.error.message}`);
       return r.count ?? 0;
     },
@@ -622,6 +623,14 @@ export function criarRepos(db: Db) {
         id: o.id, titulo: o.titulo, texto: o.texto, tipo: o.tipo as TipoOrientacao, clienteId: o.cliente_id, setorId: o.setor_id,
         setorNome: o.setores?.nome ?? null, atualizadoEm: new Date(o.atualizado_em),
       }));
+    },
+
+    /** Ids cortados no último registro `orientacoes_cortadas` da conversa (null se nunca houve corte). */
+    async ultimasOrientacoesCortadas(conversaId: string): Promise<string[] | null> {
+      const l = checar(await db.from('decisoes_agente').select('saida').eq('conversa_id', conversaId).eq('etapa', 'orientacoes_cortadas')
+        .order('criado_em', { ascending: false }).limit(1).maybeSingle(), 'ultimasOrientacoesCortadas');
+      const cortadas = (l?.saida as { cortadas?: unknown } | null)?.cortadas;
+      return Array.isArray(cortadas) ? cortadas.filter((x): x is string => typeof x === 'string') : null;
     },
 
     async simulacaoPorId(id: string): Promise<SimulacaoAgente | null> {

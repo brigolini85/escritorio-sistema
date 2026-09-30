@@ -241,7 +241,7 @@ describe('executarAgente', () => {
       expect(sistema(ia.recebidos[1]!)[1]).toContain('Da Y: só boleto.');
     });
 
-    it('passou do limite: registra as cortadas uma vez só por processamento', async () => {
+    it('passou do limite: registra as cortadas uma vez por processamento e só quando a lista muda', async () => {
       const { conversa } = await contatoComEmpresas(['Indústria X']);
       for (let i = 0; i < 7; i++) {
         await orientar(`${i}`.repeat(1990), { atualizado_em: new Date(Date.UTC(2026, 8, 1, 0, i)).toISOString() });
@@ -258,6 +258,18 @@ describe('executarAgente', () => {
       const { data } = await db.from('decisoes_agente').select('saida').eq('etapa', 'orientacoes_cortadas');
       expect(data).toHaveLength(1);
       expect((data![0]!.saida as { cortadas: string[] }).cortadas).toHaveLength(2);
+      const cortes = async () => (await db.from('decisoes_agente').select('saida').eq('etapa', 'orientacoes_cortadas').order('criado_em')).data!
+        .map((l) => (l.saida as { cortadas: string[] }).cortadas.length);
+      const roteiro = () => new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi' } }), fim()]);
+
+      // Mesmo corte no processamento seguinte: não grava de novo.
+      await executarAgente(deps(roteiro()), await contexto(conversa.id), conteudo);
+      expect(await cortes()).toEqual([2]);
+
+      // O corte mudou (mais uma orientação ligada): grava a lista nova.
+      await orientar('7'.repeat(1990), { atualizado_em: new Date(Date.UTC(2026, 8, 1, 0, 7)).toISOString() });
+      await executarAgente(deps(roteiro()), await contexto(conversa.id), conteudo);
+      expect(await cortes()).toEqual([2, 3]);
     });
   });
 });

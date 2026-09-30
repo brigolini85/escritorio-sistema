@@ -17,6 +17,7 @@ const ETAPAS: Record<string, string> = {
   alterar_preco: 'Alterou um preço',
   cadastrar_produto: 'Cadastrou um produto',
   responder: 'Respondeu ao cliente',
+  orientacoes_cortadas: 'Orientações cortadas',
 };
 
 /** snake_case → "Snake case". */

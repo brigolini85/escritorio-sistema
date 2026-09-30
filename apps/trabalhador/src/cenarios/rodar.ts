@@ -10,16 +10,10 @@ import { CENARIOS, type Cenario } from './cenarios';
 
 const SEGUNDA_10H = '2026-09-28T13:00:00Z';
 
-/** Orientações ligadas do cenário ('outra' = uma empresa que não é do contato, para conferir que não vaza). */
-async function criarOrientacoes(c: Cenario, primeira: string | null) {
-  let outra: string | null = null;
+/** Orientações ligadas do cenário, gerais ou de uma das empresas do contato. */
+async function criarOrientacoes(c: Cenario, empresas: string[]) {
   for (const o of c.orientacoes ?? []) {
-    let clienteId: string | null = null;
-    if (o.empresa === 'primeira') clienteId = primeira;
-    if (o.empresa === 'outra') {
-      outra ??= (await db.from('clientes').insert({ razao_social: 'Outra Empresa Ltda', cnpj: '99888777000166' }).select().single()).data!.id;
-      clienteId = outra;
-    }
+    const clienteId = o.empresa === 'primeira' ? empresas[0]! : o.empresa === 'segunda' ? empresas[1]! : null;
     await db.from('orientacoes_agente').insert({ titulo: o.titulo, texto: o.texto, tipo: o.tipo, cliente_id: clienteId, ativo: true });
   }
 }
@@ -30,11 +24,12 @@ async function preparar(c: Cenario) {
   await db.from('configuracoes').update({ teto_ia_usd: 1000 }).eq('id', 1);
   for (const f of c.faq ?? []) await db.from('respostas_prontas').insert(f);
   if (c.empresas.length === 0) {
-    await criarOrientacoes(c, null);
+    await criarOrientacoes(c, []);
     return repos.obterOuCriarConversa('5531988887777', null);
   }
   const { empresas, conversa } = await contatoComEmpresas(c.empresas);
-  await criarOrientacoes(c, empresas[0]!.id);
+  await criarOrientacoes(c, empresas.map((e) => e.id));
+  if (c.empresaEmFoco !== undefined) await repos.atualizarConversa(conversa.id, { cliente_em_foco: empresas[c.empresaEmFoco]!.id });
   if (c.cadastros) await criarCadastrosExemplo(empresas[0]!.id);
   if (c.podeAtualizarPreco) await db.from('contato_clientes').update({ pode_atualizar_preco: true }).eq('cliente_id', empresas[0]!.id);
   for (const nome of c.servicos ?? []) {
@@ -144,7 +139,7 @@ async function rodar(c: Cenario): Promise<string[]> {
   if (e.semDocumento && arquivos.length) falhas.push(`não deveria enviar documento; enviou ${JSON.stringify(arquivos)}`);
   const digitos = respostas.replace(/\D/g, '');
   for (const n of e.respostaContemNumero ?? []) if (!digitos.includes(n)) falhas.push(`resposta deveria trazer o número ${n}`);
-  for (const t of e.semTexto ?? []) if (respostas.includes(t)) falhas.push(`resposta não deveria conter "${t}"`);
+  for (const t of e.semTexto ?? []) if (respostas.toLowerCase().includes(t.toLowerCase())) falhas.push(`resposta não deveria conter "${t}"`);
   if (/\p{Extended_Pictographic}/u.test(respostas)) falhas.push('resposta não deveria ter emoji');
   // O cliente conversa com o escritório, não com um sistema: termos internos não aparecem nas respostas.
   for (const t of ['chamado', 'protocolo', 'ticket', 'triagem']) if (respostas.toLowerCase().includes(t)) falhas.push(`resposta não deveria falar em "${t}"`);

@@ -196,6 +196,23 @@ describe('processarConversa', () => {
     expect(await repos.mensagensNaoProcessadas(conversa.id)).toHaveLength(0);
   });
 
+  it('orientações acima do limite não impedem a nova tentativa em falha temporária da IA', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    for (let i = 0; i < 7; i++) {
+      await db.from('orientacoes_agente').insert({ titulo: `O${i}`, texto: `${i}`.repeat(1990), tipo: 'jeito', ativo: true });
+    }
+    await receber(conversa.id, 'M1', 'oi');
+    const erro = new Anthropic.APIConnectionError({ message: 'sem rede' });
+    await expect(processarConversa(deps(new IaRoteirizada([erro])), conversa.id, false)).rejects.toThrow();
+    // O corte só é registrado depois de a IA responder.
+    expect((await db.from('decisoes_agente').select('id').eq('etapa', 'orientacoes_cortadas')).data).toEqual([]);
+    // E, mesmo registrado, não conta como ação do agente.
+    await repos.registrarDecisao({ conversaId: conversa.id, clienteId: null, etapa: 'orientacoes_cortadas', entrada: {}, saida: { cortadas: ['x'] } });
+    await expect(processarConversa(deps(new IaRoteirizada([erro])), conversa.id, false)).rejects.toThrow();
+    expect(await repos.mensagensNaoProcessadas(conversa.id)).toHaveLength(1);
+    expect(canal.enviados).toHaveLength(0);
+  });
+
   it('atendente assume enquanto o agente processa: o sistema não manda aviso nem abre triagem', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });

@@ -4,6 +4,7 @@ import { camposLegiveis, rotuloEtapa } from './decisoes';
 describe('rotuloEtapa', () => {
   it('ferramenta conhecida em português; desconhecida humanizada', () => {
     expect(rotuloEtapa('abrir_chamado')).toBe('Abriu uma demanda');
+    expect(rotuloEtapa('orientacoes_cortadas')).toBe('Orientações cortadas');
     expect(rotuloEtapa('classificar_intencao')).toBe('Classificar intencao');
     expect(rotuloEtapa('assistente:listar')).toBe('Assistente listar');
   });

@@ -24,6 +24,7 @@ export type OrientacoesDaConversa = {
 export function limparTextoOrientacao(texto: string): string {
   return texto
     .replace(/\r\n?/g, '\n')
+    .replace(/[\u2028\u2029\u0085\v\f]/g, '\n')   // outras quebras de linha contam como linha nova (e ganham o recuo)
     .replace(/</g, '‹').replace(/>/g, '›')
     .split('\n').map((l) => l.trimEnd()).join('\n')
     .replace(/\n{3,}/g, '\n\n')
@@ -52,6 +53,9 @@ export function orientacoesDaConversa(
   const deSetor = todas.filter((o) => !o.clienteId && o.setorId && setores.has(o.setorId)).sort(maisRecentes);
   const gerais = todas.filter((o) => !o.clienteId && !o.setorId).sort(maisRecentes);
 
+  // Orçamento único (spec §4): a empresa vem primeiro. Custo aceito: acima do limite, o que cabe no bloco 1 (gerais e setor)
+  // depende da empresa em foco, e o cache do bloco 1 deixa de valer entre empresas. Abaixo do limite o bloco 1 é idêntico;
+  // o medidor do painel existe para não chegar lá.
   let total = 0;
   const cortadas: string[] = [];
   const cabem = (lista: OrientacaoAgente[]) => lista.filter((o) => {

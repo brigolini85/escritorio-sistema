@@ -25,8 +25,20 @@ async function registrarUso(d: DepsAgente, ctx: ContextoAgente, r: Anthropic.Mes
   });
 }
 
+/** Registra as orientações que ficaram de fora do prompt, só quando a lista muda em relação ao último registro da conversa. */
+async function registrarCortes(d: DepsAgente, ctx: ContextoAgente, cortadas: string[]): Promise<void> {
+  const ordenadas = [...cortadas].sort();
+  const anterior = await d.repos.ultimasOrientacoesCortadas(ctx.conversa.id);
+  if (anterior && [...anterior].sort().join(',') === ordenadas.join(',')) return;
+  await d.repos.registrarDecisao({
+    conversaId: ctx.conversa.id, clienteId: ctx.empresaEmFoco?.id ?? null, etapa: 'orientacoes_cortadas',
+    entrada: { limite: LIMITE_ORIENTACOES }, saida: { cortadas: ordenadas },
+    justificativa: 'Orientações ligadas passaram do limite de caracteres do prompt; as de menor prioridade ficaram de fora.',
+  });
+}
+
 export async function executarAgente(d: DepsAgente, ctx: ContextoAgente, conteudo: Anthropic.ContentBlockParam[]): Promise<ResultadoAgente> {
-  let cortesRegistrados = false;
+  let cortesVerificados = false;
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: conteudo }];
   const estado: EstadoExecucao = { ctx, respondeu: false };
   let lembrado = false;
@@ -34,14 +46,6 @@ export async function executarAgente(d: DepsAgente, ctx: ContextoAgente, conteud
   for (let i = 0; i < MAX_ITERACOES; i++) {
     // A cada rodada: selecionar_empresa pode ter trocado a empresa em foco (e com ela as orientações da empresa).
     const { system, cortadas } = montarBlocosSistema(ctx);
-    if (cortadas.length && !cortesRegistrados) {
-      cortesRegistrados = true;
-      await d.repos.registrarDecisao({
-        conversaId: ctx.conversa.id, clienteId: ctx.empresaEmFoco?.id ?? null, etapa: 'orientacoes_cortadas',
-        entrada: { limite: LIMITE_ORIENTACOES }, saida: { cortadas },
-        justificativa: 'Orientações ligadas passaram do limite de caracteres do prompt; as de menor prioridade ficaram de fora.',
-      });
-    }
     const r = await d.ia.criar({
       model: ctx.config.modeloConversa,
       max_tokens: 16000,
@@ -51,6 +55,11 @@ export async function executarAgente(d: DepsAgente, ctx: ContextoAgente, conteud
       output_config: { effort: 'medium' },
     });
     await registrarUso(d, ctx, r);
+    // Só depois de a IA responder: o registro não pode contar como "o agente já agiu" numa falha temporária antes disso.
+    if (cortadas.length && !cortesVerificados) {
+      cortesVerificados = true;
+      await registrarCortes(d, ctx, cortadas);
+    }
 
     if (r.stop_reason === 'refusal' || r.stop_reason === 'max_tokens') return { status: 'escalar', motivo: r.stop_reason, respondeu: estado.respondeu };
     const usos = r.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
