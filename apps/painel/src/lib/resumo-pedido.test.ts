@@ -69,6 +69,16 @@ describe('total igual ao do assistente e do Bling', () => {
       expect(resumirPedido(p)!.total).toBe(totalDoPedido(p));
     }
   });
+  it('cada linha é arredondada em centavos antes de somar, como no CSV do Bling', () => {
+    // 1 × 0,005 = 0,01 por linha; somando sem arredondar daria 0,01 no total.
+    const r = resumirPedido({ ...pedido, valor_frete: null, itens: [
+      { produto: 'A', sku: null, un: 'UN', quantidade: 1, valor_unitario: 0.005 },
+      { produto: 'B', sku: null, un: 'UN', quantidade: 1, valor_unitario: 0.005 },
+    ] })!;
+    expect(r.itens.map((i) => i.subtotal)).toEqual([0.01, 0.01]);
+    expect(r.subtotalItens).toBe(0.02);
+    expect(r.total).toBe(0.02);
+  });
   it('CPF de pessoa física e CNPJ alfanumérico', () => {
     expect(resumirPedido(pedido, { ...comprador, cnpj: '12345678909' })!.destinatario).toMatchObject({ documento: '123.456.789-09', rotuloDocumento: 'CPF' });
     expect(resumirPedido(pedido, { ...comprador, cnpj: '12ABC34501DE35' })!.destinatario).toMatchObject({ documento: '12.ABC.345/01DE-35', rotuloDocumento: 'CNPJ' });

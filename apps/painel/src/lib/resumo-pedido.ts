@@ -79,12 +79,13 @@ export function resumirPedido(bruto: unknown, comprador: CompradorCadastrado | n
     }];
   });
 
-  // Mesma conta do core/trabalhador: quantidade × valor sempre que os dois existem (valor 0 soma 0).
+  // Mesma conta do CSV do Bling (core): cada linha (quantidade × valor, quando os dois existem) é arredondada
+  // em centavos antes de somar; valor 0 soma 0.
   const subtotalItens = centavos(p.itens.reduce<number>((s, cru) => {
     const i = (cru && typeof cru === 'object' ? cru : {}) as Record<string, unknown>;
     const q = numero(i.quantidade);
     const v = numero(i.valor_unitario);
-    return s + (q !== null && v !== null ? q * v : 0);
+    return s + (q !== null && v !== null ? centavos(q * v) : 0);
   }, 0));
   const tipoFrete = p.tipo_frete === 'R' || p.tipo_frete === 'D' ? TIPO_FRETE[p.tipo_frete] : null;
   const itensAConferir = itens.filter((i) => i.aConferir).length;

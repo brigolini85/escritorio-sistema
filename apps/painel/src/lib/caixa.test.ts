@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filtroPadrao, passaNoFiltro, type LinhaCaixa } from './caixa';
+import { FILTROS_MAIS, FILTROS_RAPIDOS, filtroPadrao, lerFiltroCaixa, ordenarCaixa, passaNoFiltro, rotuloFiltroCaixa, type LinhaCaixa } from './caixa';
 
 const u = { id: 'ana', setores: ['fiscal'] };
 const linha = (p: Partial<LinhaCaixa>): LinhaCaixa => ({ id: 'c', atendente_id: null, setores_abertos: [], sem_responsavel: false, aguardando_cliente: false, ...p });
@@ -29,5 +29,39 @@ describe('filtroPadrao', () => {
   });
   it('atendente com setor começa em Do meu setor', () => {
     expect(filtroPadrao({ papel: 'atendente', setores: ['fiscal'] })).toBe('setor');
+  });
+});
+
+describe('filtros rápidos (Com o agente, Concluídas)', () => {
+  it('com o agente = estado agente e nada esperando a equipe', () => {
+    expect(passaNoFiltro(linha({ estado: 'agente' }), 'agente', u)).toBe(true);
+    expect(passaNoFiltro(linha({ estado: 'agente', sem_responsavel: true }), 'agente', u)).toBe(false);
+    expect(passaNoFiltro(linha({ estado: 'humano' }), 'agente', u)).toBe(false);
+  });
+  it('concluídas = nenhuma demanda aberta', () => {
+    expect(passaNoFiltro(linha({ chamados_abertos: 0 }), 'concluidas', u)).toBe(true);
+    expect(passaNoFiltro(linha({ chamados_abertos: 2 }), 'concluidas', u)).toBe(false);
+    expect(passaNoFiltro(linha({}), 'concluidas', u)).toBe(false);
+  });
+  it('rápidos e "Mais" juntos cobrem todos os filtros, sem repetir', () => {
+    const valores = [...FILTROS_RAPIDOS, ...FILTROS_MAIS].map((f) => f.valor);
+    expect(new Set(valores).size).toBe(valores.length);
+    expect([...valores].sort()).toEqual(['agente', 'aguardando', 'concluidas', 'minhas', 'sem_responsavel', 'setor', 'todas']);
+    expect(rotuloFiltroCaixa('sem_responsavel')).toBe('Aguardando humano');
+    expect(rotuloFiltroCaixa('setor')).toBe('Do meu setor');
+  });
+  it('filtro desconhecido na URL vira o padrão da pessoa', () => {
+    const atendente = { papel: 'atendente' as const, setores: ['fiscal'] };
+    expect(lerFiltroCaixa('minhas', atendente)).toBe('minhas');
+    expect(lerFiltroCaixa('concluidas', atendente)).toBe('concluidas');
+    expect(lerFiltroCaixa('xyz', atendente)).toBe('setor');
+    expect(lerFiltroCaixa(undefined, { papel: 'admin', setores: [] })).toBe('todas');
+  });
+});
+
+describe('ordenarCaixa', () => {
+  it('aguardando humano no topo, mantendo a ordem de chegada em cada grupo', () => {
+    const l = [{ id: 'a', sem_responsavel: false }, { id: 'b', sem_responsavel: true }, { id: 'c', sem_responsavel: null }, { id: 'd', sem_responsavel: true }];
+    expect(ordenarCaixa(l).map((x) => x.id)).toEqual(['b', 'd', 'a', 'c']);
   });
 });
