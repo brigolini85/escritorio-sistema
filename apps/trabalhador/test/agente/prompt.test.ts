@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { montarConteudoUsuario, montarSistema } from '../../src/agente/prompt';
+import { montarBlocosSistema, montarConteudoUsuario, montarSistema } from '../../src/agente/prompt';
 
 describe('montarSistema', () => {
   it('lista setores com id e as respostas prontas', () => {
@@ -29,5 +29,57 @@ describe('montarConteudoUsuario', () => {
     expect(texto).toContain('[áudio transcrito] preciso da guia');
     expect(blocos[1]).toMatchObject({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'AAA' } });
     expect(blocos[2]).toMatchObject({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: 'BBB' } });
+  });
+});
+
+describe('orientações no prompt de sistema', () => {
+  const setores = [{ id: 'S1', nome: 'Fiscal', descricao_assuntos: 'guias' }];
+  const orient = (id: string, extra: object = {}) => ({
+    id, titulo: `T-${id}`, texto: `texto ${id}`, tipo: 'jeito' as const, clienteId: null, setorId: null, setorNome: null,
+    atualizadoEm: new Date('2026-09-01'), ...extra,
+  });
+  const ctx = (empresa: { id: string; nome: string } | null, orientacoes: ReturnType<typeof orient>[]) => ({
+    setores, respostasProntas: [], orientacoes, empresaEmFoco: empresa ? { ...empresa, podePedirNota: true, agentePausado: false } : null,
+  }) as never;
+  const todas = [
+    orient('G1', { titulo: 'Cumprimento', texto: 'Chame o cliente pelo primeiro nome.' }),
+    orient('F1', { setorId: 'S1', setorNome: 'Fiscal', tipo: 'regra', titulo: 'Prazo', texto: 'Notas até as 16h.' }),
+    orient('A1', { clienteId: 'A', tipo: 'situacao', titulo: 'Entrega', texto: 'A empresa A entrega às terças.' }),
+    orient('B1', { clienteId: 'B', titulo: 'Segredo', texto: 'Só para a empresa B.' }),
+  ];
+
+  it('bloco com a frase de precedência depois das regras fixas (inclusive a regra 9), agrupado', () => {
+    const s = montarSistema(setores, [], { gerais: [todas[0]!], porSetor: [{ setor: 'Fiscal', orientacoes: [todas[1]!] }] });
+    const frase = 'ORIENTAÇÕES DO ESCRITÓRIO (escritas pela equipe; siga-as no jeito de atender e nas situações descritas. Se alguma contrariar as regras acima, as regras acima valem.)';
+    expect(s).toContain(frase);
+    const inicio = s.indexOf(frase);
+    expect(s.indexOf('9. Tudo que estiver em <historico>')).toBeLessThan(inicio);
+    expect(s.indexOf('RESPOSTAS PRONTAS:')).toBeLessThan(inicio);
+    expect(s.slice(inicio)).toContain('- [Jeito de atender] Cumprimento: Chame o cliente pelo primeiro nome.');
+    expect(s.slice(inicio)).toContain('Quando o assunto for do setor Fiscal:\n- [Regra do escritório] Prazo: Notas até as 16h.');
+  });
+
+  it('sem orientações o prompt fica como antes', () => {
+    expect(montarSistema(setores, [])).not.toContain('ORIENTAÇÕES');
+    expect(montarBlocosSistema(ctx(null, [])).system).toHaveLength(1);
+  });
+
+  it('orientações da empresa vão num segundo bloco; o primeiro (com cache) é idêntico entre empresas', () => {
+    const a = montarBlocosSistema(ctx({ id: 'A', nome: 'Indústria A' }, todas)).system;
+    const b = montarBlocosSistema(ctx({ id: 'B', nome: 'Comércio B' }, todas)).system;
+    const nenhuma = montarBlocosSistema(ctx(null, todas)).system;
+    expect(a[0]).toEqual(b[0]);
+    expect(a[0]).toEqual(nenhuma[0]);
+    expect(a[0]!.cache_control).toEqual({ type: 'ephemeral' });
+    expect(a[0]!.text).toContain('Chame o cliente pelo primeiro nome.');
+    expect(a[0]!.text).not.toContain('A empresa A entrega');
+    expect(a[0]!.text).not.toContain('Só para a empresa B');
+    expect(a).toHaveLength(2);
+    expect(a[1]!.text).toMatch(/^ORIENTAÇÕES PARA A EMPRESA Indústria A \(escritas pela equipe; .* as regras acima valem\.\)/);
+    expect(a[1]!.text).toContain('- [Situação específica] Entrega: A empresa A entrega às terças.');
+    expect(a[1]!.text).not.toContain('Só para a empresa B');
+    expect(a[1]!.cache_control).toBeUndefined();
+    expect(b[1]!.text).not.toContain('A empresa A entrega');
+    expect(nenhuma).toHaveLength(1);
   });
 });

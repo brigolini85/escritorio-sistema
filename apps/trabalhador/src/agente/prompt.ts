@@ -1,10 +1,49 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { Mensagem } from '@escritorio/db';
 import type { ContextoAgente } from './contexto';
+import { limparTextoOrientacao, linhaOrientacao, orientacoesDaConversa, type OrientacoesDaConversa } from './orientacoes';
 
 export type AnexoParaIa = { tipo: 'imagem' | 'documento'; mime: string; base64: string; nome: string };
 
-export function montarSistema(setores: ContextoAgente['setores'], respostas: ContextoAgente['respostasProntas']): string {
+/** Frase de precedência (spec Treinar o agente §4): as regras fixas acima vencem qualquer orientação. */
+export const FRASE_PRECEDENCIA =
+  '(escritas pela equipe; siga-as no jeito de atender e nas situações descritas. Se alguma contrariar as regras acima, as regras acima valem.)';
+
+function secaoOrientacoes(o: Pick<OrientacoesDaConversa, 'gerais' | 'porSetor'>): string {
+  if (!o.gerais.length && !o.porSetor.length) return '';
+  const partes = [`ORIENTAÇÕES DO ESCRITÓRIO ${FRASE_PRECEDENCIA}`];
+  if (o.gerais.length) partes.push(`Para todos os clientes:\n${o.gerais.map(linhaOrientacao).join('\n')}`);
+  for (const g of o.porSetor) {
+    partes.push(`Quando o assunto for do setor ${limparTextoOrientacao(g.setor)}:\n${g.orientacoes.map(linhaOrientacao).join('\n')}`);
+  }
+  return `\n\n${partes.join('\n\n')}`;
+}
+
+/** Segundo bloco de sistema: orientações só da empresa em foco (fora do bloco cacheado, que é igual para todas as empresas). */
+export function montarOrientacoesEmpresa(nome: string, orientacoes: OrientacoesDaConversa['daEmpresa']): string | null {
+  if (!orientacoes.length) return null;
+  return `ORIENTAÇÕES PARA A EMPRESA ${limparTextoOrientacao(nome).replace(/\s+/g, ' ')} ${FRASE_PRECEDENCIA}\n`
+    + `Valem só nesta conversa, com esta empresa.\n${orientacoes.map(linhaOrientacao).join('\n')}`;
+}
+
+/**
+ * Prompt de sistema em até dois blocos: 1) regras fixas + setores + respostas prontas + orientações gerais e de setor (com cache);
+ * 2) orientações da empresa em foco, se houver. Recalculado a cada rodada porque selecionar_empresa pode trocar a empresa.
+ */
+export function montarBlocosSistema(ctx: ContextoAgente): { system: Anthropic.TextBlockParam[]; cortadas: string[] } {
+  const o = orientacoesDaConversa(ctx.orientacoes, { clienteId: ctx.empresaEmFoco?.id ?? null, setores: ctx.setores });
+  const system: Anthropic.TextBlockParam[] = [
+    { type: 'text', text: montarSistema(ctx.setores, ctx.respostasProntas, o), cache_control: { type: 'ephemeral' } },
+  ];
+  const daEmpresa = ctx.empresaEmFoco ? montarOrientacoesEmpresa(ctx.empresaEmFoco.nome, o.daEmpresa) : null;
+  if (daEmpresa) system.push({ type: 'text', text: daEmpresa });
+  return { system, cortadas: o.cortadas };
+}
+
+export function montarSistema(
+  setores: ContextoAgente['setores'], respostas: ContextoAgente['respostasProntas'],
+  orientacoes: Pick<OrientacoesDaConversa, 'gerais' | 'porSetor'> = { gerais: [], porSetor: [] },
+): string {
   const listaSetores = setores.map((s) => `- id: ${s.id} | ${s.nome}: ${s.descricao_assuntos}`).join('\n');
   const listaRespostas = respostas.length
     ? respostas.map((r) => `- Pergunta: ${r.pergunta}\n  Resposta: ${r.resposta}`).join('\n')
@@ -48,7 +87,7 @@ SETORES:
 ${listaSetores}
 
 RESPOSTAS PRONTAS:
-${listaRespostas}`;
+${listaRespostas}${secaoOrientacoes(orientacoes)}`;
 }
 
 const hora = (iso: string) =>

@@ -10,13 +10,31 @@ import { CENARIOS, type Cenario } from './cenarios';
 
 const SEGUNDA_10H = '2026-09-28T13:00:00Z';
 
+/** Orientações ligadas do cenário ('outra' = uma empresa que não é do contato, para conferir que não vaza). */
+async function criarOrientacoes(c: Cenario, primeira: string | null) {
+  let outra: string | null = null;
+  for (const o of c.orientacoes ?? []) {
+    let clienteId: string | null = null;
+    if (o.empresa === 'primeira') clienteId = primeira;
+    if (o.empresa === 'outra') {
+      outra ??= (await db.from('clientes').insert({ razao_social: 'Outra Empresa Ltda', cnpj: '99888777000166' }).select().single()).data!.id;
+      clienteId = outra;
+    }
+    await db.from('orientacoes_agente').insert({ titulo: o.titulo, texto: o.texto, tipo: o.tipo, cliente_id: clienteId, ativo: true });
+  }
+}
+
 async function preparar(c: Cenario) {
   await limparBanco();
   await db.from('servicos').delete().neq('nome', '');
   await db.from('configuracoes').update({ teto_ia_usd: 1000 }).eq('id', 1);
   for (const f of c.faq ?? []) await db.from('respostas_prontas').insert(f);
-  if (c.empresas.length === 0) return repos.obterOuCriarConversa('5531988887777', null);
+  if (c.empresas.length === 0) {
+    await criarOrientacoes(c, null);
+    return repos.obterOuCriarConversa('5531988887777', null);
+  }
   const { empresas, conversa } = await contatoComEmpresas(c.empresas);
+  await criarOrientacoes(c, empresas[0]!.id);
   if (c.cadastros) await criarCadastrosExemplo(empresas[0]!.id);
   if (c.podeAtualizarPreco) await db.from('contato_clientes').update({ pode_atualizar_preco: true }).eq('cliente_id', empresas[0]!.id);
   for (const nome of c.servicos ?? []) {

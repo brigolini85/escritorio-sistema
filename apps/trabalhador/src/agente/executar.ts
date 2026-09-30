@@ -2,7 +2,8 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { calcularCustoUsd } from '@escritorio/core';
 import type { ContextoAgente } from './contexto';
 import { FERRAMENTAS, executarFerramenta, type DepsAgente, type EstadoExecucao } from './ferramentas';
-import { montarSistema } from './prompt';
+import { LIMITE_ORIENTACOES } from './orientacoes';
+import { montarBlocosSistema } from './prompt';
 
 export const MAX_ITERACOES = 6;
 const LEMBRETE_RESPONDER =
@@ -25,12 +26,22 @@ async function registrarUso(d: DepsAgente, ctx: ContextoAgente, r: Anthropic.Mes
 }
 
 export async function executarAgente(d: DepsAgente, ctx: ContextoAgente, conteudo: Anthropic.ContentBlockParam[]): Promise<ResultadoAgente> {
-  const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: montarSistema(ctx.setores, ctx.respostasProntas), cache_control: { type: 'ephemeral' } }];
+  let cortesRegistrados = false;
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: conteudo }];
   const estado: EstadoExecucao = { ctx, respondeu: false };
   let lembrado = false;
 
   for (let i = 0; i < MAX_ITERACOES; i++) {
+    // A cada rodada: selecionar_empresa pode ter trocado a empresa em foco (e com ela as orientações da empresa).
+    const { system, cortadas } = montarBlocosSistema(ctx);
+    if (cortadas.length && !cortesRegistrados) {
+      cortesRegistrados = true;
+      await d.repos.registrarDecisao({
+        conversaId: ctx.conversa.id, clienteId: ctx.empresaEmFoco?.id ?? null, etapa: 'orientacoes_cortadas',
+        entrada: { limite: LIMITE_ORIENTACOES }, saida: { cortadas },
+        justificativa: 'Orientações ligadas passaram do limite de caracteres do prompt; as de menor prioridade ficaram de fora.',
+      });
+    }
     const r = await d.ia.criar({
       model: ctx.config.modeloConversa,
       max_tokens: 16000,

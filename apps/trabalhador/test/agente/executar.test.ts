@@ -188,4 +188,76 @@ describe('executarAgente', () => {
     expect(data).toEqual([{ setor_id: null, titulo: 'Mensagem não compreendida pelo agente' }]);
     expect((await repos.obterConversa(conversa.id)).tentativas_nao_entendido).toBe(0);
   });
+
+  describe('orientações do escritório', () => {
+    const sistema = (p: { system?: unknown }) => (p.system as { text: string }[]).map((b) => b.text);
+    async function orientar(texto: string, extra: { cliente_id?: string; setor_id?: string; atualizado_em?: string } = {}) {
+      await db.from('orientacoes_agente').insert({ titulo: texto.slice(0, 20), texto, tipo: 'jeito', ativo: true, ...extra });
+    }
+
+    it('a da empresa em foco vai no segundo bloco; a de outra empresa e a desligada não entram', async () => {
+      const { conversa, empresas } = await contatoComEmpresas(['Indústria X']);
+      const { data: outra } = await db.from('clientes').insert({ razao_social: 'Outra', cnpj: '99888777000166' }).select().single();
+      await orientar('Geral: chame pelo primeiro nome.');
+      await orientar('Fiscal: notas até 16h.', { setor_id: await setorId('Fiscal') });
+      await orientar('Da X: entrega às terças.', { cliente_id: empresas[0]!.id });
+      await orientar('Da Outra: segredo.', { cliente_id: outra!.id });
+      await db.from('orientacoes_agente').insert({ titulo: 'Desligada', texto: 'Não deveria aparecer.', tipo: 'regra', ativo: false });
+      const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi' } }), fim()]);
+      await executarAgente(deps(ia), await contexto(conversa.id), conteudo);
+      const [bloco1, bloco2, ...resto] = sistema(ia.recebidos[0]!);
+      expect(resto).toEqual([]);
+      expect(bloco1).toContain('Geral: chame pelo primeiro nome.');
+      expect(bloco1).toContain('Quando o assunto for do setor Fiscal:');
+      expect(bloco1).not.toContain('Da X');
+      expect(bloco2).toContain('ORIENTAÇÕES PARA A EMPRESA Indústria X');
+      expect(bloco2).toContain('Da X: entrega às terças.');
+      const tudo = JSON.stringify(ia.recebidos);
+      expect(tudo).not.toContain('Da Outra');
+      expect(tudo).not.toContain('Não deveria aparecer');
+      expect((await db.from('decisoes_agente').select('etapa')).data).toEqual([{ etapa: 'responder' }]);
+    });
+
+    it('número desconhecido não recebe orientação de empresa nenhuma', async () => {
+      const conversa = await repos.obterOuCriarConversa('5531988887777', null);
+      const { empresas } = await contatoComEmpresas(['Indústria X']);
+      await orientar('Da X: entrega às terças.', { cliente_id: empresas[0]!.id });
+      const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi' } }), fim()]);
+      await executarAgente(deps(ia), await contexto(conversa.id), conteudo);
+      expect(ia.recebidos[0]!.system).toHaveLength(1);
+      expect(JSON.stringify(ia.recebidos)).not.toContain('Da X');
+    });
+
+    it('ao escolher a empresa no meio do atendimento, as orientações dela entram na rodada seguinte', async () => {
+      const { conversa, empresas } = await contatoComEmpresas(['Indústria X', 'Comércio Y']);
+      await orientar('Da Y: só boleto.', { cliente_id: empresas[1]!.id });
+      const ia = new IaRoteirizada([
+        usarFerramentas({ nome: 'selecionar_empresa', entrada: { cliente_id: empresas[1]!.id } }),
+        usarFerramentas({ nome: 'responder', entrada: { texto: 'Certo' } }),
+        fim(),
+      ]);
+      await executarAgente(deps(ia), await contexto(conversa.id), conteudo);
+      expect(ia.recebidos[0]!.system).toHaveLength(1);
+      expect(sistema(ia.recebidos[1]!)[1]).toContain('Da Y: só boleto.');
+    });
+
+    it('passou do limite: registra as cortadas uma vez só por processamento', async () => {
+      const { conversa } = await contatoComEmpresas(['Indústria X']);
+      for (let i = 0; i < 7; i++) {
+        await orientar(`${i}`.repeat(1990), { atualizado_em: new Date(Date.UTC(2026, 8, 1, 0, i)).toISOString() });
+      }
+      const ia = new IaRoteirizada([
+        usarFerramentas({ nome: 'consultar_chamados', entrada: {} }),
+        usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi' } }),
+        fim(),
+      ]);
+      await executarAgente(deps(ia), await contexto(conversa.id), conteudo);
+      const bloco1 = sistema(ia.recebidos[0]!)[0]!;
+      expect(bloco1).toContain('6'.repeat(1990));
+      expect(bloco1).not.toContain('0'.repeat(1990));
+      const { data } = await db.from('decisoes_agente').select('saida').eq('etapa', 'orientacoes_cortadas');
+      expect(data).toHaveLength(1);
+      expect((data![0]!.saida as { cortadas: string[] }).cortadas).toHaveLength(2);
+    });
+  });
 });

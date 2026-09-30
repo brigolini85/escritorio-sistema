@@ -1,5 +1,5 @@
 import { estaNoExpediente } from '@escritorio/core';
-import type { Configuracoes, ContatoEncontrado, Conversa, EmpresaDoContato, Repos } from '@escritorio/db';
+import type { Configuracoes, ContatoEncontrado, Conversa, EmpresaDoContato, OrientacaoAgente, Repos } from '@escritorio/db';
 
 export type ContextoAgente = {
   conversa: Conversa;
@@ -7,6 +7,8 @@ export type ContextoAgente = {
   empresaEmFoco: EmpresaDoContato | null;
   setores: { id: string; nome: string; descricao_assuntos: string }[];
   respostasProntas: { pergunta: string; resposta: string }[];
+  /** Todas as orientações ligadas (Treinar o agente); o prompt escolhe a cada rodada as que valem para a empresa em foco. */
+  orientacoes: OrientacaoAgente[];
   servicosContratados: string[];
   noExpediente: boolean;
   config: Configuracoes;
@@ -28,6 +30,7 @@ export async function carregarContexto(
     empresaEmFoco,
     setores: await repos.setoresAtivos(),
     respostasProntas: await repos.respostasProntas(),
+    orientacoes: await repos.orientacoesAtivas(),
     servicosContratados: empresaEmFoco ? await repos.servicosDoCliente(empresaEmFoco.id) : [],
     noExpediente: estaNoExpediente(agora, config.expediente),
     config,
