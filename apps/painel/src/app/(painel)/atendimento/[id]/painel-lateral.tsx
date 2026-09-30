@@ -41,7 +41,7 @@ export function PainelLateral({ assistente, detalhes }: { assistente?: ReactNode
               </TabsTrigger>
             </TabsList>
           </div>
-          <TabsContent value="assistente" forceMount className="relative mt-0 min-h-0 flex-1 overflow-y-auto p-3 data-[state=inactive]:hidden">
+          <TabsContent value="assistente" forceMount className="relative mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto p-3 data-[state=inactive]:hidden">
             {assistente}
           </TabsContent>
           <TabsContent value="detalhes" forceMount className="relative mt-0 min-h-0 flex-1 overflow-y-auto data-[state=inactive]:hidden">

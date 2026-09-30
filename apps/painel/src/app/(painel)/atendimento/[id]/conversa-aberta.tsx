@@ -134,7 +134,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
         painel={(
           <PainelLateral
             assistente={podeAssistente ? (
-              <div className="flex flex-col gap-2">
+              <div className="flex min-h-0 flex-1 flex-col gap-2">
                 <p className="text-xs text-muted">Já sabe deste cliente e das demandas desta conversa.</p>
                 <AvisoAssistente />
                 <ConversaAssistente usuarioId={u.id} conversaId={id} podeCsv={podeCsv} compacta />

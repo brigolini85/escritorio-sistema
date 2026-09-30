@@ -24,7 +24,7 @@ export function ApagarDadosContato({ nome, acao, variante = 'discreto' }: {
     } catch (e) {
       unstable_rethrow(e); // redirecionamento do Next continua valendo
       console.error('[lgpd] falha ao apagar os dados do contato', e);
-      toast.error(`Não consegui concluir o apagamento dos dados de ${nome}. Tente de novo; se continuar, avise o administrador.`);
+      toast.error(`Não consegui concluir o apagamento dos dados de ${nome}. Tente de novo; se continuar, verifique os registros do sistema.`);
     }
   };
   return (

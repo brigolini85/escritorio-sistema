@@ -61,18 +61,26 @@ function Conteudo({ l }: { l: LinhaComparada }) {
   );
 }
 
-export function DiffPreview({ texto, className }: { texto: string; className?: string }) {
+/** Texto em volta da prévia (cabeçalho, rodapé). Padrão: como veio, com as quebras de linha. */
+type FormatarTexto = (texto: string) => ReactNode;
+const textoPuro: FormatarTexto = (t) => <p className="whitespace-pre-wrap">{t}</p>;
+
+/**
+ * `formatarTexto`: como mostrar o texto em volta das prévias (a tela do Assistente formata listas e tabelas
+ * da resposta). Sem ele, texto puro. Só funciona em componente de servidor ou dentro de um client.
+ */
+export function DiffPreview({ texto, className, formatarTexto = textoPuro }: { texto: string; className?: string; formatarTexto?: FormatarTexto }) {
   const previas = interpretarPrevias(texto);
-  if (!previas) return <p className={cn('whitespace-pre-wrap', className)}>{texto}</p>;
+  if (!previas) return <div className={className}>{formatarTexto(texto)}</div>;
   // Uma resposta pode trazer uma prévia por pedido: cada uma com a sua comparação.
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      {previas.map((p, i) => <UmaPrevia key={i} previa={p} />)}
+      {previas.map((p, i) => <UmaPrevia key={i} previa={p} formatarTexto={formatarTexto} />)}
     </div>
   );
 }
 
-function UmaPrevia({ previa }: { previa: PreviaInterpretada }) {
+function UmaPrevia({ previa, formatarTexto }: { previa: PreviaInterpretada; formatarTexto: FormatarTexto }) {
   const linhas = compararPrevia(previa);
   const resumo = (['alterado', 'adicionado', 'removido'] as const)
     .map((m) => {
@@ -83,7 +91,7 @@ function UmaPrevia({ previa }: { previa: PreviaInterpretada }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {previa.cabecalho && <p className="whitespace-pre-wrap font-medium">{previa.cabecalho}</p>}
+      {previa.cabecalho && <div className="font-medium">{formatarTexto(previa.cabecalho)}</div>}
       <div className="overflow-hidden rounded-md border border-border bg-surface">
         <p className="flex items-center justify-between gap-2 border-b border-border bg-surface-muted px-3 py-1.5 text-xs font-medium text-muted">
           <span>Antes → depois</span>
@@ -107,7 +115,7 @@ function UmaPrevia({ previa }: { previa: PreviaInterpretada }) {
           })}
         </ul>
       </div>
-      {previa.rodape && <p className="whitespace-pre-wrap">{previa.rodape}</p>}
+      {previa.rodape && <div>{formatarTexto(previa.rodape)}</div>}
     </div>
   );
 }
