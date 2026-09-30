@@ -66,6 +66,6 @@ describe('dados cadastrais da empresa', () => {
     const { data: x } = await db.from('clientes').insert({ razao_social: 'Indústria X Ltda', nome_fantasia: 'Indústria X', cnpj: '11222333000181',
       inscricao_estadual: '0012345670011', regime: 'Simples Nacional', endereco: 'Rua A, 10', uf: 'MG' }).select().single();
     expect(await repos.dadosDaEmpresa(x!.id)).toEqual({ razaoSocial: 'Indústria X Ltda', nomeFantasia: 'Indústria X', cnpj: '11222333000181',
-      inscricaoEstadual: '0012345670011', regime: 'Simples Nacional', endereco: 'Rua A, 10', uf: 'MG' });
+      inscricaoEstadual: '0012345670011', regime: 'Simples Nacional', endereco: 'Rua A, 10', uf: 'MG', ativo: true });
   });
 });

@@ -32,8 +32,9 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   // "stately": no máximo um job por estado e por singletonKey — um aguardando e um em execução por conversa.
   await boss.createQueue(FILAS.processarConversa, { name: FILAS.processarConversa, policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
   await boss.createQueue(FILAS.assistente, { name: FILAS.assistente, policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
-  // Mesma configuração em apps/painel/src/lib/fila.ts (o painel enfileira os testes).
-  await boss.createQueue(FILAS.simularAgente, { name: FILAS.simularAgente, retryLimit: 2, retryDelay: 15, retryBackoff: true });
+  // Mesma configuração em apps/painel/src/lib/fila.ts (o painel enfileira os testes). "stately" + singletonKey = id do teste:
+  // o mesmo teste enfileirado duas vezes não roda em paralelo (nem paga a IA duas vezes).
+  await boss.createQueue(FILAS.simularAgente, { name: FILAS.simularAgente, policy: 'stately', retryLimit: 2, retryDelay: 15, retryBackoff: true });
   await boss.createQueue(FILAS.enviarMensagem, { name: FILAS.enviarMensagem, retryLimit: 5, retryDelay: 10, retryBackoff: true });
   await boss.createQueue(FILAS.removerArquivos, { name: FILAS.removerArquivos, retryLimit: 10, retryDelay: 60, retryBackoff: true });
   for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao]) {
@@ -53,7 +54,7 @@ export async function agendarAssistente(fila: Fila, j: JobAssistente): Promise<v
 export type JobSimulacao = { simulacaoId: string };
 
 export async function agendarSimulacao(fila: Fila, simulacaoId: string): Promise<void> {
-  await fila.enviar(FILAS.simularAgente, { simulacaoId } satisfies JobSimulacao);
+  await fila.enviar(FILAS.simularAgente, { simulacaoId } satisfies JobSimulacao, { singletonKey: simulacaoId });
 }
 
 export function filaDe(boss: PgBoss): Fila {

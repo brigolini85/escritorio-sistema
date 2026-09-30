@@ -3,12 +3,13 @@ import Anthropic from '@anthropic-ai/sdk';
 export type ParametrosIa = Anthropic.MessageCreateParamsNonStreaming;
 
 export interface ClienteIa {
-  criar(p: ParametrosIa): Promise<Anthropic.Message>;
+  /** `signal`: cancela a chamada (usado pelo prazo da simulação do Treinar o agente). */
+  criar(p: ParametrosIa, opcoes?: { signal?: AbortSignal }): Promise<Anthropic.Message>;
 }
 
 export function criarClienteIa(apiKey: string): ClienteIa {
   const cliente = new Anthropic({ apiKey, maxRetries: 2, timeout: 60_000 });
-  return { criar: (p) => cliente.messages.create(p) };
+  return { criar: (p, opcoes) => cliente.messages.create(p, opcoes?.signal ? { signal: opcoes.signal } : undefined) };
 }
 
 /** Erros em que vale tentar de novo mais tarde (rede, limite de taxa, instabilidade). */

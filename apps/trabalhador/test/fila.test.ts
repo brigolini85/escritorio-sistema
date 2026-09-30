@@ -25,6 +25,9 @@ describe('fila simular_agente (Treinar o agente)', () => {
     await boss.purgeQueue(FILAS.simularAgente);
     const id = crypto.randomUUID();
     await agendarSimulacao(filaDe(boss), id);
+    // O mesmo teste enfileirado de novo (clique duplo, reenvio) não vira um segundo job.
+    await agendarSimulacao(filaDe(boss), id);
+    expect(await boss.getQueueSize(FILAS.simularAgente)).toBe(1);
     const [job] = await boss.fetch<{ simulacaoId: string }>(FILAS.simularAgente);
     expect(job!.data).toEqual({ simulacaoId: id });
   });

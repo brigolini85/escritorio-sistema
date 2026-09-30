@@ -1,5 +1,6 @@
 import { estaNoExpediente, mesReferencia } from '@escritorio/core';
-import type { Conversa, EmpresaDoContato, Mensagem, OrientacaoAgente, RascunhoOrientacao, Repos, SimulacaoAgente } from '@escritorio/db';
+import type { Conversa, EmpresaDoContato, Mensagem, OrientacaoAgente, RascunhoOrientacao, Repos, SimulacaoAgente, UsuarioAssistente } from '@escritorio/db';
+import { podeVerChamado } from '../assistente/visibilidade';
 import type { CanalWhatsApp } from '../canal/tipos';
 import { LimitadorEnvio } from '../envio';
 import type { ArmazenamentoMidia } from '../midia/armazenamento';
@@ -34,8 +35,11 @@ export type RespostasSimulacao = {
 export const MENSAGEM_TETO_SIMULACAO = 'O limite mensal de gasto com IA foi atingido. O teste não pode ser feito agora; fale com o administrador.';
 export const MENSAGEM_FALHA_SIMULACAO = 'Não consegui fazer o teste agora. Tente de novo em alguns minutos.';
 export const MENSAGEM_PRAZO_SIMULACAO = 'O teste demorou demais e foi interrompido. Tente de novo com uma mensagem mais curta.';
-export const MENSAGEM_EMPRESA_SIMULACAO = 'A empresa escolhida para o teste não foi encontrada. Escolha outra empresa e teste de novo.';
-/** Abaixo dos 5 minutos em que `criar_simulacao` considera um teste pendente abandonado. */
+export const MENSAGEM_EMPRESA_SIMULACAO = 'A empresa escolhida para o teste não foi encontrada ou está inativa. Escolha outra empresa e teste de novo.';
+/**
+ * Prazo total do teste, contado de quando ele foi pedido (`criado_em`), somando as novas tentativas da fila: fica abaixo dos
+ * 5 minutos em que `criar_simulacao` considera um teste pendente abandonado.
+ */
 export const PRAZO_SIMULACAO_MS = 4 * 60_000;
 
 const TELEFONE_FICTICIO = '5500000000000';
@@ -47,8 +51,7 @@ const LEITURAS = new Set<NomeFerramenta>(['buscar_parceiros', 'buscar_produtos',
 /** Leituras do banco liberadas na simulação. Qualquer outro método do repositório falha (nada grava por engano). */
 const LEITURAS_REPOS = [
   'obterConfiguracoes', 'custoIaDoMes', 'setoresAtivos', 'respostasProntas', 'orientacoesAtivas', 'servicosDoCliente',
-  'unidadesDaEmpresa', 'produtosDaEmpresa', 'precosVigentes', 'documentosDaEmpresa', 'dadosDaEmpresa', 'chamadosAbertosDoCliente',
-  'setorPorNome', 'responsaveisDoCliente',
+  'unidadesDaEmpresa', 'produtosDaEmpresa', 'precosVigentes', 'documentosDaEmpresa', 'dadosDaEmpresa', 'setorPorNome', 'responsaveisDoCliente',
 ] as const satisfies readonly (keyof Repos)[];
 
 class BloqueadoNaSimulacao extends Error {
@@ -61,8 +64,10 @@ class PrazoEsgotado extends Error {}
 /**
  * Repositório da simulação: só as leituras liberadas; o uso da IA é gravado sem conversa; decisões não são gravadas;
  * a conversa fictícia vem da memória. Qualquer outro método lança erro em vez de gravar.
+ * Chamados da empresa: só os que a pessoa que pediu o teste vê no painel (admin: todos; os demais: setores dela e os que
+ * ela é responsável), para o teste não mostrar chamados que ela não pode ler.
  */
-export function reposDaSimulacao(repos: Repos, conversa: Conversa): Repos {
+export function reposDaSimulacao(repos: Repos, conversa: Conversa, usuario: UsuarioAssistente | null): Repos {
   const liberados: Record<string, unknown> = {};
   for (const nome of LEITURAS_REPOS) liberados[nome] = (repos[nome] as (...a: unknown[]) => unknown).bind(repos);
   Object.assign(liberados, {
@@ -70,11 +75,13 @@ export function reposDaSimulacao(repos: Repos, conversa: Conversa): Repos {
     registrarDecisao: async () => {},
     ultimasOrientacoesCortadas: async () => null,
     obterConversa: async () => conversa,
+    chamadosAbertosDoCliente: async (clienteId: string) =>
+      (await repos.chamadosAbertosDoCliente(clienteId)).filter((c) => usuario?.ativo === true && podeVerChamado(usuario, c)),
   });
   return new Proxy(liberados, {
     get(alvo, nome) {
       if (typeof nome !== 'string' || nome === 'then') return undefined;
-      if (nome in alvo) return alvo[nome];
+      if (Object.hasOwn(alvo, nome)) return alvo[nome];
       return () => { throw new BloqueadoNaSimulacao(`repositório: ${nome}`); };
     },
   }) as unknown as Repos;
@@ -93,17 +100,23 @@ function midiaBloqueada(): ArmazenamentoMidia {
   return new Proxy({}, { get: (_a, nome) => (nome === 'then' ? undefined : () => { throw new BloqueadoNaSimulacao('arquivos'); }) }) as ArmazenamentoMidia;
 }
 
-/** A IA com um prazo total: cada chamada só começa (e só espera) enquanto houver tempo. */
+/**
+ * A IA com um prazo total: cada chamada só começa enquanto houver tempo, e a que estiver em andamento no fim do prazo é
+ * cancelada (AbortSignal), para a resposta não chegar depois sem entrar em `uso_ia`.
+ */
 function iaComPrazo(ia: ClienteIa, prazoEm: number): ClienteIa {
   return {
     async criar(p) {
       const resta = prazoEm - Date.now();
       if (resta <= 0) throw new PrazoEsgotado();
+      const cancelar = new AbortController();
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         return await Promise.race([
-          ia.criar(p),
-          new Promise<never>((_, rejeitar) => { timer = setTimeout(() => rejeitar(new PrazoEsgotado()), resta); }),
+          ia.criar(p, { signal: cancelar.signal }),
+          new Promise<never>((_, rejeitar) => {
+            timer = setTimeout(() => { cancelar.abort(); rejeitar(new PrazoEsgotado()); }, resta);
+          }),
         ]);
       } finally {
         clearTimeout(timer);
@@ -283,12 +296,15 @@ const MOTIVOS: Record<string, string> = {
   'limite de iterações': 'o agente passou do número máximo de passos',
 };
 
+/** `relogio`: o "agora" do atendimento (expediente, data no contexto). `prazoMs`: prazo total (padrão PRAZO_SIMULACAO_MS), contado no relógio real a partir de `criado_em`. */
 export type DepsSimulacao = DepsAgente & { relogio?: () => Date; prazoMs?: number };
 export type DesfechoSimulacao = 'inexistente' | 'ja-concluida' | 'pronta' | 'erro';
 
 async function empresaDoTeste(repos: Repos, clienteId: string): Promise<EmpresaDoContato | null> {
   try {
     const e = await repos.dadosDaEmpresa(clienteId);
+    // Desativada entre o pedido e o job (criar_simulacao já recusa empresa inativa).
+    if (!e.ativo) return null;
     return { id: clienteId, nome: e.nomeFantasia ?? e.razaoSocial, podePedirNota: true, agentePausado: false };
   } catch {
     return null;
@@ -305,6 +321,9 @@ export async function processarSimulacao(d: DepsSimulacao, simulacaoId: string, 
   if (!sim) return 'inexistente';
   if (sim.status !== 'pendente') return 'ja-concluida';
   const concluirErro = async (erro: string) => { await d.repos.concluirSimulacao(sim.id, { status: 'erro', erro }); return 'erro' as const; };
+  // O prazo vale para o teste inteiro: uma nova tentativa (ou um job pego com atraso) não ganha mais tempo.
+  const prazoEm = new Date(sim.criado_em).getTime() + (d.prazoMs ?? PRAZO_SIMULACAO_MS);
+  if (Date.now() >= prazoEm) return concluirErro(MENSAGEM_PRAZO_SIMULACAO);
 
   try {
     const agora = (d.relogio ?? (() => new Date()))();
@@ -314,7 +333,7 @@ export async function processarSimulacao(d: DepsSimulacao, simulacaoId: string, 
     const empresa = sim.cliente_id ? await empresaDoTeste(d.repos, sim.cliente_id) : null;
     if (sim.cliente_id && !empresa) return await concluirErro(MENSAGEM_EMPRESA_SIMULACAO);
 
-    const r = await simular(d, sim, empresa, config, agora);
+    const r = await simular(d, sim, empresa, config, agora, prazoEm);
     const gravou = await d.repos.concluirSimulacao(sim.id, { status: 'pronta', respostas: r });
     return gravou ? 'pronta' : 'ja-concluida';
   } catch (e) {
@@ -326,6 +345,7 @@ export async function processarSimulacao(d: DepsSimulacao, simulacaoId: string, 
 
 async function simular(
   d: DepsSimulacao, sim: SimulacaoAgente, empresa: EmpresaDoContato | null, config: Awaited<ReturnType<Repos['obterConfiguracoes']>>, agora: Date,
+  prazoEm: number,
 ): Promise<RespostasSimulacao> {
   const agoraIso = agora.toISOString();
   // Conversa fictícia: só em memória (id da simulação, que não existe em `conversas`: se algo tentasse gravar, a FK recusaria).
@@ -333,10 +353,10 @@ async function simular(
     id: sim.id, telefone: TELEFONE_FICTICIO, contato_id: null, cliente_em_foco: empresa?.id ?? null, estado: 'agente',
     atendente_id: null, aviso_lgpd_enviado_em: agoraIso, tentativas_nao_entendido: 0, criado_em: agoraIso, atualizado_em: agoraIso,
   } satisfies Conversa;
-  const repos = reposDaSimulacao(d.repos, conversa);
+  const repos = reposDaSimulacao(d.repos, conversa, await d.repos.obterUsuarioAssistente(sim.usuario_id));
   const deps: DepsAgente = {
     repos,
-    ia: iaComPrazo(d.ia, Date.now() + (d.prazoMs ?? PRAZO_SIMULACAO_MS)),
+    ia: iaComPrazo(d.ia, prazoEm),
     envio: { repos, canal: canalBloqueado(), limitador: new LimitadorEnvio(1), midia: midiaBloqueada() },
   };
 
@@ -374,7 +394,9 @@ function observar(r: Registro, sim: SimulacaoAgente, ctx: ContextoAgente, result
     if (!resultado.respondeu && aviso) r.mensagens.push(aviso);
   }
   const rascunho = sim.rascunho;
-  if (rascunho?.cliente_id && rascunho.cliente_id !== ctx.empresaEmFoco?.id) {
+  if (rascunho?.cliente_id && !ctx.empresaEmFoco) {
+    r.observacoes.push('A orientação em teste vale só para uma empresa, e nenhuma empresa foi escolhida: ela não entrou neste teste. Escolha a empresa dela para testar.');
+  } else if (rascunho?.cliente_id && rascunho.cliente_id !== ctx.empresaEmFoco?.id) {
     r.observacoes.push('A orientação em teste vale só para outra empresa: ela não entrou neste teste. Escolha a empresa dela para testar.');
   }
   if (rascunho?.setor_id && !ctx.setores.some((s) => s.id === rascunho.setor_id)) {

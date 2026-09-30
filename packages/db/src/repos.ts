@@ -48,7 +48,7 @@ export type ChamadoResumo = {
   pedido_venda: PedidoVendaSalvo | null;
 };
 export type DadosEmpresa = { razaoSocial: string; nomeFantasia: string | null; cnpj: string; inscricaoEstadual: string | null;
-  regime: string | null; endereco: string | null; uf: string | null };
+  regime: string | null; endereco: string | null; uf: string | null; ativo: boolean };
 export type ProdutoEmpresa = { id: string; codigo: string; descricao: string; unidade: string; apelidos: string[] };
 export type DocumentoEmpresa = { id: string; nome: string; arquivoPath: string; arquivoNome: string; arquivoMime: string; iaPodeEnviar: boolean };
 export type TipoOrientacao = 'jeito' | 'regra' | 'situacao';
@@ -426,10 +426,10 @@ export function criarRepos(db: Db) {
     },
 
     async dadosDaEmpresa(clienteId: string): Promise<DadosEmpresa> {
-      const c = checar(await db.from('clientes').select('razao_social, nome_fantasia, cnpj, inscricao_estadual, regime, endereco, uf')
+      const c = checar(await db.from('clientes').select('razao_social, nome_fantasia, cnpj, inscricao_estadual, regime, endereco, uf, ativo')
         .eq('id', clienteId).single(), 'dadosDaEmpresa');
       return { razaoSocial: c.razao_social, nomeFantasia: c.nome_fantasia, cnpj: c.cnpj, inscricaoEstadual: c.inscricao_estadual,
-        regime: c.regime, endereco: c.endereco, uf: c.uf };
+        regime: c.regime, endereco: c.endereco, uf: c.uf, ativo: c.ativo };
     },
 
     /** Preço alterado pelo agente a pedido do contato; o banco exige "pode mudar preço" para a empresa. */

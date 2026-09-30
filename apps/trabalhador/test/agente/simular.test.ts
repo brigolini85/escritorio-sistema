@@ -25,9 +25,11 @@ function deps(ia: ClienteIa, extra: { prazoMs?: number } = {}) {
   return { repos, ia, envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) }, relogio: () => SEGUNDA_10H, ...extra };
 }
 
-async function novaSimulacao(p: { mensagem?: string; clienteId?: string | null; rascunho?: object | null } = {}): Promise<string> {
+/** `criado_em` no relógio desta máquina (o prazo do teste é contado dele), para o relógio do Docker não interferir. */
+async function novaSimulacao(p: { mensagem?: string; clienteId?: string | null; rascunho?: object | null; usuario?: string; criadoEm?: Date } = {}): Promise<string> {
   const { data, error } = await db.from('simulacoes_agente').insert({
-    usuario_id: usuarioId, mensagem: p.mensagem ?? 'Oi, preciso de uma nota', cliente_id: p.clienteId ?? null, rascunho: (p.rascunho ?? null) as never,
+    usuario_id: p.usuario ?? usuarioId, mensagem: p.mensagem ?? 'Oi, preciso de uma nota', cliente_id: p.clienteId ?? null, rascunho: (p.rascunho ?? null) as never,
+    criado_em: (p.criadoEm ?? new Date()).toISOString(),
   }).select('id').single();
   if (error) throw error;
   return data.id;
@@ -279,19 +281,84 @@ describe('processarSimulacao', () => {
     expect((await simulacao(id)).erro).toBe(MENSAGEM_EMPRESA_SIMULACAO);
   });
 
-  it('teste que passa do prazo é interrompido', async () => {
+  it('teste que passa do prazo é interrompido e a chamada em andamento à IA é cancelada', async () => {
     const id = await novaSimulacao();
-    const lenta: ClienteIa = { criar: () => new Promise(() => {}) };
-    expect(await processarSimulacao(deps(lenta, { prazoMs: 50 }), id, false)).toBe('erro');
+    const sinais: AbortSignal[] = [];
+    const lenta: ClienteIa = { criar: (_p, opcoes) => { sinais.push(opcoes!.signal!); return new Promise(() => {}); } };
+    expect(await processarSimulacao(deps(lenta, { prazoMs: 300 }), id, false)).toBe('erro');
     expect((await simulacao(id)).erro).toBe(MENSAGEM_PRAZO_SIMULACAO);
+    expect(sinais).toHaveLength(1);
+    expect(sinais[0]!.aborted).toBe(true);
+  });
+
+  it('o prazo conta de quando o teste foi pedido: nova tentativa depois dele termina em erro sem chamar a IA', async () => {
+    const id = await novaSimulacao({ criadoEm: new Date(Date.now() - 4 * 60_000 - 1000) });
+    const ia = new IaRoteirizada([]);
+    expect(await processarSimulacao(deps(ia), id, false)).toBe('erro');
+    expect(ia.recebidos).toHaveLength(0);
+    expect((await simulacao(id)).erro).toBe(MENSAGEM_PRAZO_SIMULACAO);
+    expect((await db.from('uso_ia').select('id')).data).toEqual([]);
+  });
+
+  it('empresa desativada depois de pedir o teste: erro com mensagem humana', async () => {
+    const { data: e } = await db.from('clientes').insert({ razao_social: 'Parada', cnpj: '99888777000166' }).select().single();
+    const id = await novaSimulacao({ clienteId: e!.id });
+    await db.from('clientes').update({ ativo: false }).eq('id', e!.id);
+    const ia = new IaRoteirizada([]);
+    expect(await processarSimulacao(deps(ia), id, false)).toBe('erro');
+    expect(ia.recebidos).toHaveLength(0);
+    expect((await simulacao(id)).erro).toBe(MENSAGEM_EMPRESA_SIMULACAO);
+  });
+
+  it('consultar_chamados mostra só os chamados que a pessoa do teste vê; listar_documentos lê de verdade', async () => {
+    const { empresas } = await contatoComEmpresas(['Indústria X']);
+    const x = empresas[0]!;
+    await criarCadastrosExemplo(x.id);
+    const atendente = await criarUsuarioTeste({ email: 'fiscal@teste.local', papel: 'atendente', permissoes: ['treinar_agente'], setores: ['Fiscal'] });
+    const abrir = async (setor: string, titulo: string, responsavel: string | null = null) =>
+      repos.abrirChamado({ clienteId: x.id, conversaId: null, setorId: await setorId(setor), responsavelId: responsavel, titulo, resumo: 'x', foraDoContrato: false, origem: 'sistema' });
+    await abrir('Fiscal', 'Guia DAS');
+    await abrir('Pessoal', 'Folha de setembro');
+    await abrir('Contábil', 'Balancete', atendente);
+    const antes = await contagens();
+    const roteiro = () => new IaRoteirizada([
+      usarFerramentas({ nome: 'consultar_chamados', entrada: {} }, { nome: 'listar_documentos', entrada: {} }),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Seguem.' } }),
+      fim(),
+    ]);
+    const titulos = (ia: IaRoteirizada) => {
+      const [chamados, documentos] = ia.recebidos[1]!.messages.at(-1)!.content as { content: string; is_error: boolean }[];
+      expect(documentos!.is_error).toBe(false);
+      expect(JSON.parse(documentos!.content).documentos.map((d: { nome: string }) => d.nome)).toEqual(['Balanço 2025', 'Contrato social']);
+      return (JSON.parse(chamados!.content).chamados as { titulo: string }[]).map((c) => c.titulo).sort();
+    };
+
+    const iaAtendente = roteiro();
+    await processarSimulacao(deps(iaAtendente), await novaSimulacao({ clienteId: x.id, usuario: atendente }), false);
+    expect(titulos(iaAtendente)).toEqual(['Balancete', 'Guia DAS']);
+
+    const iaAdmin = roteiro();
+    await processarSimulacao(deps(iaAdmin), await novaSimulacao({ clienteId: x.id }), false);
+    expect(titulos(iaAdmin)).toEqual(['Balancete', 'Folha de setembro', 'Guia DAS']);
+    expect(await contagens()).toEqual(antes);
+  });
+
+  it('rascunho de empresa testado sem empresa escolhida: observação diz que nenhuma empresa foi escolhida', async () => {
+    const { empresas } = await contatoComEmpresas(['Indústria X']);
+    const id = await novaSimulacao({ rascunho: { titulo: 'T', texto: 'ZEBRA-42', tipo: 'regra', cliente_id: empresas[0]!.id, setor_id: null } });
+    await processarSimulacao(deps(new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi' } }), fim()])), id, false);
+    expect((await simulacao(id)).respostas!.observacoes).toEqual([expect.stringContaining('nenhuma empresa foi escolhida')]);
   });
 });
 
 describe('reposDaSimulacao', () => {
   it('só leituras: gravações lançam erro, decisões não gravam e o uso da IA vai sem conversa', async () => {
     const conversa = { id: '00000000-0000-0000-0000-000000000001' } as never;
-    const r = reposDaSimulacao(repos, conversa);
+    const r = reposDaSimulacao(repos, conversa, null);
     expect(() => r.abrirChamado({} as never)).toThrow('A simulação não grava nem envia nada');
+    // Lista branca exata: nada herdado de Object.prototype passa.
+    expect(() => (r as unknown as { toString: () => string }).toString()).toThrow('A simulação não grava nem envia nada');
+    expect(() => (r as unknown as { hasOwnProperty: (x: string) => boolean }).hasOwnProperty('x')).toThrow();
     expect(() => r.criarSaidaPendente({} as never)).toThrow();
     expect(() => r.atualizarConversa('x', {})).toThrow();
     await r.registrarDecisao({ conversaId: 'x', clienteId: null, etapa: 'responder', entrada: {}, saida: {} });
