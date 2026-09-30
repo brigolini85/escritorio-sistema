@@ -43,7 +43,7 @@ export function NavegacaoSecoes({ secoes }: { secoes: SecaoConfiguracao[] }) {
           <li key={s.id}>
             <a
               href={`#${s.id}`}
-              aria-current={atual === s.id ? 'true' : undefined}
+              aria-current={atual === s.id ? 'location' : undefined}
               onClick={() => setAtual(s.id)}
               className={cn(
                 'flex h-8 items-center whitespace-nowrap rounded-md px-3 text-base text-muted transition-colors duration-150 ease-out hover:bg-surface-muted hover:text-foreground',

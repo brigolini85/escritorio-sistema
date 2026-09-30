@@ -103,7 +103,8 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
     contatoDoTelefone: u.permissoes.includes('assistente_whatsapp') ? contatoDoTelefone(u.telefone) : null,
   }));
   const aberto = usuarioAberto ? linhas.find((l) => l.id === usuarioAberto) ?? null : null;
-  const hrefUsuario = (id: string | null) => `/usuarios${hrefComParams(params, { usuario: id })}`;
+  // Abrir outra pessoa tira o ?erro= da tentativa anterior (o aviso era de outra pessoa ou já foi lido na página).
+  const hrefUsuario = (id: string | null) => `/usuarios${hrefComParams(params, id ? { usuario: id, erro: null } : { usuario: null })}`;
 
   const colunas: ColunaTabela<Linha>[] = [
     {
@@ -162,7 +163,7 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
       <PageHeader
         titulo="Usuários"
         descricao="O administrador pode tudo no painel. As marcações do assistente valem para todos, inclusive o administrador."
-        acoes={<ConviteUsuario acao={convidarUsuario} setores={opcoesSetor} />}
+        acoes={<ConviteUsuario acao={convidarUsuario} setores={opcoesSetor} emails={linhas.map((l) => l.email.toLowerCase())} />}
       />
       {erro && <div className="mb-4"><AvisoErro erro={erro} /></div>}
       <DataTable
@@ -178,7 +179,7 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
         vazio={<EmptyState icone={UsersRound} titulo="Nenhuma pessoa cadastrada." descricao="Convide a equipe pelo botão Convidar pessoa." />}
       />
 
-      <PainelLateralUrl param="usuario" id={usuarioAberto} hrefFechar={hrefUsuario(null)} esqueleto={<EsqueletoUsuario />} className="sm:max-w-xl">
+      <PainelLateralUrl param="usuario" id={usuarioAberto} hrefFechar={hrefUsuario(null)} esqueleto={<EsqueletoUsuario />} className="sm:max-w-xl" protegerAlteracoes>
         {usuarioAberto && (aberto ? (
           <>
             <SheetHeader>

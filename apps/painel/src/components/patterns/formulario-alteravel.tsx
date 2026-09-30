@@ -4,6 +4,7 @@ import { LoaderCircle } from 'lucide-react';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type RefObject } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button, type ButtonProps } from '@/components/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/cn';
 
 type Contexto = { form: RefObject<HTMLFormElement | null>; versao: number };
@@ -51,11 +52,96 @@ export function formularioAlterado(form: HTMLFormElement, escopo?: Element | nul
   return [...form.elements].some((el) => (!escopo || escopo.contains(el)) && campoAlterado(el));
 }
 
+/** Formulários alteráveis montados na página: um único par de ouvintes cuida de todos (uma pergunta só). */
+const montados = new Set<HTMLFormElement>();
+const algumAlterado = () => [...montados].some((f) => f.isConnected && formularioAlterado(f));
+const PERGUNTA_SAIR = 'Há alterações não salvas nesta página. Sair sem salvar?';
+
+/** Fechar ou recarregar a aba: o navegador pergunta (returnValue para Chrome antigo e WebViews). */
+function aoDescarregar(e: BeforeUnloadEvent) {
+  if (!algumAlterado()) return;
+  e.preventDefault();
+  e.returnValue = '';
+}
+
+/**
+ * Link para outra página do painel (menu, trilha, busca): a navegação do Next não dispara o beforeunload, então
+ * o clique é conferido antes (fase de captura no document, antes do Link) e só segue se a pessoa confirmar.
+ */
+function aoClicarLink(e: MouseEvent) {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const link = (e.target as Element | null)?.closest?.('a[href]');
+  if (!(link instanceof HTMLAnchorElement) || link.target === '_blank' || link.hasAttribute('download')) return;
+  const destino = new URL(link.href, window.location.href);
+  const aqui = new URL(window.location.href);
+  // Âncora na mesma página (navegação interna de Configurações): nada se perde.
+  if (destino.origin === aqui.origin && destino.pathname === aqui.pathname && destino.search === aqui.search) return;
+  if (!algumAlterado()) return;
+  if (!window.confirm(PERGUNTA_SAIR)) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}
+
+function registrar(f: HTMLFormElement): () => void {
+  if (montados.size === 0) {
+    window.addEventListener('beforeunload', aoDescarregar);
+    document.addEventListener('click', aoClicarLink, true);
+  }
+  montados.add(f);
+  return () => {
+    montados.delete(f);
+    if (montados.size === 0) {
+      window.removeEventListener('beforeunload', aoDescarregar);
+      document.removeEventListener('click', aoClicarLink, true);
+    }
+  };
+}
+
+/**
+ * Fechar um painel lateral ou uma janela com formulário alterado dentro: pergunta antes de descartar.
+ * `tentarFechar(elemento, fechar)` fecha na hora se nada mudou; senão abre a confirmação (`janela`, que precisa
+ * ser renderizada pelo componente).
+ */
+export function useDescarteProtegido() {
+  const [pendente, setPendente] = useState<(() => void) | null>(null);
+  const tentarFechar = useCallback((conteudo: Element | null, fechar: () => void) => {
+    const forms = conteudo ? [...conteudo.querySelectorAll('form')] : [];
+    if (forms.some((f) => formularioAlterado(f))) setPendente(() => fechar);
+    else fechar();
+  }, []);
+  const janela = (
+    <Dialog open={pendente !== null} onOpenChange={(v) => { if (!v) setPendente(null); }}>
+      <DialogContent mostrarFechar={false} className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Descartar as alterações?</DialogTitle>
+          <DialogDescription>O que você mudou ainda não foi salvo.</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild><Button type="button" variant="outline">Continuar editando</Button></DialogClose>
+          <Button
+            type="button"
+            variant="danger"
+            onClick={() => {
+              const fechar = pendente;
+              setPendente(null);
+              fechar?.();
+            }}
+          >
+            Descartar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+  return { tentarFechar, janela };
+}
+
 /**
  * <form action={serverAction}> que sabe se tem alteração não salva, comparando cada campo nativo com o valor que
  * veio do servidor (defaultValue/defaultChecked/defaultSelected). Não muda nada do que é enviado. Depois de salvar,
- * a página volta com os valores novos como padrão e o indicador some sozinho. Fechar ou recarregar a aba com
- * alteração pede confirmação ao navegador. Use com <IndicadorAlteracoes /> e <BotaoSalvar /> dentro.
+ * a página volta com os valores novos como padrão e o indicador some sozinho. Fechar ou recarregar a aba, ou
+ * seguir um link para outra página do painel, com alteração pede confirmação. Use com <IndicadorAlteracoes /> e <BotaoSalvar /> dentro.
  */
 export function FormularioAlteravel({ className, children, onInput, onChange, onClick, onReset, ...props }: ComponentProps<'form'>) {
   const form = useRef<HTMLFormElement>(null);
@@ -68,11 +154,9 @@ export function FormularioAlteravel({ className, children, onInput, onChange, on
   }, [children, conferir]);
 
   useEffect(() => {
-    const aoSair = (e: BeforeUnloadEvent) => {
-      if (form.current && formularioAlterado(form.current)) e.preventDefault();
-    };
-    window.addEventListener('beforeunload', aoSair);
-    return () => window.removeEventListener('beforeunload', aoSair);
+    const f = form.current;
+    if (!f) return;
+    return registrar(f);
   }, []);
 
   return (
@@ -126,6 +210,23 @@ export function IndicadorAlteracoes({ compacto = false, className }: { compacto?
       )}
     </span>
   );
+}
+
+/**
+ * Nota do rodapé quando o formulário ocupa dois cards: `nota` normalmente; `notaAlterado` (em destaque) quando o
+ * outro card (elemento com id `outro`) tem alteração não salva, que este Salvar também vai gravar.
+ */
+export function NotaOutroCard({ outro, nota, notaAlterado, className }: { outro: string; nota: string; notaAlterado: string; className?: string }) {
+  const ctx = useContext(ContextoFormulario);
+  const [alterado, setAlterado] = useState(false);
+  const versao = ctx?.versao;
+  const form = ctx?.form;
+  useEffect(() => {
+    const f = form?.current;
+    const escopo = document.getElementById(outro);
+    setAlterado(Boolean(f && escopo && f.contains(escopo) && formularioAlterado(f, escopo)));
+  }, [versao, form, outro]);
+  return <p className={cn('text-xs', alterado ? 'text-warning' : 'text-subtle', className)}>{alterado ? notaAlterado : nota}</p>;
 }
 
 /**

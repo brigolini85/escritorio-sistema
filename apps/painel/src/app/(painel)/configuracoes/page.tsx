@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { FormField } from '@/components/patterns/form-field';
-import { BotaoSalvar, FormularioAlteravel, IndicadorAlteracoes } from '@/components/patterns/formulario-alteravel';
+import { BotaoSalvar, FormularioAlteravel, IndicadorAlteracoes, NotaOutroCard } from '@/components/patterns/formulario-alteravel';
 import { HealthSignal } from '@/components/patterns/health-signal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,11 +22,12 @@ import {
   adicionarFeriado, removerFeriado, removerResposta, salvarGerais, salvarMensagens,
   salvarResposta, salvarServico, salvarSetor,
 } from './acoes';
+import { CampoEmail, CampoNomeUnico } from './campos-validados';
 import { HorarioExpediente } from './horario-expediente';
 import { NavegacaoSecoes, type SecaoConfiguracao } from './navegacao-secoes';
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const DIAS_EXTENSO = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const DIAS_EXTENSO = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 
 const SECOES: SecaoConfiguracao[] = [
   { id: 'expediente', rotulo: 'Expediente' },
@@ -60,10 +61,10 @@ function Secao({ id, titulo, descricao, children, className, escopo = false }: {
 }
 
 /** Rodapé do card com o indicador de alterações e o Salvar da seção. */
-function RodapeSalvar({ rotulo = 'Salvar', nota }: { rotulo?: string; nota?: string }) {
+function RodapeSalvar({ rotulo = 'Salvar', outro }: { rotulo?: string; outro?: { id: string; nota: string; notaAlterado: string } }) {
   return (
     <CardFooter className="flex-wrap justify-end">
-      {nota && <p className="mr-auto text-xs text-subtle">{nota}</p>}
+      {outro && <NotaOutroCard outro={outro.id} nota={outro.nota} notaAlterado={outro.notaAlterado} className="mr-auto" />}
       <IndicadorAlteracoes />
       <BotaoSalvar size="sm">{rotulo}</BotaoSalvar>
     </CardFooter>
@@ -86,6 +87,8 @@ export default async function Configuracoes() {
   const mensagens = (cfg?.mensagens ?? {}) as Record<string, string>;
   const sinal = (c: string) => sinais?.find((s) => s.componente === c)?.visto_em ?? null;
   const teto = cfg && gasto ? situacaoTeto(gasto.total, Number(cfg.teto_ia_usd)) : null;
+  const nomesSetores = (setores ?? []).map((x) => x.nome);
+  const nomesServicos = (servicos ?? []).map((x) => x.nome);
   const opcoesSetor = (setores ?? []).map((x) => <option key={x.id} value={x.id}>{x.nome}{x.ativo ? '' : ' (inativo)'}</option>);
 
   return (
@@ -109,17 +112,16 @@ export default async function Configuracoes() {
                     {DIAS.map((d, i) => (
                       <label
                         key={d}
-                        title={DIAS_EXTENSO[i]}
                         className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-input bg-surface px-3 text-base text-foreground has-checked:border-brand has-checked:bg-brand-soft"
                       >
-                        <input type="checkbox" name="dia" value={i} defaultChecked={cfg?.dias_uteis.includes(i)} className={classeCaixa} />
-                        {d}
+                        <input type="checkbox" name="dia" value={i} defaultChecked={cfg?.dias_uteis.includes(i)} aria-label={DIAS_EXTENSO[i]} className={classeCaixa} />
+                        <span aria-hidden>{d}</span>
                       </label>
                     ))}
                   </div>
                 </fieldset>
               </CardContent>
-              <RodapeSalvar nota="Salva junto com o teto de IA e os alertas." />
+              <RodapeSalvar outro={{ id: 'teto-ia', nota: 'Salva junto com o teto de IA e os alertas.', notaAlterado: 'O teto de IA e os alertas também têm alterações, que este Salvar grava junto.' }} />
             </Secao>
 
             <Secao id="teto-ia" titulo="Teto de IA e alertas" descricao="Ao chegar no teto do mês, o agente para de responder e as conversas vão para a equipe." escopo>
@@ -135,13 +137,13 @@ export default async function Configuracoes() {
                   <Input name="minutos_alerta_fila" type="number" step="1" min="5" required defaultValue={cfg?.minutos_alerta_fila} className="tabular sm:w-40" />
                 </FormField>
                 <FormField id="email_alertas" rotulo="E-mail para alertas">
-                  <Input name="email_alertas" type="email" defaultValue={cfg?.email_alertas ?? ''} />
+                  <CampoEmail name="email_alertas" defaultValue={cfg?.email_alertas ?? ''} />
                 </FormField>
                 <FormField id="telefone_dono" rotulo="Seu WhatsApp (recebe avisos e o resumo diário)">
                   <Input name="telefone_dono" inputMode="tel" defaultValue={cfg?.telefone_dono ?? ''} />
                 </FormField>
               </CardContent>
-              <RodapeSalvar nota="Salva junto com o expediente." />
+              <RodapeSalvar outro={{ id: 'expediente', nota: 'Salva junto com o expediente.', notaAlterado: 'O expediente também tem alterações, que este Salvar grava junto.' }} />
             </Secao>
           </FormularioAlteravel>
 
@@ -162,7 +164,7 @@ export default async function Configuracoes() {
             <CardContent className="flex flex-col gap-2">
               {(setores ?? []).map((s) => (
                 <FormularioAlteravel key={s.id} action={salvarSetor.bind(null, s.id)} className="flex flex-col gap-2 rounded-md border border-border p-2 sm:flex-row sm:items-center">
-                  <Input name="nome" defaultValue={s.nome} aria-label={`Nome do setor ${s.nome}`} required className="sm:w-40" />
+                  <CampoNomeUnico outros={nomesSetores.filter((n) => n !== s.nome)} mensagem="Já existe um setor com este nome." name="nome" defaultValue={s.nome} aria-label={`Nome do setor ${s.nome}`} required className="sm:w-40" />
                   <Input name="descricao_assuntos" defaultValue={s.descricao_assuntos} aria-label={`Assuntos do setor ${s.nome}`} placeholder="Assuntos deste setor" className="sm:flex-1" />
                   <div className="flex items-center gap-3">
                     <label className="flex items-center gap-2 text-base text-foreground">
@@ -177,7 +179,7 @@ export default async function Configuracoes() {
             </CardContent>
             <CardFooter>
               <form action={salvarSetor.bind(null, null)} className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
-                <Input name="nome" placeholder="Novo setor" aria-label="Nome do novo setor" required className="sm:w-40" />
+                <CampoNomeUnico outros={nomesSetores} mensagem="Já existe um setor com este nome." name="nome" placeholder="Novo setor" aria-label="Nome do novo setor" required className="sm:w-40" />
                 <Input name="descricao_assuntos" placeholder="Assuntos deste setor" aria-label="Assuntos do novo setor" className="sm:flex-1" />
                 <Button type="submit" size="sm">Criar setor</Button>
               </form>
@@ -188,7 +190,7 @@ export default async function Configuracoes() {
             <CardContent className="flex flex-col gap-2">
               {(servicos ?? []).map((s) => (
                 <FormularioAlteravel key={s.id} action={salvarServico.bind(null, s.id)} className="flex flex-col gap-2 rounded-md border border-border p-2 sm:flex-row sm:items-center">
-                  <Input name="nome" defaultValue={s.nome} aria-label={`Nome do serviço ${s.nome}`} required className="sm:flex-1" />
+                  <CampoNomeUnico outros={nomesServicos.filter((n) => n !== s.nome)} mensagem="Já existe um serviço com este nome." name="nome" defaultValue={s.nome} aria-label={`Nome do serviço ${s.nome}`} required className="sm:flex-1" />
                   <select name="setor_id" defaultValue={s.setor_id ?? ''} aria-label={`Setor do serviço ${s.nome}`} className={cn(classeSelect, 'sm:w-48')}>
                     <option value="">Sem setor</option>
                     {opcoesSetor}
@@ -206,7 +208,7 @@ export default async function Configuracoes() {
             </CardContent>
             <CardFooter>
               <form action={salvarServico.bind(null, null)} className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
-                <Input name="nome" placeholder="Novo serviço (ex.: Folha de pagamento)" aria-label="Nome do novo serviço" required className="sm:flex-1" />
+                <CampoNomeUnico outros={nomesServicos} mensagem="Já existe um serviço com este nome." name="nome" placeholder="Novo serviço (ex.: Folha de pagamento)" aria-label="Nome do novo serviço" required className="sm:flex-1" />
                 <select name="setor_id" aria-label="Setor do novo serviço" className={cn(classeSelect, 'sm:w-48')}>
                   <option value="">Sem setor</option>
                   {opcoesSetor}
