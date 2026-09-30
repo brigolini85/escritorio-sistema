@@ -10,6 +10,8 @@ export const FILAS = {
   limpezaRetencao: 'limpeza-retencao',
   removerArquivos: 'remover-arquivos',
   assistente: 'assistente',
+  /** Treinar o agente: o painel grava a simulação (criar_simulacao) e enfileira { simulacaoId } com este nome. */
+  simularAgente: 'simular_agente',
 } as const;
 
 export interface Fila {
@@ -30,6 +32,8 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   // "stately": no máximo um job por estado e por singletonKey — um aguardando e um em execução por conversa.
   await boss.createQueue(FILAS.processarConversa, { name: FILAS.processarConversa, policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
   await boss.createQueue(FILAS.assistente, { name: FILAS.assistente, policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
+  // Mesma configuração em apps/painel/src/lib/fila.ts (o painel enfileira os testes).
+  await boss.createQueue(FILAS.simularAgente, { name: FILAS.simularAgente, retryLimit: 2, retryDelay: 15, retryBackoff: true });
   await boss.createQueue(FILAS.enviarMensagem, { name: FILAS.enviarMensagem, retryLimit: 5, retryDelay: 10, retryBackoff: true });
   await boss.createQueue(FILAS.removerArquivos, { name: FILAS.removerArquivos, retryLimit: 10, retryDelay: 60, retryBackoff: true });
   for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao]) {
@@ -43,6 +47,13 @@ export type JobAssistente = { usuarioId: string; canal: 'site' | 'whatsapp'; con
 /** Uma execução por usuário, canal e contexto: perguntas seguidas são respondidas juntas. */
 export async function agendarAssistente(fila: Fila, j: JobAssistente): Promise<void> {
   await fila.enviar(FILAS.assistente, j, { singletonKey: `${j.usuarioId}:${j.canal}:${j.conversaId ?? '-'}` });
+}
+
+/** Job da fila `simular_agente`: o id da linha em `simulacoes_agente` (status pendente). */
+export type JobSimulacao = { simulacaoId: string };
+
+export async function agendarSimulacao(fila: Fila, simulacaoId: string): Promise<void> {
+  await fila.enviar(FILAS.simularAgente, { simulacaoId } satisfies JobSimulacao);
 }
 
 export function filaDe(boss: PgBoss): Fila {

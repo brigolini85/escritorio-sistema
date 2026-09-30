@@ -1,5 +1,6 @@
 import { criarClienteServico, criarRepos } from '@escritorio/db';
 import { criarClienteIa } from './agente/cliente-ia';
+import { processarSimulacao } from './agente/simular';
 import { criarAlertas } from './alertas';
 import type { MensagemRecebida } from './canal/tipos';
 import { criarCanalZapi } from './canal/zapi';
@@ -7,7 +8,7 @@ import { lerConfig } from './config';
 import { criarEmail } from './email';
 import { LimitadorEnvio, enviarMensagemDoPainel, verificarEnviadaPorMim } from './envio';
 import { processarAssistente } from './assistente/processar';
-import { FILAS, criarBoss, filaDe, type JobAssistente } from './fila';
+import { FILAS, criarBoss, filaDe, type JobAssistente, type JobSimulacao } from './fila';
 import { criarArmazenamento } from './midia/armazenamento';
 import { criarTranscritor } from './midia/transcritor';
 import { processarConversa } from './processar-conversa';
@@ -46,6 +47,12 @@ async function principal() {
   for (let i = 0; i < 2; i++) {
     await boss.work<JobAssistente>(FILAS.assistente, { includeMetadata: true }, async ([job]) => {
       await processarAssistente({ repos, ia: deps.ia, canal }, job!.data, job!.retryCount >= job!.retryLimit);
+    });
+  }
+  // Testes do Treinar o agente: nada grava nem envia (o envio de `deps` é trocado por um bloqueado dentro da simulação).
+  for (let i = 0; i < 2; i++) {
+    await boss.work<JobSimulacao>(FILAS.simularAgente, { includeMetadata: true }, async ([job]) => {
+      await processarSimulacao(deps, job!.data.simulacaoId, job!.retryCount >= job!.retryLimit);
     });
   }
   await boss.work<{ mensagemId: string }>(FILAS.enviarMensagem, { includeMetadata: true }, async ([job]) => {

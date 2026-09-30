@@ -56,8 +56,8 @@ export type OrientacaoAgente = {
   id: string; titulo: string; texto: string; tipo: TipoOrientacao; clienteId: string | null; setorId: string | null;
   setorNome: string | null; atualizadoEm: Date;
 };
-/** Orientação ainda não salva incluída num teste (formato conferido por criar_simulacao). */
-export type RascunhoOrientacao = { titulo: string; texto: string; tipo: TipoOrientacao; cliente_id: string | null; setor_id: string | null };
+/** Orientação ainda não salva incluída num teste (formato conferido por criar_simulacao). `id`: a orientação salva que ela edita (substitui essa no teste). */
+export type RascunhoOrientacao = { id?: string | null; titulo: string; texto: string; tipo: TipoOrientacao; cliente_id: string | null; setor_id: string | null };
 export type SimulacaoAgente = Omit<Linha<'simulacoes_agente'>, 'rascunho' | 'status'> & {
   rascunho: RascunhoOrientacao | null; status: 'pendente' | 'pronta' | 'erro';
 };

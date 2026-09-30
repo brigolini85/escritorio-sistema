@@ -148,7 +148,7 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
   },
 ];
 
-const PedidoNota = z.object({
+export const PedidoNota = z.object({
   tipo: z.enum(['venda', 'devolucao']),
   unidade_id: z.string().nullable(),
   texto_destinatario: z.string().min(1).max(300),
@@ -188,6 +188,23 @@ const Entradas = {
   responder: z.object({ texto: z.string().min(1).max(4000) }),
 };
 
+/** Textos devolvidos ao modelo, iguais no atendimento de verdade e na simulação (Treinar o agente). */
+export const AVISOS = {
+  empresaAlheia: 'Essa empresa não está ligada a este contato. Não informe nada sobre ela.',
+  setorInvalido: 'setor_id inválido. Use um id da lista de SETORES ou "triagem".',
+  pedidoSemConfirmacao: 'Ainda não passe o pedido: mande o resumo com resumir_pedido_nota e espere o cliente confirmar que está certo e que não tem mais nota. Depois chame de novo com cliente_confirmou_resumo = true (uma chamada por nota).',
+  pedidoNaoConferido: 'O cliente não conferiu este pedido: mande o resumo com resumir_pedido_nota (com o mesmo destinatário e os mesmos itens) e espere a confirmação antes de passar para o Fiscal.',
+  pedidoAmbiguo: 'Mais de um resumo enviado combina com este pedido. Chame de novo com o unidade_id e os produto_id usados no resumo que o cliente confirmou.',
+  documentoNaoEncontrado: 'Documento não encontrado nesta empresa. Use listar_documentos.',
+  documentoNaoLiberado: 'Este documento não está liberado para envio automático. Abra uma demanda com abrir_chamado para a equipe enviar.',
+  precoSemConfirmacao: 'Antes de alterar, confirme com o cliente o novo valor (produto, rede, de quanto para quanto) e só então chame de novo com confirmado_pelo_cliente = true.',
+  produtoSemConfirmacao: 'Antes de cadastrar, confirme com o cliente o código, a descrição e a unidade do produto e só então chame de novo com confirmado_pelo_cliente = true.',
+  textoVazio: 'Texto vazio: escreva a resposta em palavras, sem emoji.',
+  instrucaoExplicarDeNovo: 'Peça gentilmente para o cliente explicar de outra forma.',
+  instrucaoEquipeContinua: 'Diga ao cliente que uma pessoa da equipe vai continuar o atendimento.',
+  instrucaoResumo: 'O resumo já chegou ao cliente. Se for a última nota a resumir agora, pergunte numa mensagem curta se está tudo certo e se tem mais alguma nota. Não repita o resumo.',
+};
+
 /** O escritório não usa emoji com os clientes (pedido do dono, 2026-09-29): tira o que o modelo escapar. */
 export function semEmoji(texto: string): string {
   return texto
@@ -198,11 +215,19 @@ export function semEmoji(texto: string): string {
     .trim();
 }
 
-type Resultado = { resultado: string; erro: boolean };
-const ok = (dados: object): Resultado => ({ resultado: JSON.stringify(dados), erro: false });
-const falha = (mensagem: string): Resultado => ({ resultado: JSON.stringify({ erro: mensagem }), erro: true });
+/** Como uma pessoa no WhatsApp: cada parágrafo vai numa mensagem (sem emoji); o excedente fica junto na última. */
+export function partesDaResposta(texto: string): string[] {
+  const paragrafos = semEmoji(texto).split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  return paragrafos.length > MAX_PARTES_RESPOSTA
+    ? [...paragrafos.slice(0, MAX_PARTES_RESPOSTA - 1), paragrafos.slice(MAX_PARTES_RESPOSTA - 1).join('\n\n')]
+    : paragrafos;
+}
 
-function empresaDefinida(estado: EstadoExecucao): Resultado | null {
+export type Resultado = { resultado: string; erro: boolean };
+export const ok = (dados: object): Resultado => ({ resultado: JSON.stringify(dados), erro: false });
+export const falha = (mensagem: string): Resultado => ({ resultado: JSON.stringify({ erro: mensagem }), erro: true });
+
+export function empresaDefinida(estado: EstadoExecucao): Resultado | null {
   const empresas = estado.ctx.contato?.empresas ?? [];
   if (empresas.length > 1 && !estado.ctx.empresaEmFoco) {
     return falha('O contato fala por mais de uma empresa. Pergunte de qual empresa se trata e use selecionar_empresa antes.');
@@ -211,7 +236,7 @@ function empresaDefinida(estado: EstadoExecucao): Resultado | null {
 }
 
 /** Ferramentas de cadastro só funcionam com a empresa em foco definida (e nunca para número desconhecido). */
-function exigirEmpresa(estado: EstadoExecucao): { clienteId: string } | Resultado {
+export function exigirEmpresa(estado: EstadoExecucao): { clienteId: string } | Resultado {
   const bloqueio = empresaDefinida(estado);
   if (bloqueio) return bloqueio;
   const empresa = estado.ctx.empresaEmFoco;
@@ -219,12 +244,12 @@ function exigirEmpresa(estado: EstadoExecucao): { clienteId: string } | Resultad
   return { clienteId: empresa.id };
 }
 
-function avisoForaDoHorario(ctx: ContextoAgente): string | null {
+export function avisoForaDoHorario(ctx: ContextoAgente): string | null {
   return ctx.noExpediente ? null : formatarMensagem(ctx.config.mensagens.fora_do_horario ?? '', ctx.config.expediente as never);
 }
 
 /** Destinatário e itens do pedido de nota, conferidos contra os cadastros da empresa, com o preço da tabela. */
-async function prepararPedido(d: DepsAgente, clienteId: string, entrada: z.infer<typeof PedidoNota>): Promise<{ destino: UnidadeParceiro | null; itens: ItemPedido[] } | Resultado> {
+export async function prepararPedido(d: DepsAgente, clienteId: string, entrada: z.infer<typeof PedidoNota>): Promise<{ destino: UnidadeParceiro | null; itens: ItemPedido[] } | Resultado> {
   const tipoParceiro = entrada.tipo === 'venda' ? 'cliente' : 'fornecedor';
   const unidades = await d.repos.unidadesDaEmpresa(clienteId, tipoParceiro);
   const destino = entrada.unidade_id ? unidades.find((u) => u.id === entrada.unidade_id) ?? null : null;
@@ -250,7 +275,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
   switch (nome) {
     case 'selecionar_empresa': {
       const empresa = ctx.contato?.empresas.find((e) => e.id === entrada.cliente_id);
-      if (!empresa) return falha('Essa empresa não está ligada a este contato. Não informe nada sobre ela.');
+      if (!empresa) return falha(AVISOS.empresaAlheia);
       await d.repos.atualizarConversa(ctx.conversa.id, { cliente_em_foco: empresa.id });
       ctx.empresaEmFoco = empresa;
       ctx.servicosContratados = await d.repos.servicosDoCliente(empresa.id);
@@ -266,7 +291,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       let setorId: string | null = null;
       if (!desconhecido && entrada.setor_id !== TRIAGEM) {
         const setor = ctx.setores.find((s) => s.id === entrada.setor_id);
-        if (!setor) return falha('setor_id inválido. Use um id da lista de SETORES ou "triagem".');
+        if (!setor) return falha(AVISOS.setorInvalido);
         setorId = setor.id;
       }
       const clienteId = desconhecido ? null : ctx.empresaEmFoco?.id ?? null;
@@ -309,10 +334,10 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
           foraDoContrato: false, origem: 'agente',
         });
         await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: 0 });
-        return ok({ instrucao: 'Diga ao cliente que uma pessoa da equipe vai continuar o atendimento.' });
+        return ok({ instrucao: AVISOS.instrucaoEquipeContinua });
       }
       await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: tentativas });
-      return ok({ instrucao: 'Peça gentilmente para o cliente explicar de outra forma.' });
+      return ok({ instrucao: AVISOS.instrucaoExplicarDeNovo });
     }
 
     case 'buscar_parceiros': {
@@ -341,7 +366,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       estado.respondeu = true;
       return ok({
         enviado: true, conferencia: chaveConferencia(entrada),
-        instrucao: 'O resumo já chegou ao cliente. Se for a última nota a resumir agora, pergunte numa mensagem curta se está tudo certo e se tem mais alguma nota. Não repita o resumo.',
+        instrucao: AVISOS.instrucaoResumo,
       });
     }
 
@@ -349,17 +374,17 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
       if (!entrada.cliente_confirmou_resumo) {
-        return falha('Ainda não passe o pedido: mande o resumo com resumir_pedido_nota e espere o cliente confirmar que está certo e que não tem mais nota. Depois chame de novo com cliente_confirmou_resumo = true (uma chamada por nota).');
+        return falha(AVISOS.pedidoSemConfirmacao);
       }
       // Trava: só abre o pedido que o cliente conferiu (um resumo enviado nas últimas 24 h). O que vai para o Fiscal é o
       // pedido do resumo, não o remontado pelo modelo depois do "sim" (que perde ids e troca PAC por PC).
       const resumos = await d.repos.resumosEnviados(ctx.conversa.id, new Date(ctx.agora.getTime() - 24 * 3600_000));
       const achado = acharResumoConferido(entrada, resumos, (x): x is z.infer<typeof PedidoNota> => PedidoNota.safeParse(x).success);
       if (achado === null) {
-        return falha('O cliente não conferiu este pedido: mande o resumo com resumir_pedido_nota (com o mesmo destinatário e os mesmos itens) e espere a confirmação antes de passar para o Fiscal.');
+        return falha(AVISOS.pedidoNaoConferido);
       }
       if ('ambiguo' in achado) {
-        return falha('Mais de um resumo enviado combina com este pedido. Chame de novo com o unidade_id e os produto_id usados no resumo que o cliente confirmou.');
+        return falha(AVISOS.pedidoAmbiguo);
       }
       const conferido = { ...PedidoNota.parse(achado.resumo.entrada), pedido_original: entrada.pedido_original };
       const p = await prepararPedido(d, e.clienteId, conferido);
@@ -399,8 +424,8 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
       const doc = (await d.repos.documentosDaEmpresa(e.clienteId)).find((x) => x.id === entrada.documento_id);
-      if (!doc) return falha('Documento não encontrado nesta empresa. Use listar_documentos.');
-      if (!doc.iaPodeEnviar) return falha('Este documento não está liberado para envio automático. Abra uma demanda com abrir_chamado para a equipe enviar.');
+      if (!doc) return falha(AVISOS.documentoNaoEncontrado);
+      if (!doc.iaPodeEnviar) return falha(AVISOS.documentoNaoLiberado);
       const atual = await d.repos.obterConversa(ctx.conversa.id);
       if (atual.estado === 'humano') return falha('Um atendente assumiu esta conversa. Não envie nada.');
       await enviarDocumentoDoSistema(d.envio, { conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: e.clienteId, documento: doc });
@@ -435,7 +460,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       const base = { rede: unidade.rede, produto: produto.descricao, unidade: produto.unidade };
       if (nome === 'consultar_preco') return ok({ ...base, preco: atual === null ? null : formatarReais(atual) });
       if (!entrada.confirmado_pelo_cliente) {
-        return falha('Antes de alterar, confirme com o cliente o novo valor (produto, rede, de quanto para quanto) e só então chame de novo com confirmado_pelo_cliente = true.');
+        return falha(AVISOS.precoSemConfirmacao);
       }
       try {
         await d.repos.definirPrecoPeloAgente(unidade.grupoId, produto.id, entrada.novo_valor, ctx.contato!.id);
@@ -451,7 +476,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
       if (!entrada.confirmado_pelo_cliente) {
-        return falha('Antes de cadastrar, confirme com o cliente o código, a descrição e a unidade do produto e só então chame de novo com confirmado_pelo_cliente = true.');
+        return falha(AVISOS.produtoSemConfirmacao);
       }
       const produto = { codigo: entrada.codigo, descricao: entrada.descricao, unidade: entrada.unidade.toUpperCase() || 'UN', apelidos: entrada.apelidos };
       try {
@@ -466,12 +491,8 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     }
 
     case 'responder': {
-      // Como uma pessoa no WhatsApp: cada parágrafo vai numa mensagem; o excedente fica junto na última.
-      const paragrafos = semEmoji(entrada.texto).split(/\n\s*\n/).map((p: string) => p.trim()).filter(Boolean);
-      const partes = paragrafos.length > MAX_PARTES_RESPOSTA
-        ? [...paragrafos.slice(0, MAX_PARTES_RESPOSTA - 1), paragrafos.slice(MAX_PARTES_RESPOSTA - 1).join('\n\n')]
-        : paragrafos;
-      if (partes.length === 0) return falha('Texto vazio: escreva a resposta em palavras, sem emoji.');
+      const partes = partesDaResposta(entrada.texto);
+      if (partes.length === 0) return falha(AVISOS.textoVazio);
       let enviadas = 0;
       for (const parte of partes) {
         // Relê antes de cada parte: se um atendente assumiu no meio, para de mandar.
@@ -490,16 +511,24 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
   }
 }
 
+export type NomeFerramenta = keyof typeof Entradas;
+
+/** Confere nome e entrada de uma ferramenta; devolve a entrada validada ou o erro para o modelo. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function validarEntrada(nome: string, entrada: unknown): { nome: NomeFerramenta; dados: any } | Resultado {
+  if (!(nome in Entradas)) return falha(`Ferramenta desconhecida: ${nome}`);
+  const validada = Entradas[nome as NomeFerramenta].safeParse(entrada);
+  return validada.success
+    ? { nome: nome as NomeFerramenta, dados: validada.data }
+    : falha(`Entrada inválida: ${validada.error.issues.map((i) => i.message).join('; ')}`);
+}
+
+/** Quem executa as ferramentas pedidas pelo modelo: o de verdade, ou o da simulação (Treinar o agente). */
+export type ExecutorFerramentas = (d: DepsAgente, estado: EstadoExecucao, nome: string, entrada: unknown) => Promise<Resultado>;
+
 export async function executarFerramenta(d: DepsAgente, estado: EstadoExecucao, nome: string, entrada: unknown): Promise<Resultado> {
-  let r: Resultado;
-  if (!(nome in Entradas)) {
-    r = falha(`Ferramenta desconhecida: ${nome}`);
-  } else {
-    const validada = Entradas[nome as keyof typeof Entradas].safeParse(entrada);
-    r = validada.success
-      ? await executarValidada(d, estado, nome as keyof typeof Entradas, validada.data)
-      : falha(`Entrada inválida: ${validada.error.issues.map((i) => i.message).join('; ')}`);
-  }
+  const v = validarEntrada(nome, entrada);
+  const r = 'erro' in v ? v : await executarValidada(d, estado, v.nome, v.dados);
   await d.repos.registrarDecisao({
     conversaId: estado.ctx.conversa.id, clienteId: estado.ctx.empresaEmFoco?.id ?? null,
     etapa: nome, entrada, saida: JSON.parse(r.resultado),

@@ -1,7 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { calcularCustoUsd } from '@escritorio/core';
 import type { ContextoAgente } from './contexto';
-import { FERRAMENTAS, executarFerramenta, type DepsAgente, type EstadoExecucao } from './ferramentas';
+import { FERRAMENTAS, executarFerramenta, type DepsAgente, type EstadoExecucao, type ExecutorFerramentas } from './ferramentas';
 import { LIMITE_ORIENTACOES } from './orientacoes';
 import { montarBlocosSistema } from './prompt';
 
@@ -37,7 +37,10 @@ async function registrarCortes(d: DepsAgente, ctx: ContextoAgente, cortadas: str
   });
 }
 
-export async function executarAgente(d: DepsAgente, ctx: ContextoAgente, conteudo: Anthropic.ContentBlockParam[]): Promise<ResultadoAgente> {
+/** `executor`: a simulação (Treinar o agente) troca as ferramentas que gravam ou enviam por versões que só registram. */
+export async function executarAgente(
+  d: DepsAgente, ctx: ContextoAgente, conteudo: Anthropic.ContentBlockParam[], executor: ExecutorFerramentas = executarFerramenta,
+): Promise<ResultadoAgente> {
   let cortesVerificados = false;
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: conteudo }];
   const estado: EstadoExecucao = { ctx, respondeu: false };
@@ -80,7 +83,7 @@ export async function executarAgente(d: DepsAgente, ctx: ContextoAgente, conteud
     const resultados: Anthropic.ToolResultBlockParam[] = [];
     // Em ordem: selecionar_empresa precisa valer antes de abrir_chamado na mesma rodada.
     for (const u of usos) {
-      const res = await executarFerramenta(d, estado, u.name, u.input);
+      const res = await executor(d, estado, u.name, u.input);
       resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res.resultado, is_error: res.erro });
     }
     messages.push({ role: 'user', content: resultados });
