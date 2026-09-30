@@ -118,17 +118,24 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
     const id = (d.pedido_venda as PedidoVendaSalvo | null)?.unidade_id;
     return id ? [id] : [];
   }))];
-  const { data: compradores } = podeCsv && unidades.length
+  const { data: compradores, error: erroCompradores } = podeCsv && unidades.length
     ? await sb.from('parceiros_unidades').select(COLUNAS_COMPRADOR).in('id', unidades)
-    : { data: [] };
+    : { data: [], error: null };
+  if (erroCompradores) console.error('[demandas] falha ao ler os compradores dos pedidos', erroCompradores);
   const porUnidade = new Map((compradores ?? []).map((c) => [c.id, c as CompradorCadastrado]));
+  // Sem o cadastro do comprador não dá para conferir o pedido: nada de "incompleto" falso (a rota confere de novo).
+  const pendenciasDaLinha = (numero: number, pedido: unknown, unidade: string | null | undefined): string[] => {
+    if (!pedido || !podeCsv) return [];
+    if (unidade && erroCompradores) return [];
+    return pendenciasCsvBling(numero, pedido, unidade ? porUnidade.get(unidade) ?? null : null);
+  };
 
   const linhas: Linha[] = (resultado.data ?? []).map((d) => {
     const unidade = (d.pedido_venda as PedidoVendaSalvo | null)?.unidade_id;
     return {
       id: d.id, numero: d.numero, titulo: d.titulo, resumo: d.resumo, status: d.status, criado_em: d.criado_em,
       conversa_id: d.conversa_id, fora_do_contrato: d.fora_do_contrato, temPedido: d.pedido_venda !== null,
-      pendencias: d.pedido_venda && podeCsv ? pendenciasCsvBling(d.numero, d.pedido_venda, unidade ? porUnidade.get(unidade) ?? null : null) : [],
+      pendencias: pendenciasDaLinha(d.numero, d.pedido_venda, unidade),
       setor: d.setores?.nome ?? null, responsavel: d.usuarios?.nome ?? null,
       empresa: d.clientes?.nome_fantasia ?? d.clientes?.razao_social ?? null,
     };

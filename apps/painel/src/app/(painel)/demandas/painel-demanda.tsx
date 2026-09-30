@@ -1,9 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
-import { EVENTO_ABRIR_LINHA, type LinhaAbrindo } from '@/components/patterns/data-table-cliente';
-import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import type { ReactNode } from 'react';
+import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
+import { SheetBody, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 
 /**
@@ -12,52 +11,10 @@ import { Skeleton } from '@/components/ui/skeleton';
  * Fechar (Esc, X ou clique fora) tira o parâmetro da URL depois da animação e devolve o foco à linha.
  */
 export function PainelDemanda({ demandaId, hrefFechar, children }: { demandaId: string | null; hrefFechar: string; children?: ReactNode }) {
-  const router = useRouter();
-  const [pendente, setPendente] = useState<string | null>(null);
-  const [fechando, setFechando] = useState(false);
-
-  useEffect(() => {
-    const aoAbrir = (e: Event) => {
-      const { href } = (e as CustomEvent<LinhaAbrindo>).detail;
-      const id = new URL(href, window.location.href).searchParams.get('demanda');
-      if (!id) return;
-      setPendente(id);
-      setFechando(false);
-    };
-    window.addEventListener(EVENTO_ABRIR_LINHA, aoAbrir);
-    return () => window.removeEventListener(EVENTO_ABRIR_LINHA, aoAbrir);
-  }, []);
-
-  // O servidor respondeu com a demanda pedida (ou outra, por voltar/avançar): o conteúdo real substitui o esqueleto.
-  useEffect(() => {
-    setPendente((p) => (p && p === demandaId ? null : p));
-    if (demandaId) setFechando(false);
-  }, [demandaId]);
-
-  const carregando = pendente !== null && pendente !== demandaId;
-  const aberto = Boolean(pendente ?? demandaId) && !fechando;
-
   return (
-    <Sheet
-      open={aberto}
-      onOpenChange={(v) => {
-        if (v) return;
-        setFechando(true);
-        setPendente(null);
-        if (demandaId) setTimeout(() => router.replace(hrefFechar, { scroll: false }), 150);
-      }}
-    >
-      <SheetContent
-        className="w-full gap-0 sm:max-w-2xl"
-        onCloseAutoFocus={(e) => {
-          // Aberto pela URL, não há gatilho: o foco volta para a linha da demanda (ainda marcada como atual).
-          e.preventDefault();
-          document.querySelector<HTMLElement>('tr[aria-current="true"]')?.focus();
-        }}
-      >
-        {carregando || !children ? <EsqueletoDemanda /> : children}
-      </SheetContent>
-    </Sheet>
+    <PainelLateralUrl param="demanda" id={demandaId} hrefFechar={hrefFechar} esqueleto={<EsqueletoDemanda />}>
+      {children}
+    </PainelLateralUrl>
   );
 }
 

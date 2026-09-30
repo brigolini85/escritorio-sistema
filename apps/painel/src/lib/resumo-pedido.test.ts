@@ -98,9 +98,16 @@ describe('pendenciasCsvBling', () => {
     const p = pendenciasCsvBling(1042, pedido, comprador);
     expect(p.some((t) => t.includes('Pedido 1042, item 2') && t.includes('falta Valor Unitário'))).toBe(true);
   });
-  it('pedido completo: nenhuma; pedido ilegível: nenhuma (a rota confere de novo)', () => {
+  it('pedido completo ou sem pedido: nenhuma', () => {
     expect(pendenciasCsvBling(7, { ...pedido, itens: [pedido.itens[0]!] }, comprador)).toEqual([]);
     expect(pendenciasCsvBling(7, null)).toEqual([]);
-    expect(pendenciasCsvBling(7, { itens: 'x' })).toEqual([]);
+    expect(pendenciasCsvBling(7, undefined)).toEqual([]);
+  });
+  it('pedido ilegível: "não foi possível conferir" (o botão fica desabilitado, como a rota recusaria)', () => {
+    for (const bruto of [{ itens: 'x' }, 'texto', 42, { itens: [null] }]) {
+      const p = pendenciasCsvBling(7, bruto);
+      expect(p).toHaveLength(1);
+      expect(p[0]).toContain('Pedido 7: não foi possível conferir');
+    }
   });
 });

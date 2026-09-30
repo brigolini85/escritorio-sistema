@@ -116,13 +116,17 @@ export function resumirPedido(bruto: unknown, comprador: CompradorCadastrado | n
 
 /**
  * Pendências do pedido para o CSV do Bling (qual campo falta): a mesma conta da rota /api/csv-bling
- * (pedidoVendaBling + problemasPedidoBling do core). Pedido ilegível: nenhuma aqui (a rota confere de novo e avisa).
+ * (pedidoVendaBling + problemasPedidoBling do core). Sem pedido (null): nenhuma.
+ * Pedido ilegível (formato estranho ou erro na conta): uma pendência "não foi possível conferir", para a tela
+ * não liberar um botão que a rota recusaria.
  */
 export function pendenciasCsvBling(numero: number, bruto: unknown, comprador: CompradorCadastrado | null = null): string[] {
-  if (!bruto || typeof bruto !== 'object' || !Array.isArray((bruto as { itens?: unknown }).itens)) return [];
+  if (bruto === null || bruto === undefined) return [];
+  const ilegivel = [`Pedido ${numero}: não foi possível conferir o pedido de nota. Abra a demanda e confira os dados.`];
+  if (typeof bruto !== 'object' || !Array.isArray((bruto as { itens?: unknown }).itens)) return ilegivel;
   try {
     return problemasPedidoBling(pedidoVendaBling(numero, bruto as PedidoVendaSalvo, comprador));
   } catch {
-    return [];
+    return ilegivel;
   }
 }
