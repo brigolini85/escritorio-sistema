@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "../styles/tokens.css";
-@import "../styles/legado.css";
 
 /*
  * Ponte tokens -> Tailwind. Os valores moram em src/styles/tokens.css; aqui só se dá nome aos utilitários.

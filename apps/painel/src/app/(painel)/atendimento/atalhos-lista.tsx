@@ -2,14 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-
-/** Tecla digitada num campo, num menu ou numa janela aberta não é atalho. */
-export function ignorarAtalho(e: KeyboardEvent): boolean {
-  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return true;
-  const alvo = e.target as HTMLElement | null;
-  if (alvo?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="menu"], [role="listbox"]')) return true;
-  return Boolean(document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'));
-}
+import { ignorarAtalho } from '@/components/layout/atalhos';
 
 /**
  * J/K: próxima/anterior conversa da lista (mantendo filtro e busca, que estão no href de cada item).

@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/
 import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/cn';
 import { useAoVivo } from './ao-vivo';
+import { AtalhosTeclado } from './atalhos-teclado';
 import { FaixaAmbiente } from './faixa-ambiente';
 import { cookieDoMenu } from './preferencias';
 import { Sidebar, type Contadores, type ItemMenu } from './sidebar';
@@ -61,6 +62,12 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen">
+      <a
+        href="#conteudo"
+        className="sr-only z-50 rounded-md bg-brand px-3 py-2 text-base font-medium text-brand-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        Pular para o conteúdo
+      </a>
       <aside
         className={cn(
           'sticky top-0 hidden h-screen shrink-0 border-r border-border bg-surface transition-[width] duration-150 ease-out lg:block',
@@ -83,9 +90,10 @@ export function AppShell({
           <FaixaAmbiente rotulo={ambiente} />
           <Topbar usuario={usuario} tema={tema} estadoAgente={aoVivo.estadoAgente} onAbrirMenu={() => setGaveta(true)} />
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main id="conteudo" tabIndex={-1} className="flex-1 p-6 focus-visible:outline-none">{children}</main>
       </div>
       <Toaster />
+      <AtalhosTeclado />
     </div>
   );
 }

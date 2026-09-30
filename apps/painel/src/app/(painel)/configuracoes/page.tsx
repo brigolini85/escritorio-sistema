@@ -95,7 +95,7 @@ export default async function Configuracoes() {
     <section>
       <PageHeader
         titulo="Configurações"
-        descricao={<>Usuários e permissões ficam na aba <Link href="/usuarios" className="text-foreground underline-offset-4 hover:underline">Usuários</Link>.</>}
+        descricao={<>Usuários e permissões ficam na aba <Link href="/usuarios" className="text-brand underline underline-offset-4">Usuários</Link>.</>}
       />
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <NavegacaoSecoes secoes={SECOES} />

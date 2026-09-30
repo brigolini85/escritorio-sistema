@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ignorarAtalho } from '../atalhos-lista';
+import { ignorarAtalho } from '@/components/layout/atalhos';
 import { cookiePainelConversa } from './preferencias-conversa';
 
 export type ModoCompositor = 'responder' | 'nota';

@@ -127,7 +127,7 @@ export function Sidebar({
             );
             return (
               <Fragment key={item.href}>
-                {separar && <li role="separator" className="mx-2 my-2 h-px bg-border" />}
+                {separar && <li aria-hidden className="mx-2 my-2 h-px bg-border" />}
                 <li>
                   {recolhido ? (
                     <Tooltip>

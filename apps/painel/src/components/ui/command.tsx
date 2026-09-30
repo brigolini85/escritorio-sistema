@@ -77,7 +77,8 @@ export function CommandGroup({ className, ...props }: ComponentProps<typeof Comm
 }
 
 export function CommandSeparator({ className, ...props }: ComponentProps<typeof CommandPrimitive.Separator>) {
-  return <CommandPrimitive.Separator className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />;
+  // Decorativo: dentro da lista (listbox) só podem existir opções e grupos (axe aria-required-children).
+  return <CommandPrimitive.Separator aria-hidden className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />;
 }
 
 export function CommandItem({ className, ...props }: ComponentProps<typeof CommandPrimitive.Item>) {

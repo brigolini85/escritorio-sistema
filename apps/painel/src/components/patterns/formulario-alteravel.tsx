@@ -71,11 +71,17 @@ function aoDescarregar(e: BeforeUnloadEvent) {
 function aoClicarLink(e: MouseEvent) {
   if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
   const link = (e.target as Element | null)?.closest?.('a[href]');
-  if (!(link instanceof HTMLAnchorElement) || link.target === '_blank' || link.hasAttribute('download')) return;
+  if (!(link instanceof HTMLAnchorElement) || link.hasAttribute('download')) return;
+  // Outra janela ou moldura (qualquer target que não seja _self): esta página continua aberta.
+  const alvo = link.target.trim().toLowerCase();
+  if (alvo && alvo !== '_self') return;
   const destino = new URL(link.href, window.location.href);
   const aqui = new URL(window.location.href);
+  // Só links do próprio painel (http/https, mesma origem): outro site descarrega a página e cai no beforeunload;
+  // mailto:, tel: e afins não saem da página.
+  if ((destino.protocol !== 'http:' && destino.protocol !== 'https:') || destino.origin !== aqui.origin) return;
   // Âncora na mesma página (navegação interna de Configurações): nada se perde.
-  if (destino.origin === aqui.origin && destino.pathname === aqui.pathname && destino.search === aqui.search) return;
+  if (destino.pathname === aqui.pathname && destino.search === aqui.search) return;
   if (!algumAlterado()) return;
   if (!window.confirm(PERGUNTA_SAIR)) {
     e.preventDefault();

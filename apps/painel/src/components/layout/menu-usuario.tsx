@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronDown, LogOut } from 'lucide-react';
+import { ChevronDown, Keyboard, LogOut } from 'lucide-react';
+import { useRef } from 'react';
 import { sair } from '@/app/entrar/acoes';
 import { OPCOES_TEMA, useEscolhaTema } from '@/components/tema/alternador-tema';
 import type { EscolhaTema } from '@/components/tema/tema';
@@ -13,8 +14,10 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { EVENTO_ABRIR_ATALHOS } from './atalhos';
 
 function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/).filter(Boolean);
@@ -25,9 +28,11 @@ function iniciais(nome: string): string {
 /** Menu da pessoa logada: nome, papel, tema e Sair (mesma server action de antes). */
 export function MenuUsuario({ nome, papel, tema }: { nome: string; papel: 'admin' | 'atendente'; tema: EscolhaTema }) {
   const [escolha, escolher] = useEscolhaTema(tema);
+  const gatilho = useRef<HTMLButtonElement>(null);
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
+        ref={gatilho}
         aria-label="Menu do usuário"
         className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md px-1.5 text-base text-foreground transition-colors duration-150 ease-out hover:bg-surface-muted data-[state=open]:bg-surface-muted"
       >
@@ -53,6 +58,11 @@ export function MenuUsuario({ nome, papel, tema }: { nome: string; papel: 'admin
           ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => window.dispatchEvent(new CustomEvent(EVENTO_ABRIR_ATALHOS, { detail: gatilho.current }))}>
+          <Keyboard aria-hidden size={16} strokeWidth={1.75} className="text-muted" />
+          Atalhos do teclado
+          <DropdownMenuShortcut>?</DropdownMenuShortcut>
+        </DropdownMenuItem>
         {/* O menu fica aberto no clique (preventDefault) para o botão continuar no DOM e o formulário ser enviado. */}
         <form action={sair}>
           <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>

@@ -54,10 +54,10 @@ export async function ConversaAssistente({ usuarioId, conversaId, podeCsv, compa
             {linhas.map((l) => {
               if (l.tipo === 'dia') {
                 return (
-                  <li key={l.chave} role="separator" aria-label={l.rotulo} className="flex items-center gap-3 text-xs font-medium text-subtle">
-                    <span className="h-px flex-1 bg-border" />
+                  <li key={l.chave} className="flex items-center gap-3 text-xs font-medium text-subtle">
+                    <span aria-hidden className="h-px flex-1 bg-border" />
                     {l.rotulo}
-                    <span className="h-px flex-1 bg-border" />
+                    <span aria-hidden className="h-px flex-1 bg-border" />
                   </li>
                 );
               }
