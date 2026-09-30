@@ -7,7 +7,7 @@ import { RelativeTime } from '@/components/patterns/relative-time';
 import { variantesBotao } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
-import { agruparConversasAssistente, lerConversaAssistente, LIMITE_MENSAGENS_HISTORICO } from '@/lib/conversas-assistente';
+import { agruparConversasAssistente, lerConversaAssistente, LIMITE_CONVERSAS_HISTORICO, LIMITE_MENSAGENS_HISTORICO } from '@/lib/conversas-assistente';
 import { mascararTelefone } from '@/lib/formatos';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -77,8 +77,9 @@ export default async function Assistente({ searchParams }: { searchParams: Promi
     sb.from('assistente_mensagens').select('conversa_id, criado_em').eq('usuario_id', u.id).eq('canal', 'site').not('conversa_id', 'is', null)
       .order('criado_em', { ascending: false }).limit(LIMITE_MENSAGENS_HISTORICO),
   ]);
-  const grupos = agruparConversasAssistente(doHistorico ?? []);
-  const ids = [...new Set([...grupos.map((g) => g.conversaId), ...(conversaId ? [conversaId] : [])])];
+  // Lê o dobro das conversas mostradas: as que o RLS esconde saem antes do limite da coluna.
+  const lidas = agruparConversasAssistente(doHistorico ?? [], LIMITE_CONVERSAS_HISTORICO * 2);
+  const ids = [...new Set([...lidas.map((g) => g.conversaId), ...(conversaId ? [conversaId] : [])])];
   // Só as conversas que a pessoa ainda pode ver (RLS de conversas).
   const { data: conversas } = ids.length
     ? await sb.from('conversas').select('id, telefone, contatos(nome), clientes:cliente_em_foco(razao_social, nome_fantasia)').in('id', ids)
@@ -89,6 +90,7 @@ export default async function Assistente({ searchParams }: { searchParams: Promi
   }]));
   const nomeDe = (c: ConversaVisivel) => c.contato ?? mascararTelefone(c.telefone);
   const aberta = conversaId ? visiveis.get(conversaId) ?? null : null;
+  const grupos = lidas.filter((g) => visiveis.has(g.conversaId)).slice(0, LIMITE_CONVERSAS_HISTORICO);
 
   return (
     <div className="-m-6 flex flex-col lg:altura-trabalho lg:flex-row">
@@ -133,7 +135,7 @@ export default async function Assistente({ searchParams }: { searchParams: Promi
           )}
         </div>
       </section>
-      <aside aria-labelledby="titulo-historico" className="relative flex max-h-64 flex-col border-t border-border bg-surface lg:order-first lg:max-h-none lg:w-72 lg:shrink-0 lg:border-t-0 lg:border-r">
+      <aside aria-label="Histórico do assistente" className="relative flex max-h-64 flex-col border-t border-border bg-surface lg:order-first lg:max-h-none lg:w-72 lg:shrink-0 lg:border-t-0 lg:border-r">
         <h2 id="titulo-historico" className="border-b border-border px-3 py-2.5 text-sm font-semibold text-foreground">Conversas</h2>
         <nav aria-labelledby="titulo-historico" className="relative min-h-0 flex-1 overflow-y-auto">
           <ul className="divide-y divide-border">
@@ -156,7 +158,7 @@ export default async function Assistente({ searchParams }: { searchParams: Promi
                   icone={MessagesSquare}
                   titulo={nomeDe(c)}
                   detalhe={c.empresa ?? 'Empresa não definida'}
-                  texto={g.mensagens === 1 ? '1 mensagem' : `${g.mensagens} mensagens`}
+                  texto={g.mensagens === 1 ? '1 mensagem recente' : `${g.mensagens} mensagens recentes`}
                   quando={g.ultimaEm}
                 />
               )];

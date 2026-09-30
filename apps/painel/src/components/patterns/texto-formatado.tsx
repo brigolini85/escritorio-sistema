@@ -1,10 +1,7 @@
 import { Fragment } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/cn';
-import { blocosDoTexto, trechosDoTexto } from '@/lib/texto-assistente';
-
-/** Valor, quantidade ou porcentagem: alinhado à direita, com números tabulares. */
-const NUMERICO = /^-?(?:R\$\s*)?-?[\d.,]+\s*%?$/;
+import { blocosDoTexto, colunasNumericas, trechosDoTexto } from '@/lib/texto-assistente';
 
 function Trechos({ texto }: { texto: string }) {
   return (
@@ -28,12 +25,12 @@ export function TextoFormatado({ texto, className }: { texto: string; className?
         if (b.tipo === 'lista') {
           const Lista = b.ordenada ? 'ol' : 'ul';
           return (
-            <Lista key={i} className={cn('flex flex-col gap-0.5 pl-5', b.ordenada ? 'list-decimal' : 'list-disc')}>
+            <Lista key={i} start={b.ordenada && b.inicio !== 1 ? b.inicio : undefined} className={cn('flex flex-col gap-0.5 pl-5', b.ordenada ? 'list-decimal' : 'list-disc')}>
               {b.itens.map((item, n) => <li key={n} className="pl-0.5"><Trechos texto={item} /></li>)}
             </Lista>
           );
         }
-        const numerica = b.cabecalho.map((_, c) => b.linhas.length > 0 && b.linhas.every((l) => !l[c] || NUMERICO.test(l[c]!)));
+        const numerica = colunasNumericas(b);
         return (
           <div key={i} className="overflow-hidden rounded-md border border-border bg-surface">
             <Table className="text-sm">

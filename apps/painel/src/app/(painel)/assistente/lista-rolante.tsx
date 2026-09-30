@@ -3,11 +3,10 @@ import { ArrowDown } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
+import { decidirRolagem } from '@/lib/rolagem-lista';
 
 /** Distância do fim (px) em que a pessoa ainda conta como "no fim da conversa". */
 const PERTO_DO_FIM = 48;
-/** Depois de enviar uma pergunta, o que chegar em seguida desce a rolagem (a pessoa quer ver a resposta). */
-const JANELA_ENVIO_MS = 15_000;
 
 /**
  * Lista de mensagens do assistente: abre rolada até a mais nova. Mensagem nova desce sozinha quando a pessoa
@@ -34,18 +33,11 @@ export function ListaRolante({ className, rotulo, ultima, children }: { classNam
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const antes = vista.current;
+    const acao = decidirRolagem({ anterior: vista.current, ultima, noFim: noFim.current, desdeEnvioMs: Date.now() - enviouEm.current });
     vista.current = ultima;
-    if (antes === null) {
-      el.scrollTop = el.scrollHeight;
-      return;
-    }
-    if (ultima === antes) {
-      if (noFim.current) el.scrollTop = el.scrollHeight;
-      return;
-    }
-    if (noFim.current || Date.now() - enviouEm.current < JANELA_ENVIO_MS) descer();
-    else setNovas(true);
+    if (acao === 'inicio' || acao === 'manter-fim') el.scrollTop = el.scrollHeight;
+    else if (acao === 'descer') descer();
+    else if (acao === 'avisar') setNovas(true);
   });
 
   // Conteúdo que cresce sem mensagem nova (fonte carregando, painel abrindo): quem está no fim continua no fim.
