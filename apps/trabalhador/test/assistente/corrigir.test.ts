@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { limparBanco } from '@escritorio/db/teste';
 import { carregarContextoAssistente } from '../../src/assistente/contexto';
 import { executarFerramentaAssistente, novoEstado, type EstadoAssistente } from '../../src/assistente/ferramentas';
@@ -203,6 +203,70 @@ describe('alterar_pedido_venda (pedido do dono, 2026-09-29)', () => {
     expect(r._erro).toBe(true);
     expect(r.erro).toContain('mudou desde a prévia');
     expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
+  });
+
+  describe('nova tentativa do mesmo job depois de gravar (re-revisão)', () => {
+    const contagem = async () => ({
+      notas: (await db.from('chamado_eventos').select('id').eq('chamado_id', pedido.id).eq('tipo', 'nota_interna')).data!.length,
+      auditoria: (await db.from('auditoria_acessos').select('id').eq('entidade', 'pedido_venda').eq('entidade_id', pedido.id)).data!.length,
+    });
+    /** Mesma execução de novo: estado novo, mas a mesma pergunta pendente (o "sim" ainda não foi marcado como respondido). */
+    const repetir = async (dono: string, doSim: EstadoAssistente) => {
+      const e = await estadoDe(dono);
+      e.ctx.perguntaMaisRecenteEm = doSim.ctx.perguntaMaisRecenteEm;
+      return e;
+    };
+
+    it('a confirmação repetida responde que já estava gravado, sem gravar de novo', async () => {
+      const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+      await previa(dono, { numero: pedido.numero, itens: itens15(), confirmado: false });
+      const doSim = await estadoDoSim(dono);
+      expect(await usar(doSim, { numero: pedido.numero, confirmado: true })).toMatchObject({ _erro: false, gravado: true });
+      expect(doSim.acoes).toEqual([`pedido #${pedido.numero} alterado`]);
+
+      const e = await repetir(dono, doSim);
+      expect(await usar(e, { numero: pedido.numero, confirmado: true })).toMatchObject({ _erro: false, gravado: true, ja_estava: true });
+      expect(e.acoes).toEqual([`pedido #${pedido.numero} já estava gravado`]);
+      // Uma terceira tentativa também (a resposta anterior já foi um "já estava").
+      expect(await usar(await repetir(dono, doSim), { numero: pedido.numero, confirmado: true })).toMatchObject({ _erro: false, ja_estava: true });
+      // Pelo laço inteiro: a resposta conta a verdade.
+      const historico = await repos.historicoAssistente(dono, 'site', null, 30);
+      const r = await executarAssistente({ repos, ia: new IaValidadora([usarFerramentas({ nome: 'alterar_pedido_venda', entrada: { numero: pedido.numero, confirmado: true } }), fimVazio()]), canal: new CanalFalso() },
+        (await repetir(dono, doSim)).ctx, historico);
+      expect(r.resposta).toEqual([`Feito: pedido #${pedido.numero} já estava gravado.`]);
+      expect(await contagem()).toEqual({ notas: 1, auditoria: 1 });
+      expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 15 }] });
+    });
+
+    it('num job seguinte (nova pergunta depois da gravação), a confirmação continua recusada', async () => {
+      const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+      expect(await confirmar(dono, { numero: pedido.numero, itens: itens15() })).toMatchObject({ _erro: false, gravado: true });
+      const r = await usar(await estadoDoSim(dono), { numero: pedido.numero, confirmado: true });
+      expect(r).toMatchObject({ _erro: true, erro: 'Mostre o antes e o depois de novo e espere a confirmação.' });
+    });
+
+    it('gravou mas o registro da gravação falhou: a nova tentativa vê o pedido igual à prévia e responde que já estava', async () => {
+      const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+      await previa(dono, { numero: pedido.numero, itens: itens15(), confirmado: false });
+      const doSim = await estadoDoSim(dono);
+      const espiao = vi.spyOn(repos, 'registrarDecisao').mockRejectedValueOnce(new Error('banco caiu'));
+      await expect(usar(doSim, { numero: pedido.numero, confirmado: true })).rejects.toThrow('banco caiu');
+      espiao.mockRestore();
+      expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 15 }] });
+
+      const e = await repetir(dono, doSim);
+      expect(await usar(e, { numero: pedido.numero, confirmado: true })).toMatchObject({ _erro: false, gravado: true, ja_estava: true });
+      expect(e.acoes).toEqual([`pedido #${pedido.numero} já estava gravado`]);
+      expect(await contagem()).toEqual({ notas: 1, auditoria: 1 });
+    });
+
+    it('prévia de um pedido que já está assim: a confirmação diz que já estava gravado', async () => {
+      const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+      await previa(dono, { numero: pedido.numero, confirmado: false });   // sem mudança nenhuma
+      const e = await estadoDoSim(dono);
+      expect(await usar(e, { numero: pedido.numero, confirmado: true })).toMatchObject({ _erro: false, ja_estava: true });
+      expect(e.acoes).toEqual([`pedido #${pedido.numero} já estava gravado`]);
+    });
   });
 
   it('a prévia de outra pessoa não vale', async () => {

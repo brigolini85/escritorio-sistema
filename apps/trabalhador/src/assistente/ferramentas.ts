@@ -238,19 +238,41 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       if (!podeCorrigirPedidos(u)) return falha('Você não tem permissão para corrigir pedidos de nota. Peça ao administrador para marcar "Corrigir pedidos de nota e gerar CSV do Bling" na aba Usuários.');
       const DE_NOVO = 'Mostre o antes e o depois de novo e espere a confirmação.';
       let conferenciaDaPrevia: string | null = null;
+      let depoisDaPrevia: string | null = null;
+      /** Já gravado antes (nova tentativa do mesmo job): não grava de novo e conta a verdade. */
+      const jaGravado = (numero: number, depois: string) => {
+        estado.acoes.push(`pedido #${numero} já estava gravado`);
+        return { ...ok({ gravado: true, numero, depois, ja_estava: true }), registro: { gravado: true, numero, depois, ja_estava: true, repeticao: true, contexto: contextoDoAssistente(estado.ctx) } };
+      };
+      /** Descrição do pedido como está agora no banco (mesma forma do "depois" das prévias), ou null se não dá para ver. */
+      const pedidoAtual = async (numero: number) => {
+        const atual = await d.repos.chamadoPorNumero(numero);
+        if (!atual || !podeVerChamado(u, atual) || !atual.pedido_venda || !atual.cliente_id) return null;
+        const todas = await d.repos.unidadesDaEmpresa(atual.cliente_id, 'cliente', { incluirInativos: true });
+        const x = todas.find((y) => y.id === atual.pedido_venda!.unidade_id);
+        return descreverPedido(atual.pedido_venda, x ? `${x.rede} / ${x.unidade}` : atual.pedido_venda.texto_destinatario);
+      };
       if (entrada.confirmado) {
         // A confirmação grava a última prévia mostrada, e só ela (campos a mais já foram recusados em executarFerramentaAssistente).
         const ultima = await d.repos.ultimaPreviaDoAssistente(u.id, entrada.numero, new Date(Date.now() - 24 * 3600 * 1000));
         if (!ultima) return falha(`Não achei a prévia deste pedido. ${DE_NOVO}`);
+        const pergunta = estado.ctx.perguntaMaisRecenteEm;
+        // Nova tentativa deste mesmo job (erro da IA ou do envio depois de gravar): a última chamada é a gravação que respondeu
+        // a este mesmo "sim" (feita depois da pergunta mais nova). Se o pedido está como foi gravado, responde que já estava.
+        const s = ultima.saida;
+        if (s.gravado === true && typeof s.depois === 'string' && (!s.ja_estava || s.repeticao === true) && s.contexto === contextoDoAssistente(estado.ctx)
+          && pergunta && ultima.criadoEm.getTime() >= pergunta.getTime() && (await pedidoAtual(entrada.numero)) === s.depois) {
+          return jaGravado(entrada.numero, s.depois);
+        }
         // Qualquer chamada depois da prévia (erro, confirmação, gravação) a consome.
         if (ultima.saida.gravado !== false || typeof ultima.saida.conferencia !== 'string') return falha(DE_NOVO);
         if (ultima.saida.contexto !== contextoDoAssistente(estado.ctx)) return falha(`A prévia foi mostrada em outra conversa. ${DE_NOVO}`);
         // O "sim" tem de ser uma mensagem da pessoa que chegou depois da prévia.
-        const pergunta = estado.ctx.perguntaMaisRecenteEm;
         if (!pergunta || ultima.criadoEm.getTime() >= pergunta.getTime()) return falha('Mostre o antes e o depois e espere a confirmação na próxima mensagem.');
         const guardada = Entradas.alterar_pedido_venda.safeParse(ultima.entrada);
         if (!guardada.success || guardada.data.confirmado) return falha(DE_NOVO);
         conferenciaDaPrevia = ultima.saida.conferencia;
+        depoisDaPrevia = typeof ultima.saida.depois === 'string' ? ultima.saida.depois : null;
         entrada = { ...guardada.data, numero: entrada.numero, confirmado: true };
       }
       const c = await d.repos.chamadoPorNumero(entrada.numero);
@@ -292,9 +314,13 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
         const mostrado = { gravado: false, antes, depois, instrucao: 'Mostre o antes e o depois e pergunte se pode gravar. Só chame de novo com confirmado = true depois de um sim.' };
         return { ...ok(mostrado), registro: { ...mostrado, conferencia, contexto: contextoDoAssistente(estado.ctx) } };
       }
-      if (conferencia !== conferenciaDaPrevia) return falha(`O pedido mudou desde a prévia (ou os preços da tabela). ${DE_NOVO}`);
+      if (conferencia !== conferenciaDaPrevia) {
+        // Gravou numa tentativa anterior mas o registro da gravação falhou: o pedido já está como a prévia mostrou.
+        if (depoisDaPrevia !== null && antes === depoisDaPrevia) return jaGravado(c.numero, depoisDaPrevia);
+        return falha(`O pedido mudou desde a prévia (ou os preços da tabela). ${DE_NOVO}`);
+      }
       if (estado.previas.has(conferencia)) return falha('Mostre o antes e o depois e espere a confirmação na próxima mensagem.');
-      if (isDeepStrictEqual(novo, c.pedido_venda)) { estado.acoes.push(`pedido #${c.numero} alterado`); return ok({ gravado: true, numero: c.numero, depois, ja_estava: true }); }
+      if (isDeepStrictEqual(novo, c.pedido_venda)) { estado.acoes.push(`pedido #${c.numero} já estava gravado`); return ok({ gravado: true, numero: c.numero, depois, ja_estava: true }); }
 
       const itensResumo = itensPedido ?? novo.itens.map((i) => {
         const produto = produtos.find((p) => p.codigo === i.sku) ?? null;
@@ -307,7 +333,8 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       await d.repos.registrarNotaInterna(c.id, c.cliente_id, u.id, `Pedido alterado pelo assistente a pedido de ${u.nome}.\nAntes:\n${antes}\nDepois:\n${depois}`);
       await d.repos.registrarAuditoria({ usuarioId: u.id, acao: 'assistente', entidade: 'pedido_venda', entidadeId: c.id, detalhes: { canal: estado.ctx.canal, antes: c.pedido_venda, depois: novo } });
       estado.acoes.push(`pedido #${c.numero} alterado`);
-      return ok({ gravado: true, numero: c.numero, depois });
+      // O contexto no registro deixa uma nova tentativa deste mesmo job reconhecer a gravação (ver jaGravado).
+      return { ...ok({ gravado: true, numero: c.numero, depois }), registro: { gravado: true, numero: c.numero, depois, contexto: contextoDoAssistente(estado.ctx) } };
     }
 
     case 'gerar_csv_bling': {
