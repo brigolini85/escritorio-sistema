@@ -1,13 +1,12 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Toaster, toast } from '@/components/ui/toaster';
+import { toast } from '@/components/ui/toaster';
 
 /** Botões que disparam avisos (toasts) de exemplo no catálogo. */
 export function DemoAvisos() {
   return (
     <div className="flex flex-wrap gap-2">
-      <Toaster />
       <Button variant="outline" size="sm" onClick={() => toast('Resposta enviada ao cliente.')}>Aviso neutro</Button>
       <Button variant="outline" size="sm" onClick={() => toast.success('Demanda concluída.')}>Sucesso</Button>
       <Button variant="outline" size="sm" onClick={() => toast.warning('Teto de IA em 85%.')}>Atenção</Button>

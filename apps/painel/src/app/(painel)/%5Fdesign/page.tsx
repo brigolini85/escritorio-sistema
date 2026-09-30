@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DemoAvisos } from './demos';
+import { Padroes } from './padroes';
 
 // Catálogo vivo do design system: todos os tokens e primitivos. Só em desenvolvimento (D6).
 
@@ -99,9 +100,10 @@ function Exemplo({ titulo, children }: { titulo: string; children: ReactNode }) 
   );
 }
 
-export default async function PaginaDesign() {
+export default async function PaginaDesign({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const escolha = escolhaDoCookie((await cookies()).get(COOKIE_TEMA)?.value);
+  const params = await searchParams;
 
   return (
     <div className="max-w-5xl space-y-10 text-foreground">
@@ -373,6 +375,8 @@ export default async function PaginaDesign() {
           </Card>
         </div>
       </Secao>
+
+      <Padroes params={params} />
     </div>
   );
 }
