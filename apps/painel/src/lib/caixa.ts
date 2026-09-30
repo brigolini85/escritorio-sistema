@@ -20,7 +20,7 @@ export function passaNoFiltro(l: LinhaCaixa, filtro: FiltroCaixa, u: { id: strin
     case 'sem_responsavel': return l.sem_responsavel;
     case 'aguardando': return l.aguardando_cliente;
     case 'agente': return l.estado === 'agente' && !l.sem_responsavel;
-    case 'concluidas': return l.chamados_abertos === 0;
+    case 'concluidas': return l.estado === 'agente' && l.chamados_abertos === 0;
     default: return true;
   }
 }
@@ -35,7 +35,8 @@ export function filtroPadrao(u: { papel: 'admin' | 'atendente'; setores: string[
  * - Aguardando humano = sem_responsavel (demanda aberta sem responsável; o mesmo critério do contador do menu);
  * - Comigo = minhas (conversas que eu assumi);
  * - Com o agente = o agente conduz (estado 'agente') e nada espera a equipe;
- * - Concluídas = nenhuma demanda aberta na conversa.
+ * - Concluídas = com o agente (ninguém assumiu) e nenhuma demanda aberta que a pessoa vê (a view é security_invoker).
+ *   Inclui conversas que nunca tiveram demanda (o agente resolveu sozinho).
  * Os filtros antigos continuam valendo na URL (?filtro=) e ficam no menu "Mais".
  */
 export const FILTROS_RAPIDOS: { valor: FiltroCaixa; rotulo: string }[] = [

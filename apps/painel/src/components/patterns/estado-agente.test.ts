@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detalheEstadoAgente, estadoPelaPausaGeral, tituloEstadoAgente } from './estado-agente';
+import { detalheEstadoAgente, estadoDaConversa, estadoPelaPausaGeral, tituloEstadoAgente } from './estado-agente';
 
 describe('estado do agente', () => {
   it('pausa geral vem da configuração; sem leitura (RLS) não mostra nada', () => {
@@ -19,5 +19,19 @@ describe('estado do agente', () => {
     expect(detalheEstadoAgente({ tipo: 'pausado', motivo: 'empresa' })).toBe('Pausado para esta empresa');
     expect(detalheEstadoAgente({ tipo: 'pausado' })).toBeNull();
     expect(detalheEstadoAgente({ tipo: 'ativo' })).toBe('Respondendo aos clientes');
+  });
+});
+
+describe('estadoDaConversa', () => {
+  it('assumida > pausa geral > empresa > contato > ativo', () => {
+    const base = { assumidaPor: null, pausaGeral: false, empresaPausada: false, contatoPausado: false };
+    expect(estadoDaConversa({ ...base, assumidaPor: 'Ana', pausaGeral: true })).toEqual({ tipo: 'assumido', por: 'Ana' });
+    expect(estadoDaConversa({ ...base, pausaGeral: true, empresaPausada: true })).toEqual({ tipo: 'pausado', motivo: 'geral' });
+    expect(estadoDaConversa({ ...base, empresaPausada: true, contatoPausado: true })).toEqual({ tipo: 'pausado', motivo: 'empresa' });
+    expect(estadoDaConversa({ ...base, contatoPausado: true })).toEqual({ tipo: 'pausado', motivo: 'contato' });
+    expect(estadoDaConversa(base)).toEqual({ tipo: 'ativo' });
+  });
+  it('pausa geral desconhecida (sem permissão de leitura) não conta', () => {
+    expect(estadoDaConversa({ assumidaPor: null, pausaGeral: null })).toEqual({ tipo: 'ativo' });
   });
 });

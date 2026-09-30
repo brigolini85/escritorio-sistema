@@ -38,3 +38,21 @@ export function detalheEstadoAgente(e: EstadoAgente): string | null {
   if (!e.motivo) return e.detalhe ?? null;
   return e.detalhe ? `${MOTIVOS_PAUSA[e.motivo]}: ${e.detalhe}` : MOTIVOS_PAUSA[e.motivo];
 }
+
+/**
+ * Estado do agente numa conversa, do mais forte para o mais fraco: assumida por alguém > pausa geral >
+ * pausado para a empresa > pausado para o contato > ativo. `pausaGeral` null = não dá para saber
+ * (só o administrador lê configuracoes): nesse caso a pausa geral não entra na conta.
+ */
+export function estadoDaConversa(c: {
+  assumidaPor: string | null;
+  pausaGeral: boolean | null;
+  empresaPausada?: boolean | null;
+  contatoPausado?: boolean | null;
+}): EstadoAgente {
+  if (c.assumidaPor) return { tipo: 'assumido', por: c.assumidaPor };
+  if (c.pausaGeral) return { tipo: 'pausado', motivo: 'geral' };
+  if (c.empresaPausada) return { tipo: 'pausado', motivo: 'empresa' };
+  if (c.contatoPausado) return { tipo: 'pausado', motivo: 'contato' };
+  return { tipo: 'ativo' };
+}

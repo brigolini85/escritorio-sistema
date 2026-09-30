@@ -38,9 +38,10 @@ describe('filtros rápidos (Com o agente, Concluídas)', () => {
     expect(passaNoFiltro(linha({ estado: 'agente', sem_responsavel: true }), 'agente', u)).toBe(false);
     expect(passaNoFiltro(linha({ estado: 'humano' }), 'agente', u)).toBe(false);
   });
-  it('concluídas = nenhuma demanda aberta', () => {
-    expect(passaNoFiltro(linha({ chamados_abertos: 0 }), 'concluidas', u)).toBe(true);
-    expect(passaNoFiltro(linha({ chamados_abertos: 2 }), 'concluidas', u)).toBe(false);
+  it('concluídas = com o agente e nenhuma demanda aberta', () => {
+    expect(passaNoFiltro(linha({ estado: 'agente', chamados_abertos: 0 }), 'concluidas', u)).toBe(true);
+    expect(passaNoFiltro(linha({ estado: 'humano', chamados_abertos: 0 }), 'concluidas', u)).toBe(false);
+    expect(passaNoFiltro(linha({ estado: 'agente', chamados_abertos: 2 }), 'concluidas', u)).toBe(false);
     expect(passaNoFiltro(linha({}), 'concluidas', u)).toBe(false);
   });
   it('rápidos e "Mais" juntos cobrem todos os filtros, sem repetir', () => {
