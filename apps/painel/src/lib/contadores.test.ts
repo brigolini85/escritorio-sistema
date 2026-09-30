@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contarConversasAguardando, contarDemandasAbertas, descricaoContador, lerAgentePausado, rotuloContador } from './contadores';
+import { contarConversasAguardando, contarDemandasAbertas, descricaoContador, deveAvisarNovaConversa, lerAgentePausado, rotuloContador } from './contadores';
 
 /** Cliente falso: registra tabela e filtros e devolve a resposta dada. */
 function falso(resposta: Record<string, unknown>) {
@@ -38,5 +38,12 @@ describe('contadores', () => {
     expect(descricaoContador('atendimento', 4)).toBe('4 conversas aguardando atendimento');
     expect(descricaoContador('demandas', 1)).toBe('1 demanda aberta');
     expect(descricaoContador('demandas', 2)).toBe('2 demandas abertas');
+  });
+  it('aviso de conversa nova só quando sobe e a pessoa não acabou de agir', () => {
+    expect(deveAvisarNovaConversa(3, 4, 10_000)).toBe(true);
+    expect(deveAvisarNovaConversa(3, 4, 1_000)).toBe(false);
+    expect(deveAvisarNovaConversa(4, 4, 10_000)).toBe(false);
+    expect(deveAvisarNovaConversa(4, 3, 10_000)).toBe(false);
+    expect(deveAvisarNovaConversa(null, 4, 10_000)).toBe(false);
   });
 });

@@ -2,6 +2,8 @@
 
 export const MINIMO_BUSCA = 2;
 export const LIMITE_POR_GRUPO = 5;
+/** Texto mais longo que isso é cortado: evita filtros ilike enormes. */
+export const MAXIMO_BUSCA = 80;
 
 export type ConsultaBusca = {
   /** Texto seguro para o filtro `or`/`ilike` do PostgREST (sem vírgula, parênteses, *, %, aspas, barra invertida). */
@@ -17,9 +19,9 @@ export type ResultadoBusca = { empresas: ItemBusca[]; contatos: ItemBusca[]; dem
 
 export const RESULTADO_VAZIO: ResultadoBusca = { empresas: [], contatos: [], demandas: [] };
 
-/** Interpreta o que foi digitado; null se for curto demais (menos de 2 caracteres) ou não sobrar nada buscável. */
+/** Interpreta o que foi digitado (cortado em 80 caracteres); null se for curto demais (menos de 2) ou não sobrar nada buscável. */
 export function interpretarBusca(q: string | null | undefined): ConsultaBusca | null {
-  const bruto = (q ?? '').trim();
+  const bruto = (q ?? '').trim().slice(0, MAXIMO_BUSCA).trim();
   if (bruto.length < MINIMO_BUSCA) return null;
   const m = /^#?\s*(\d{1,12})$/.exec(bruto);
   const numero = m ? Number(m[1]) : null;

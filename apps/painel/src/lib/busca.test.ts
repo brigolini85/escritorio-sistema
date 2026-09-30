@@ -18,6 +18,9 @@ describe('interpretarBusca', () => {
     expect(interpretarBusca('nota 12')).toMatchObject({ numero: null, digitos: '12' });
     expect(interpretarBusca('11.222.333/0001-81')).toMatchObject({ numero: null, digitos: '11222333000181' });
   });
+  it('corta textos longos em 80 caracteres', () => {
+    expect(interpretarBusca('a'.repeat(5000))?.termo).toHaveLength(80);
+  });
   it('tira os caracteres que quebram o filtro do PostgREST', () => {
     expect(interpretarBusca('pão, (queijo)* 100% "x"\\')?.termo).toBe('pão queijo 100 x');
     expect(interpretarBusca('(),')).toBeNull();

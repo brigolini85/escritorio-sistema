@@ -101,13 +101,22 @@ export function Sidebar({
               >
                 <Icone aria-hidden size={20} strokeWidth={1.75} className="shrink-0" />
                 <span className={cn('flex-1 truncate', recolhido && 'sr-only')}>{item.rotulo}</span>
-                {contador && rotuloSelo && (
+                {contador && rotuloSelo && recolhido && (
+                  // Recolhido: só um ponto no canto, fora do ícone; o número fica no tooltip e na descrição acessível.
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'absolute right-1.5 top-1.5 size-2 rounded-full ring-2 ring-surface',
+                      contador.tipo === 'atendimento' ? 'bg-warning' : 'bg-subtle',
+                    )}
+                  />
+                )}
+                {contador && rotuloSelo && !recolhido && (
                   <span
                     aria-hidden
                     className={cn(
                       'tabular inline-flex h-5 min-w-5 items-center justify-center rounded-sm px-1 text-xs font-semibold',
                       contador.tipo === 'atendimento' ? 'bg-warning text-warning-foreground' : 'bg-surface-muted text-muted',
-                      recolhido && 'absolute right-1 top-0.5 h-4 min-w-4 px-0.5',
                     )}
                   >
                     {rotuloSelo}

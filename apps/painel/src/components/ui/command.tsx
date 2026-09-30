@@ -20,15 +20,25 @@ export function CommandDialog({
   titulo = 'Buscar',
   descricao = 'Busque empresas, contatos e demandas.',
   shouldFilter,
+  value,
+  onValueChange,
   children,
   ...props
-}: ComponentProps<typeof Dialog> & { titulo?: string; descricao?: string; shouldFilter?: boolean }) {
+}: ComponentProps<typeof Dialog> & {
+  titulo?: string;
+  descricao?: string;
+  /** false quando os itens já vêm filtrados (ex.: busca no servidor). */
+  shouldFilter?: boolean;
+  /** Item selecionado controlado (value do CommandItem). */
+  value?: string;
+  onValueChange?: (valor: string) => void;
+}) {
   return (
     <Dialog {...props}>
       <DialogContent className="overflow-hidden p-0" mostrarFechar={false}>
         <DialogTitle className="sr-only">{titulo}</DialogTitle>
         <DialogDescription className="sr-only">{descricao}</DialogDescription>
-        <Command shouldFilter={shouldFilter}>{children}</Command>
+        <Command shouldFilter={shouldFilter} value={value} onValueChange={onValueChange}>{children}</Command>
       </DialogContent>
     </Dialog>
   );

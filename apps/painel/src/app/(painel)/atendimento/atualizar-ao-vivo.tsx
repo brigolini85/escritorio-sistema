@@ -12,8 +12,8 @@ export function AtualizarAoVivo({ conversaId, assistenteDe }: { conversaId?: str
     let ativo = true;
     let canal: ReturnType<typeof sb.channel> | undefined;
     // A sessão vai para o tempo real antes de assinar; senão o canal entra como anônimo e o RLS não entrega eventos.
-    void autenticarTempoReal(sb).catch(() => undefined).then(() => {
-      if (!ativo) return;
+    void autenticarTempoReal(sb).then((ok) => {
+      if (!ativo || !ok) return;
       canal = sb.channel(`painel-${conversaId ?? 'caixa'}-${assistenteDe ?? ''}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mensagens', ...filtro }, () => router.refresh())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'chamados', ...filtro }, () => router.refresh())

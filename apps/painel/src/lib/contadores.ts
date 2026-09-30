@@ -39,3 +39,12 @@ export function descricaoContador(tipo: 'atendimento' | 'demandas', n: number): 
   if (tipo === 'atendimento') return n === 1 ? '1 conversa aguardando atendimento' : `${n} conversas aguardando atendimento`;
   return n === 1 ? '1 demanda aberta' : `${n} demandas abertas`;
 }
+
+/** Janela depois de uma ação da própria pessoa (enviar formulário, navegar) em que um aumento não vira aviso. */
+export const JANELA_ACAO_PROPRIA_MS = 3000;
+
+/** Avisar "Nova conversa aguardando atendimento"? Só se o número subiu e a pessoa não acabou de agir. */
+export function deveAvisarNovaConversa(antes: number | null, depois: number | null, msDesdeUltimaAcao: number): boolean {
+  if (antes === null || depois === null || depois <= antes) return false;
+  return msDesdeUltimaAcao > JANELA_ACAO_PROPRIA_MS;
+}
