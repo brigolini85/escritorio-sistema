@@ -55,6 +55,11 @@ describe('repositório do assistente (pedido do dono, 2026-09-29)', () => {
     await repos.registrarDecisao({ conversaId: null, clienteId: null, etapa, entrada: { numero: 7, confirmado: true }, saida: { erro: 'x', usuario: id } });
     expect((await repos.ultimaPreviaDoAssistente(id, 7, new Date(Date.now() - 60_000)))!.saida).toEqual({ erro: 'x', usuario: id });
     expect(await repos.ultimaPreviaDoAssistente(id, 8, new Date(Date.now() - 60_000))).toBeNull();
+    // Com `ate`: só as chamadas anteriores a ele (a prévia mostrada antes da última mensagem da pessoa).
+    const { data: linhas } = await db.from('decisoes_agente').select('criado_em, saida').eq('etapa', etapa).order('criado_em');
+    const segunda = new Date(linhas![1]!.criado_em);
+    expect((await repos.ultimaPreviaDoAssistente(id, 7, new Date(Date.now() - 60_000), segunda))!.saida).toMatchObject({ conferencia: 'abc' });
+    expect(await repos.ultimaPreviaDoAssistente(id, 7, new Date(Date.now() - 60_000), new Date(linhas![0]!.criado_em))).toBeNull();
   });
 
   it('unidades e produtos inativos só com incluirInativos (revisão final, P)', async () => {

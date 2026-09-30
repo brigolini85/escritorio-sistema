@@ -16,13 +16,13 @@ import { podeCorrigirPedidos, podeVerChamado } from './visibilidade';
 
 export type DepsAssistente = { repos: Repos; ia: ClienteIa; canal: CanalWhatsApp };
 export type EstadoAssistente = { ctx: ContextoAssistente; resposta: string[]; arquivo: ArquivoAssistente | null; csvs: { nome: string; conteudo: string }[];
-  /** Prévias de correção mostradas nesta execução: só valem como confirmação na mensagem seguinte. */ previas: Set<string>;
-  /** Antes e depois de cada prévia mostrada nesta execução: vão na resposta mesmo que o modelo não os escreva. */
+  /** Antes e depois de cada prévia mostrada nesta execução e ainda não gravada: vão na resposta mesmo que o modelo não os escreva,
+   * e o CSV dessas demandas espera a gravação. */
   previasMostradas: { numero: number; antes: string; depois: string }[];
   /** O que foi feito de verdade nesta execução (gravações e arquivos); alimenta a resposta quando o modelo não escreve uma. */ acoes: string[] };
 
 export function novoEstado(ctx: ContextoAssistente): EstadoAssistente {
-  return { ctx, resposta: [], arquivo: null, csvs: [], previas: new Set(), previasMostradas: [], acoes: [] };
+  return { ctx, resposta: [], arquivo: null, csvs: [], previasMostradas: [], acoes: [] };
 }
 
 /** `registro` é o que fica em decisoes_agente quando difere do que o modelo recebe. */
@@ -61,7 +61,7 @@ export const FERRAMENTAS_ASSISTENTE: Anthropic.Tool[] = [
     input_schema: objeto({ de: { type: 'string', description: 'DD/MM/AAAA' }, ate: { type: 'string', description: 'DD/MM/AAAA' }, cliente_id: { type: 'string' } }, ['de', 'ate']) },
   {
     name: 'alterar_pedido_venda',
-    description: 'Corrige o pedido de venda de uma demanda de nota (itens, quantidades, unidade, preço, destinatário, pagamento, endereço de entrega). Sem confirmado mostra o antes e o depois sem gravar. Depois do "sim" da pessoa, chame só com numero e confirmado = true (nenhum outro campo): o sistema grava a última prévia mostrada. Para mudar mais alguma coisa, faça uma nova prévia. Na prévia, itens substitui a lista inteira; sem valor_unitario usa o preço da tabela.',
+    description: 'Corrige o pedido de venda de uma demanda de nota (itens, quantidades, unidade, preço, destinatário, pagamento, endereço de entrega). Sem confirmado mostra o antes e o depois sem gravar. Depois do "sim" da pessoa, chame só com numero e confirmado = true (nenhum outro campo), sem refazer a prévia: o sistema grava a prévia mostrada antes do "sim". Para mudar mais alguma coisa, faça uma nova prévia. Na prévia, itens substitui a lista inteira; sem valor_unitario usa o preço da tabela.',
     input_schema: objeto({
       numero: { type: 'integer' },
       unidade_id: { type: 'string', description: 'Novo destinatário (buscar_parceiros, tipo cliente).' },
@@ -239,8 +239,11 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       const DE_NOVO = 'Mostre o antes e o depois de novo e espere a confirmação.';
       let conferenciaDaPrevia: string | null = null;
       let depoisDaPrevia: string | null = null;
+      /** Gravado (agora ou antes): as prévias deste pedido neste job deixam de estar pendentes (CSV e resposta). */
+      const semPendencia = (numero: number) => { estado.previasMostradas = estado.previasMostradas.filter((p) => p.numero !== numero); };
       /** Já gravado antes (nova tentativa do mesmo job): não grava de novo e conta a verdade. */
       const jaGravado = (numero: number, depois: string) => {
+        semPendencia(numero);
         estado.acoes.push(`pedido #${numero} já estava gravado`);
         return { ...ok({ gravado: true, numero, depois, ja_estava: true }), registro: { gravado: true, numero, depois, ja_estava: true, repeticao: true, contexto: contextoDoAssistente(estado.ctx) } };
       };
@@ -253,8 +256,9 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
         return descreverPedido(atual.pedido_venda, x ? `${x.rede} / ${x.unidade}` : atual.pedido_venda.texto_destinatario);
       };
       if (entrada.confirmado) {
-        // A confirmação grava a última prévia mostrada, e só ela (campos a mais já foram recusados em executarFerramentaAssistente).
-        const ultima = await d.repos.ultimaPreviaDoAssistente(u.id, entrada.numero, new Date(Date.now() - 24 * 3600 * 1000));
+        // A confirmação grava a prévia mostrada antes do "sim", e só ela (campos a mais já foram recusados em executarFerramentaAssistente).
+        const desde = new Date(Date.now() - 24 * 3600 * 1000);
+        const ultima = await d.repos.ultimaPreviaDoAssistente(u.id, entrada.numero, desde);
         if (!ultima) return falha(`Não achei a prévia deste pedido. ${DE_NOVO}`);
         const pergunta = estado.ctx.perguntaMaisRecenteEm;
         // Nova tentativa deste mesmo job (erro da IA ou do envio depois de gravar): a última chamada é a gravação que respondeu
@@ -264,15 +268,17 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
           && pergunta && ultima.criadoEm.getTime() >= pergunta.getTime() && (await pedidoAtual(entrada.numero)) === s.depois) {
           return jaGravado(entrada.numero, s.depois);
         }
-        // Qualquer chamada depois da prévia (erro, confirmação, gravação) a consome.
-        if (ultima.saida.gravado !== false || typeof ultima.saida.conferencia !== 'string') return falha(DE_NOVO);
-        if (ultima.saida.contexto !== contextoDoAssistente(estado.ctx)) return falha(`A prévia foi mostrada em outra conversa. ${DE_NOVO}`);
-        // O "sim" tem de ser uma mensagem da pessoa que chegou depois da prévia.
-        if (!pergunta || ultima.criadoEm.getTime() >= pergunta.getTime()) return falha('Mostre o antes e o depois e espere a confirmação na próxima mensagem.');
-        const guardada = Entradas.alterar_pedido_venda.safeParse(ultima.entrada);
+        // O "sim" tem de ser uma mensagem da pessoa que chegou depois da prévia: só conta o que veio antes da pergunta mais nova.
+        // O que este job fez depois dela (prévias refeitas, erros) a pessoa não viu e não toma o lugar da prévia que ela aprovou.
+        const mostrada = pergunta ? await d.repos.ultimaPreviaDoAssistente(u.id, entrada.numero, desde, pergunta) : null;
+        if (!mostrada) return falha('Mostre o antes e o depois e espere a confirmação na próxima mensagem.');
+        // Qualquer chamada depois da prévia e antes da pergunta (erro, confirmação, gravação) a consome.
+        if (mostrada.saida.gravado !== false || typeof mostrada.saida.conferencia !== 'string') return falha(DE_NOVO);
+        if (mostrada.saida.contexto !== contextoDoAssistente(estado.ctx)) return falha(`A prévia foi mostrada em outra conversa. ${DE_NOVO}`);
+        const guardada = Entradas.alterar_pedido_venda.safeParse(mostrada.entrada);
         if (!guardada.success || guardada.data.confirmado) return falha(DE_NOVO);
-        conferenciaDaPrevia = ultima.saida.conferencia;
-        depoisDaPrevia = typeof ultima.saida.depois === 'string' ? ultima.saida.depois : null;
+        conferenciaDaPrevia = mostrada.saida.conferencia;
+        depoisDaPrevia = typeof mostrada.saida.depois === 'string' ? mostrada.saida.depois : null;
         entrada = { ...guardada.data, numero: entrada.numero, confirmado: true };
       }
       const c = await d.repos.chamadoPorNumero(entrada.numero);
@@ -309,9 +315,14 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       // A conferência cobre o pedido de antes também: se alguém mudou o pedido entre a prévia e o "sim", recusa.
       const conferencia = createHash('sha1').update(JSON.stringify({ numero: c.numero, antes: c.pedido_venda, novo })).digest('hex').slice(0, 12);
       if (!confirmado) {
-        estado.previas.add(conferencia);
         estado.previasMostradas.push({ numero: c.numero, antes, depois });
-        const mostrado = { gravado: false, antes, depois, instrucao: 'Mostre o antes e o depois e pergunte se pode gravar. Só chame de novo com confirmado = true depois de um sim.' };
+        // O modelo refez, no job do "sim", a mesma prévia que a pessoa já viu: empurra para a confirmação em vez de perguntar de novo.
+        const pergunta = estado.ctx.perguntaMaisRecenteEm;
+        const anterior = pergunta ? await d.repos.ultimaPreviaDoAssistente(u.id, c.numero, new Date(Date.now() - 24 * 3600 * 1000), pergunta) : null;
+        const jaMostrada = anterior?.saida.gravado === false && anterior.saida.conferencia === conferencia && anterior.saida.contexto === contextoDoAssistente(estado.ctx);
+        const mostrado = { gravado: false, antes, depois, instrucao: jaMostrada
+          ? 'Essa mesma prévia já foi mostrada antes da última mensagem da pessoa. Se ela confirmou, chame agora alterar_pedido_venda só com numero e confirmado = true.'
+          : 'Mostre o antes e o depois e pergunte se pode gravar. Só chame de novo com confirmado = true depois de um sim.' };
         return { ...ok(mostrado), registro: { ...mostrado, conferencia, contexto: contextoDoAssistente(estado.ctx) } };
       }
       if (conferencia !== conferenciaDaPrevia) {
@@ -319,8 +330,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
         if (depoisDaPrevia !== null && antes === depoisDaPrevia) return jaGravado(c.numero, depoisDaPrevia);
         return falha(`O pedido mudou desde a prévia (ou os preços da tabela). ${DE_NOVO}`);
       }
-      if (estado.previas.has(conferencia)) return falha('Mostre o antes e o depois e espere a confirmação na próxima mensagem.');
-      if (isDeepStrictEqual(novo, c.pedido_venda)) { estado.acoes.push(`pedido #${c.numero} já estava gravado`); return ok({ gravado: true, numero: c.numero, depois, ja_estava: true }); }
+      if (isDeepStrictEqual(novo, c.pedido_venda)) { semPendencia(c.numero); estado.acoes.push(`pedido #${c.numero} já estava gravado`); return ok({ gravado: true, numero: c.numero, depois, ja_estava: true }); }
 
       const itensResumo = itensPedido ?? novo.itens.map((i) => {
         const produto = produtos.find((p) => p.codigo === i.sku) ?? null;
@@ -332,6 +342,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       await d.repos.atualizarPedidoVenda(c.id, { pedido: novo, resumo, ...(trocou ? { titulo } : {}) });
       await d.repos.registrarNotaInterna(c.id, c.cliente_id, u.id, `Pedido alterado pelo assistente a pedido de ${u.nome}.\nAntes:\n${antes}\nDepois:\n${depois}`);
       await d.repos.registrarAuditoria({ usuarioId: u.id, acao: 'assistente', entidade: 'pedido_venda', entidadeId: c.id, detalhes: { canal: estado.ctx.canal, antes: c.pedido_venda, depois: novo } });
+      semPendencia(c.numero);
       estado.acoes.push(`pedido #${c.numero} alterado`);
       // O contexto no registro deixa uma nova tentativa deste mesmo job reconhecer a gravação (ver jaGravado).
       return { ...ok({ gravado: true, numero: c.numero, depois }), registro: { gravado: true, numero: c.numero, depois, contexto: contextoDoAssistente(estado.ctx) } };

@@ -205,6 +205,61 @@ describe('alterar_pedido_venda (pedido do dono, 2026-09-29)', () => {
     expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
   });
 
+  describe('o "sim" refaz a prévia antes de confirmar (Claude de verdade, 2026-09-29)', () => {
+    const NUDGE = 'Essa mesma prévia já foi mostrada antes da última mensagem da pessoa. Se ela confirmou, chame agora alterar_pedido_venda só com numero e confirmado = true.';
+    const csv = async (e: EstadoAssistente) => {
+      const r = await executarFerramentaAssistente({ repos, ia: new IaRoteirizada([]), canal: new CanalFalso() }, e, 'gerar_csv_bling', { numeros: [pedido.numero] });
+      return { ...JSON.parse(r.resultado), _erro: r.erro };
+    };
+
+    it('prévias refeitas no job do "sim" (outra, com erro e igual) não tomam o lugar da prévia mostrada: grava a mostrada', async () => {
+      const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+      await previa(dono, { numero: pedido.numero, itens: itens15(), confirmado: false });   // P1, mostrada à pessoa
+      const e = await estadoDoSim(dono);
+      const p2 = await usar(e, { numero: pedido.numero, itens: [{ produto_id: null, texto: 'costela', quantidade: 15, unidade: 'PAC' }], confirmado: false });
+      expect(p2._erro).toBe(false);
+      expect(p2.instrucao).not.toBe(NUDGE);   // prévia diferente da mostrada: sem o empurrão
+      expect((await usar(e, { numero: pedido.numero, unidade_id: cad.boiBom, itens: itens15(), confirmado: false }))._erro).toBe(true);
+      const p3 = await usar(e, { numero: pedido.numero, itens: itens15(), confirmado: false });   // igual a P1
+      expect(p3).toMatchObject({ _erro: false, gravado: false, instrucao: NUDGE });
+      const r = await usar(e, { numero: pedido.numero, confirmado: true });
+      expect(r).toMatchObject({ _erro: false, gravado: true });
+      expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 15, valor_unitario: 9.5 }] });
+      expect(e.acoes).toEqual([`pedido #${pedido.numero} alterado`]);
+      // Gravado: o CSV deste job não é mais recusado por prévia sem gravar.
+      expect((await csv(e)).erro ?? '').not.toContain('Grave a correção');
+    });
+
+    it('no job do "sim", CSV pedido antes de confirmar continua recusado (B)', async () => {
+      const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+      await previa(dono, { numero: pedido.numero, itens: itens15(), confirmado: false });
+      const e = await estadoDoSim(dono);
+      await usar(e, { numero: pedido.numero, itens: itens15(), confirmado: false });
+      expect(await csv(e)).toMatchObject({ _erro: true, erro: `Grave a correção do pedido #${pedido.numero} antes de gerar o CSV.` });
+      expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
+    });
+
+    it('depois de gravado, um novo "sim" com prévia refeita não grava de novo', async () => {
+      const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+      expect(await confirmar(dono, { numero: pedido.numero, itens: itens15() })).toMatchObject({ _erro: false, gravado: true });
+      const e = await estadoDoSim(dono);
+      await usar(e, { numero: pedido.numero, itens: itens15(), confirmado: false });
+      expect(await usar(e, { numero: pedido.numero, confirmado: true })).toMatchObject({ _erro: true, erro: 'Mostre o antes e o depois de novo e espere a confirmação.' });
+      const { data: ev } = await db.from('chamado_eventos').select('id').eq('chamado_id', pedido.id).eq('tipo', 'nota_interna');
+      expect(ev).toHaveLength(1);
+    });
+
+    it('prévia feita só no job do "sim" (nenhuma antes) não é confirmável nele', async () => {
+      const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local' });
+      const e = await estadoDoSim(dono);
+      await usar(e, { numero: pedido.numero, itens: itens15(), confirmado: false });
+      const r = await usar(e, { numero: pedido.numero, confirmado: true });
+      expect(r._erro).toBe(true);
+      expect(r.erro).toContain('próxima mensagem');
+      expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
+    });
+  });
+
   describe('nova tentativa do mesmo job depois de gravar (re-revisão)', () => {
     const contagem = async () => ({
       notas: (await db.from('chamado_eventos').select('id').eq('chamado_id', pedido.id).eq('tipo', 'nota_interna')).data!.length,
