@@ -1,13 +1,16 @@
-import { Bot, CircleCheck, CircleDashed, CircleDot, Clock, Headset, UserRound, type LucideIcon } from 'lucide-react';
+import { Bot, CircleCheck, CircleDashed, CircleDot, Clock, Headset, MessageCircleHeart, ScrollText, Signpost, UserRound, type LucideIcon } from 'lucide-react';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { ROTULO_TIPO, type TipoOrientacao } from '@/lib/orientacoes';
 
 /**
  * Status de demanda e de conversa: cor + ícone + texto (nunca só cor).
  * Demanda: status_chamado do banco. Conversa: estado_conversa, com "aguardando atendente" quando há demanda sem responsável.
+ * Orientação: o tipo de uma orientação do agente (tela Treinar o agente).
  */
 
 export type StatusDemanda = 'aberto' | 'em_andamento' | 'aguardando_cliente' | 'concluido';
 export type StatusConversa = 'agente' | 'humano' | 'aguardando_atendente';
+export type TipoOrientacaoSelo = TipoOrientacao;
 
 type Aparencia = { rotulo: string; Icone: LucideIcon; variant: NonNullable<BadgeProps['variant']> };
 
@@ -24,10 +27,22 @@ export const STATUS_CONVERSA: Record<StatusConversa, Aparencia> = {
   aguardando_atendente: { rotulo: 'Aguardando atendente', Icone: Headset, variant: 'warning' },
 };
 
+export const TIPO_ORIENTACAO: Record<TipoOrientacaoSelo, Aparencia> = {
+  jeito: { rotulo: ROTULO_TIPO.jeito, Icone: MessageCircleHeart, variant: 'info' },
+  regra: { rotulo: ROTULO_TIPO.regra, Icone: ScrollText, variant: 'brand' },
+  situacao: { rotulo: ROTULO_TIPO.situacao, Icone: Signpost, variant: 'neutral' },
+};
+
 export function StatusBadge(
-  props: ({ tipo: 'demanda'; status: StatusDemanda } | { tipo: 'conversa'; status: StatusConversa }) & { className?: string },
+  props: (
+    | { tipo: 'demanda'; status: StatusDemanda }
+    | { tipo: 'conversa'; status: StatusConversa }
+    | { tipo: 'orientacao'; status: TipoOrientacaoSelo }
+  ) & { className?: string },
 ) {
-  const a = props.tipo === 'demanda' ? STATUS_DEMANDA[props.status] : STATUS_CONVERSA[props.status];
+  const a = props.tipo === 'demanda' ? STATUS_DEMANDA[props.status]
+    : props.tipo === 'conversa' ? STATUS_CONVERSA[props.status]
+    : TIPO_ORIENTACAO[props.status];
   if (!a) return null;
   const { Icone } = a;
   return (

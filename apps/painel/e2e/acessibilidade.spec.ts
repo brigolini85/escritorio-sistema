@@ -11,16 +11,18 @@ const TELEFONE = '5531999990901';
 const CNPJ = '11444777000161';
 // Textos próprios deste spec: não podem conter trechos que outros specs procuram com getByText.
 const TITULO = 'Comprovante de acessibilidade (a11y)';
+const TITULO_ORIENTACAO = 'Orientação de acessibilidade (a11y)';
 
 let usuarioSemeado: string | null = null;
 
-type Ids = { conversa: string; demanda: string; cliente: string; contato: string; usuario: string };
+type Ids = { conversa: string; demanda: string; cliente: string; contato: string; usuario: string; orientacao: string };
 
 async function semear(): Promise<Ids> {
   await db.from('chamados').delete().eq('titulo', TITULO);
   await db.from('conversas').delete().eq('telefone', TELEFONE);
   await db.from('contatos').delete().eq('telefone', TELEFONE);
   await db.from('clientes').delete().eq('cnpj', CNPJ);
+  await db.from('orientacoes_agente').delete().eq('titulo', TITULO_ORIENTACAO);
   const usuario = await criarUsuarioTeste({
     email: EMAIL, senha: SENHA, nome: 'Revisora Acessível', papel: 'admin',
     permissoes: ['editar_clientes', 'editar_precos', 'emitir_notas', 'assistente_site'],
@@ -42,8 +44,14 @@ async function semear(): Promise<Ids> {
     { usuario_id: usuario, canal: 'site', papel: 'assistente', conteudo: 'Há 1 demanda aberta no Fiscal: comprovante de acessibilidade.', processada_em: new Date().toISOString() },
   ]);
   if (error) throw error;
+  // Orientação do agente com uma versão no histórico (tela Treinar o agente).
+  const { data: orientacao, error: erroOrientacao } = await db.from('orientacoes_agente')
+    .insert({ titulo: TITULO_ORIENTACAO, texto: 'Responda com frases curtas.', tipo: 'jeito', cliente_id: cliente!.id, ativo: true })
+    .select('id').single();
+  if (erroOrientacao) throw erroOrientacao;
+  await db.from('orientacoes_agente_versoes').insert({ orientacao_id: orientacao.id, acao: 'criar', titulo: TITULO_ORIENTACAO, texto: 'Responda com frases longas.', tipo: 'jeito', ativo: false });
   usuarioSemeado = usuario;
-  return { conversa: conversa!.id, demanda: demanda!.id, cliente: cliente!.id, contato: contato!.id, usuario };
+  return { conversa: conversa!.id, demanda: demanda!.id, cliente: cliente!.id, contato: contato!.id, usuario, orientacao: orientacao.id };
 }
 
 // Sem sobras para os outros specs (listas e contagens do Atendimento e de Demandas).
@@ -51,7 +59,8 @@ test.afterAll(async () => {
   await db.from('chamados').delete().eq('titulo', TITULO);
   await db.from('conversas').delete().eq('telefone', TELEFONE);
   await db.from('contatos').delete().eq('telefone', TELEFONE);
-  await db.from('clientes').delete().eq('cnpj', CNPJ);
+  await db.from('clientes').delete().eq('cnpj', CNPJ);   // apaga também a orientação dela (cascata)
+  await db.from('orientacoes_agente').delete().eq('titulo', TITULO_ORIENTACAO);
   // Apagar o login apaga também a pessoa em usuarios e as mensagens do assistente dela (cascata).
   if (usuarioSemeado) await db.auth.admin.deleteUser(usuarioSemeado);
   await db.from('usuarios').delete().eq('email', EMAIL);
@@ -109,6 +118,10 @@ for (const tema of ['claro', 'escuro'] as const) {
         '/contatos',
         `/contatos?contato=${ids.contato}`,
         '/assistente',
+        '/treinar-agente',
+        `/treinar-agente?orientacao=${ids.orientacao}`,
+        `/treinar-agente?orientacao=${ids.orientacao}&aba=historico`,
+        '/treinar-agente?orientacao=nova&modelo=cumprimento',
         '/usuarios',
         `/usuarios?usuario=${ids.usuario}`,
         '/configuracoes',
@@ -149,6 +162,28 @@ for (const tema of ['claro', 'escuro'] as const) {
       await page.getByRole('button', { name: 'Concluir' }).first().click();
       await expect(page.getByRole('alertdialog').or(page.getByRole('dialog'))).toBeVisible();
       erros.push(...(await auditar(page, 'confirmação de concluir', tema)));
+      await page.keyboard.press('Escape');
+
+      // Treinar o agente: busca de empresa aberta no formulário e confirmação de restaurar uma versão.
+      await page.goto(`/treinar-agente?orientacao=${ids.orientacao}`);
+      await page.getByRole('dialog').getByRole('combobox', { name: 'Empresa' }).click();
+      await expect(page.getByRole('option').first()).toBeVisible();
+      erros.push(...(await auditar(page, 'busca de empresa (Treinar o agente)', tema)));
+      await page.keyboard.press('Escape');
+      await page.goto(`/treinar-agente?orientacao=${ids.orientacao}&aba=historico`);
+      await page.getByRole('button', { name: 'Restaurar esta versão' }).click();
+      await expect(page.getByRole('dialog', { name: 'Restaurar esta versão?' })).toBeVisible();
+      erros.push(...(await auditar(page, 'confirmação de restaurar (Treinar o agente)', tema)));
+      expect(erros, erros.join('\n')).toEqual([]);
+    });
+
+    test(`Treinar o agente sem orientações (exemplos) sem violações graves (${tema})`, async ({ page }) => {
+      await semear();
+      await db.from('orientacoes_agente').delete().not('id', 'is', null);
+      await entrar(page, EMAIL, SENHA);
+      await page.goto('/treinar-agente');
+      await expect(page.getByText('Nenhuma orientação ainda.')).toBeVisible();
+      const erros = await auditar(page, '/treinar-agente (vazio)', tema);
       expect(erros, erros.join('\n')).toEqual([]);
     });
   });

@@ -57,7 +57,7 @@ Para conferir uma troca de marca, raio ou fonte, edite o `tokens.css` e veja o `
 
 - **`ui/`**: peças genéricas, sem regra de negócio, que serviriam em qualquer produto: botão, campo, janela, tabela, selo. Vêm do shadcn/ui (Radix) e são ajustadas aos tokens. Mude aqui só o que deve mudar em todo lugar.
   - Alguns primitivos estão disponíveis sem uso nas telas ainda: `ui/popover.tsx`, `ui/scroll-area.tsx` e `ui/separator.tsx`. Ficam de propósito (demonstrados no `/_design`) para a próxima tela não copiar outro do shadcn; apague se continuarem sem uso depois de algumas fases.
-- **`patterns/`**: peças que falam a língua do escritório: DataTable com filtros na URL, StatusBadge de demanda, MessageBubble, DiffPreview, OrderSummary, BlingExportButton, ConfirmDialog, PermissionGate, FormField, HistoricoRolante (lista de mensagens que acompanha a rolagem), AvisoErro (`?erro=` das actions)... Se o mesmo arranjo aparece em duas telas, ele vira um pattern.
+- **`patterns/`**: peças que falam a língua do escritório: DataTable com filtros na URL, StatusBadge (demanda, conversa e tipo de orientação), MessageBubble, DiffPreview, OrderSummary, BlingExportButton, ConfirmDialog, PermissionGate, FormField, HistoricoRolante (lista de mensagens que acompanha a rolagem), AvisoErro (`?erro=` das actions), EscolherEmpresa (busca de empresa num formulário, envia o id). Se o mesmo arranjo aparece em duas telas, ele vira um pattern.
 - **`layout/`**: a casca que envolve todas as telas: AppShell, Sidebar, Topbar, PageHeader, busca global e lista de atalhos.
 - Uma tela (`app/(painel)/...`) monta patterns e primitivos. Ela não recria com classes soltas algo que já é um pattern.
 

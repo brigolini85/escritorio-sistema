@@ -1,0 +1,143 @@
+'use client';
+
+import { useId, useState, type ReactNode } from 'react';
+import { EscolherEmpresa, type EmpresaOpcao } from '@/components/patterns/escolher-empresa';
+import { FormField } from '@/components/patterns/form-field';
+import { BotaoSalvar, FormularioAlteravel, IndicadorAlteracoes, inicialRadix } from '@/components/patterns/formulario-alteravel';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/cn';
+import { LIMITE_TEXTO, LIMITE_TITULO, ROTULO_TIPO, TIPOS, type TipoOrientacao } from '@/lib/orientacoes';
+import { classeCaixa, classeSelect } from '../clientes/estilos';
+import type { ValePara } from './esquemas';
+
+type Acao = (dados: FormData) => void | Promise<void>;
+export type SetorOpcao = { id: string; nome: string; ativo: boolean };
+export type DadosFormulario = { titulo: string; texto: string; tipo: TipoOrientacao; clienteId: string | null; setorId: string | null; ativo: boolean };
+
+const DESCRICAO_TIPO: Record<TipoOrientacao, string> = {
+  jeito: 'Tom, cumprimento, tamanho das respostas.',
+  regra: 'Prazos, horários e combinados que valem sempre.',
+  situacao: 'O que fazer quando o cliente pede algo específico.',
+};
+const VALE: { valor: ValePara; rotulo: string }[] = [
+  { valor: 'todos', rotulo: 'Todos os clientes' },
+  { valor: 'empresa', rotulo: 'Uma empresa' },
+  { valor: 'setor', rotulo: 'Um setor' },
+];
+const classeOpcao = 'flex cursor-pointer items-start gap-2 rounded-md border border-input bg-surface p-3 text-base font-normal has-checked:border-brand has-checked:bg-brand-soft';
+
+/**
+ * Formulário da orientação (painel lateral): titulo, tipo, vale (+ cliente_id ou setor_id), texto e ativo.
+ * Campos nativos e não controlados (o FormularioAlteravel percebe o que mudou); o estado local só mostra/esconde
+ * a empresa e o setor e conta os caracteres. Empresa e setor ficam montados mesmo escondidos: trocar e voltar não perde a escolha.
+ */
+export function FormularioOrientacao({
+  acao,
+  orientacao,
+  empresas,
+  setores,
+  aviso,
+}: {
+  acao: Acao;
+  orientacao?: DadosFormulario;
+  empresas: EmpresaOpcao[];
+  setores: SetorOpcao[];
+  aviso?: ReactNode;
+}) {
+  const id = useId();
+  const valeInicial: ValePara = orientacao?.clienteId ? 'empresa' : orientacao?.setorId ? 'setor' : 'todos';
+  const [vale, setVale] = useState<ValePara>(valeInicial);
+  const [caracteres, setCaracteres] = useState(orientacao?.texto.length ?? 0);
+  // Setor inativo só aparece quando já é o da orientação (o banco recusa escolher um setor inativo).
+  const opcoesSetor = setores.filter((s) => s.ativo || s.id === orientacao?.setorId);
+  const perto = caracteres > LIMITE_TEXTO * 0.9;
+
+  return (
+    <FormularioAlteravel action={acao} className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4">
+        {aviso}
+        <FormField id={`${id}-titulo`} rotulo="Título" ajuda="Um nome curto para achar a orientação na lista." obrigatorio>
+          <Input name="titulo" defaultValue={orientacao?.titulo} maxLength={LIMITE_TITULO} placeholder="Ex.: Cumprimento" autoComplete="off" />
+        </FormField>
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2 text-sm font-medium text-foreground">Tipo</legend>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {TIPOS.map((t) => (
+              <Label key={t} className={classeOpcao}>
+                <input type="radio" name="tipo" value={t} defaultChecked={(orientacao?.tipo ?? 'jeito') === t} required className={cn(classeCaixa, 'mt-0.5')} />
+                <span className="flex flex-col gap-0.5">
+                  <span className="font-medium text-foreground">{ROTULO_TIPO[t]}</span>
+                  <span className="text-sm text-muted">{DESCRICAO_TIPO[t]}</span>
+                </span>
+              </Label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2 text-sm font-medium text-foreground">Vale para</legend>
+          <div className="flex flex-wrap gap-2">
+            {VALE.map((v) => (
+              <Label key={v.valor} className={cn(classeOpcao, 'items-center py-2')}>
+                <input type="radio" name="vale" value={v.valor} defaultChecked={valeInicial === v.valor} onChange={() => setVale(v.valor)} className={classeCaixa} />
+                {v.rotulo}
+              </Label>
+            ))}
+          </div>
+          <div className={cn(vale !== 'empresa' && 'hidden')}>
+            <FormField id={`${id}-empresa`} rotulo="Empresa" ajuda="O agente segue esta orientação só nas conversas com esta empresa.">
+              <EscolherEmpresa name="cliente_id" empresas={empresas} inicial={orientacao?.clienteId ?? null} />
+            </FormField>
+          </div>
+          <div className={cn(vale !== 'setor' && 'hidden')}>
+            <FormField id={`${id}-setor`} rotulo="Setor" ajuda="O agente segue esta orientação quando o assunto for deste setor.">
+              <select name="setor_id" defaultValue={orientacao?.setorId ?? ''} className={classeSelect}>
+                <option value="">Escolha o setor</option>
+                {opcoesSetor.map((s) => <option key={s.id} value={s.id}>{s.nome}{s.ativo ? '' : ' (inativo)'}</option>)}
+              </select>
+            </FormField>
+          </div>
+        </fieldset>
+
+        <FormField
+          id={`${id}-texto`}
+          rotulo="O que o agente deve fazer"
+          ajuda={(
+            <span className="flex flex-wrap justify-between gap-2">
+              <span>Escreva como falaria para um atendente novo. As regras fixas do agente continuam valendo.</span>
+              <span className={cn('tabular', perto ? 'text-warning' : 'text-muted')}>
+                {caracteres.toLocaleString('pt-BR')} / {LIMITE_TEXTO.toLocaleString('pt-BR')}
+              </span>
+            </span>
+          )}
+          obrigatorio
+        >
+          <Textarea
+            name="texto"
+            defaultValue={orientacao?.texto}
+            maxLength={LIMITE_TEXTO}
+            rows={7}
+            placeholder="Ex.: Comece sempre pelo nome do cliente e responda em no máximo duas frases."
+            onInput={(e) => setCaracteres(e.currentTarget.value.length)}
+          />
+        </FormField>
+
+        <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
+          <div>
+            <Label htmlFor={`${id}-ativo`} className="cursor-pointer text-base">Ligada</Label>
+            <p id={`${id}-ativo-descricao`} className="text-sm text-muted">Ligada, o agente segue a orientação a partir da próxima mensagem. Desligada, ela fica guardada sem valer.</p>
+          </div>
+          <Switch id={`${id}-ativo`} name="ativo" defaultChecked={orientacao?.ativo ?? false} {...inicialRadix(orientacao?.ativo ?? false)} aria-describedby={`${id}-ativo-descricao`} className="mt-0.5" />
+        </div>
+      </div>
+      <div className="flex items-center justify-end gap-3 border-t border-border p-4">
+        <IndicadorAlteracoes />
+        <BotaoSalvar>Salvar orientação</BotaoSalvar>
+      </div>
+    </FormularioAlteravel>
+  );
+}

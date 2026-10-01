@@ -1,5 +1,7 @@
 import type { OrientacaoAgente, TipoOrientacao } from '@escritorio/db';
 
+// Espelhado no painel (medidor da tela Treinar o agente) em apps/painel/src/lib/orientacoes.ts: mudou a conta aqui, mude lá.
+
 /** Total de caracteres das orientações no prompt (linhas já montadas). */
 export const LIMITE_ORIENTACOES = 12_000;
 

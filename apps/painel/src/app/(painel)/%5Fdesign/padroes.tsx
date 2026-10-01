@@ -8,6 +8,7 @@ import { DataTable, DataTableCarregando } from '@/components/patterns/data-table
 import { DiffPreview } from '@/components/patterns/diff-preview';
 import { DocumentText } from '@/components/patterns/document-text';
 import { EmptyState } from '@/components/patterns/empty-state';
+import { EscolherEmpresa } from '@/components/patterns/escolher-empresa';
 import { FormField } from '@/components/patterns/form-field';
 import { HealthSignal } from '@/components/patterns/health-signal';
 import { HistoricoRolante } from '@/components/patterns/historico-rolante';
@@ -17,7 +18,7 @@ import { OrderSummary } from '@/components/patterns/order-summary';
 import { PageHeader } from '@/components/patterns/page-header';
 import { PermissionGate } from '@/components/patterns/permission-gate';
 import { RelativeTime } from '@/components/patterns/relative-time';
-import { StatusBadge, STATUS_CONVERSA, STATUS_DEMANDA, type StatusConversa, type StatusDemanda } from '@/components/patterns/status-badge';
+import { StatusBadge, STATUS_CONVERSA, STATUS_DEMANDA, TIPO_ORIENTACAO, type StatusConversa, type StatusDemanda, type TipoOrientacaoSelo } from '@/components/patterns/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -133,6 +134,7 @@ export function Padroes({ params }: { params: ParamsBusca }) {
         <Exemplo titulo="StatusBadge">
           {(Object.keys(STATUS_DEMANDA) as StatusDemanda[]).map((s) => <StatusBadge key={s} tipo="demanda" status={s} />)}
           {(Object.keys(STATUS_CONVERSA) as StatusConversa[]).map((s) => <StatusBadge key={s} tipo="conversa" status={s} />)}
+          {(Object.keys(TIPO_ORIENTACAO) as TipoOrientacaoSelo[]).map((s) => <StatusBadge key={s} tipo="orientacao" status={s} />)}
         </Exemplo>
         <Exemplo titulo="HealthSignal" className="flex flex-col items-start gap-2">
           <HealthSignal rotulo="WhatsApp (Z-API)" ultimoSinal={ha(40)} detalhe="Conectado ao número (31) 3222-1100" />
@@ -205,6 +207,17 @@ export function Padroes({ params }: { params: ParamsBusca }) {
         </FormField>
         <FormField id="p-obs" rotulo="Observação" ajuda="Aparece para a equipe, não para o cliente." className="sm:col-span-2">
           <Textarea name="observacao" placeholder="Ex.: emitir a nota só depois do dia 10" />
+        </FormField>
+        <FormField id="p-empresa" rotulo="Empresa (EscolherEmpresa)" ajuda="Busca por nome ou CNPJ; envia o id da empresa." className="sm:col-span-2">
+          <EscolherEmpresa
+            name="cliente_id"
+            empresas={[
+              { id: 'e1', nome: 'Supermercado Brasil Ltda', detalhe: 'Brasil · 11.222.333/0001-81' },
+              { id: 'e2', nome: 'Padaria Pão Quente Ltda', detalhe: 'Pão Quente · 44.555.666/0001-72' },
+              { id: 'e3', nome: 'Mercado Bom Preço Ltda', detalhe: '77.888.999/0001-63', inativa: true },
+            ]}
+            inicial="e1"
+          />
         </FormField>
       </Exemplo>
 
