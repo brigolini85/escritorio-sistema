@@ -119,13 +119,23 @@ $$;
 revoke execute on all functions in schema interno from public, anon, authenticated;
 
 -- Cria (p_id nulo) ou edita uma orientação. Devolve o id. Empresa, setor e ativo têm padrão nulo para os tipos gerados
--- deixarem omitir (ativo nulo: false ao criar, mantém ao editar).
+-- deixarem omitir (ativo nulo: false ao criar, mantém ao editar). Editar sem mudar nada não mexe em nada (sem versão,
+-- sem auditoria, sem atualizado_em) e devolve o id.
 create function public.salvar_orientacao(p_id uuid, p_titulo text, p_texto text, p_tipo text,
   p_cliente_id uuid default null, p_setor_id uuid default null, p_ativo boolean default null) returns uuid
 language plpgsql security definer set search_path = public as $$
-declare v_id uuid;
+declare v_id uuid; o orientacoes_agente%rowtype;
 begin
   if not tem_permissao('treinar_agente') then raise exception 'Você não tem permissão para treinar o agente.'; end if;
+  if p_id is not null then
+    select * into o from orientacoes_agente where id = p_id for update;
+    if not found then raise exception 'Orientação não encontrada.'; end if;
+    if o.titulo = trim(p_titulo) and o.texto = trim(p_texto) and o.tipo = p_tipo
+       and o.cliente_id is not distinct from p_cliente_id and o.setor_id is not distinct from p_setor_id
+       and o.ativo = coalesce(p_ativo, o.ativo) then
+      return o.id;
+    end if;
+  end if;
   perform interno.validar_orientacao(p_titulo, p_texto, p_tipo, p_cliente_id, p_setor_id);
   if p_id is null then
     insert into orientacoes_agente (titulo, texto, tipo, cliente_id, setor_id, ativo, criado_por, atualizado_por)

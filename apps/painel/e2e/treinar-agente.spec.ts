@@ -160,3 +160,35 @@ test('atendente sem a marcação não vê o menu e a tela explica quem libera; m
   const { data } = await db.from('orientacoes_agente').select('tipo, ativo, criado_por').eq('titulo', 'Horário').single();
   expect(data).toEqual({ tipo: 'regra', ativo: true, criado_por: semId });
 });
+
+test('formulário: "Uma empresa" sem empresa não envia nem perde o texto; voltar para Todos não conta como alteração', async ({ page }) => {
+  await criarUsuarioTeste({ email: EMAIL_ADMIN, senha, nome: 'Dono Treino', papel: 'admin' });
+  await db.from('clientes').insert({ razao_social: EMPRESA, nome_fantasia: 'Padaria Treino', cnpj: CNPJ });
+  const { data: criada } = await db.from('orientacoes_agente').insert({ titulo: 'Prazo', texto: 'Até as 15h.', tipo: 'regra' }).select('id').single();
+  await entrar(page, EMAIL_ADMIN, senha);
+
+  // Nova: texto digitado, "Uma empresa" sem escolher -> aviso no campo, nada enviado, texto continua.
+  await page.goto('/treinar-agente?orientacao=nova');
+  await painel(page).getByLabel('Título').fill('Sem empresa');
+  await painel(page).getByLabel('O que o agente deve fazer').fill('Texto que não pode sumir.');
+  await painel(page).getByRole('radio', { name: 'Uma empresa' }).check();
+  await painel(page).getByRole('button', { name: 'Salvar orientação' }).click();
+  await expect(painel(page).getByText('Escolha a empresa.')).toBeVisible();
+  await expect(page).not.toHaveURL(/erro=/);
+  await expect(painel(page).getByLabel('O que o agente deve fazer')).toHaveValue('Texto que não pode sumir.');
+  expect(await orientacao('Sem empresa')).toBeNull();
+
+  // Existente: escolher uma empresa e voltar para Todos não deixa "Alterações não salvas".
+  await page.goto(`/treinar-agente?orientacao=${criada!.id}`);
+  await painel(page).getByRole('radio', { name: 'Uma empresa' }).check();
+  await painel(page).getByRole('combobox', { name: 'Empresa' }).click();
+  await page.getByRole('option', { name: /Padaria Treino/ }).click();
+  await expect(painel(page).getByText('Alterações não salvas')).toBeVisible();
+  await painel(page).getByRole('radio', { name: 'Todos os clientes' }).check();
+  await expect(painel(page).getByText('Alterações não salvas')).toHaveCount(0);
+
+  // Salvar sem mudar nada não grava versão.
+  await painel(page).getByRole('button', { name: 'Salvar orientação' }).click();
+  await page.waitForLoadState('networkidle');
+  expect(await versoes(criada!.id)).toEqual([]);
+});

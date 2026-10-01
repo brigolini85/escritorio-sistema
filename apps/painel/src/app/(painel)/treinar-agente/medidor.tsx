@@ -34,6 +34,10 @@ export function MedidorOrientacoes({ medidor, empresa }: { medidor: Medidor; emp
       >
         <div className={cn('h-full rounded-full transition-all duration-150 ease-out', cor)} style={{ width: `${percentual}%` }} />
       </div>
+      <p className="text-sm text-muted">
+        Numa conversa o agente lê as orientações para todos, as dos setores e as da empresa da conversa.
+        {empresa ? ` A conta usa a empresa com mais texto (${empresa}).` : ''}
+      </p>
       {nivel === 'excesso' ? (
         <p className="flex items-start gap-1.5 text-sm text-danger">
           <CircleAlert aria-hidden size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
@@ -50,12 +54,7 @@ export function MedidorOrientacoes({ medidor, empresa }: { medidor: Medidor; emp
             antigas deixam de ser lidas pelo agente. Junte ou encurte orientações parecidas.
           </span>
         </p>
-      ) : (
-        <p className="text-sm text-muted">
-          Numa conversa o agente lê as orientações para todos, as dos setores e as da empresa da conversa.
-          {empresa ? ` A conta usa a empresa com mais texto (${empresa}).` : ''}
-        </p>
-      )}
+      ) : null}
     </Card>
   );
 }

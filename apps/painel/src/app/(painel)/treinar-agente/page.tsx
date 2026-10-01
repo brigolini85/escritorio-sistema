@@ -16,6 +16,7 @@ import { SheetBody, SheetDescription, SheetHeader, SheetTitle } from '@/componen
 import { Skeleton } from '@/components/ui/skeleton';
 import { mascararCNPJ } from '@/lib/formatos';
 import { medirOrientacoes, ROTULO_TIPO, TIPOS, type TipoOrientacao } from '@/lib/orientacoes';
+import { lerEmPaginas } from '@/lib/paginas';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { hrefComParams, lerOrdem, ordenarLinhas, valorParam, type ParamsBusca } from '@/lib/tabela-url';
@@ -117,17 +118,23 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
   const aberta = pedido === 'nova' ? 'nova' : ehUuid(pedido) ? pedido : null;
   const sb = await supabaseServidor();
 
+  const colunasVersao = 'id, acao, titulo, texto, tipo, cliente_id, setor_id, ativo, criado_em, usuarios(nome)';
   const [{ data: orientacoes, error: erroLista }, { data: setores }, { data: clientes }, { data: versoes }] = await Promise.all([
-    sb.from('orientacoes_agente')
+    // Todas, de 1000 em 1000 (o PostgREST corta em 1000 sem avisar).
+    lerEmPaginas((de, ate) => sb.from('orientacoes_agente')
       .select('id, titulo, texto, tipo, cliente_id, setor_id, ativo, atualizado_em, clientes(razao_social, nome_fantasia, ativo), setores(nome, ativo), atualizador:usuarios!orientacoes_agente_atualizado_por_fkey(nome)')
-      .order('atualizado_em', { ascending: false }).limit(1000),
+      .order('atualizado_em', { ascending: false }).order('id').range(de, ate)),
     sb.from('setores').select('id, nome, ativo').order('nome'),
-    // Empresas só para o formulário (painel aberto).
-    aberta ? sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj, ativo').order('razao_social') : Promise.resolve({ data: null }),
+    // Empresas ativas para o formulário (painel aberto), todas as páginas; a inativa da orientação aberta vem à parte.
+    aberta
+      ? lerEmPaginas((de, ate) => sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj, ativo').eq('ativo', true)
+        .order('razao_social').order('id').range(de, ate))
+      : Promise.resolve({ data: [] }),
+    // Histórico inteiro (a mais nova primeiro; id desempata versões do mesmo instante).
     aberta && aberta !== 'nova'
-      ? sb.from('orientacoes_agente_versoes').select('id, acao, titulo, texto, tipo, cliente_id, setor_id, ativo, criado_em, usuarios(nome)')
-        .eq('orientacao_id', aberta).order('criado_em', { ascending: false }).limit(100)
-      : Promise.resolve({ data: null }),
+      ? lerEmPaginas((de, ate) => sb.from('orientacoes_agente_versoes').select(colunasVersao)
+        .eq('orientacao_id', aberta).order('criado_em', { ascending: false }).order('id', { ascending: false }).range(de, ate))
+      : Promise.resolve({ data: [] }),
   ]);
   if (erroLista) console.error('[treinar-agente] falha ao ler as orientações', erroLista);
 
@@ -139,7 +146,8 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
   }));
 
   const opcoesSetor: SetorOpcao[] = setores ?? [];
-  const medidor = medirOrientacoes(todas, opcoesSetor.filter((s) => s.ativo).map((s) => s.id));
+  // Empresa inativa não conversa: as orientações dela não pesam em conversa nenhuma.
+  const medidor = medirOrientacoes(todas.filter((l) => !l.clienteId || l.empresa?.ativa), opcoesSetor.filter((s) => s.ativo).map((s) => s.id));
   const empresaMaisPesada = medidor.empresa ? todas.find((l) => l.clienteId === medidor.empresa!.id)?.empresa?.nome ?? null : null;
 
   const busca = normalizarBusca(f.q);
@@ -206,17 +214,23 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
 
   // Painel lateral: nova (com ou sem modelo) ou uma orientação da lista.
   const atual = aberta && aberta !== 'nova' ? todas.find((l) => l.id === aberta) ?? null : null;
-  const empresas: EmpresaOpcao[] = (clientes ?? [])
-    .filter((c) => c.ativo || c.id === atual?.clienteId)
+  // Empresas citadas fora da lista de ativas (a da orientação aberta e as dos retratos do histórico): só o nome.
+  const ativas = new Set(clientes.map((c) => c.id));
+  const faltando = [...new Set([atual?.clienteId, ...versoes.map((v) => v.cliente_id)])].filter((id): id is string => Boolean(id) && !ativas.has(id!));
+  const { data: outras } = faltando.length
+    ? await sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj, ativo').in('id', faltando)
+    : { data: [] };
+  const todasEmpresas = [...clientes, ...(outras ?? [])];
+  const empresas: EmpresaOpcao[] = [...clientes, ...(outras ?? []).filter((c) => c.id === atual?.clienteId)]
     .map((c) => ({ id: c.id, nome: nomeEmpresa(c), detalhe: [c.nome_fantasia ? c.razao_social : null, mascararCNPJ(c.cnpj)].filter(Boolean).join(' · '), inativa: !c.ativo }));
   const nomes = {
-    empresa: new Map((clientes ?? []).map((c) => [c.id, nomeEmpresa(c)])),
+    empresa: new Map(todasEmpresas.map((c) => [c.id, nomeEmpresa(c)])),
     setor: new Map(opcoesSetor.map((s) => [s.id, s.nome])),
   };
   const valeParaTexto = (v: Pick<Versao, 'clienteId' | 'setorId'>) => (v.clienteId
     ? `Empresa ${nomes.empresa.get(v.clienteId) ?? 'removida'}`
     : v.setorId ? `Setor ${nomes.setor.get(v.setorId) ?? 'removido'}` : 'Todos os clientes');
-  const listaVersoes: Versao[] = (versoes ?? []).map((v) => ({
+  const listaVersoes: Versao[] = versoes.map((v) => ({
     id: v.id, acao: v.acao as AcaoVersao, titulo: v.titulo, texto: v.texto, tipo: v.tipo as TipoOrientacao, clienteId: v.cliente_id,
     setorId: v.setor_id, ativo: v.ativo, usuario: v.usuarios?.nome ?? null, criadoEm: v.criado_em,
   }));

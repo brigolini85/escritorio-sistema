@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { EscolherEmpresa, type EmpresaOpcao } from '@/components/patterns/escolher-empresa';
 import { FormField } from '@/components/patterns/form-field';
 import { BotaoSalvar, FormularioAlteravel, IndicadorAlteracoes, inicialRadix } from '@/components/patterns/formulario-alteravel';
@@ -54,9 +54,32 @@ export function FormularioOrientacao({
   // Setor inativo só aparece quando já é o da orientação (o banco recusa escolher um setor inativo).
   const opcoesSetor = setores.filter((s) => s.ativo || s.id === orientacao?.setorId);
   const perto = caracteres > LIMITE_TEXTO * 0.9;
+  const [erroEmpresa, setErroEmpresa] = useState<string | null>(null);
+  const [setorEscolhido, setSetorEscolhido] = useState(orientacao?.setorId ?? '');
+  const campoSetor = useRef<HTMLSelectElement>(null);
+
+  // Como a empresa: fora de "Um setor", o select volta ao valor inicial (não conta como alteração); a escolha volta depois.
+  useEffect(() => {
+    const el = campoSetor.current;
+    const alvo = vale === 'setor' ? setorEscolhido : orientacao?.setorId ?? '';
+    if (!el || el.value === alvo) return;
+    el.value = alvo;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }, [vale, setorEscolhido, orientacao?.setorId]);
+
+  // Antes de enviar: "Uma empresa" sem empresa escolhida não sai (o erro do servidor limparia o que foi digitado).
+  // O setor usa o required do próprio select.
+  const conferir = (e: FormEvent<HTMLFormElement>) => {
+    const empresa = e.currentTarget.elements.namedItem('cliente_id');
+    if (vale === 'empresa' && empresa instanceof HTMLInputElement && !empresa.value) {
+      e.preventDefault();
+      setErroEmpresa('Escolha a empresa.');
+      document.getElementById(`${id}-empresa`)?.focus();
+    }
+  };
 
   return (
-    <FormularioAlteravel action={acao} className="flex min-h-0 flex-1 flex-col">
+    <FormularioAlteravel action={acao} onSubmit={conferir} className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4">
         {aviso}
         <FormField id={`${id}-titulo`} rotulo="Título" ajuda="Um nome curto para achar a orientação na lista." obrigatorio>
@@ -89,13 +112,20 @@ export function FormularioOrientacao({
             ))}
           </div>
           <div className={cn(vale !== 'empresa' && 'hidden')}>
-            <FormField id={`${id}-empresa`} rotulo="Empresa" ajuda="O agente segue esta orientação só nas conversas com esta empresa.">
-              <EscolherEmpresa name="cliente_id" empresas={empresas} inicial={orientacao?.clienteId ?? null} />
+            <FormField id={`${id}-empresa`} rotulo="Empresa" ajuda="O agente segue esta orientação só nas conversas com esta empresa." erro={erroEmpresa}>
+              <EscolherEmpresa name="cliente_id" empresas={empresas} inicial={orientacao?.clienteId ?? null} ativo={vale === 'empresa'} aoMudar={() => setErroEmpresa(null)} />
             </FormField>
           </div>
           <div className={cn(vale !== 'setor' && 'hidden')}>
             <FormField id={`${id}-setor`} rotulo="Setor" ajuda="O agente segue esta orientação quando o assunto for deste setor.">
-              <select name="setor_id" defaultValue={orientacao?.setorId ?? ''} className={classeSelect}>
+              <select
+                ref={campoSetor}
+                name="setor_id"
+                defaultValue={orientacao?.setorId ?? ''}
+                required={vale === 'setor'}
+                onChange={(e) => setSetorEscolhido(e.target.value)}
+                className={classeSelect}
+              >
                 <option value="">Escolha o setor</option>
                 {opcoesSetor.map((s) => <option key={s.id} value={s.id}>{s.nome}{s.ativo ? '' : ' (inativo)'}</option>)}
               </select>

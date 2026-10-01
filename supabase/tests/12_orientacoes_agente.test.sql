@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(65);
+select plan(68);
 
 -- Treinar o agente (pedido do dono, 2026-09-30): orientações, versões e simulações.
 insert into auth.users (id, email) values
@@ -49,6 +49,12 @@ select is((select array_agg(acao order by criado_em) from public.orientacoes_age
 select is((select count(*) from public.orientacoes_agente_versoes)::int, 3, 'marcada lê as versões');
 select is(public.alternar_orientacao(current_setting('teste.o1')::uuid, false), false, 'desligar o que já está desligado devolve o estado');
 select is((select count(*) from public.orientacoes_agente_versoes)::int, 3, 'sem mudança não grava versão');
+select set_config('teste.atualizado', (select atualizado_em::text from public.orientacoes_agente where id = current_setting('teste.o1')::uuid), true);
+select is(public.salvar_orientacao(current_setting('teste.o1')::uuid, ' Cumprimento ', 'Chame pelo primeiro nome.', 'jeito',
+  '40000000-0000-0000-0000-0000000000b1', null, null), current_setting('teste.o1')::uuid, 'salvar sem mudar nada devolve o id');
+select is((select count(*) from public.orientacoes_agente_versoes)::int, 3, 'salvar sem mudar nada não grava versão');
+select is((select atualizado_em::text from public.orientacoes_agente where id = current_setting('teste.o1')::uuid),
+  current_setting('teste.atualizado'), 'salvar sem mudar nada não mexe em atualizado_em (nem na auditoria)');
 
 -- Restaurar a primeira versão: volta o texto e a empresa; ligada/desligada fica como está.
 select lives_ok($$ select public.restaurar_orientacao((select id from public.orientacoes_agente_versoes

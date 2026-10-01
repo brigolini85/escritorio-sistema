@@ -1,7 +1,7 @@
 'use client';
 
 import { Building2, Check, ChevronsUpDown } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/cn';
@@ -13,6 +13,8 @@ export type EmpresaOpcao = { id: string; nome: string; detalhe?: string | null; 
  * Envia o id no campo `name`. O campo que vai no formulário é um input de texto escondido e não controlado:
  * o FormularioAlteravel compara o valor com o padrão e percebe a troca (o evento "input" avisa o formulário).
  * `id`, `aria-describedby` e `aria-invalid` (do FormField) vão para o botão, que é o controle rotulado.
+ * `ativo` falso (ex.: a pessoa trocou "Uma empresa" por "Todos"): o campo volta ao valor inicial, para não contar como
+ * alteração; a escolha fica guardada e volta quando `ativo` volta a ser verdadeiro.
  */
 export function EscolherEmpresa({
   name,
@@ -25,6 +27,7 @@ export function EscolherEmpresa({
   'aria-describedby': descritoPor,
   'aria-invalid': invalido,
   disabled,
+  ativo = true,
 }: {
   name: string;
   empresas: EmpresaOpcao[];
@@ -36,6 +39,7 @@ export function EscolherEmpresa({
   'aria-describedby'?: string;
   'aria-invalid'?: boolean | 'true' | 'false';
   disabled?: boolean;
+  ativo?: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
   const [valor, setValor] = useState(inicial ?? '');
@@ -43,13 +47,18 @@ export function EscolherEmpresa({
   const escolhida = empresas.find((e) => e.id === valor) ?? null;
   const idLista = id ? `${id}-lista` : undefined;
 
+  // O campo do formulário acompanha a escolha (ou o valor inicial, sem `ativo`); o evento avisa o FormularioAlteravel.
+  useEffect(() => {
+    const el = campo.current;
+    const alvo = ativo ? valor : inicial ?? '';
+    if (!el || el.value === alvo) return;
+    el.value = alvo;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }, [ativo, valor, inicial]);
+
   const escolher = (novo: string) => {
     setValor(novo);
     setAberto(false);
-    if (campo.current) {
-      campo.current.value = novo;
-      campo.current.dispatchEvent(new Event('input', { bubbles: true }));
-    }
     aoMudar?.(novo);
   };
 
