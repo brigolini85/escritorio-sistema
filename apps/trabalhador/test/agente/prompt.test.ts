@@ -83,3 +83,35 @@ describe('orientações no prompt de sistema', () => {
     expect(nenhuma).toHaveLength(1);
   });
 });
+
+describe('regras fixas da skill do dono (2026-09-30)', () => {
+  const s = montarSistema([], []);
+
+  it('apresenta-se como Thiago no primeiro contato e nunca diz ser pessoa', () => {
+    expect(s).toContain('Seu nome é Thiago.');
+    expect(s).toContain('"Oi, João! Aqui é o Thiago, do atendimento do escritório."');
+    expect(s).toContain('nenhuma mensagem em <historico>');
+    expect(s).toContain('Não se apresente nem anuncie que é assistente virtual ou inteligência artificial');
+    expect(s).toContain('nunca afirme ser uma pessoa');
+    expect(s).toContain('diga com naturalidade que é o assistente virtual do escritório e que a equipe acompanha tudo');
+    expect(s).toContain('Se já há mensagens em <historico>, não se apresente de novo');
+  });
+
+  it('regra 2: só as explicações gerais da skill, quando perguntarem, sem números do caso', () => {
+    const regra2 = s.slice(s.indexOf('\n2. '), s.indexOf('\n3. '));
+    expect(regra2).toContain('só quando o cliente perguntar o que é aquilo');
+    expect(regra2).toContain('sem números do caso do cliente');
+    expect(regra2).toContain('nem decida o caso concreto');
+    expect(regra2).toContain('nesses casos abra um chamado');
+    for (const tema of ['DAS:', 'DAS do MEI:', 'Pró-labore e lucro:', 'Registro do funcionário:', 'Férias:', 'Rescisão:', 'Limite do MEI:', 'Certificado digital:']) {
+      expect(regra2).toContain(`   - ${tema}`);
+    }
+    expect(regra2).toContain('pagas até 2 dias antes de começar');
+    expect(regra2).toContain('até 10 dias depois do último dia de trabalho');
+    expect(s).toContain('dúvida técnica (fora as explicações gerais da regra 2) vira chamado');
+  });
+
+  it('emoji continua proibido', () => {
+    expect(s).toContain('Nunca use emoji.');
+  });
+});
