@@ -129,6 +129,29 @@
   --radius-pill: 18px;
 }
 
+/* Tamanhos de container (max-w-2xl etc.) e raios padrão do Tailwind vinham em rem de 16px; aqui valem os mesmos px de hoje medidos na base 14. */
+@theme {
+  --container-3xs: calc(256rem / 14);
+  --container-2xs: calc(288rem / 14);
+  --container-xs: calc(320rem / 14);
+  --container-sm: calc(384rem / 14);
+  --container-md: calc(448rem / 14);
+  --container-lg: calc(512rem / 14);
+  --container-xl: calc(576rem / 14);
+  --container-2xl: calc(672rem / 14);
+  --container-3xl: calc(768rem / 14);
+  --container-4xl: calc(896rem / 14);
+  --container-5xl: calc(1024rem / 14);
+  --container-6xl: calc(1152rem / 14);
+  --container-7xl: calc(1280rem / 14);
+  --radius-xs: calc(2rem / 14);
+  --radius-xl: calc(12rem / 14);
+  --radius-2xl: calc(16rem / 14);
+  --radius-3xl: calc(24rem / 14);
+  --radius-4xl: calc(32rem / 14);
+  --radius: calc(4rem / 14);
+}
+
 @keyframes aparecer {
   from { opacity: 0; }
 }
@@ -162,10 +185,10 @@
 
 /* Navegação interna presa logo abaixo do cabeçalho fixo (Configurações) e âncoras que não somem atrás dele. */
 @utility abaixo-cabecalho {
-  top: calc(var(--altura-cabecalho, var(--altura-cabecalho-estimada)) + 1.5rem);
+  top: calc(var(--altura-cabecalho, var(--altura-cabecalho-estimada)) + calc(24rem / 14));
 }
 @utility ancora-abaixo-cabecalho {
-  scroll-margin-top: calc(var(--altura-cabecalho, var(--altura-cabecalho-estimada)) + 1rem);
+  scroll-margin-top: calc(var(--altura-cabecalho, var(--altura-cabecalho-estimada)) + calc(16rem / 14));
 }
 
 :root {

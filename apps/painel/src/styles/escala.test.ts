@@ -48,4 +48,33 @@ describe('escala que acompanha a tela', () => {
       [...readFileSync(f, 'utf8').matchAll(/-\[\d+(\.\d+)?px\]/g)].map((m) => `${f}: ${m[0]}`));
     expect(achados).toEqual([]);
   });
+
+  it('nenhum valor arbitrário em rem nas classes do JSX (rem solto encolhe na base 14)', () => {
+    const achados = arquivos(SRC).flatMap((f) =>
+      [...readFileSync(f, 'utf8').matchAll(/-\[-?\d+(\.\d+)?rem\]/g)].map((m) => `${f}: ${m[0]}`));
+    expect(achados).toEqual([]);
+  });
+
+  it('tamanhos de container e raios padrão do Tailwind reescritos em calc(Nrem / 14)', () => {
+    const container = { '3xs': 256, '2xs': 288, xs: 320, sm: 384, md: 448, lg: 512, xl: 576, '2xl': 672, '3xl': 768, '4xl': 896, '5xl': 1024, '6xl': 1152, '7xl': 1280 };
+    for (const [k, v] of Object.entries(container)) {
+      expect(globais, `--container-${k}`).toContain(`--container-${k}: calc(${v}rem / 14);`);
+    }
+    const raio = { xs: 2, xl: 12, '2xl': 16, '3xl': 24, '4xl': 32 };
+    for (const [k, v] of Object.entries(raio)) {
+      expect(globais, `--radius-${k}`).toContain(`--radius-${k}: calc(${v}rem / 14);`);
+    }
+  });
+
+  it('os deslocamentos do cabeçalho fixo usam calc(N rem / 14)', () => {
+    expect(globais).toMatch(/\+ calc\(24rem \/ 14\)\)/);
+    expect(globais).toMatch(/\+ calc\(16rem \/ 14\)\)/);
+    expect(globais).not.toMatch(/\+ 1(\.5)?rem\)/);
+  });
+
+  it('nenhum px solto em style inline no JSX (cresce só em rem)', () => {
+    const achados = arquivos(SRC).flatMap((f) =>
+      [...readFileSync(f, 'utf8').matchAll(/style=\{\{[^}]*\d+px/g)].map((m) => `${f}: ${m[0]}`));
+    expect(achados).toEqual([]);
+  });
 });
