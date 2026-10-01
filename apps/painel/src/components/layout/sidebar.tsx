@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Building2, ClipboardList, Contact, House, MessagesSquare, PanelLeftClose, PanelLeftOpen, Settings, Sparkles, UserCog,
+  Building2, ClipboardList, Contact, GraduationCap, House, MessagesSquare, PanelLeftClose, PanelLeftOpen, Settings, Sparkles, UserCog,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -22,6 +22,7 @@ const ICONES: Record<string, LucideIcon> = {
   '/clientes': Building2,
   '/contatos': Contact,
   '/assistente': Sparkles,
+  '/treinar-agente': GraduationCap,
   '/usuarios': UserCog,
   '/configuracoes': Settings,
 };

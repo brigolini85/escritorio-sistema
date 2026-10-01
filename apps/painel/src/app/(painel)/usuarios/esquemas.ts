@@ -8,6 +8,7 @@ export const PERMISSOES = [
   { valor: 'emitir_notas', rotulo: 'Corrigir pedidos de nota e gerar CSV do Bling' },
   { valor: 'assistente_site', rotulo: 'Usar o assistente pelo site' },
   { valor: 'assistente_whatsapp', rotulo: 'Usar o assistente pelo WhatsApp (pelo telefone acima)' },
+  { valor: 'treinar_agente', rotulo: 'Treinar o agente' },
 ] as const;
 
 /** Vazio = sem telefone; preenchido tem de ser um telefone com DDD (senão o WhatsApp do assistente não reconheceria a pessoa). */

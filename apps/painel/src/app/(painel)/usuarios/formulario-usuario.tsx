@@ -24,8 +24,9 @@ const DESCRICAO_PERMISSAO: Record<(typeof PERMISSOES)[number]['valor'], string> 
   emitir_notas: 'Libera o CSV do Bling nas Demandas e no Assistente.',
   assistente_site: 'Abre a tela Assistente e a aba do assistente no Atendimento.',
   assistente_whatsapp: 'Conversa com o assistente mandando mensagem do telefone cadastrado.',
+  treinar_agente: 'Escreve e liga as orientações que o agente segue no atendimento.',
 };
-const PERMISSOES_DE_EDICAO = new Set(['editar_clientes', 'editar_precos', 'emitir_notas']);
+const PERMISSOES_DE_EDICAO = new Set(['editar_clientes', 'editar_precos', 'emitir_notas', 'treinar_agente']);
 
 /**
  * Formulário da pessoa (editar no painel lateral ou convidar na janela). Os mesmos campos de antes:
@@ -116,7 +117,7 @@ export function FormularioUsuario({
         <fieldset className="flex flex-col">
           <legend className="mb-1 text-sm font-medium text-foreground">Permissões</legend>
           {papel === 'admin' && (
-            <p className="mb-1 text-sm text-muted">O administrador já pode editar clientes, preços e pedidos de nota. As do assistente valem para ele também.</p>
+            <p className="mb-1 text-sm text-muted">O administrador já pode editar clientes, preços e pedidos de nota, e treinar o agente. As do assistente valem para ele também.</p>
           )}
           <ul className="flex flex-col divide-y divide-border">
             {PERMISSOES.map((p) => {

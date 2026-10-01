@@ -26,6 +26,10 @@ describe('UsuarioForm (aba Usuários, pedido do dono, 2026-09-29)', () => {
     expect(UsuarioForm.parse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', telefone: '' })).telefone).toBeNull();
     expect(UsuarioForm.parse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', telefone: '   ' })).telefone).toBeNull();
   });
+  it('aceita a permissão Treinar o agente (2026-09-30)', () => {
+    expect(UsuarioForm.parse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', permissao: 'treinar_agente' })).permissoes)
+      .toEqual(['treinar_agente']);
+  });
   it('recusa permissão desconhecida', () => {
     expect(UsuarioForm.safeParse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', permissao: 'apagar_tudo' })).success).toBe(false);
   });
