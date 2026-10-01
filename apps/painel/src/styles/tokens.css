@@ -94,13 +94,13 @@
 
   /* Forma e ritmo (mesmos nomes do tema do Tailwind: rounded-sm/md/lg e shadow-sm/md leem daqui) */
   --radius-sm: 4px; /* selos, caixas de seleção, itens de menu */
-  --radius-md: 6px; /* botões, campos, abas */
-  --radius-lg: 10px; /* cards, diálogos, popovers */
-  --sidebar-width: 240px; /* menu lateral aberto (utilitário w-sidebar) */
-  --sidebar-width-collapsed: 64px; /* menu lateral recolhido, só ícones (utilitário w-sidebar-recolhida) */
-  --conversation-list-width: 320px; /* lista de conversas do Atendimento (utilitário w-lista-conversas) */
-  --conversation-panel-width: 360px; /* painel direito da conversa, Assistente e Detalhes (utilitário w-painel-conversa) */
-  --reading-width: 760px; /* largura de leitura do chat da tela Assistente (utilitário max-w-leitura) */
+  --radius-md: 5px; /* botões, campos, abas e barras de ferramentas (spec 4.2) */
+  --radius-lg: 8px; /* cards, tabelas, painéis e janelas */
+  --sidebar-width: calc(260rem / 14); /* menu lateral aberto (utilitário w-sidebar) */
+  --sidebar-width-collapsed: calc(72rem / 14); /* menu recolhido, só ícones e atalhos empilhados (w-sidebar-recolhida) */
+  --conversation-list-width: calc(320rem / 14); /* lista de conversas do Atendimento */
+  --conversation-panel-width: calc(360rem / 14); /* painel direito da conversa */
+  --reading-width: calc(760rem / 14); /* largura de leitura do Assistente */
   --shadow-sm: 0 1px 2px 0 hsl(222 30% 10% / 0.06); /* cards e campos */
   --shadow-md: 0 4px 12px -2px hsl(222 30% 10% / 0.12), 0 2px 4px -2px hsl(222 30% 10% / 0.08); /* menus, popovers, diálogos */
 

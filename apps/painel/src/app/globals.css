@@ -99,21 +99,34 @@
   --shadow-md: var(--shadow-md);
 }
 
-/* Escala tipográfica fechada: xs 12 / sm 13 / base 14 / lg 16 / xl 20 / 2xl 24. Nada além disso. */
+/* Escala tipográfica fechada, em rem para crescer com a tela (base 14px: xs 12 / sm 13 / base 14 / lg 16 / xl 20 / 2xl 24 / 3xl 32 / display 64). */
 @theme {
   --text-*: initial;
-  --text-xs: 12px;
-  --text-xs--line-height: 16px;
-  --text-sm: 13px;
-  --text-sm--line-height: 18px;
-  --text-base: 14px;
-  --text-base--line-height: 20px;
-  --text-lg: 16px;
-  --text-lg--line-height: 24px;
-  --text-xl: 20px;
-  --text-xl--line-height: 28px;
-  --text-2xl: 24px;
-  --text-2xl--line-height: 32px;
+  --text-xs: calc(12rem / 14);
+  --text-xs--line-height: calc(16rem / 14);
+  --text-sm: calc(13rem / 14);
+  --text-sm--line-height: calc(18rem / 14);
+  --text-base: 1rem;
+  --text-base--line-height: calc(20rem / 14);
+  --text-lg: calc(16rem / 14);
+  --text-lg--line-height: calc(24rem / 14);
+  --text-xl: calc(20rem / 14);
+  --text-xl--line-height: calc(28rem / 14);
+  --text-2xl: calc(24rem / 14);
+  --text-2xl--line-height: calc(32rem / 14);
+  --text-3xl: calc(32rem / 14);
+  --text-3xl--line-height: calc(40rem / 14);
+  --text-display: calc(64rem / 14);
+  --text-display--line-height: 1.05;
+  /* Grade do Tailwind medida na base da letra: p-1 vale o mesmo de hoje a 1366 de largura e cresce junto em tela grande. */
+  --spacing: calc(4rem / 14);
+  /* Tela de entrada: duas colunas a partir de 900 de largura (spec 4.4). */
+  --breakpoint-login: 56.25rem;
+}
+
+/* Raio da pílula (rounded-pill): selos e campos de busca arredondados. */
+@theme {
+  --radius-pill: 18px;
 }
 
 @keyframes aparecer {
@@ -156,10 +169,10 @@
 }
 
 :root {
-  --altura-cabecalho-estimada: 3.5rem;
+  --altura-cabecalho-estimada: 4rem;
 }
 :root:has([data-faixa-ambiente]) {
-  --altura-cabecalho-estimada: 4.75rem;
+  --altura-cabecalho-estimada: calc(76rem / 14);
 }
 
 /*
@@ -181,11 +194,26 @@
 }
 
 @layer base {
-  /* A raiz fica no tamanho do navegador (rem = 16px, grade de 4px do Tailwind intacta); o corpo é 14px. */
+  /* A letra base mora na raiz e cresce com a tela (spec 4.2); tudo o mais é rem e cresce junto. */
   html {
+    --letra-base: 14px;
+    --letra-extra: 0px;
+    font-size: calc(var(--letra-base) + var(--letra-extra));
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
+  /* Preferência da pessoa no menu (Tamanho da letra): Grande +1px, Maior +2px. */
+  html.letra-grande { --letra-extra: 1px; }
+  html.letra-maior { --letra-extra: 2px; }
+
+  /* Ícones do lucide nascem com width/height em px; aqui viram rem para crescer com a letra. */
+  svg.lucide[width="8"] { width: calc(8rem / 14); height: calc(8rem / 14); }
+  svg.lucide[width="14"] { width: 1rem; height: 1rem; }
+  svg.lucide[width="16"] { width: calc(16rem / 14); height: calc(16rem / 14); }
+  svg.lucide[width="18"] { width: calc(18rem / 14); height: calc(18rem / 14); }
+  svg.lucide[width="20"] { width: calc(20rem / 14); height: calc(20rem / 14); }
+  svg.lucide[width="24"] { width: calc(24rem / 14); height: calc(24rem / 14); }
+  svg.lucide[width="40"] { width: calc(40rem / 14); height: calc(40rem / 14); }
 
   body {
     font-size: var(--text-base);
@@ -219,4 +247,12 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Degraus da letra base em tela grande (fora do @layer para vencer a regra do html). */
+@media (min-width: 1600px) {
+  html { --letra-base: 15px; }
+}
+@media (min-width: 1920px) {
+  html { --letra-base: 16px; }
 }
