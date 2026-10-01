@@ -91,7 +91,7 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
     expect(s).toContain('Seu nome é Thiago.');
     expect(s).toContain('"Oi, João! Aqui é o Thiago, do atendimento do escritório."');
     expect(s).toContain('nenhuma mensagem em <historico>');
-    expect(s).toContain('Não se apresente nem anuncie que é assistente virtual ou inteligência artificial');
+    expect(s).toContain('Não diga nem anuncie que é assistente virtual ou inteligência artificial');
     expect(s).toContain('nunca afirme ser uma pessoa');
     expect(s).toContain('diga com naturalidade que é o assistente virtual do escritório e que a equipe acompanha tudo');
     expect(s).toContain('Se já há mensagens em <historico>, não se apresente de novo');
@@ -109,6 +109,31 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
     expect(regra2).toContain('pagas até 2 dias antes de começar');
     expect(regra2).toContain('até 10 dias depois do último dia de trabalho');
     expect(s).toContain('dúvida técnica (fora as explicações gerais da regra 2) vira chamado');
+    expect(regra2).toContain('se o cliente também perguntou o que é aquilo, dê a explicação geral junto');
+    expect(regra2).toContain('o banco costuma pedir a declaração assinada pelo contador');
+    expect(regra2).toContain('pedir cópia de tudo e falar com o escritório antes de assinar');
+  });
+
+  it('regras 10 a 13: não inventar nem prometer, assunto sensível, sigilo e golpe, sem demanda repetida', () => {
+    expect(s).toContain('10. Nunca invente número, valor, prazo, norma ou andamento');
+    expect(s).toContain(String.fromCharCode(34) + 'vou confirmar com a equipe para não te passar nada errado' + String.fromCharCode(34));
+    expect(s).toContain('Nunca prometa o que depende da equipe');
+    expect(s).toContain('assim que a equipe analisar, te retorno por aqui');
+    const r11 = s.slice(s.indexOf('\n11. '), s.indexOf('\n12. '));
+    for (const item of ['salário ou parte dele por fora', 'pagamento em dinheiro sem registro', 'recibo', 'justa causa', 'qualquer outro pedido cuja resposta possa ser']) expect(r11).toContain(item);
+    for (const palavra of ['irregular', 'ilegal', 'não pode', 'não é permitido', 'não conseguimos fazer', 'dá multa', 'é crime', 'é arriscado', 'a lei exige']) expect(r11).toContain(String.fromCharCode(34) + palavra + String.fromCharCode(34));
+    expect(r11).toContain('abra no setor Direção');
+    expect(r11).toContain('ASSUNTO SENSÍVEL');
+    expect(r11).toContain('em ' + String.fromCharCode(34) + 'Setores envolvidos' + String.fromCharCode(34));
+    const r12 = s.slice(s.indexOf('\n12. '), s.indexOf('\n13. '));
+    for (const item of ['Nunca peça nem aceite senha', 'autorização do responsável', 'Nunca comente um cliente com outro', 'Possível golpe']) expect(r12).toContain(item);
+    expect(s).toContain('13. Não abra demanda repetida');
+    expect(s.indexOf('13. Não abra demanda repetida')).toBeLessThan(s.indexOf('SETORES:'));
+  });
+
+  it('regra 3a: nota sem venda ou com valor diferente do real é assunto sensível', () => {
+    const r3a = s.slice(s.indexOf('\n3a. '), s.indexOf('\n3b. '));
+    expect(r3a).toContain('Nota sem venda ou com valor diferente do real (para comprovar renda, etc.) é assunto sensível: não siga o fluxo de nota; trate como assunto sensível');
   });
 
   it('emoji continua proibido', () => {

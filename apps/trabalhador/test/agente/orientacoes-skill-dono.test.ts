@@ -22,10 +22,11 @@ describe('orientações da skill do dono (seed)', () => {
     expect(new Set(ORIENTACOES_SKILL_DONO.map((o) => o.titulo)).size).toBe(ORIENTACOES_SKILL_DONO.length);
   });
 
-  it('juntas cabem no limite de 12.000 caracteres pela mesma conta do prompt', () => {
+  it('juntas usam no máximo 9.000 dos 12.000 caracteres pela mesma conta do prompt', () => {
     const total = todas.reduce((soma, o) => soma + linhaOrientacao(o).length + 1, 0);
-    // Folga para a equipe preencher os "(a preencher)" de Dados do escritório sem cortar nada.
-    expect(total).toBeLessThanOrEqual(LIMITE_ORIENTACOES - 400);
+    // Sobram pelo menos 3.000 para a equipe preencher os Dados do escritório e escrever as suas orientações.
+    expect(total).toBeLessThanOrEqual(9_000);
+    expect(LIMITE_ORIENTACOES - total).toBeGreaterThanOrEqual(3_000);
     const r = orientacoesDaConversa(todas, { clienteId: null, setores: [] });
     expect(r.cortadas).toEqual([]);
     expect(r.gerais).toHaveLength(ORIENTACOES_SKILL_DONO.length);
@@ -58,6 +59,18 @@ describe('orientações da skill do dono (seed)', () => {
       expect(setores).toContain(`${nome}:`);
     }
     expect(ORIENTACOES_SKILL_DONO.map((o) => o.texto).join('\n')).not.toMatch(/Societário|Departamento Pessoal/);
+  });
+
+  it('o núcleo inviolável fica nas regras fixas, não no seed (não pode ser cortado nem desligado)', () => {
+    const tudo = ORIENTACOES_SKILL_DONO.map((o) => o.texto).join('\n');
+    expect(tudo).not.toMatch(/senha|irregular|não conseguimos fazer|\bPJ\b|em breve/i);
+    expect(ORIENTACOES_SKILL_DONO.map((o) => o.titulo)).not.toContain('Assuntos sensíveis');
+  });
+
+  it('assunto sensível e Direção: um roteamento só (Direção principal, técnico em Setores envolvidos)', () => {
+    const tudo = ORIENTACOES_SKILL_DONO.map((o) => o.texto).join('\n');
+    expect(tudo).not.toMatch(/com Direção\.|avise a Direção|com a Direção;/);
+    expect(tudo).toContain('a Direção em "Setores envolvidos"');
   });
 
   it('entram no prompt depois das regras fixas', () => {
