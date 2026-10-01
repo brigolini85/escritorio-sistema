@@ -20,7 +20,7 @@ vi.mock('@/lib/sessao', () => ({
   temPermissao: (u: { papel: string; permissoes: string[] }, p: string) => u.papel === 'admin' || u.permissoes.includes(p),
 }));
 
-import { ensinarAgente } from './acoes';
+import { alternarOrientacao, ensinarAgente, restaurarVersao } from './acoes';
 
 const EMPRESA = '11111111-1111-4111-8111-111111111111';
 const SETOR = '22222222-2222-4222-8222-222222222222';
@@ -89,5 +89,72 @@ describe('ensinarAgente', () => {
 
     falso.rpc.mockRejectedValueOnce(new Error('fetch failed'));
     expect(await ensinarAgente(form(basico))).toEqual({ erro: 'Não foi possível criar a orientação. Tente de novo em alguns minutos.' });
+  });
+});
+
+const P0001 = { code: 'P0001', message: 'Esta empresa está inativa. Escolha outra empresa ou reative o cadastro.' };
+const CRU = { code: '42501', message: 'permission denied for table orientacoes_agente' };
+
+describe('alternarOrientacao', () => {
+  it('liga e atualiza a tela', async () => {
+    falso.rpc.mockResolvedValueOnce({ data: null, error: null });
+    expect(await alternarOrientacao(NOVA, true)).toEqual({ erro: null });
+    expect(falso.rpc).toHaveBeenCalledWith('alternar_orientacao', { p_id: NOVA, p_ativo: true });
+    expect(falso.revalidatePath).toHaveBeenCalledWith('/treinar-agente');
+  });
+
+  it('só a mensagem P0001 chega à pessoa; erro inesperado vira mensagem padrão e vai para o log', async () => {
+    falso.rpc.mockResolvedValueOnce({ data: null, error: P0001 });
+    expect(await alternarOrientacao(NOVA, true)).toEqual({ erro: P0001.message });
+
+    falso.rpc.mockResolvedValueOnce({ data: null, error: CRU });
+    expect(await alternarOrientacao(NOVA, true)).toEqual({ erro: 'Não foi possível mudar a orientação. Tente de novo em alguns minutos.' });
+    expect(console.error).toHaveBeenCalledWith('[treinar-agente] falha ao ligar/desligar a orientação', CRU);
+
+    falso.rpc.mockRejectedValueOnce(new Error('fetch failed'));
+    expect(await alternarOrientacao(NOVA, false)).toEqual({ erro: 'Não foi possível mudar a orientação. Tente de novo em alguns minutos.' });
+    expect(falso.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('sem a permissão ou com id inválido: motivo claro, sem chamar o banco', async () => {
+    expect(await alternarOrientacao('x', true)).toEqual({ erro: 'Orientação não encontrada.' });
+    falso.usuario = { ...falso.usuario, permissoes: [] };
+    expect(await alternarOrientacao(NOVA, true)).toEqual({ erro: 'Você não tem permissão para treinar o agente.' });
+    expect(falso.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('restaurarVersao', () => {
+  const voltar = '/treinar-agente?orientacao=' + NOVA;
+  async function erroDe(p: Promise<void>): Promise<string | null> {
+    try { await p; return null; } catch (e) {
+      const url = (e as { url?: string }).url ?? '';
+      return new URLSearchParams(url.split('?')[1] ?? '').get('erro');
+    }
+  }
+
+  it('restaura com a versão pedida', async () => {
+    falso.rpc.mockResolvedValueOnce({ data: null, error: null });
+    expect(await erroDe(restaurarVersao(SETOR, voltar))).toBeNull();
+    expect(falso.rpc).toHaveBeenCalledWith('restaurar_orientacao', { p_versao_id: SETOR });
+  });
+
+  it('só a mensagem P0001 chega à pessoa; erro inesperado vira mensagem padrão e vai para o log', async () => {
+    falso.rpc.mockResolvedValueOnce({ data: null, error: P0001 });
+    expect(await erroDe(restaurarVersao(SETOR, voltar))).toBe(P0001.message);
+
+    falso.rpc.mockResolvedValueOnce({ data: null, error: CRU });
+    expect(await erroDe(restaurarVersao(SETOR, voltar))).toBe('Não foi possível restaurar a versão. Tente de novo em alguns minutos.');
+    expect(console.error).toHaveBeenCalledWith('[treinar-agente] falha ao restaurar a versão', CRU);
+
+    falso.rpc.mockRejectedValueOnce(new Error('fetch failed'));
+    expect(await erroDe(restaurarVersao(SETOR, voltar))).toBe('Não foi possível restaurar a versão. Tente de novo em alguns minutos.');
+  });
+
+  it('id inválido ou sem a permissão: motivo claro, sem chamar o banco', async () => {
+    expect(await erroDe(restaurarVersao('x', voltar))).toBe('Versão não encontrada.');
+    falso.usuario = { ...falso.usuario, permissoes: [] };
+    expect(await erroDe(restaurarVersao(SETOR, voltar))).toBe('Você não tem permissão para treinar o agente.');
+    expect(falso.rpc).not.toHaveBeenCalled();
   });
 });

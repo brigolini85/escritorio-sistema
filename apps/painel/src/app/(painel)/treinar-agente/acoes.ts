@@ -17,9 +17,21 @@ import {
 const SEM_PERMISSAO = 'Você não tem permissão para treinar o agente.';
 const FALHA_SALVAR = 'Não foi possível salvar a orientação. Tente de novo em alguns minutos.';
 const FALHA_CRIAR = 'Não foi possível criar a orientação. Tente de novo em alguns minutos.';
+const FALHA_ALTERNAR = 'Não foi possível mudar a orientação. Tente de novo em alguns minutos.';
+const FALHA_RESTAURAR = 'Não foi possível restaurar a versão. Tente de novo em alguns minutos.';
 
 /** Erro com texto já pensado para a pessoa (permissão, validação do banco). Os outros viram uma mensagem padrão. */
 class AvisoTreinar extends Error {}
+
+/**
+ * Erro de uma função do banco: P0001 (raise exception) traz mensagem em português escrita para a pessoa; o resto vai
+ * para o log e vira a mensagem padrão da ação.
+ */
+function avisoDoBanco(error: { code?: string; message: string }, log: string, padrao: string): AvisoTreinar {
+  if (error.code === 'P0001') return new AvisoTreinar(error.message);
+  console.error(`[treinar-agente] ${log}`, error);
+  return new AvisoTreinar(padrao);
+}
 
 /** Sessão de quem pode treinar o agente (a pessoa e o cliente dela). O banco confere de novo nas funções. */
 async function sessaoTreinar() {
@@ -51,12 +63,7 @@ async function gravarOrientacao(sb: Awaited<ReturnType<typeof exigirTreinar>>, i
     p_titulo: d.titulo, p_texto: d.texto, p_tipo: d.tipo,
     p_cliente_id: d.clienteId ?? undefined, p_setor_id: d.setorId ?? undefined, p_ativo: d.ativo,
   });
-  if (error) {
-    // P0001 = raise exception das funções do banco: mensagens em português escritas para a pessoa.
-    if (error.code === 'P0001') throw new AvisoTreinar(error.message);
-    console.error('[treinar-agente] falha ao salvar a orientação', error);
-    throw new AvisoTreinar(FALHA_SALVAR);
-  }
+  if (error) throw avisoDoBanco(error, 'falha ao salvar a orientação', FALHA_SALVAR);
   return data;
 }
 
@@ -114,12 +121,14 @@ export async function ensinarAgente(formData: FormData): Promise<{ id: string } 
 export async function alternarOrientacao(id: string, ativo: boolean): Promise<{ erro: string | null }> {
   try {
     const sb = await exigirTreinar();
-    if (!ehUuid(id)) throw new Error('Orientação não encontrada.');
+    if (!ehUuid(id)) throw new AvisoTreinar('Orientação não encontrada.');
     const { error } = await sb.rpc('alternar_orientacao', { p_id: id, p_ativo: ativo });
-    if (error) throw new Error(error.message);
+    if (error) throw avisoDoBanco(error, 'falha ao ligar/desligar a orientação', FALHA_ALTERNAR);
   } catch (e) {
     unstable_rethrow(e);   // sessão vencida: redirect para /entrar continua valendo
-    return { erro: e instanceof Error ? e.message : 'Não foi possível mudar a orientação.' };
+    if (e instanceof AvisoTreinar) return { erro: e.message };
+    console.error('[treinar-agente] falha ao ligar/desligar a orientação', e);
+    return { erro: FALHA_ALTERNAR };
   }
   revalidatePath('/treinar-agente');
   return { erro: null };
@@ -128,10 +137,17 @@ export async function alternarOrientacao(id: string, ativo: boolean): Promise<{ 
 /** Volta título, texto, tipo e "vale para" de uma versão; ligada/desligada continua como está (restaurar_orientacao). */
 export async function restaurarVersao(versaoId: string, voltar: string) {
   await comAvisoDeErro(destinoDaTela(voltar), async () => {
-    const sb = await exigirTreinar();
-    if (!ehUuid(versaoId)) throw new Error('Versão não encontrada.');
-    const { error } = await sb.rpc('restaurar_orientacao', { p_versao_id: versaoId });
-    if (error) throw new Error(error.message);
+    try {
+      const sb = await exigirTreinar();
+      if (!ehUuid(versaoId)) throw new AvisoTreinar('Versão não encontrada.');
+      const { error } = await sb.rpc('restaurar_orientacao', { p_versao_id: versaoId });
+      if (error) throw avisoDoBanco(error, 'falha ao restaurar a versão', FALHA_RESTAURAR);
+    } catch (e) {
+      unstable_rethrow(e);   // sessão vencida: redirect para /entrar continua valendo
+      if (e instanceof AvisoTreinar) throw e;
+      console.error('[treinar-agente] falha ao restaurar a versão', e);
+      throw new AvisoTreinar(FALHA_RESTAURAR);
+    }
   });
 }
 

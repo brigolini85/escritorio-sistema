@@ -121,8 +121,10 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
     expect(s).toContain('Nunca prometa o que depende da equipe');
     expect(s).toContain('assim que a equipe analisar, te retorno por aqui');
     const r11 = s.slice(s.indexOf('\n11. '), s.indexOf('\n12. '));
-    for (const item of ['salário ou parte dele por fora', 'pagamento em dinheiro sem registro', 'recibo', 'justa causa', 'pedido para fazer algo fora da regra']) expect(r11).toContain(item);
+    for (const item of ['salário ou parte dele por fora', 'pagamento em dinheiro sem registro', 'recibo', 'justa causa', 'pedido para fazer algo fora da regra', 'pedido para manter funcionário sem registro ou "em teste"']) expect(r11).toContain(item);
     expect(r11).toContain('não é assunto sensível: segue a regra 2, no setor técnico');
+    expect(r11).toContain('Registrar funcionário que já começou a trabalhar também não é: é do Pessoal, como URGENTE.');
+    expect(r11).not.toContain(', funcionário sem registro');
     for (const palavra of ['irregular', 'ilegal', 'não pode', 'não é permitido', 'não conseguimos fazer', 'dá multa', 'é crime', 'é arriscado', 'a lei exige']) expect(r11).toContain(String.fromCharCode(34) + palavra + String.fromCharCode(34));
     expect(r11).toContain('abra no setor Direção');
     expect(r11).toContain('ASSUNTO SENSÍVEL');
