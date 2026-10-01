@@ -3,7 +3,7 @@
 import { ChevronDown, FlaskConical, Info, LoaderCircle, RotateCcw, Send } from 'lucide-react';
 import { useEffect, useId, useState, useTransition, type FormEvent } from 'react';
 import { AvisoErro } from '@/components/patterns/aviso-erro';
-import { EscolherEmpresa, type EmpresaOpcao } from '@/components/patterns/escolher-empresa';
+import { EscolherEmpresa } from '@/components/patterns/escolher-empresa';
 import { FormField } from '@/components/patterns/form-field';
 import { MessageBubble } from '@/components/patterns/message-bubble';
 import { StatusBadge } from '@/components/patterns/status-badge';
@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/cn';
 import { autenticarTempoReal, supabaseNavegador } from '@/lib/supabase/navegador';
-import { testarAgente } from './acoes';
+import { empresasParaTeste, testarAgente, type EmpresasTeste } from './acoes';
+import { AVISO_EMPRESAS_INCOMPLETAS } from './esquemas';
 import {
   INTERVALO_CONSULTA_MS, LIMITE_MENSAGEM_TESTE, MENSAGEM_FALHA_TESTE, MENSAGEM_SEM_RESPOSTA, PRAZO_ESPERA_MS, prazoDoTeste,
   resultadoDaLinha, type LinhaSimulacao, type PedidoTeste, type RascunhoTeste, type RespostasSimulacao,
@@ -24,6 +25,9 @@ type Fase = 'pensando' | 'pronta' | 'erro' | 'atrasou';
  * Acompanha um teste: tempo real na linha da simulação (com a sessão da pessoa; o RLS só entrega as dela) e, de
  * reserva, uma consulta a cada 3 s enquanto pendente. Para em pronta/erro ou no prazo ("não respondeu a tempo").
  */
+/** Contador das montagens de useSimulacao (sufixo do tópico do canal). */
+let montagens = 0;
+
 function useSimulacao(id: string): { linha: LinhaSimulacao | null; atrasou: boolean } {
   const [linha, setLinha] = useState<LinhaSimulacao | null>(null);
   const [atrasou, setAtrasou] = useState(false);
@@ -76,7 +80,8 @@ function useSimulacao(id: string): { linha: LinhaSimulacao | null; atrasou: bool
     void ler();
     void autenticarTempoReal(sb).then((ok) => {
       if (!ativo || !ok) return;
-      canal = sb.channel(`simulacao-${id}`)
+      // Tópico único por montagem: o canal anterior do mesmo teste pode ainda estar saindo (removeChannel é assíncrono).
+      canal = sb.channel(`simulacao-${id}-${++montagens}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'simulacoes_agente', filter: `id=eq.${id}` }, () => void ler())
         .subscribe();
     });
@@ -168,13 +173,32 @@ function ResultadoTeste({ id, aviso, aoMudarFase, tentarDeNovo }: {
   );
 }
 
-/** Conteúdo do Dialog (montado só aberto: fechar e abrir começa um teste novo). */
-function ConteudoTeste({ empresas, rascunho, avisoEmpresas }: { empresas: EmpresaOpcao[]; rascunho: RascunhoTeste | null; avisoEmpresas?: string | null }) {
+/** Conteúdo do Dialog (montado só aberto: fechar e abrir começa um teste novo e relê as empresas). */
+function ConteudoTeste({ rascunho }: { rascunho: RascunhoTeste | null }) {
   const id = useId();
-  const inicial = rascunho?.cliente_id && empresas.some((e) => e.id === rascunho.cliente_id) ? rascunho.cliente_id : null;
   const [mensagem, setMensagem] = useState('');
-  const [empresa, setEmpresa] = useState<string | null>(inicial);
+  // A empresa da orientação em teste vem escolhida; se ela não estiver entre as ativas, sai quando a lista chegar.
+  const [empresa, setEmpresa] = useState<string | null>(rascunho?.cliente_id ?? null);
   const [versaoEmpresa, setVersaoEmpresa] = useState(0);
+  const [lista, setLista] = useState<EmpresasTeste | null>(null);
+
+  useEffect(() => {
+    let ativo = true;
+    void empresasParaTeste()
+      .catch((e: unknown) => {
+        console.error('[treinar-agente] falha ao carregar as empresas do teste', e);
+        return { empresas: [], aviso: AVISO_EMPRESAS_INCOMPLETAS } satisfies EmpresasTeste;
+      })
+      .then((l) => {
+        if (!ativo) return;
+        const ativas = { ...l, empresas: l.empresas.filter((e) => !e.inativa) };
+        setLista(ativas);
+        setEmpresa((atual) => (atual && ativas.empresas.some((e) => e.id === atual) ? atual : null));
+        setVersaoEmpresa((v) => v + 1);
+      });
+    return () => { ativo = false; };
+  }, []);
+
   const [teste, setTeste] = useState<{ id: string; aviso: string | null; vez: number } | null>(null);
   const [fase, setFase] = useState<Fase | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -251,16 +275,17 @@ function ConteudoTeste({ empresas, rascunho, avisoEmpresas }: { empresas: Empres
           ajuda={(
             <>
               Sem empresa, o agente atende como um número desconhecido. Com empresa, como um contato dela.
-              {avisoEmpresas && <span className="block text-warning">{avisoEmpresas}</span>}
+              {lista?.aviso && <span className="block text-warning">{lista.aviso}</span>}
             </>
           )}
         >
           <EscolherEmpresa
             key={versaoEmpresa}
             name="cliente_id"
-            empresas={empresas}
+            empresas={lista?.empresas ?? []}
             inicial={empresa}
-            placeholder="Nenhuma empresa"
+            placeholder={lista ? 'Nenhuma empresa' : 'Carregando empresas…'}
+            disabled={!lista}
             aoMudar={setEmpresa}
           />
         </FormField>
@@ -301,15 +326,13 @@ function ConteudoTeste({ empresas, rascunho, avisoEmpresas }: { empresas: Empres
 }
 
 /**
- * Dialog "Testar o agente": mensagem do cliente, empresa (opcional, só ativas) e, quando vem do formulário, a orientação
+ * Dialog "Testar o agente": mensagem do cliente, empresa (opcional, só ativas, lidas ao abrir) e, quando vem do formulário, a orientação
  * ainda não salva (rascunho). O teste roda no trabalhador (fila simular_agente) sem enviar nem gravar nada.
  */
-export function DialogTestarAgente({ aberto, aoMudarAberto, empresas, rascunho = null, avisoEmpresas }: {
+export function DialogTestarAgente({ aberto, aoMudarAberto, rascunho = null }: {
   aberto: boolean;
   aoMudarAberto: (aberto: boolean) => void;
-  empresas: EmpresaOpcao[];
   rascunho?: RascunhoTeste | null;
-  avisoEmpresas?: string | null;
 }) {
   return (
     <Dialog open={aberto} onOpenChange={aoMudarAberto}>
@@ -318,14 +341,14 @@ export function DialogTestarAgente({ aberto, aoMudarAberto, empresas, rascunho =
           <DialogTitle>{rascunho ? 'Testar esta orientação' : 'Testar o agente'}</DialogTitle>
           <DialogDescription>Escreva uma mensagem como se fosse o cliente e veja o que o agente responderia.</DialogDescription>
         </DialogHeader>
-        <ConteudoTeste empresas={empresas.filter((e) => !e.inativa)} rascunho={rascunho} avisoEmpresas={avisoEmpresas} />
+        <ConteudoTeste rascunho={rascunho} />
       </DialogContent>
     </Dialog>
   );
 }
 
 /** Botão do cabeçalho da tela: testa o agente com as orientações ligadas, sem rascunho. */
-export function BotaoTestarAgente({ empresas, avisoEmpresas }: { empresas: EmpresaOpcao[]; avisoEmpresas?: string | null }) {
+export function BotaoTestarAgente() {
   const [aberto, setAberto] = useState(false);
   return (
     <>
@@ -333,7 +356,7 @@ export function BotaoTestarAgente({ empresas, avisoEmpresas }: { empresas: Empre
         <FlaskConical aria-hidden size={16} strokeWidth={1.75} />
         Testar o agente
       </Button>
-      <DialogTestarAgente aberto={aberto} aoMudarAberto={setAberto} empresas={empresas} avisoEmpresas={avisoEmpresas} />
+      <DialogTestarAgente aberto={aberto} aoMudarAberto={setAberto} />
     </>
   );
 }

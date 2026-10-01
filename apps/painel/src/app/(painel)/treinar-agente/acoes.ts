@@ -1,23 +1,30 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect, unstable_rethrow } from 'next/navigation';
+import type { EmpresaOpcao } from '@/components/patterns/escolher-empresa';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { enfileirarSimulacao } from '@/lib/fila';
+import { lerEmPaginas } from '@/lib/paginas';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { hrefComParams } from '@/lib/tabela-url';
-import { destinoDaTela, ehUuid, OrientacaoForm } from './esquemas';
+import { AVISO_EMPRESAS_INCOMPLETAS, destinoDaTela, ehUuid, opcaoEmpresa, OrientacaoForm } from './esquemas';
 import {
   ERRO_BANCO_PENDENTE, MENSAGEM_FALHA_TESTE, MENSAGEM_FILA_FORA, MENSAGEM_TESTE_PENDENTE, PedidoTeste,
 } from './simulacao';
 
 const SEM_PERMISSAO = 'Você não tem permissão para treinar o agente.';
 
-/** Sessão de quem pode treinar o agente. O banco confere de novo (funções salvar/alternar/restaurar_orientacao). */
-async function exigirTreinar() {
+/** Sessão de quem pode treinar o agente (a pessoa e o cliente dela). O banco confere de novo nas funções. */
+async function sessaoTreinar() {
   const u = await obterUsuario();
   if (!temPermissao(u, 'treinar_agente')) throw new Error(SEM_PERMISSAO);
-  return supabaseServidor();
+  return { u, sb: await supabaseServidor() };
+}
+
+/** Cliente de quem pode treinar o agente (funções salvar/alternar/restaurar_orientacao conferem de novo). */
+async function exigirTreinar() {
+  return (await sessaoTreinar()).sb;
 }
 
 /** O mesmo endereço (filtros da lista) com outro painel aberto. */
@@ -89,7 +96,7 @@ export type RespostaTeste = { id: string; aviso: string | null } | { erro: strin
  */
 export async function testarAgente(entrada: PedidoTeste): Promise<RespostaTeste> {
   try {
-    const sb = await exigirTreinar();
+    const { u, sb } = await sessaoTreinar();
     const pedido = PedidoTeste.safeParse(entrada);
     if (!pedido.success) return { erro: pedido.error.issues[0]?.message ?? 'Pedido de teste inválido.' };
     const { mensagem, clienteId, rascunho } = pedido.data;
@@ -100,8 +107,8 @@ export async function testarAgente(entrada: PedidoTeste): Promise<RespostaTeste>
     let simulacao: string | null = id;
     if (error) {
       if (!error.message.startsWith(ERRO_BANCO_PENDENTE)) return { erro: error.message };
-      // O RLS só mostra as simulações da própria pessoa.
-      const { data: pendente } = await sb.from('simulacoes_agente').select('id').eq('status', 'pendente')
+      // Só as da própria pessoa (o RLS também restringe; o filtro não depende dele).
+      const { data: pendente } = await sb.from('simulacoes_agente').select('id').eq('usuario_id', u.id).eq('status', 'pendente')
         .order('criado_em', { ascending: false }).limit(1).maybeSingle();
       if (!pendente) return { erro: error.message };
       simulacao = pendente.id;
@@ -119,5 +126,25 @@ export async function testarAgente(entrada: PedidoTeste): Promise<RespostaTeste>
   } catch (e) {
     unstable_rethrow(e);   // sessão vencida: redirect para /entrar continua valendo
     return { erro: e instanceof Error ? e.message : MENSAGEM_FALHA_TESTE };
+  }
+}
+
+export type EmpresasTeste = { empresas: EmpresaOpcao[]; aviso: string | null };
+
+/**
+ * Empresas ativas para o Dialog "Testar o agente", lidas quando ele abre (não pesam na tela nem vão duas vezes na
+ * página). Cliente da pessoa, de 1000 em 1000. Falha ou lista cortada: o que veio + aviso discreto.
+ */
+export async function empresasParaTeste(): Promise<EmpresasTeste> {
+  try {
+    const sb = await exigirTreinar();
+    const { data, error, parcial } = await lerEmPaginas((de, ate) => sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj, ativo')
+      .eq('ativo', true).order('razao_social').order('id').range(de, ate));
+    if (error || parcial) console.error('[treinar-agente] empresas do teste incompletas', error ?? 'limite de páginas');
+    return { empresas: data.map(opcaoEmpresa), aviso: error || parcial ? AVISO_EMPRESAS_INCOMPLETAS : null };
+  } catch (e) {
+    unstable_rethrow(e);
+    console.error('[treinar-agente] falha ao ler as empresas do teste', e);
+    return { empresas: [], aviso: AVISO_EMPRESAS_INCOMPLETAS };
   }
 }

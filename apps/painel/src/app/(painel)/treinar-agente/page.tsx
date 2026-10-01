@@ -14,7 +14,6 @@ import { variantesBotao } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SheetBody, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
-import { mascararCNPJ } from '@/lib/formatos';
 import { medirOrientacoes, ROTULO_TIPO, TIPOS, type TipoOrientacao } from '@/lib/orientacoes';
 import { lerEmPaginas } from '@/lib/paginas';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
@@ -23,7 +22,7 @@ import { hrefComParams, lerOrdem, ordenarLinhas, valorParam, type ParamsBusca } 
 import { AbasOrientacao } from './abas-orientacao';
 import { restaurarVersao, salvarOrientacao } from './acoes';
 import { ChaveOrientacao } from './chave-orientacao';
-import { ehUuid, lerFiltrosOrientacoes, MODELOS, modeloPorId, normalizarBusca } from './esquemas';
+import { AVISO_EMPRESAS_INCOMPLETAS, ehUuid, lerFiltrosOrientacoes, MODELOS, modeloPorId, nomeEmpresa, normalizarBusca, opcaoEmpresa } from './esquemas';
 import { FormularioOrientacao, type DadosFormulario, type SetorOpcao } from './formulario-orientacao';
 import { HistoricoOrientacao } from './historico-orientacao';
 import { MedidorOrientacoes } from './medidor';
@@ -42,8 +41,6 @@ type Linha = DadosFormulario & {
   empresa: { nome: string; ativa: boolean } | null;
   setor: { nome: string; ativo: boolean } | null;
 };
-
-const nomeEmpresa = (c: { razao_social: string; nome_fantasia: string | null }) => c.nome_fantasia || c.razao_social;
 
 function ValePara({ l }: { l: Pick<Linha, 'empresa' | 'setor' | 'clienteId' | 'setorId'> }) {
   if (l.clienteId) {
@@ -126,9 +123,12 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
       .select('id, titulo, texto, tipo, cliente_id, setor_id, ativo, atualizado_em, clientes(razao_social, nome_fantasia, ativo), setores(nome, ativo), atualizador:usuarios!orientacoes_agente_atualizado_por_fkey(nome)')
       .order('atualizado_em', { ascending: false }).order('id').range(de, ate)),
     sb.from('setores').select('id, nome, ativo').order('nome'),
-    // Empresas ativas para o formulário e para "Testar o agente", todas as páginas; a inativa da orientação aberta vem à parte.
-    lerEmPaginas((de, ate) => sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj, ativo').eq('ativo', true)
-      .order('razao_social').order('id').range(de, ate)),
+    // Empresas ativas para o formulário (painel aberto), todas as páginas; a inativa da orientação aberta vem à parte.
+    // O Dialog "Testar o agente" carrega as suas ao abrir (empresasParaTeste).
+    aberta
+      ? lerEmPaginas((de, ate) => sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj, ativo').eq('ativo', true)
+        .order('razao_social').order('id').range(de, ate))
+      : Promise.resolve({ data: [], error: null, parcial: false }),
     // Histórico inteiro (a mais nova primeiro; id desempata versões do mesmo instante).
     aberta && aberta !== 'nova'
       ? lerEmPaginas((de, ate) => sb.from('orientacoes_agente_versoes').select(colunasVersao)
@@ -144,7 +144,7 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
   if (leituraVersoes.error || leituraVersoes.parcial) console.error('[treinar-agente] histórico incompleto', leituraVersoes.error ?? 'limite de páginas');
   // Avisos discretos: a tela continua com o que veio.
   const avisoLista = lista.parcial ? 'A lista mostra só parte das orientações (são muitas); use a busca e os filtros.' : null;
-  const avisoEmpresas = leituraEmpresas.error || leituraEmpresas.parcial ? 'Não consegui carregar todas as empresas: alguma pode faltar na busca.' : null;
+  const avisoEmpresas = leituraEmpresas.error || leituraEmpresas.parcial ? AVISO_EMPRESAS_INCOMPLETAS : null;
   const avisoHistorico = leituraVersoes.error || leituraVersoes.parcial ? 'Não consegui carregar o histórico inteiro: as versões mais antigas podem faltar.' : null;
 
   const todas: Linha[] = (orientacoes ?? []).map((o) => ({
@@ -231,7 +231,7 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
     : { data: [] };
   const todasEmpresas = [...clientes, ...(outras ?? [])];
   const empresas: EmpresaOpcao[] = [...clientes, ...(outras ?? []).filter((c) => c.id === atual?.clienteId)]
-    .map((c) => ({ id: c.id, nome: nomeEmpresa(c), detalhe: [c.nome_fantasia ? c.razao_social : null, mascararCNPJ(c.cnpj)].filter(Boolean).join(' · '), inativa: !c.ativo }));
+    .map(opcaoEmpresa);
   const nomes = {
     empresa: new Map(todasEmpresas.map((c) => [c.id, nomeEmpresa(c)])),
     setor: new Map(opcoesSetor.map((s) => [s.id, s.nome])),
@@ -253,7 +253,7 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
         descricao="Orientações que o agente de clientes segue no WhatsApp. As regras fixas dele continuam valendo; o que você liga aqui vale a partir da próxima mensagem."
         acoes={(
           <>
-            <BotaoTestarAgente empresas={empresas} avisoEmpresas={avisoEmpresas} />
+            <BotaoTestarAgente />
             <Link href={hrefPainel('nova')} scroll={false} className={variantesBotao({ size: 'sm' })}>
               <Plus aria-hidden size={16} strokeWidth={1.75} />
               Nova orientação

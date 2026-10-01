@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { LIMITE_TEXTO, LIMITE_TITULO, TIPOS, type TipoOrientacao } from '../../../lib/orientacoes';
 import { valorParam, type ParamsBusca } from '../../../lib/tabela-url';
+import { mascararCNPJ } from '../../../lib/formatos';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const ehUuid = (v: string | null | undefined): v is string => Boolean(v && UUID.test(v));
@@ -84,3 +85,13 @@ export const MODELOS = [
 export function modeloPorId(id: string | undefined) {
   return MODELOS.find((m) => m.id === id) ?? null;
 }
+
+type LinhaEmpresa = { id: string; razao_social: string; nome_fantasia: string | null; cnpj: string; ativo: boolean };
+export const nomeEmpresa = (c: Pick<LinhaEmpresa, 'razao_social' | 'nome_fantasia'>) => c.nome_fantasia || c.razao_social;
+
+/** Linha de clientes → opção do EscolherEmpresa (nome fantasia, razão social + CNPJ no detalhe). */
+export function opcaoEmpresa(c: LinhaEmpresa): { id: string; nome: string; detalhe: string; inativa: boolean } {
+  return { id: c.id, nome: nomeEmpresa(c), detalhe: [c.nome_fantasia ? c.razao_social : null, mascararCNPJ(c.cnpj)].filter(Boolean).join(' · '), inativa: !c.ativo };
+}
+
+export const AVISO_EMPRESAS_INCOMPLETAS = 'Não consegui carregar todas as empresas: alguma pode faltar na busca.';

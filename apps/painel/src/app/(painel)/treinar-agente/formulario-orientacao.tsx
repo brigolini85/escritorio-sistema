@@ -205,7 +205,7 @@ export function FormularioOrientacao({
       </div>
     </FormularioAlteravel>
     {/* Fora do <form> na árvore do React: os eventos do Dialog (portal) não chegam ao formulário da orientação. */}
-    <DialogTestarAgente aberto={testando} aoMudarAberto={setTestando} empresas={empresas} rascunho={rascunho} avisoEmpresas={avisoEmpresas} />
+    <DialogTestarAgente aberto={testando} aoMudarAberto={setTestando} rascunho={rascunho} />
     </>
   );
 }
