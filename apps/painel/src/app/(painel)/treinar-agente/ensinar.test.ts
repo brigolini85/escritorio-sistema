@@ -30,6 +30,11 @@ describe('sugerirTitulo', () => {
     expect(sugerirTitulo('')).toBe(TITULO_PADRAO);
     expect(sugerirTitulo('Cliente: “”')).toBe(TITULO_PADRAO);
   });
+  it('mantém as aspas que o cliente escreveu e troca < e >', () => {
+    expect(sugerirTitulo('Cliente: “Ele disse “urgente” ontem”')).toBe('Ele disse “urgente” ontem');
+    expect(sugerirTitulo('Cliente: "nota" <script>')).toBe('"nota" ‹script›');
+    expect(sugerirTitulo(situacaoDasMensagens(['Quero a <nota> "fiscal"']))).toBe('Quero a ‹nota› "fiscal"');
+  });
   it('não passa de 60 caracteres', () => {
     expect(sugerirTitulo(`Cliente: “${'palavragrande'.repeat(10)}”`).length).toBeLessThanOrEqual(60);
   });
@@ -42,8 +47,8 @@ describe('comporTexto', () => {
   it('sem situação fica só o que fazer', () => {
     expect(comporTexto('  ', 'Peça o mês')).toBe('O que fazer: Peça o mês');
   });
-  it('neutraliza < e > no texto inteiro', () => {
-    expect(comporTexto('<a>', 'b > c')).toBe('Situação: ‹a›\nO que fazer: b › c');
+  it('não mexe no texto da equipe (as linhas do cliente já vêm neutralizadas; o trabalhador troca < e > no prompt)', () => {
+    expect(comporTexto('<a>', 'b > c')).toBe('Situação: <a>\nO que fazer: b > c');
     expect(neutralizar('<>')).toBe('‹›');
   });
 });

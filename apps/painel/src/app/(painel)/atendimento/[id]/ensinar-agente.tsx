@@ -1,8 +1,8 @@
 'use client';
 
-import { GraduationCap, LoaderCircle, TriangleAlert } from 'lucide-react';
+import { CircleCheck, GraduationCap, LoaderCircle, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
-import { useId, useState, useTransition, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { AvisoErro } from '@/components/patterns/aviso-erro';
 import { FormField } from '@/components/patterns/form-field';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from '@/components/ui/toaster';
 import { cn } from '@/lib/cn';
 import { LIMITE_TEXTO, LIMITE_TITULO, ROTULO_TIPO, TIPOS } from '@/lib/orientacoes';
 import { classeCaixa } from '../../clientes/estilos';
@@ -21,12 +20,13 @@ import { classeOpcao, DESCRICAO_TIPO } from '../../treinar-agente/opcoes';
 
 export type EmpresaEnsinar = { id: string; nome: string; ativa: boolean };
 
-const FALHA = 'Não foi possível criar a orientação.';
+const FALHA = 'Não foi possível criar a orientação. Tente de novo em alguns minutos.';
 
 /**
  * Botão "Ensinar o agente" do cabeçalho da conversa (só para quem pode treinar o agente; a action confere de novo).
  * Abre um Dialog com a situação já preenchida pelas últimas mensagens do cliente, o que o agente deve fazer, tipo,
  * "vale para" (a empresa da conversa ou todos), título sugerido e ligada (desligada por padrão: alguém revisa antes).
+ * Criada, o Dialog continua aberto com a confirmação e o link para a orientação (sem prazo para sumir).
  */
 export function EnsinarAgente({ situacao, empresa }: { situacao: string; empresa: EmpresaEnsinar | null }) {
   const [aberto, setAberto] = useState(false);
@@ -44,14 +44,15 @@ export function EnsinarAgente({ situacao, empresa }: { situacao: string; empresa
           <DialogDescription>Crie uma orientação a partir desta conversa. Ela aparece em Treinar o agente.</DialogDescription>
         </DialogHeader>
         {/* Montado só aberto: cada abertura começa da conversa como está. */}
-        <ConteudoEnsinar situacaoInicial={situacao} empresa={empresa} aoCriar={() => setAberto(false)} />
+        <ConteudoEnsinar situacaoInicial={situacao} empresa={empresa} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function ConteudoEnsinar({ situacaoInicial, empresa, aoCriar }: { situacaoInicial: string; empresa: EmpresaEnsinar | null; aoCriar: () => void }) {
+function ConteudoEnsinar({ situacaoInicial, empresa }: { situacaoInicial: string; empresa: EmpresaEnsinar | null }) {
   const id = useId();
+  const [criada, setCriada] = useState<{ id: string; ligada: boolean } | null>(null);
   const [situacao, setSituacao] = useState(situacaoInicial);
   const [fazer, setFazer] = useState('');
   const [erro, setErro] = useState<string | null>(null);
@@ -76,18 +77,11 @@ function ConteudoEnsinar({ situacaoInicial, empresa, aoCriar }: { situacaoInicia
         setErro(r.erro);
         return;
       }
-      aoCriar();
-      toast.success('Orientação criada', {
-        duration: 10_000,
-        description: (
-          <span>
-            {dados.get('ativo') === 'on' ? 'Já vale a partir da próxima mensagem. ' : 'Está desligada até alguém revisar e ligar. '}
-            <Link href={`/treinar-agente?orientacao=${r.id}`} className="font-medium text-brand underline underline-offset-4">Abrir em Treinar o agente</Link>
-          </span>
-        ),
-      });
+      setCriada({ id: r.id, ligada: dados.get('ativo') === 'on' });
     });
   };
+
+  if (criada) return <OrientacaoCriada {...criada} />;
 
   return (
     <form onSubmit={enviar} className="flex flex-col gap-5">
@@ -184,5 +178,28 @@ function ConteudoEnsinar({ situacaoInicial, empresa, aoCriar }: { situacaoInicia
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+/** Confirmação dentro do Dialog: o foco vai para o link da orientação criada (fica até a pessoa fechar). */
+function OrientacaoCriada({ id, ligada }: { id: string; ligada: boolean }) {
+  const link = useRef<HTMLAnchorElement>(null);
+  useEffect(() => { link.current?.focus(); }, []);
+  return (
+    <div className="flex flex-col gap-4">
+      <div role="status" className="flex items-start gap-2 rounded-md bg-success-soft p-3 text-sm text-success">
+        <CircleCheck aria-hidden size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+        <p>
+          <span className="font-medium">Orientação criada.</span>{' '}
+          {ligada ? 'Já vale a partir da próxima mensagem.' : 'Está desligada até alguém revisar e ligar.'}
+        </p>
+      </div>
+      <DialogFooter>
+        <DialogClose asChild><Button type="button" variant="outline">Fechar</Button></DialogClose>
+        <Button asChild>
+          <Link ref={link} href={`/treinar-agente?orientacao=${id}`}>Abrir na tela Treinar o agente</Link>
+        </Button>
+      </DialogFooter>
+    </div>
   );
 }

@@ -167,6 +167,12 @@ for (const tema of ['claro', 'escuro'] as const) {
       await page.getByRole('button', { name: 'Ensinar o agente' }).click();
       await expect(page.getByRole('dialog', { name: 'Ensinar o agente' }).getByLabel('Situação', { exact: true })).toBeVisible();
       erros.push(...(await auditar(page, 'Ensinar o agente', tema)));
+      // Criada: a confirmação fica no Dialog (a orientação é da empresa deste spec e sai com ela no afterAll).
+      const ensinar = page.getByRole('dialog', { name: 'Ensinar o agente' });
+      await ensinar.getByLabel('O que o agente deve fazer').fill('Responda com o prazo do comprovante.');
+      await ensinar.getByRole('button', { name: 'Criar orientação' }).click();
+      await expect(ensinar.getByRole('status')).toContainText('Orientação criada.');
+      erros.push(...(await auditar(page, 'Ensinar o agente (criada)', tema)));
       await page.keyboard.press('Escape');
 
       // Treinar o agente: busca de empresa aberta no formulário e confirmação de restaurar uma versão.

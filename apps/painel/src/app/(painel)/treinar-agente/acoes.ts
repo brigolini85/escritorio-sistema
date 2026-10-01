@@ -15,11 +15,16 @@ import {
 } from './simulacao';
 
 const SEM_PERMISSAO = 'Você não tem permissão para treinar o agente.';
+const FALHA_SALVAR = 'Não foi possível salvar a orientação. Tente de novo em alguns minutos.';
+const FALHA_CRIAR = 'Não foi possível criar a orientação. Tente de novo em alguns minutos.';
+
+/** Erro com texto já pensado para a pessoa (permissão, validação do banco). Os outros viram uma mensagem padrão. */
+class AvisoTreinar extends Error {}
 
 /** Sessão de quem pode treinar o agente (a pessoa e o cliente dela). O banco confere de novo nas funções. */
 async function sessaoTreinar() {
   const u = await obterUsuario();
-  if (!temPermissao(u, 'treinar_agente')) throw new Error(SEM_PERMISSAO);
+  if (!temPermissao(u, 'treinar_agente')) throw new AvisoTreinar(SEM_PERMISSAO);
   return { u, sb: await supabaseServidor() };
 }
 
@@ -39,14 +44,19 @@ function comOrientacao(destino: string, mudancas: Record<string, string | null>)
  * novo e grava a versão e a auditoria). Devolve o id. Usada pela tela e pelo "Ensinar o agente" do Atendimento.
  */
 async function gravarOrientacao(sb: Awaited<ReturnType<typeof exigirTreinar>>, id: string | null, d: DadosOrientacao): Promise<string> {
-  if (id !== null && !ehUuid(id)) throw new Error('Orientação não encontrada.');
+  if (id !== null && !ehUuid(id)) throw new AvisoTreinar('Orientação não encontrada.');
   const { data, error } = await sb.rpc('salvar_orientacao', {
     // Para criar, o banco recebe null (o tipo gerado marca p_id como obrigatório por vir antes dos que têm padrão).
     p_id: id as unknown as string,
     p_titulo: d.titulo, p_texto: d.texto, p_tipo: d.tipo,
     p_cliente_id: d.clienteId ?? undefined, p_setor_id: d.setorId ?? undefined, p_ativo: d.ativo,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // P0001 = raise exception das funções do banco: mensagens em português escritas para a pessoa.
+    if (error.code === 'P0001') throw new AvisoTreinar(error.message);
+    console.error('[treinar-agente] falha ao salvar a orientação', error);
+    throw new AvisoTreinar(FALHA_SALVAR);
+  }
   return data;
 }
 
@@ -91,7 +101,9 @@ export async function ensinarAgente(formData: FormData): Promise<{ id: string } 
     return { id };
   } catch (e) {
     unstable_rethrow(e);   // sessão vencida: redirect para /entrar continua valendo
-    return { erro: e instanceof Error ? e.message : 'Não foi possível criar a orientação.' };
+    if (e instanceof AvisoTreinar) return { erro: e.message };
+    console.error('[treinar-agente] falha ao criar a orientação pelo Atendimento', e);
+    return { erro: FALHA_CRIAR };
   }
 }
 

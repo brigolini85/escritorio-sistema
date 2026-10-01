@@ -35,7 +35,10 @@ const TITULO_SUGERIDO = 'Bom dia, preciso da segunda via do boleto';
 async function limpar() {
   await db.from('chamados').delete().eq('titulo', DEMANDA);
   await db.from('conversas').delete().eq('telefone', TELEFONE);
-  await db.from('orientacoes_agente').delete().in('titulo', [TITULO_SUGERIDO, '2ª via pelo WhatsApp']);
+  // Só as criadas por este spec: as da empresa de teste (cascata ao apagar a empresa) e as dos usuários de teste.
+  const { data: usuarios } = await db.from('usuarios').select('id').in('email', [EMAIL_ADMIN, EMAIL_SEM, EMAIL_COM]);
+  const ids = (usuarios ?? []).map((u) => u.id);
+  if (ids.length) await db.from('orientacoes_agente').delete().in('criado_por', ids);
   await db.from('clientes').delete().eq('cnpj', CNPJ);   // apaga também as orientações da empresa
 }
 
@@ -97,21 +100,22 @@ test('atendente marcada ensina pela conversa: situação preenchida, nasce desli
   await expect(j.getByText(`Restam ${(2000 - texto.length).toLocaleString('pt-BR')} caracteres`)).toBeVisible();
   await j.getByRole('button', { name: 'Criar orientação' }).click();
 
-  await expect(j).toHaveCount(0);
-  await expect(page.getByText('Orientação criada')).toBeVisible();
+  // O Dialog continua aberto com a confirmação; o foco vai para o link da orientação.
+  await expect(j.getByRole('status')).toContainText('Orientação criada. Está desligada até alguém revisar e ligar.');
+  await expect(j.getByRole('link', { name: 'Abrir na tela Treinar o agente' })).toBeFocused();
   const { data: criada } = await db.from('orientacoes_agente').select('id, titulo, texto, tipo, cliente_id, setor_id, ativo, criado_por').eq('cliente_id', cliente).single();
   expect(criada).toMatchObject({ titulo: TITULO_SUGERIDO, texto, tipo: 'situacao', cliente_id: cliente, setor_id: null, ativo: false, criado_por: usuario });
   const { data: versoes } = await db.from('orientacoes_agente_versoes').select('acao').eq('orientacao_id', criada!.id);
   expect(versoes).toEqual([{ acao: 'criar' }]);
 
-  await page.getByRole('link', { name: 'Abrir em Treinar o agente' }).click();
+  await j.getByRole('link', { name: 'Abrir na tela Treinar o agente' }).click();
   await expect(page).toHaveURL(new RegExp(`/treinar-agente\\?orientacao=${criada!.id}$`));
   await expect(page.getByRole('dialog').getByRole('heading', { name: TITULO_SUGERIDO })).toBeVisible();
 });
 
 test('administrador troca para todos, liga e o limite de caracteres segura o envio', async ({ page }) => {
   const { conversa } = await semear();
-  await criarUsuarioTeste({ email: EMAIL_ADMIN, senha, nome: 'Dono Ensinar', papel: 'admin' });
+  const admin = await criarUsuarioTeste({ email: EMAIL_ADMIN, senha, nome: 'Dono Ensinar', papel: 'admin' });
   await entrar(page, EMAIL_ADMIN, senha);
   await page.goto(`/atendimento/${conversa}`);
   await page.getByRole('button', { name: 'Ensinar o agente' }).click();
@@ -128,7 +132,9 @@ test('administrador troca para todos, liga e o limite de caracteres segura o env
   await j.getByLabel('Título').fill('2ª via pelo WhatsApp');
   await j.getByRole('switch', { name: 'Ligada' }).click();
   await j.getByRole('button', { name: 'Criar orientação' }).click();
-  await expect(page.getByText('Já vale a partir da próxima mensagem.')).toBeVisible();
-  const { data } = await db.from('orientacoes_agente').select('texto, cliente_id, ativo').eq('titulo', '2ª via pelo WhatsApp').single();
+  await expect(j.getByRole('status')).toContainText('Orientação criada. Já vale a partir da próxima mensagem.');
+  await j.getByRole('button', { name: 'Fechar' }).first().click();
+  await expect(j).toHaveCount(0);
+  const { data } = await db.from('orientacoes_agente').select('texto, cliente_id, ativo').eq('criado_por', admin).single();
   expect(data).toEqual({ texto: 'Situação: Cliente pede a 2ª via do boleto.\nO que fazer: Mande pelo WhatsApp.', cliente_id: null, ativo: true });
 });
