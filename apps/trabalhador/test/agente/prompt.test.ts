@@ -102,13 +102,13 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
     expect(regra2).toContain('só quando o cliente perguntar o que é aquilo');
     expect(regra2).toContain('sem números do caso do cliente');
     expect(regra2).toContain('nem decida o caso concreto');
-    expect(regra2).toContain('nesses casos abra um chamado');
+    expect(regra2).toContain('abra uma demanda no setor técnico');
     for (const tema of ['DAS:', 'DAS do MEI:', 'Pró-labore e lucro:', 'Registro do funcionário:', 'Férias:', 'Rescisão:', 'Limite do MEI:', 'Certificado digital:']) {
       expect(regra2).toContain(`   - ${tema}`);
     }
     expect(regra2).toContain('pagas até 2 dias antes de começar');
     expect(regra2).toContain('até 10 dias depois do último dia de trabalho');
-    expect(s).toContain('dúvida técnica (fora as explicações gerais da regra 2) vira chamado');
+    expect(s).toContain('dúvida técnica (fora as explicações da regra 2) vira uma demanda para a equipe (ferramenta abrir_chamado)');
     expect(regra2).toContain('se o cliente também perguntou o que é aquilo, dê a explicação geral junto');
     expect(regra2).toContain('o banco costuma pedir a declaração assinada pelo contador');
     expect(regra2).toContain('pedir cópia de tudo e falar com o escritório antes de assinar');
@@ -120,15 +120,36 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
     expect(s).toContain('Nunca prometa o que depende da equipe');
     expect(s).toContain('assim que a equipe analisar, te retorno por aqui');
     const r11 = s.slice(s.indexOf('\n11. '), s.indexOf('\n12. '));
-    for (const item of ['salário ou parte dele por fora', 'pagamento em dinheiro sem registro', 'recibo', 'justa causa', 'qualquer outro pedido cuja resposta possa ser']) expect(r11).toContain(item);
+    for (const item of ['salário ou parte dele por fora', 'pagamento em dinheiro sem registro', 'recibo', 'justa causa', 'pedido para fazer algo fora da regra']) expect(r11).toContain(item);
+    expect(r11).toContain('não é assunto sensível: segue a regra 2, no setor técnico');
     for (const palavra of ['irregular', 'ilegal', 'não pode', 'não é permitido', 'não conseguimos fazer', 'dá multa', 'é crime', 'é arriscado', 'a lei exige']) expect(r11).toContain(String.fromCharCode(34) + palavra + String.fromCharCode(34));
     expect(r11).toContain('abra no setor Direção');
     expect(r11).toContain('ASSUNTO SENSÍVEL');
-    expect(r11).toContain('em ' + String.fromCharCode(34) + 'Setores envolvidos' + String.fromCharCode(34));
+    expect(r11).toContain('a linha "Setores envolvidos:" com o setor técnico do assunto (por exemplo "Setores envolvidos: Pessoal")');
     const r12 = s.slice(s.indexOf('\n12. '), s.indexOf('\n13. '));
     for (const item of ['Nunca peça nem aceite senha', 'autorização do responsável', 'Nunca comente um cliente com outro', 'Possível golpe']) expect(r12).toContain(item);
     expect(s).toContain('13. Não abra demanda repetida');
     expect(s.indexOf('13. Não abra demanda repetida')).toBeLessThan(s.indexOf('SETORES:'));
+  });
+
+  it('regra 13: cobrança do cliente abre uma demanda curta de cobrança, no máximo uma por dia', () => {
+    const r13 = s.slice(s.indexOf('\n13. '), s.indexOf('\nSETORES:'));
+    expect(r13).toContain('confira com consultar_chamados e abra UMA demanda curta no mesmo setor');
+    expect(r13).toContain('título "Cobrança: " e o assunto');
+    expect(r13).toContain('com "URGENTE: " na frente na segunda cobrança ou com prazo perto');
+    expect(r13).toContain('o que o cliente perguntou e quando o pedido original foi aberto');
+    expect(r13).toContain('No máximo uma cobrança por assunto por dia');
+    expect(r13).toContain('"Já cobrei a equipe e marquei como prioridade."');
+  });
+
+  it('regra 3: assunto fora da contabilidade não vira demanda, salvo se o cliente insistir', () => {
+    const r3 = s.slice(s.indexOf('\n3. '), s.indexOf('\n3a. '));
+    expect(r3).toContain('assunto fora da contabilidade');
+    expect(r3).toContain('indique um parceiro se houver nas orientações do escritório e só abra demanda se o cliente insistir');
+  });
+
+  it('"demanda" também é palavra de sistema que o cliente não vê', () => {
+    expect(s).toMatch(/Nunca use com o cliente palavras de sistema como "chamado", "demanda",/);
   });
 
   it('regra 3a: nota sem venda ou com valor diferente do real é assunto sensível', () => {
