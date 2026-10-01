@@ -13,6 +13,8 @@ function obterBoss(): Promise<PgBoss> {
     await b.createQueue('enviar-mensagem', { name: 'enviar-mensagem', retryLimit: 5, retryDelay: 10, retryBackoff: true });
     await b.createQueue('remover-arquivos', { name: 'remover-arquivos', retryLimit: 10, retryDelay: 60, retryBackoff: true });
     await b.createQueue('assistente', { name: 'assistente', policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
+    // Mesma configuração do trabalhador (apps/trabalhador/src/fila.ts, FILAS.simularAgente).
+    await b.createQueue('simular_agente', { name: 'simular_agente', policy: 'stately', retryLimit: 2, retryDelay: 15, retryBackoff: true });
     return b;
   })().catch((e: unknown) => {
     // Falhou ao conectar: esquece a tentativa para a próxima chamada tentar de novo, em vez de repetir o erro para sempre.
@@ -31,6 +33,11 @@ export async function enfileirarEnvio(mensagemId: string): Promise<void> {
 export async function enfileirarAssistente(j: { usuarioId: string; conversaId: string | null }): Promise<void> {
   await (await obterBoss()).send('assistente', { usuarioId: j.usuarioId, canal: 'site', conversaId: j.conversaId, telefone: null },
     { singletonKey: `${j.usuarioId}:site:${j.conversaId ?? '-'}` });
+}
+
+/** Teste do agente (Treinar o agente). A chave única impede o mesmo teste de rodar duas vezes ao mesmo tempo. */
+export async function enfileirarSimulacao(simulacaoId: string): Promise<void> {
+  await (await obterBoss()).send('simular_agente', { simulacaoId }, { singletonKey: simulacaoId });
 }
 
 export async function enfileirarRemocaoArquivos(paths: string[]): Promise<void> {

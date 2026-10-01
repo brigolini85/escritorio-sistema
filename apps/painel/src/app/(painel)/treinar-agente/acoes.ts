@@ -2,10 +2,14 @@
 import { revalidatePath } from 'next/cache';
 import { redirect, unstable_rethrow } from 'next/navigation';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
+import { enfileirarSimulacao } from '@/lib/fila';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { hrefComParams } from '@/lib/tabela-url';
 import { destinoDaTela, ehUuid, OrientacaoForm } from './esquemas';
+import {
+  ERRO_BANCO_PENDENTE, MENSAGEM_FALHA_TESTE, MENSAGEM_FILA_FORA, MENSAGEM_TESTE_PENDENTE, PedidoTeste,
+} from './simulacao';
 
 const SEM_PERMISSAO = 'Você não tem permissão para treinar o agente.';
 
@@ -72,4 +76,48 @@ export async function restaurarVersao(versaoId: string, voltar: string) {
     const { error } = await sb.rpc('restaurar_orientacao', { p_versao_id: versaoId });
     if (error) throw new Error(error.message);
   });
+}
+
+export type RespostaTeste = { id: string; aviso: string | null } | { erro: string };
+
+/**
+ * "Testar o agente": cria a simulação com o cliente da pessoa (criar_simulacao: uma pendente por pessoa) e põe na fila
+ * simular_agente; o trabalhador grava o resultado e o Dialog acompanha por tempo real. Nada é enviado nem gravado
+ * além da própria simulação. Devolve o motivo em vez de lançar (em produção o Next esconde a mensagem de um erro lançado).
+ * Já há um teste pendente: devolve esse teste (o Dialog passa a acompanhá-lo) e o põe na fila de novo, caso o envio
+ * dele tenha falhado (a chave única da fila não deixa rodar duas vezes).
+ */
+export async function testarAgente(entrada: PedidoTeste): Promise<RespostaTeste> {
+  try {
+    const sb = await exigirTreinar();
+    const pedido = PedidoTeste.safeParse(entrada);
+    if (!pedido.success) return { erro: pedido.error.issues[0]?.message ?? 'Pedido de teste inválido.' };
+    const { mensagem, clienteId, rascunho } = pedido.data;
+    const { data: id, error } = await sb.rpc('criar_simulacao', {
+      p_mensagem: mensagem, p_cliente_id: clienteId ?? undefined, p_rascunho: rascunho ?? undefined,
+    });
+    let aviso: string | null = null;
+    let simulacao: string | null = id;
+    if (error) {
+      if (!error.message.startsWith(ERRO_BANCO_PENDENTE)) return { erro: error.message };
+      // O RLS só mostra as simulações da própria pessoa.
+      const { data: pendente } = await sb.from('simulacoes_agente').select('id').eq('status', 'pendente')
+        .order('criado_em', { ascending: false }).limit(1).maybeSingle();
+      if (!pendente) return { erro: error.message };
+      simulacao = pendente.id;
+      aviso = MENSAGEM_TESTE_PENDENTE;
+    }
+    if (!simulacao) return { erro: MENSAGEM_FALHA_TESTE };
+    try {
+      await enfileirarSimulacao(simulacao);
+    } catch (e) {
+      // A linha fica pendente; criar_simulacao a considera abandonada depois de 5 minutos.
+      console.error('[treinar-agente] falha ao pôr o teste na fila', e);
+      return { erro: MENSAGEM_FILA_FORA };
+    }
+    return { id: simulacao, aviso };
+  } catch (e) {
+    unstable_rethrow(e);   // sessão vencida: redirect para /entrar continua valendo
+    return { erro: e instanceof Error ? e.message : MENSAGEM_FALHA_TESTE };
+  }
 }

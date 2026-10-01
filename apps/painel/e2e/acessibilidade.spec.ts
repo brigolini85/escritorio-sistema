@@ -177,6 +177,36 @@ for (const tema of ['claro', 'escuro'] as const) {
       expect(erros, erros.join('\n')).toEqual([]);
     });
 
+    test(`Testar o agente aberto (vazio, pensando, resultado e erro) sem violações graves (${tema})`, async ({ page }) => {
+      const ids = await semear();
+      await entrar(page, EMAIL, SENHA);
+      const erros: string[] = [];
+      await page.goto('/treinar-agente');
+      await page.getByRole('button', { name: 'Testar o agente' }).click();
+      const janela = page.getByRole('dialog', { name: 'Testar o agente' });
+      await expect(janela.getByLabel('Mensagem do cliente')).toBeVisible();
+      erros.push(...(await auditar(page, 'Testar o agente (vazio)', tema)));
+      await janela.getByLabel('Mensagem do cliente').fill('Bom dia, preciso do comprovante.');
+      await janela.getByRole('button', { name: 'Enviar teste' }).click();
+      await expect(janela.getByText('Pensando…')).toBeVisible();
+      erros.push(...(await auditar(page, 'Testar o agente (pensando)', tema)));
+      // Sem trabalhador nos e2e: o resultado vai direto no banco, como o trabalhador gravaria.
+      await expect.poll(async () => (await db.from('simulacoes_agente').select('id').eq('usuario_id', ids.usuario)).data?.length).toBe(1);
+      await db.from('simulacoes_agente').update({
+        status: 'pronta',
+        respostas: { mensagens: ['Bom dia! Já peço ao Fiscal.'], acoes: [{ ferramenta: 'abrir_chamado', resumo: 'Abriria uma demanda no Fiscal: Comprovante' }], observacoes: ['Aviso do teste.'] },
+      }).eq('usuario_id', ids.usuario);
+      await expect(janela.getByText('Bom dia! Já peço ao Fiscal.')).toBeVisible({ timeout: 10_000 });
+      await janela.getByRole('button', { name: /O que o agente faria/ }).click();
+      erros.push(...(await auditar(page, 'Testar o agente (resultado)', tema)));
+      await janela.getByRole('button', { name: 'Enviar teste' }).click();
+      await expect.poll(async () => (await db.from('simulacoes_agente').select('id').eq('usuario_id', ids.usuario)).data?.length).toBe(2);
+      await db.from('simulacoes_agente').update({ status: 'erro', erro: 'Não consegui fazer o teste agora. Tente de novo em alguns minutos.' }).eq('usuario_id', ids.usuario).eq('status', 'pendente');
+      await expect(janela.getByRole('alert')).toBeVisible({ timeout: 10_000 });
+      erros.push(...(await auditar(page, 'Testar o agente (erro)', tema)));
+      expect(erros, erros.join('\n')).toEqual([]);
+    });
+
     test(`Treinar o agente sem orientações (exemplos) sem violações graves (${tema})`, async ({ page }) => {
       await semear();
       await db.from('orientacoes_agente').delete().not('id', 'is', null);

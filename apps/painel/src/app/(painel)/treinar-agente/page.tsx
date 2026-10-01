@@ -27,6 +27,7 @@ import { ehUuid, lerFiltrosOrientacoes, MODELOS, modeloPorId, normalizarBusca } 
 import { FormularioOrientacao, type DadosFormulario, type SetorOpcao } from './formulario-orientacao';
 import { HistoricoOrientacao } from './historico-orientacao';
 import { MedidorOrientacoes } from './medidor';
+import { BotaoTestarAgente } from './testar-agente';
 import type { AcaoVersao, Versao } from './versoes';
 
 const ORDENAVEIS = ['titulo', 'atualizada'] as const;
@@ -119,24 +120,32 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
   const sb = await supabaseServidor();
 
   const colunasVersao = 'id, acao, titulo, texto, tipo, cliente_id, setor_id, ativo, criado_em, usuarios(nome)';
-  const [{ data: orientacoes, error: erroLista }, { data: setores }, { data: clientes }, { data: versoes }] = await Promise.all([
+  const [lista, { data: setores }, leituraEmpresas, leituraVersoes] = await Promise.all([
     // Todas, de 1000 em 1000 (o PostgREST corta em 1000 sem avisar).
     lerEmPaginas((de, ate) => sb.from('orientacoes_agente')
       .select('id, titulo, texto, tipo, cliente_id, setor_id, ativo, atualizado_em, clientes(razao_social, nome_fantasia, ativo), setores(nome, ativo), atualizador:usuarios!orientacoes_agente_atualizado_por_fkey(nome)')
       .order('atualizado_em', { ascending: false }).order('id').range(de, ate)),
     sb.from('setores').select('id, nome, ativo').order('nome'),
-    // Empresas ativas para o formulário (painel aberto), todas as páginas; a inativa da orientação aberta vem à parte.
-    aberta
-      ? lerEmPaginas((de, ate) => sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj, ativo').eq('ativo', true)
-        .order('razao_social').order('id').range(de, ate))
-      : Promise.resolve({ data: [] }),
+    // Empresas ativas para o formulário e para "Testar o agente", todas as páginas; a inativa da orientação aberta vem à parte.
+    lerEmPaginas((de, ate) => sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj, ativo').eq('ativo', true)
+      .order('razao_social').order('id').range(de, ate)),
     // Histórico inteiro (a mais nova primeiro; id desempata versões do mesmo instante).
     aberta && aberta !== 'nova'
       ? lerEmPaginas((de, ate) => sb.from('orientacoes_agente_versoes').select(colunasVersao)
         .eq('orientacao_id', aberta).order('criado_em', { ascending: false }).order('id', { ascending: false }).range(de, ate))
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null, parcial: false }),
   ]);
+  const { data: orientacoes, error: erroLista } = lista;
+  const clientes = leituraEmpresas.data;
+  const versoes = leituraVersoes.data;
   if (erroLista) console.error('[treinar-agente] falha ao ler as orientações', erroLista);
+  if (lista.parcial) console.error('[treinar-agente] lista de orientações incompleta (limite de páginas)');
+  if (leituraEmpresas.error || leituraEmpresas.parcial) console.error('[treinar-agente] lista de empresas incompleta', leituraEmpresas.error ?? 'limite de páginas');
+  if (leituraVersoes.error || leituraVersoes.parcial) console.error('[treinar-agente] histórico incompleto', leituraVersoes.error ?? 'limite de páginas');
+  // Avisos discretos: a tela continua com o que veio.
+  const avisoLista = lista.parcial ? 'A lista mostra só parte das orientações (são muitas); use a busca e os filtros.' : null;
+  const avisoEmpresas = leituraEmpresas.error || leituraEmpresas.parcial ? 'Não consegui carregar todas as empresas: alguma pode faltar na busca.' : null;
+  const avisoHistorico = leituraVersoes.error || leituraVersoes.parcial ? 'Não consegui carregar o histórico inteiro: as versões mais antigas podem faltar.' : null;
 
   const todas: Linha[] = (orientacoes ?? []).map((o) => ({
     id: o.id, titulo: o.titulo, texto: o.texto, tipo: o.tipo as TipoOrientacao, clienteId: o.cliente_id, setorId: o.setor_id,
@@ -243,13 +252,17 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
         titulo="Treinar o agente"
         descricao="Orientações que o agente de clientes segue no WhatsApp. As regras fixas dele continuam valendo; o que você liga aqui vale a partir da próxima mensagem."
         acoes={(
-          <Link href={hrefPainel('nova')} scroll={false} className={variantesBotao({ size: 'sm' })}>
-            <Plus aria-hidden size={16} strokeWidth={1.75} />
-            Nova orientação
-          </Link>
+          <>
+            <BotaoTestarAgente empresas={empresas} avisoEmpresas={avisoEmpresas} />
+            <Link href={hrefPainel('nova')} scroll={false} className={variantesBotao({ size: 'sm' })}>
+              <Plus aria-hidden size={16} strokeWidth={1.75} />
+              Nova orientação
+            </Link>
+          </>
         )}
       />
       {erro && !aberta && <div className="mb-4"><AvisoErro erro={erro} /></div>}
+      {avisoLista && <p className="mb-3 text-sm text-warning">{avisoLista}</p>}
       <MedidorOrientacoes medidor={medidor} empresa={empresaMaisPesada} />
 
       <FilterBar
@@ -297,6 +310,7 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
               acao={salvarOrientacao.bind(null, null, href({ orientacao: 'nova', aba: null }))}
               orientacao={modelo ? { titulo: modelo.titulo, texto: modelo.texto, tipo: modelo.tipo, clienteId: null, setorId: null, ativo: false } : undefined}
               empresas={empresas}
+              avisoEmpresas={avisoEmpresas}
               setores={opcoesSetor}
               aviso={aviso}
             />
@@ -321,6 +335,8 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
                   key={JSON.stringify([atual.titulo, atual.texto, atual.tipo, atual.clienteId, atual.setorId, atual.ativo, erro])}
                   acao={salvarOrientacao.bind(null, atual.id, hrefPainel(atual.id))}
                   orientacao={atual}
+                  idOrientacao={atual.id}
+                  avisoEmpresas={avisoEmpresas}
                   empresas={empresas}
                   setores={opcoesSetor}
                   aviso={aviso}
@@ -329,6 +345,7 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
               historico={(
                 <div className="flex flex-col gap-3 py-3">
                   {erro && <div className="px-4"><AvisoErro erro={erro} /></div>}
+                  {avisoHistorico && <p className="px-4 text-sm text-warning">{avisoHistorico}</p>}
                   <HistoricoOrientacao
                     versoes={listaVersoes}
                     atual={atual}
