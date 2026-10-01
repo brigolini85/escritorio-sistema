@@ -29,6 +29,12 @@ async function receber(conversaId: string, idProvedor: string, conteudo: string,
   await repos.inserirMensagemEntrada({ conversaId, clienteId: null, idProvedor, tipo, conteudo,
     midiaUrlOrigem: tipo === 'audio' ? 'https://z-api.exemplo/a.ogg' : null, arquivoMime: tipo === 'audio' ? 'audio/ogg' : null });
 }
+// Uso de IA gravado no mês do relógio do teste (o banco grava now(); sem isto o teste quebra quando o mês real muda).
+async function registrarUsoNoMesDoRelogio(custoUsd: number) {
+  await repos.registrarUsoIa({ conversaId: null, modelo: 'claude-sonnet-5', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd });
+  const { error } = await db.from('uso_ia').update({ criado_em: SEGUNDA_10H.toISOString() }).is('conversa_id', null);
+  if (error) throw error;
+}
 const respondeOi = () => new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Olá!' } }), fim()]);
 
 beforeEach(async () => {
@@ -166,7 +172,7 @@ describe('processarConversa', () => {
   it('teto de gasto com IA atingido: não chama a IA e encaminha para humano', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await db.from('configuracoes').update({ teto_ia_usd: 1 }).eq('id', 1);
-    await repos.registrarUsoIa({ conversaId: null, modelo: 'claude-sonnet-5', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd: 1 });
+    await registrarUsoNoMesDoRelogio(1);
     await receber(conversa.id, 'M1', 'oi');
     const ia = respondeOi();
     expect(await processarConversa(deps(ia), conversa.id, false)).toBe('teto');
@@ -233,7 +239,7 @@ describe('processarConversa', () => {
   it('avisa o dono uma vez por mês quando o gasto passa de 80% do teto', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await db.from('configuracoes').update({ teto_ia_usd: 1 }).eq('id', 1);
-    await repos.registrarUsoIa({ conversaId: null, modelo: 'claude-sonnet-5', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd: 0.81 });
+    await registrarUsoNoMesDoRelogio(0.81);
     await receber(conversa.id, 'M1', 'oi');
     await processarConversa(deps(respondeOi()), conversa.id, false);
     await receber(conversa.id, 'M2', 'e aí?');
