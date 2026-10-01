@@ -142,6 +142,9 @@ const OBRIGATORIOS = [
   ...['success', 'warning', 'danger', 'info'].flatMap((s) => [`--${s}`, `--${s}-foreground`, `--${s}-soft`]),
   '--agent-active', '--agent-paused', '--human-owned', '--assistant', '--internal-note',
   '--radius-sm', '--radius-md', '--radius-lg', '--shadow-sm', '--shadow-md', '--font-sans', '--font-mono',
+  '--sidebar-bg', '--sidebar-bg-raised', '--sidebar-text', '--sidebar-border', '--accent-champagne', '--accent-champagne-text',
+  '--graphite', '--graphite-foreground', '--warning-decor',
+  ...['inicio', 'atendimento', 'demandas', 'clientes', 'contatos', 'assistente', 'treinar', 'configuracoes'].map((m) => `--modulo-${m}`),
 ];
 
 const ESTADOS = ['success', 'warning', 'danger', 'info', 'agent-active', 'agent-paused', 'human-owned', 'assistant'];
@@ -171,6 +174,18 @@ const PARES: [string, string, number][] = [
   ['--border-input', '--background', 3],
   ['--ring', '--surface', 3],
   ['--ring', '--background', 3],
+  // Menu grafite (spec 4.3): texto do menu, item ativo branco sobre vinho, ícones coloridos (3:1, não são texto).
+  ['--sidebar-text', '--sidebar-bg', 4.5],
+  ['--sidebar-text', '--sidebar-bg-raised', 4.5],
+  ['--brand-foreground', '--brand', 4.5],
+  ...['inicio', 'atendimento', 'demandas', 'clientes', 'contatos', 'assistente', 'treinar', 'configuracoes']
+    .map((m): [string, string, number] => [`--modulo-${m}`, '--sidebar-bg', 3]),
+  ['--accent-champagne', '--sidebar-bg', 3],
+  // Champanhe como texto (subtítulos, "prazo sugerido") e botão grafite.
+  ['--accent-champagne-text', '--surface', 4.5],
+  ['--accent-champagne-text', '--background', 4.5],
+  ['--graphite-foreground', '--graphite', 4.5],
+  ['--graphite', '--surface', 3],
 ];
 
 describe('tokens.css', () => {
@@ -201,6 +216,12 @@ describe('tokens.css', () => {
       expect(falhas).toEqual([]);
     });
   }
+
+  it('perigo é distinto do vinho da marca (matiz a pelo menos 20 graus)', () => {
+    const matiz = (t: Map<string, string>, n: string) => paraOklch(cor(t, n))[2];
+    const dif = Math.abs(matiz(claro, '--danger') - matiz(claro, '--brand'));
+    expect(Math.min(dif, 360 - dif)).toBeGreaterThanOrEqual(20);
+  });
 
   it('trocar a marca é uma linha: só --brand-base tem valor próprio; as outras cores de marca derivam dela', () => {
     expect(claro.get('--brand-base')).toMatch(/^hsl\(/);

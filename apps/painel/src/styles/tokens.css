@@ -6,7 +6,7 @@
  *   (oklch(from ...), luminosidade perceptiva fixa por papel), então o contraste AA vale para qualquer matiz.
  *   Não edite as derivadas (bloco @supports no fim). tokens.test.ts confere a marca atual e várias outras.
  *   As cores de marca em hsl() nos blocos de tema são só reservas para navegador antigo (sem cor relativa):
- *   trocá-las junto é opcional; sem trocar, quem usa navegador antigo vê a marca padrão (azul).
+ *   trocá-las junto é opcional; sem trocar, quem usa navegador antigo vê a marca padrão (vinho).
  * - Os valores são cores completas (hsl(...)); o Tailwind os lê em globals.css (@theme inline),
  *   gerando utilitários como bg-brand, text-muted, border-border, bg-danger-soft.
  * - Regra das semânticas e de domínio: --x é a cor "forte" (texto sobre --surface/--x-soft e fundo
@@ -23,38 +23,57 @@
   color-scheme: light;
 
   /* Marca: TROCAR A COR DO SISTEMA É EDITAR SÓ A LINHA ABAIXO (claro e escuro seguem juntos) */
-  --brand-base: hsl(221 83% 45%); /* a cor da marca, em hsl(); tudo o que é "marca" nos dois temas sai dela */
-  --brand: hsl(221 83% 45%); /* botão primário, links, item ativo (reserva p/ navegador antigo; no atual é derivada de --brand-base, ver @supports no fim) */
+  --brand-base: hsl(348 55% 31%); /* a cor da marca, em hsl(); tudo o que é "marca" nos dois temas sai dela */
+  --brand: hsl(348 55% 31%); /* botão primário, links, item ativo (reserva p/ navegador antigo; no atual é derivada de --brand-base, ver @supports no fim) */
   --brand-foreground: hsl(0 0% 100%); /* texto e ícone sobre --brand */
-  --brand-soft: hsl(221 90% 96%); /* fundo de item selecionado ou ativo (reserva p/ navegador antigo; no atual é derivada, ver @supports) */
+  --brand-soft: hsl(348 40% 96%); /* fundo de item selecionado ou ativo (reserva p/ navegador antigo; no atual é derivada, ver @supports) */
 
   /* Superfícies */
-  --background: hsl(220 20% 97%); /* fundo da aplicação, atrás dos cards */
+  --background: hsl(20 10% 94%); /* fundo da aplicação, atrás dos cards */
   --surface: hsl(0 0% 100%); /* cards, painéis, tabelas, diálogos, menus */
-  --surface-muted: hsl(220 16% 94%); /* zebra, hover de linha, áreas secundárias, trilho de abas */
-  --border: hsl(220 14% 88%); /* divisórias e contorno de cards (decorativo) */
-  --border-input: hsl(220 9% 56%); /* contorno de campos, caixas de seleção e switches; 3.4:1 em --surface */
+  --surface-muted: hsl(20 9% 92%); /* zebra, hover de linha, áreas secundárias, trilho de abas */
+  --border: hsl(20 8% 86%); /* divisórias e contorno de cards (decorativo) */
+  --border-input: hsl(345 4% 52%); /* contorno de campos, caixas de seleção e switches; 3.4:1 em --surface */
   --ring: var(--brand); /* anel de foco visível de todo elemento interativo (segue a marca nos dois temas) */
-  --overlay: hsl(222 30% 8% / 0.5); /* véu atrás de Dialog e Sheet */
+  --overlay: hsl(345 10% 8% / 0.5); /* véu atrás de Dialog e Sheet */
 
   /* Texto */
-  --text: hsl(222 25% 12%); /* texto principal, títulos; 17.1:1 em --surface */
-  --text-muted: hsl(220 12% 32%); /* texto secundário, rótulos, descrições; 8.3:1 em --surface, 7.2:1 em --surface-muted */
-  --text-subtle: hsl(220 8% 43%); /* metadados, placeholders, horários; 5.4:1 em --surface, 4.7:1 em --surface-muted, 4.8:1 em --internal-note */
+  --text: hsl(345 6% 14%); /* texto principal, títulos; 17.1:1 em --surface */
+  --text-muted: hsl(345 5% 32%); /* texto secundário, rótulos, descrições; 8.3:1 em --surface, 7.2:1 em --surface-muted */
+  --text-subtle: hsl(345 4% 42%); /* metadados, placeholders, horários; 5.4:1 em --surface, 4.7:1 em --surface-muted, 4.8:1 em --internal-note */
 
   /* Semânticas: usar só com significado */
-  --success: hsl(152 72% 26%); /* sucesso, concluído, conectado */
+  --success: hsl(168 70% 19%); /* sucesso, concluído, conectado */
   --success-foreground: hsl(0 0% 100%); /* texto sobre --success */
-  --success-soft: hsl(150 55% 94%); /* fundo de aviso ou selo de sucesso */
-  --warning: hsl(30 92% 30%); /* atenção, pendência, prazo perto */
+  --success-soft: hsl(165 45% 93%); /* fundo de aviso ou selo de sucesso */
+  --warning: hsl(33 74% 34%); /* atenção, pendência, prazo perto; luminosidade 36 para 34 p/ AA (4.29 para mais de 4.5 em --warning-soft) */
   --warning-foreground: hsl(0 0% 100%); /* texto sobre --warning */
-  --warning-soft: hsl(42 95% 92%); /* fundo de aviso de atenção */
-  --danger: hsl(0 72% 42%); /* erro, ação destrutiva, alerta crítico */
+  --warning-soft: hsl(36 80% 92%); /* fundo de aviso de atenção */
+  --danger: hsl(11 71% 41%); /* erro, ação destrutiva, alerta crítico */
   --danger-foreground: hsl(0 0% 100%); /* texto sobre --danger */
-  --danger-soft: hsl(0 86% 96%); /* fundo de erro de formulário e alerta crítico */
+  --danger-soft: hsl(11 70% 95%); /* fundo de erro de formulário e alerta crítico */
   --info: hsl(200 90% 29%); /* informação neutra, dica */
   --info-foreground: hsl(0 0% 100%); /* texto sobre --info */
   --info-soft: hsl(200 85% 95%); /* fundo de aviso informativo */
+  --warning-decor: hsl(34 73% 44%); /* faixas e pontos de atenção, só decoração, nunca texto */
+
+  /* Menu lateral grafite e acentos (spec 4.1): o menu é grafite nos dois temas */
+  --sidebar-bg: hsl(345 6% 14%); /* fundo do menu lateral */
+  --sidebar-bg-raised: hsl(345 4% 18%); /* submenu e atalhos sobre o menu */
+  --sidebar-text: hsl(348 9% 89%); /* texto dos itens do menu */
+  --sidebar-border: hsl(348 5% 22%); /* divisórias dentro do menu */
+  --accent-champagne: hsl(35 40% 64%); /* fio do item ativo, aro do logo, faixas do login (enfeite) */
+  --accent-champagne-text: hsl(35 38% 37%); /* champanhe como texto: subtítulos e prazo sugerido; luminosidade 39 para 37 p/ AA (4.38 em --background antes) */
+  --graphite: hsl(345 6% 14%); /* botão Entrar, FILTRAR, excluir de vez */
+  --graphite-foreground: hsl(0 0% 100%); /* texto sobre --graphite */
+  --modulo-inicio: hsl(40 60% 60%); /* ícone do Início no menu */
+  --modulo-atendimento: hsl(152 41% 55%); /* ícone do Atendimento no menu */
+  --modulo-demandas: hsl(79 51% 57%); /* ícone das Demandas no menu */
+  --modulo-clientes: hsl(210 46% 61%); /* ícone dos Clientes no menu */
+  --modulo-contatos: hsl(268 38% 67%); /* ícone dos Contatos no menu */
+  --modulo-assistente: hsl(40 60% 60%); /* ícone do Assistente no menu */
+  --modulo-treinar: hsl(25 71% 58%); /* ícone do Treinar agente no menu */
+  --modulo-configuracoes: hsl(185 43% 52%); /* ícone das Configurações no menu */
 
   /* Domínio: estados que a equipe reconhece de relance */
   --agent-active: hsl(170 80% 24%); /* agente de clientes respondendo */
@@ -93,30 +112,47 @@
 /* Tema escuro escolhido pela pessoa (cookie "tema" = escuro). Mantenha idêntico ao bloco do sistema abaixo. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --brand: hsl(217 92% 68%); /* reservas p/ navegador antigo; no atual valem as derivadas de --brand-base (@supports no fim) */
-  --brand-foreground: hsl(222 47% 9%);
-  --brand-soft: hsl(220 45% 20%);
-  --background: hsl(222 22% 7%);
-  --surface: hsl(222 18% 11%);
-  --surface-muted: hsl(222 15% 16%);
-  --border: hsl(222 12% 22%);
-  --border-input: hsl(220 9% 44%); /* 3.3:1 em --surface */
-  --overlay: hsl(222 40% 3% / 0.7);
-  --text: hsl(220 20% 93%); /* 14.7:1 em --surface */
-  --text-muted: hsl(220 12% 70%); /* 7.9:1 em --surface */
-  --text-subtle: hsl(220 9% 62%); /* 6.3:1 em --surface, 5.4:1 em --surface-muted, 4.8:1 em --internal-note */
+  --brand: hsl(348 70% 72%); /* reservas p/ navegador antigo; no atual valem as derivadas de --brand-base (@supports no fim) */
+  --brand-foreground: hsl(348 40% 10%);
+  --brand-soft: hsl(348 30% 20%);
+  --background: hsl(345 6% 7%);
+  --surface: hsl(345 5% 11%);
+  --surface-muted: hsl(345 4% 16%);
+  --border: hsl(345 4% 22%);
+  --border-input: hsl(345 3% 44%); /* 3.3:1 em --surface */
+  --overlay: hsl(345 15% 3% / 0.7);
+  --text: hsl(345 8% 93%); /* 14.7:1 em --surface */
+  --text-muted: hsl(345 5% 70%); /* 7.9:1 em --surface */
+  --text-subtle: hsl(345 4% 62%); /* 6.3:1 em --surface, 5.4:1 em --surface-muted, 4.8:1 em --internal-note */
   --success: hsl(150 55% 55%);
   --success-foreground: hsl(150 60% 8%);
   --success-soft: hsl(152 40% 14%);
   --warning: hsl(38 90% 60%);
   --warning-foreground: hsl(30 70% 9%);
   --warning-soft: hsl(34 50% 14%);
-  --danger: hsl(0 85% 70%);
-  --danger-foreground: hsl(0 60% 10%);
-  --danger-soft: hsl(0 45% 16%);
+  --danger: hsl(11 85% 66%);
+  --danger-foreground: hsl(11 60% 10%);
+  --danger-soft: hsl(11 45% 16%);
   --info: hsl(200 85% 64%);
   --info-foreground: hsl(200 70% 9%);
   --info-soft: hsl(200 50% 15%);
+  --warning-decor: hsl(34 73% 50%);
+  --sidebar-bg: hsl(345 6% 14%);
+  --sidebar-bg-raised: hsl(345 4% 18%);
+  --sidebar-text: hsl(348 9% 89%);
+  --sidebar-border: hsl(348 5% 22%);
+  --accent-champagne: hsl(35 40% 64%);
+  --accent-champagne-text: hsl(35 45% 70%);
+  --graphite: hsl(345 4% 85%);
+  --graphite-foreground: hsl(345 6% 12%);
+  --modulo-inicio: hsl(40 60% 60%);
+  --modulo-atendimento: hsl(152 41% 55%);
+  --modulo-demandas: hsl(79 51% 57%);
+  --modulo-clientes: hsl(210 46% 61%);
+  --modulo-contatos: hsl(268 38% 67%);
+  --modulo-assistente: hsl(40 60% 60%);
+  --modulo-treinar: hsl(25 71% 58%);
+  --modulo-configuracoes: hsl(185 43% 52%);
   --agent-active: hsl(168 60% 52%);
   --agent-active-foreground: hsl(168 70% 8%);
   --agent-active-soft: hsl(170 45% 13%);
@@ -140,30 +176,47 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --brand: hsl(217 92% 68%);
-    --brand-foreground: hsl(222 47% 9%);
-    --brand-soft: hsl(220 45% 20%);
-    --background: hsl(222 22% 7%);
-    --surface: hsl(222 18% 11%);
-    --surface-muted: hsl(222 15% 16%);
-    --border: hsl(222 12% 22%);
-    --border-input: hsl(220 9% 44%);
-    --overlay: hsl(222 40% 3% / 0.7);
-    --text: hsl(220 20% 93%);
-    --text-muted: hsl(220 12% 70%);
-    --text-subtle: hsl(220 9% 62%);
+    --brand: hsl(348 70% 72%);
+    --brand-foreground: hsl(348 40% 10%);
+    --brand-soft: hsl(348 30% 20%);
+    --background: hsl(345 6% 7%);
+    --surface: hsl(345 5% 11%);
+    --surface-muted: hsl(345 4% 16%);
+    --border: hsl(345 4% 22%);
+    --border-input: hsl(345 3% 44%);
+    --overlay: hsl(345 15% 3% / 0.7);
+    --text: hsl(345 8% 93%);
+    --text-muted: hsl(345 5% 70%);
+    --text-subtle: hsl(345 4% 62%);
     --success: hsl(150 55% 55%);
     --success-foreground: hsl(150 60% 8%);
     --success-soft: hsl(152 40% 14%);
     --warning: hsl(38 90% 60%);
     --warning-foreground: hsl(30 70% 9%);
     --warning-soft: hsl(34 50% 14%);
-    --danger: hsl(0 85% 70%);
-    --danger-foreground: hsl(0 60% 10%);
-    --danger-soft: hsl(0 45% 16%);
+    --danger: hsl(11 85% 66%);
+    --danger-foreground: hsl(11 60% 10%);
+    --danger-soft: hsl(11 45% 16%);
     --info: hsl(200 85% 64%);
     --info-foreground: hsl(200 70% 9%);
     --info-soft: hsl(200 50% 15%);
+    --warning-decor: hsl(34 73% 50%);
+    --sidebar-bg: hsl(345 6% 14%);
+    --sidebar-bg-raised: hsl(345 4% 18%);
+    --sidebar-text: hsl(348 9% 89%);
+    --sidebar-border: hsl(348 5% 22%);
+    --accent-champagne: hsl(35 40% 64%);
+    --accent-champagne-text: hsl(35 45% 70%);
+    --graphite: hsl(345 4% 85%);
+    --graphite-foreground: hsl(345 6% 12%);
+    --modulo-inicio: hsl(40 60% 60%);
+    --modulo-atendimento: hsl(152 41% 55%);
+    --modulo-demandas: hsl(79 51% 57%);
+    --modulo-clientes: hsl(210 46% 61%);
+    --modulo-contatos: hsl(268 38% 67%);
+    --modulo-assistente: hsl(40 60% 60%);
+    --modulo-treinar: hsl(25 71% 58%);
+    --modulo-configuracoes: hsl(185 43% 52%);
     --agent-active: hsl(168 60% 52%);
     --agent-active-foreground: hsl(168 70% 8%);
     --agent-active-soft: hsl(170 45% 13%);

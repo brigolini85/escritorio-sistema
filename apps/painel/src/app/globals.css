@@ -53,6 +53,25 @@
   --color-internal-note-foreground: var(--internal-note-foreground);
   --color-internal-note-border: var(--internal-note-border);
 
+  /* Menu lateral grafite, champanhe, grafite de botão e cores dos módulos (spec 4.1) */
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-raised: var(--sidebar-bg-raised);
+  --color-sidebar-foreground: var(--sidebar-text);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-champagne: var(--accent-champagne);
+  --color-champagne-text: var(--accent-champagne-text);
+  --color-grafite: var(--graphite);
+  --color-grafite-foreground: var(--graphite-foreground);
+  --color-warning-decor: var(--warning-decor);
+  --color-modulo-inicio: var(--modulo-inicio);
+  --color-modulo-atendimento: var(--modulo-atendimento);
+  --color-modulo-demandas: var(--modulo-demandas);
+  --color-modulo-clientes: var(--modulo-clientes);
+  --color-modulo-contatos: var(--modulo-contatos);
+  --color-modulo-assistente: var(--modulo-assistente);
+  --color-modulo-treinar: var(--modulo-treinar);
+  --color-modulo-configuracoes: var(--modulo-configuracoes);
+
   /* Larguras fixas de layout pedidas pela spec (valores em tokens.css): w-sidebar, w-sidebar-recolhida */
   --spacing-sidebar: var(--sidebar-width);
   --spacing-sidebar-recolhida: var(--sidebar-width-collapsed);
