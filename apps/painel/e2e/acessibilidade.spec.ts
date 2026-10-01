@@ -164,6 +164,11 @@ for (const tema of ['claro', 'escuro'] as const) {
       erros.push(...(await auditar(page, 'confirmação de concluir', tema)));
       await page.keyboard.press('Escape');
 
+      await page.getByRole('button', { name: 'Ensinar o agente' }).click();
+      await expect(page.getByRole('dialog', { name: 'Ensinar o agente' }).getByLabel('Situação', { exact: true })).toBeVisible();
+      erros.push(...(await auditar(page, 'Ensinar o agente', tema)));
+      await page.keyboard.press('Escape');
+
       // Treinar o agente: busca de empresa aberta no formulário e confirmação de restaurar uma versão.
       await page.goto(`/treinar-agente?orientacao=${ids.orientacao}`);
       await page.getByRole('dialog').getByRole('combobox', { name: 'Empresa' }).click();

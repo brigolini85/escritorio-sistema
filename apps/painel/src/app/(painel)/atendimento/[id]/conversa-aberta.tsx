@@ -17,7 +17,9 @@ import { ConversaAssistente } from '../../assistente/conversa-assistente';
 import { alterarStatus, assumir, concluir, devolverAoAgente, notaInterna, responder, transferir } from '../acoes';
 import { Realce } from '../realce';
 import { AcoesConversa, BotaoPainel, type DemandaDaConversa } from './acoes-conversa';
+import { situacaoDasMensagens } from '../../treinar-agente/ensinar';
 import { Compositor } from './compositor';
+import { EnsinarAgente } from './ensinar-agente';
 import { DetalhesConversa, type DemandaDetalhe } from './detalhes-conversa';
 import { AvisoAssistente, EstadoConversa } from './estado-conversa';
 import { GradeConversa, PainelLateral } from './painel-lateral';
@@ -46,7 +48,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
 }) {
   const sb = await supabaseServidor();
   const { data: conversa } = await sb.from('conversas')
-    .select('*, contatos(id, nome, agente_pausado), clientes:cliente_em_foco(id, razao_social, nome_fantasia, cnpj, agente_pausado)')
+    .select('*, contatos(id, nome, agente_pausado), clientes:cliente_em_foco(id, razao_social, nome_fantasia, cnpj, agente_pausado, ativo)')
     .eq('id', id).maybeSingle();
   if (!conversa) notFound();
   const [{ data: mensagens }, { data: chamados }, { data: notas }, { data: decisoes }, { data: setores }, { data: respostas }, { data: vinculos }] = await Promise.all([
@@ -79,6 +81,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
 
   const podeAssistente = u.permissoes.includes('assistente_site');
   const podeCsv = temPermissao(u, 'emitir_notas');
+  const podeTreinar = temPermissao(u, 'treinar_agente');
   const loja = await cookies();
 
   const nomeContato = conversa.contatos?.nome ?? mascararTelefone(conversa.telefone);
@@ -198,7 +201,14 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
             demandas={demandasAcoes}
             setores={setores ?? []}
             pessoas={pessoas.filter((p) => p.ativo).map((p) => ({ id: p.id, nome: p.nome }))}
-          />
+          >
+            {podeTreinar && (
+              <EnsinarAgente
+                situacao={situacaoDasMensagens((mensagens ?? []).filter((m) => m.autor === 'cliente').map((m) => m.conteudo || m.transcricao))}
+                empresa={empresa ? { id: empresa.id, nome: empresa.nome, ativa: conversa.clientes?.ativo ?? false } : null}
+              />
+            )}
+          </AcoesConversa>
         </header>
 
         <HistoricoRolante

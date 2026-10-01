@@ -8,7 +8,8 @@ import { lerEmPaginas } from '@/lib/paginas';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { hrefComParams } from '@/lib/tabela-url';
-import { AVISO_EMPRESAS_INCOMPLETAS, destinoDaTela, ehUuid, opcaoEmpresa, OrientacaoForm } from './esquemas';
+import { comporTexto } from './ensinar';
+import { AVISO_EMPRESAS_INCOMPLETAS, destinoDaTela, ehUuid, opcaoEmpresa, OrientacaoForm, type DadosOrientacao } from './esquemas';
 import {
   ERRO_BANCO_PENDENTE, MENSAGEM_FALHA_TESTE, MENSAGEM_FILA_FORA, MENSAGEM_TESTE_PENDENTE, PedidoTeste,
 } from './simulacao';
@@ -34,27 +35,64 @@ function comOrientacao(destino: string, mudancas: Record<string, string | null>)
 }
 
 /**
- * Cria (id null) ou edita a orientação com o cliente da pessoa (salvar_orientacao grava a versão e a auditoria).
+ * Cria (id null) ou edita a orientação com o cliente de quem pode treinar o agente (salvar_orientacao confere tudo de
+ * novo e grava a versão e a auditoria). Devolve o id. Usada pela tela e pelo "Ensinar o agente" do Atendimento.
+ */
+async function gravarOrientacao(sb: Awaited<ReturnType<typeof exigirTreinar>>, id: string | null, d: DadosOrientacao): Promise<string> {
+  if (id !== null && !ehUuid(id)) throw new Error('Orientação não encontrada.');
+  const { data, error } = await sb.rpc('salvar_orientacao', {
+    // Para criar, o banco recebe null (o tipo gerado marca p_id como obrigatório por vir antes dos que têm padrão).
+    p_id: id as unknown as string,
+    p_titulo: d.titulo, p_texto: d.texto, p_tipo: d.tipo,
+    p_cliente_id: d.clienteId ?? undefined, p_setor_id: d.setorId ?? undefined, p_ativo: d.ativo,
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/**
+ * Cria (id null) ou edita a orientação (gravarOrientacao).
  * Criou: abre o painel da orientação nova. Erro: volta para `voltar` com ?erro=.
  */
 export async function salvarOrientacao(id: string | null, voltar: string, formData: FormData) {
   const destino = destinoDaTela(voltar);
   await comAvisoDeErro(destino, async () => {
     const sb = await exigirTreinar();
-    const d = OrientacaoForm.parse(formData);
-    if (id !== null && !ehUuid(id)) throw new Error('Orientação não encontrada.');
-    const { data, error } = await sb.rpc('salvar_orientacao', {
-      // Para criar, o banco recebe null (o tipo gerado marca p_id como obrigatório por vir antes dos que têm padrão).
-      p_id: id as unknown as string,
-      p_titulo: d.titulo, p_texto: d.texto, p_tipo: d.tipo,
-      p_cliente_id: d.clienteId ?? undefined, p_setor_id: d.setorId ?? undefined, p_ativo: d.ativo,
-    });
-    if (error) throw new Error(error.message);
+    const data = await gravarOrientacao(sb, id, OrientacaoForm.parse(formData));
     if (id === null) {
       revalidatePath('/treinar-agente');
       redirect(comOrientacao(destino, { orientacao: data, modelo: null }));
     }
   });
+}
+
+/**
+ * "Ensinar o agente" (Atendimento): cria a orientação a partir da conversa. Campos do Dialog: situacao, fazer, titulo,
+ * tipo, vale, cliente_id, ativo. O texto é composto aqui ("Situação: …\nO que fazer: …", com < e > neutralizados) e
+ * segue pelo mesmo caminho da tela (OrientacaoForm + gravarOrientacao). Devolve o id ou o motivo, sem lançar: o
+ * Dialog mantém o que foi digitado.
+ */
+export async function ensinarAgente(formData: FormData): Promise<{ id: string } | { erro: string }> {
+  try {
+    const sb = await exigirTreinar();
+    const fazer = formData.get('fazer');
+    if (typeof fazer !== 'string' || !fazer.trim()) return { erro: 'Escreva o que o agente deve fazer.' };
+    const situacao = formData.get('situacao');
+    const dados = new FormData();
+    for (const k of ['titulo', 'tipo', 'vale', 'cliente_id', 'ativo']) {
+      const v = formData.get(k);
+      if (typeof v === 'string') dados.set(k, v);
+    }
+    dados.set('texto', comporTexto(typeof situacao === 'string' ? situacao : '', fazer));
+    const d = OrientacaoForm.safeParse(dados);
+    if (!d.success) return { erro: d.error.issues[0]?.message ?? 'Confira os campos da orientação.' };
+    const id = await gravarOrientacao(sb, null, d.data);
+    revalidatePath('/treinar-agente');
+    return { id };
+  } catch (e) {
+    unstable_rethrow(e);   // sessão vencida: redirect para /entrar continua valendo
+    return { erro: e instanceof Error ? e.message : 'Não foi possível criar a orientação.' };
+  }
 }
 
 /**

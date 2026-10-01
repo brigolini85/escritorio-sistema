@@ -21,13 +21,13 @@ import {
 
 type Fase = 'pensando' | 'pronta' | 'erro' | 'atrasou';
 
+/** Contador das montagens de useSimulacao (sufixo do tópico do canal). */
+let montagens = 0;
+
 /**
  * Acompanha um teste: tempo real na linha da simulação (com a sessão da pessoa; o RLS só entrega as dela) e, de
  * reserva, uma consulta a cada 3 s enquanto pendente. Para em pronta/erro ou no prazo ("não respondeu a tempo").
  */
-/** Contador das montagens de useSimulacao (sufixo do tópico do canal). */
-let montagens = 0;
-
 function useSimulacao(id: string): { linha: LinhaSimulacao | null; atrasou: boolean } {
   const [linha, setLinha] = useState<LinhaSimulacao | null>(null);
   const [atrasou, setAtrasou] = useState(false);
@@ -229,7 +229,8 @@ function ConteudoTeste({ rascunho }: { rascunho: RascunhoTeste | null }) {
   };
   const aoEnviar = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!ocupado) enviar({ mensagem, clienteId: empresa, rascunho });
+    // Antes da lista de empresas chegar, a empresa do rascunho ainda não foi conferida (pode estar inativa).
+    if (!ocupado && lista) enviar({ mensagem, clienteId: empresa, rascunho });
   };
 
   return (
@@ -295,7 +296,7 @@ function ConteudoTeste({ rascunho }: { rascunho: RascunhoTeste | null }) {
               Testar sem empresa
             </Button>
           )}
-          <Button type="submit" disabled={ocupado} aria-busy={enviando || undefined}>
+          <Button type="submit" disabled={ocupado || !lista} aria-busy={enviando || undefined}>
             {enviando ? <LoaderCircle aria-hidden size={16} strokeWidth={1.75} className="animate-spin" /> : <Send aria-hidden size={16} strokeWidth={1.75} />}
             Enviar teste
           </Button>

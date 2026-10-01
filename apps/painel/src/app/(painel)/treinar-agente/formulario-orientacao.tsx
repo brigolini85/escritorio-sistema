@@ -15,6 +15,7 @@ import { cn } from '@/lib/cn';
 import { LIMITE_TEXTO, LIMITE_TITULO, ROTULO_TIPO, TIPOS, type TipoOrientacao } from '@/lib/orientacoes';
 import { classeCaixa, classeSelect } from '../clientes/estilos';
 import { OrientacaoForm, type ValePara } from './esquemas';
+import { classeOpcao, DESCRICAO_TIPO } from './opcoes';
 import { rascunhoDoFormulario, type RascunhoTeste } from './simulacao';
 import { DialogTestarAgente } from './testar-agente';
 
@@ -22,17 +23,11 @@ type Acao = (dados: FormData) => void | Promise<void>;
 export type SetorOpcao = { id: string; nome: string; ativo: boolean };
 export type DadosFormulario = { titulo: string; texto: string; tipo: TipoOrientacao; clienteId: string | null; setorId: string | null; ativo: boolean };
 
-const DESCRICAO_TIPO: Record<TipoOrientacao, string> = {
-  jeito: 'Tom, cumprimento, tamanho das respostas.',
-  regra: 'Prazos, horários e combinados que valem sempre.',
-  situacao: 'O que fazer quando o cliente pede algo específico.',
-};
 const VALE: { valor: ValePara; rotulo: string }[] = [
   { valor: 'todos', rotulo: 'Todos os clientes' },
   { valor: 'empresa', rotulo: 'Uma empresa' },
   { valor: 'setor', rotulo: 'Um setor' },
 ];
-const classeOpcao = 'flex cursor-pointer items-start gap-2 rounded-md border border-input bg-surface p-3 text-base font-normal has-checked:border-brand has-checked:bg-brand-soft';
 
 /**
  * Formulário da orientação (painel lateral): titulo, tipo, vale (+ cliente_id ou setor_id), texto e ativo.

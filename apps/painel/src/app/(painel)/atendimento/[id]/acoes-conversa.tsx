@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowRightLeft, Bot, CircleCheck, Clock, PanelRightClose, PanelRightOpen, UserRoundCheck } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
@@ -56,6 +56,7 @@ export function AcoesConversa({
   demandas,
   setores,
   pessoas,
+  children,
 }: {
   minha: boolean;
   assumir: Acao;
@@ -63,6 +64,8 @@ export function AcoesConversa({
   demandas: DemandaDaConversa[];
   setores: { id: string; nome: string }[];
   pessoas: { id: string; nome: string }[];
+  /** Ações extras no fim da linha (ex.: "Ensinar o agente", só com a permissão). */
+  children?: ReactNode;
 }) {
   const { demandaId } = useEstadoConversa();
   const d = demandaEmFoco(demandas, demandaId);
@@ -117,6 +120,7 @@ export function AcoesConversa({
           />
         </>
       )}
+      {children}
     </div>
     </div>
   );
