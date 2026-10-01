@@ -330,7 +330,9 @@ describe('processarSimulacao', () => {
       const [chamados, documentos] = ia.recebidos[1]!.messages.at(-1)!.content as { content: string; is_error: boolean }[];
       expect(documentos!.is_error).toBe(false);
       expect(JSON.parse(documentos!.content).documentos.map((d: { nome: string }) => d.nome)).toEqual(['Balanço 2025', 'Contrato social']);
-      return (JSON.parse(chamados!.content).chamados as { titulo: string }[]).map((c) => c.titulo).sort();
+      const lista = JSON.parse(chamados!.content).chamados as { titulo: string; aberta_em: string }[];
+      for (const c of lista) expect(c.aberta_em).toMatch(/^\d{2}\/\d{2}$/);
+      return lista.map((c) => c.titulo).sort();
     };
 
     const iaAtendente = roteiro();

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { diaMes } from '../../src/agente/ferramentas';
 import { montarBlocosSistema, montarConteudoUsuario, montarSistema } from '../../src/agente/prompt';
 
 describe('montarSistema', () => {
@@ -137,9 +138,11 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
     expect(r13).toContain('confira com consultar_chamados e abra UMA demanda curta no mesmo setor');
     expect(r13).toContain('título "Cobrança: " e o assunto');
     expect(r13).toContain('com "URGENTE: " na frente na segunda cobrança ou com prazo perto');
-    expect(r13).toContain('o que o cliente perguntou e quando o pedido original foi aberto');
+    expect(r13).toContain('o que o cliente perguntou e quando o pedido original foi aberto (se souber)');
+    expect(r13).toContain('só quando ele cobra ou reclama da demora ("e aí, ficou pronto?", "até agora nada", "de novo")');
+    expect(r13).toContain('pergunta simples de andamento ("como está a guia?") não é cobrança e segue a regra 2');
     expect(r13).toContain('No máximo uma cobrança por assunto por dia');
-    expect(r13).toContain('"Já cobrei a equipe e marquei como prioridade."');
+    expect(r13).toContain('Diga ao cliente: "Já cobrei a equipe."; se marcou URGENTE: "Já cobrei a equipe e marquei como prioridade."');
   });
 
   it('regra 3: assunto fora da contabilidade não vira demanda, salvo se o cliente insistir', () => {
@@ -152,6 +155,15 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
     expect(s).toMatch(/Nunca use com o cliente palavras de sistema como "chamado", "demanda",/);
   });
 
+  it('regras 3a, 3c e 3e: erro das ferramentas de nota, dados de outras empresas e cadastro conferido antes', () => {
+    const r3a = s.slice(s.indexOf('\n3a. '), s.indexOf('\n3b. '));
+    expect(r3a).toContain('Se buscar_parceiros, buscar_produtos, resumir_pedido_nota ou abrir_pedido_nota der erro que não seja de empresa não definida, abra com abrir_chamado no Fiscal');
+    const r3c = s.slice(s.indexOf('\n3c. '), s.indexOf('\n3d. '));
+    expect(r3c).toContain('Nunca informe dados de empresas que não sejam a empresa em foco ou os clientes/fornecedores cadastrados dela');
+    const r3e = s.slice(s.indexOf('\n3e. '), s.indexOf('\n4. '));
+    expect(r3e).toContain('Para cadastrar, confira antes com buscar_produtos se ele já existe.');
+  });
+
   it('regra 3a: nota sem venda ou com valor diferente do real é assunto sensível', () => {
     const r3a = s.slice(s.indexOf('\n3a. '), s.indexOf('\n3b. '));
     expect(r3a).toContain('Nota sem venda ou com valor diferente do real (para comprovar renda, etc.) é assunto sensível: não siga o fluxo de nota; trate como assunto sensível');
@@ -159,5 +171,12 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
 
   it('emoji continua proibido', () => {
     expect(s).toContain('Nunca use emoji.');
+  });
+});
+
+describe('diaMes (data de abertura em consultar_chamados)', () => {
+  it('mostra dd/mm no horário de Brasília', () => {
+    expect(diaMes('2026-09-30T02:00:00Z')).toBe('29/09');
+    expect(diaMes('2026-09-30T15:00:00Z')).toBe('30/09');
   });
 });

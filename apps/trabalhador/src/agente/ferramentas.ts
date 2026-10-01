@@ -66,7 +66,7 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
   },
   {
     name: 'consultar_chamados',
-    description: 'Lista os chamados em aberto da empresa em foco, para informar o andamento ao cliente.',
+    description: 'Lista os chamados em aberto da empresa em foco (com a data de abertura em aberta_em, dd/mm), para informar o andamento ao cliente.',
     input_schema: objeto({}, []),
   },
   {
@@ -187,6 +187,10 @@ const Entradas = {
   }),
   responder: z.object({ texto: z.string().min(1).max(4000) }),
 };
+
+/** Dia e mês (dd/mm) em Brasília: a data de abertura que consultar_chamados mostra ao modelo (regra 13, cobrança). */
+export const diaMes = (iso: string) =>
+  new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' }).format(new Date(iso));
 
 /** Textos devolvidos ao modelo, iguais no atendimento de verdade e na simulação (Treinar o agente). */
 export const AVISOS = {
@@ -321,7 +325,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       if (bloqueio) return bloqueio;
       if (!ctx.empresaEmFoco) return ok({ chamados: [] });
       const chamados = await d.repos.chamadosAbertosDoCliente(ctx.empresaEmFoco.id);
-      return ok({ chamados: chamados.map((c) => ({ numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor_nome ?? 'Triagem' })) });
+      return ok({ chamados: chamados.map((c) => ({ numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor_nome ?? 'Triagem', aberta_em: diaMes(c.criado_em) })) });
     }
 
     case 'sinalizar_nao_entendido': {
