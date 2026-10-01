@@ -2,6 +2,7 @@ import { montarCsvVendaBling, pedidoVendaBling, type PedidoVendaSalvo } from '@e
 import { limparBanco } from '@escritorio/db/teste';
 import { contatoComEmpresas, criarCadastrosExemplo, db, repos, setorId } from '../../test/apoio/cenario';
 import { criarClienteIa } from '../agente/cliente-ia';
+import { ORIENTACOES_SKILL_DONO } from '../agente/orientacoes-skill-dono';
 import { CanalFalso } from '../canal/falso';
 import { LimitadorEnvio } from '../envio';
 import { criarArmazenamento } from '../midia/armazenamento';
@@ -16,12 +17,18 @@ async function criarOrientacoes(c: Cenario, empresas: string[]) {
     const clienteId = o.empresa === 'primeira' ? empresas[0]! : o.empresa === 'segunda' ? empresas[1]! : null;
     await db.from('orientacoes_agente').insert({ titulo: o.titulo, texto: o.texto, tipo: o.tipo, cliente_id: clienteId, ativo: true });
   }
+  if (c.orientacoesDaSkill) {
+    await db.from('orientacoes_agente').insert(ORIENTACOES_SKILL_DONO.map((o) => ({ titulo: o.titulo, texto: o.texto, tipo: o.tipo, ativo: true })));
+  }
 }
 
 async function preparar(c: Cenario) {
   await limparBanco();
   await db.from('servicos').delete().neq('nome', '');
   await db.from('configuracoes').update({ teto_ia_usd: 1000 }).eq('id', 1);
+  for (const s of c.setoresExtras ?? []) {
+    await db.from('setores').upsert({ nome: s.nome, descricao_assuntos: s.descricao }, { onConflict: 'nome', ignoreDuplicates: true });
+  }
   for (const f of c.faq ?? []) await db.from('respostas_prontas').insert(f);
   if (c.empresas.length === 0) {
     await criarOrientacoes(c, []);
