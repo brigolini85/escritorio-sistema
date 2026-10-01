@@ -85,3 +85,14 @@
 
 - [ ] `docs/operacao.md`: seção "Treinar o agente" (como usar, exemplos bons, limites, regras fixas que vencem).
 - [ ] Rodar tudo: typecheck, vitest (painel, trabalhador, core, db), pgTAP, e2e do painel.
+
+### Task 8: Skill de atendimento do dono (adicionada em 2026-09-30)
+
+Origem: o dono enviou a skill `docs/referencia/skill-atendimento-dono.md` (46 mil caracteres) e decidiu: o agente se chama **Thiago**; **emoji nunca** (regra fixa continua); as orientações da skill podem ficar, **inclusive as explicações gerais** da seção 4.3 ("Explicações gerais que você pode dar"); setores IRPF, Comercial e Direção foram criados na nuvem (Legalização = Societário da skill).
+
+**Files:** `apps/trabalhador/src/agente/prompt.ts` (regras fixas), Create `supabase/dados/orientacoes-skill-dono.sql` (inserção idempotente das orientações, desligadas, para rodar na nuvem depois do merge, com aprovação), testes.
+
+- [ ] Regras fixas: (a) o agente se apresenta como "Thiago, do atendimento do escritório" quando fizer sentido (primeiro contato), nunca diz ser pessoa e, se perguntarem diretamente, diz que é o assistente virtual do escritório; (b) a regra 2 passa a permitir SÓ as explicações gerais listadas na skill (DAS, DAS do MEI, pró-labore × lucro, registro do funcionário, férias, rescisão, limite do MEI, certificado digital), sem números do caso e só quando o cliente perguntar; continua proibido parecer do caso concreto; (c) emoji continua proibido.
+- [ ] Condensar o resto da skill em ~12 orientações (tipo, título, texto ≤ 2000) cabendo juntas em ≤ 12.000 caracteres pela regra de medição de `orientacoesDaConversa`: postura e escuta; perguntar bem; responder como gente (frases proibidas); ritmo; perfis de cliente; assuntos sensíveis (regra 7 da skill, ASSUNTO SENSÍVEL → Direção); sigilo/senha/golpe/terceiros; setores e casos de fronteira (com os nomes reais: Contábil, Financeiro, Fiscal, IRPF, Legalização, Pessoal, Comercial, Direção); checklist do que coletar; prioridade e resumo interno (formato ENCAMINHAMENTO dentro do resumo da demanda; título com URGENTE: quando urgente); situações delicadas; fechamento com o cliente. Nada que contrarie as regras fixas (resumo + confirmação do pedido de nota, sem emoji, ferramentas).
+- [ ] Dados do escritório (bloco 4.0): ler `pedidos-do-dono/skill-atendimento/dados-do-escritorio.txt` (copiado para o brief pelo controller); campos vazios = "vou confirmar com a equipe".
+- [ ] Teste que as orientações do seed cabem no limite e que nenhuma contém emoji; cenário com Claude real "assunto sensível vai para a Direção sem julgar" (não rodar sem o controller).
