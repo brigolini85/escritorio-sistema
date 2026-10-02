@@ -2,7 +2,10 @@ import { notFound } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { AvisoErro } from '@/components/patterns/aviso-erro';
 import { DocumentText } from '@/components/patterns/document-text';
+import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
+import { AvisoArquivado } from '@/components/patterns/lista-arquivados';
 import { Badge } from '@/components/ui/badge';
+import { nomeDaPessoa } from '@/lib/arquivados';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ABAS, AbasCliente, EscolhaParceiros, type Aba } from './abas';
@@ -29,6 +32,7 @@ export default async function FichaCliente({ params, searchParams }: {
   const { data: c } = await sb.from('clientes').select('*').eq('id', id).maybeSingle();
   if (!c) notFound();
   const nome = c.nome_fantasia ?? c.razao_social;
+  const arquivadoPor = c.ativo ? null : await nomeDaPessoa(sb, c.arquivado_por);
 
   return (
     <div className="flex max-w-5xl flex-col gap-4">
@@ -40,11 +44,11 @@ export default async function FichaCliente({ params, searchParams }: {
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             {c.nome_fantasia && <span>{c.razao_social}</span>}
             <span>CNPJ <DocumentText valor={c.cnpj} tipo="cnpj" /></span>
-            {!c.ativo && <Badge variant="neutral">Inativa</Badge>}
             {c.agente_pausado && <Badge variant="agent-paused">Agente pausado para esta empresa</Badge>}
           </span>
         )}
       />
+      {!c.ativo && <AvisoArquivado tipo="cliente" id={c.id} nome={c.razao_social} arquivadoEm={c.arquivado_em} arquivadoPor={arquivadoPor} pode={pode} />}
       <AvisoErro erro={erro} prefixo="Não foi possível salvar: " />
       <AbasCliente id={id} atual={aba} />
       {(aba === 'clientes' || aba === 'fornecedores') && <EscolhaParceiros id={id} atual={aba} />}
@@ -55,6 +59,7 @@ export default async function FichaCliente({ params, searchParams }: {
       {aba === 'produtos' && <SecaoProdutos id={id} pode={pode} />}
       {aba === 'precos' && <SecaoPrecos id={id} podeEditar={temPermissao(u, 'editar_precos')} historico={historico} />}
       {aba === 'documentos' && <SecaoDocumentos id={id} pode={pode} admin={u.papel === 'admin'} />}
+      {aba === 'dados' && pode && c.ativo && <ExcluirCadastro tipo="cliente" id={c.id} nome={c.razao_social} variante="area" voltarPara="/clientes" />}
     </div>
   );
 }

@@ -35,7 +35,12 @@ async function salvarClienteSemAviso(id: string | null, formData: FormData) {
     return;
   }
   const { data, error } = await sb.from('clientes').insert(dados).select('id').single();
-  if (error) throw new Error(error.message.includes('duplicate') ? 'Já existe cliente com este CNPJ.' : error.message);
+  if (error) {
+    if (!error.message.includes('duplicate')) throw new Error(error.message);
+    // CNPJ é único também entre os arquivados: aponta o caminho em vez de um "já existe" sem saída.
+    const { data: arquivado } = await sb.from('clientes').select('id').eq('cnpj', dados.cnpj).eq('ativo', false).maybeSingle();
+    throw new Error(arquivado ? 'Este CNPJ é de um cliente arquivado. Restaure em Clientes › Arquivados.' : 'Já existe cliente com este CNPJ.');
+  }
   redirect(`/clientes/${data.id}`);
 }
 

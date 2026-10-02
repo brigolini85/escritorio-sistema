@@ -1,12 +1,15 @@
-import { Building2, FilterX, Plus } from 'lucide-react';
+import { Building2, FilterX, Pencil, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/layout/page-header';
 import { DataTable, type ColunaTabela } from '@/components/patterns/data-table';
 import { DocumentText } from '@/components/patterns/document-text';
 import { EmptyState } from '@/components/patterns/empty-state';
+import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
 import { FilterBar } from '@/components/patterns/filter-bar';
+import { LinkArquivados, TelaArquivados } from '@/components/patterns/lista-arquivados';
 import { Badge } from '@/components/ui/badge';
 import { variantesBotao } from '@/components/ui/button';
+import { contarArquivados } from '@/lib/arquivados';
 import { termoSeguroPostgrest } from '@/lib/busca';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -14,31 +17,35 @@ import { faixaDaConsulta, lerOrdem, lerPagina, paginar, valorParam, type Paginac
 
 const POR_PAGINA = 50;
 const ORDENAVEIS = ['razao_social', 'cnpj'] as const;
-const OPCOES_SITUACAO = [{ valor: 'ativas', rotulo: 'Ativas' }, { valor: 'inativas', rotulo: 'Inativas' }];
 
 type Linha = { id: string; razao_social: string; nome_fantasia: string | null; cnpj: string; ativo: boolean; agente_pausado: boolean; contatos: number };
 
 /** O que o filtro da lista usa do construtor de consultas (os mesmos filtros na contagem e na página). */
 type Filtravel<Q> = { or(filtro: string): Q; eq(coluna: string, valor: boolean): Q };
 
-/** Empresas atendidas pelo escritório. Busca por nome ou CNPJ (?q=, como antes), situação, ordem e página na URL. */
+/** Empresas atendidas pelo escritório. Busca por nome ou CNPJ (?q=, como antes), ordem e página na URL; ?ver=arquivados mostra os arquivados. */
 export default async function Clientes({ searchParams }: { searchParams: Promise<ParamsBusca> }) {
   const params = await searchParams;
   const u = await obterUsuario();
   const pode = temPermissao(u, 'editar_clientes');
+  if (valorParam(params, 'ver') === 'arquivados') {
+    return <TelaArquivados tipo="cliente" titulo="Clientes arquivados" voltar={{ rotulo: 'Clientes', href: '/clientes' }} pode={pode} />;
+  }
   const q = termoSeguroPostgrest(valorParam(params, 'q'));
-  const situacao = valorParam(params, 'situacao');
   const ordem = lerOrdem(params, ORDENAVEIS, { coluna: 'razao_social', direcao: 'asc' })!;
   const sb = await supabaseServidor();
 
   const filtrar = <Q extends Filtravel<Q>>(consulta: Q): Q => {
     let r = consulta;
     if (q) r = r.or(`razao_social.ilike.%${q}%,nome_fantasia.ilike.%${q}%,cnpj.ilike.%${q.replace(/\D/g, '') || q}%`);
-    if (situacao === 'ativas') r = r.eq('ativo', true);
-    else if (situacao === 'inativas') r = r.eq('ativo', false);
+    // Arquivado sai da lista (spec 5.1).
+    r = r.eq('ativo', true);
     return r;
   };
-  const contados = await filtrar(sb.from('clientes').select('id', { count: 'exact', head: true }));
+  const [contados, arquivados] = await Promise.all([
+    filtrar(sb.from('clientes').select('id', { count: 'exact', head: true })),
+    contarArquivados(sb, 'cliente'),
+  ]);
   const total = contados.count ?? 0;
   const lerPaginaDaLista = (p: Paginacao) => {
     const [de, ate] = faixaDaConsulta(p, POR_PAGINA);
@@ -70,15 +77,14 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     {
       id: 'situacao', titulo: 'Situação',
       celula: (c) => (
-        <span className="flex items-center gap-1.5">
-          {c.ativo ? <Badge variant="success">Ativa</Badge> : <Badge variant="neutral">Inativa</Badge>}
-          {c.agente_pausado && <Badge variant="agent-paused" title="O agente não responde os contatos desta empresa">Agente pausado</Badge>}
-        </span>
+        c.agente_pausado
+          ? <Badge variant="agent-paused" title="O agente não responde os contatos desta empresa">Agente pausado</Badge>
+          : <span className="text-subtle">—</span>
       ),
     },
   ];
 
-  const filtrando = Boolean(q || situacao);
+  const filtrando = Boolean(q);
 
   return (
     <section>
@@ -86,18 +92,22 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
         titulo="Clientes"
         contagem={total}
         descricao="Empresas atendidas pelo escritório, com contatos, produtos, preços e documentos."
-        acoes={pode ? (
-          <Link href="/clientes/novo" className={variantesBotao({ size: 'sm' })}>
-            <Plus aria-hidden size={16} strokeWidth={1.75} />
-            Novo cliente
-          </Link>
-        ) : undefined}
+        acoes={(
+          <>
+            <LinkArquivados href="/clientes?ver=arquivados" total={arquivados} />
+            {pode && (
+              <Link href="/clientes/novo" className={variantesBotao({ size: 'sm' })}>
+                <Plus aria-hidden size={16} strokeWidth={1.75} />
+                Novo cliente
+              </Link>
+            )}
+          </>
+        )}
       />
       <FilterBar
         className="mb-3"
         total={total}
         busca={{ placeholder: 'Buscar por nome ou CNPJ' }}
-        filtros={[{ param: 'situacao', rotulo: 'Situação', todos: 'Todas', opcoes: OPCOES_SITUACAO }]}
       />
       <DataTable
         rotulo="Clientes"
@@ -108,6 +118,14 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
         ordem={ordem}
         paginacao={paginacao}
         hrefLinha={(c) => `/clientes/${c.id}`}
+        acoesLinha={pode ? (c) => (
+          <span className="flex items-center justify-end gap-1">
+            <Link href={`/clientes/${c.id}`} aria-label={`Editar ${c.razao_social}`} className={variantesBotao({ variant: 'outline', size: 'icon' })}>
+              <Pencil aria-hidden size={16} strokeWidth={1.75} />
+            </Link>
+            <ExcluirCadastro tipo="cliente" id={c.id} nome={c.razao_social} />
+          </span>
+        ) : undefined}
         erro={resultado.error ? 'Não consegui carregar os clientes agora.' : undefined}
         vazio={filtrando ? (
           <EmptyState

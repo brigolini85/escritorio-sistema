@@ -14,8 +14,11 @@ import { APARENCIA_CONFIRMACAO, textoConfere, tipoPadrao, type TipoConfirmacao }
 const ICONE_CONFIRMACAO: Record<TipoConfirmacao, LucideIcon> = { arquivar: Archive, excluir: Trash2, concluir: CircleCheck, perigo: TriangleAlert, neutro: CircleHelp };
 
 type Base = {
-  /** Botão que abre a confirmação (ex.: <Button variant="danger">Concluir</Button>). */
-  gatilho: ReactElement;
+  /** Botão que abre a confirmação (ex.: <Button variant="danger">Concluir</Button>). Sem ele, quem chama abre a janela. */
+  gatilho?: ReactElement;
+  /** Janela controlada por quem chama (ex.: abre depois de consultar o banco). */
+  aberto?: boolean;
+  aoMudarAberto?: (aberto: boolean) => void;
   titulo: ReactNode;
   descricao?: ReactNode;
   /** Texto do botão que envia; o mesmo verbo da ação ("Concluir", "Apagar dados"). */
@@ -42,8 +45,18 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
   const tipo = props.tipo ?? tipoPadrao(variante);
   const ap = APARENCIA_CONFIRMACAO[tipo];
   const Icone = ICONE_CONFIRMACAO[tipo];
-  const [aberto, setAberto] = useState(false);
+  const [abertoInterno, setAbertoInterno] = useState(false);
   const [digitado, setDigitado] = useState('');
+  const controlado = props.aberto !== undefined;
+  const aberto = controlado ? Boolean(props.aberto) : abertoInterno;
+  const mudarAberto = (v: boolean) => {
+    if (controlado) props.aoMudarAberto?.(v);
+    else setAbertoInterno(v);
+    if (!v) setDigitado('');
+  };
+  // O efeito do formulário externo usa sempre a versão mais nova, sem ser recriado a cada render.
+  const mudarAbertoRef = useRef(mudarAberto);
+  mudarAbertoRef.current = mudarAberto;
   const idDigitar = useId();
   const idEsperado = useId();
   const liberado = !digitarParaConfirmar || textoConfere(digitado, digitarParaConfirmar);
@@ -57,13 +70,13 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
       console.warn(`[ConfirmDialog] formulário "${externo}" não encontrado: o botão de confirmar não vai enviar nada.`);
       return;
     }
-    const aoEnviar = () => setTimeout(() => setAberto(false), 0);
+    const aoEnviar = () => setTimeout(() => mudarAbertoRef.current(false), 0);
     // Validação do navegador barrou o envio (campo obrigatório atrás da janela): fecha e mostra o aviso no campo.
     let avisando = false;
     const aoInvalidar = () => {
       if (avisando) return;
       avisando = true;
-      setAberto(false);
+      mudarAbertoRef.current(false);
       // Depois da janela fechar e devolver o foco ao gatilho (animação de 100ms).
       setTimeout(() => { form.reportValidity(); avisando = false; }, 150);
     };
@@ -75,11 +88,6 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
     };
   }, [aberto, externo]);
 
-  const mudarAberto = (v: boolean) => {
-    setAberto(v);
-    if (!v) setDigitado('');
-  };
-
   const campoDigitar = digitarParaConfirmar && (
     <div className="flex flex-col gap-1.5 text-left">
       <Label htmlFor={idDigitar} className="block normal-case font-normal tracking-normal text-muted">Digite o nome para confirmar</Label>
@@ -90,7 +98,7 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
 
   return (
     <Dialog open={aberto} onOpenChange={mudarAberto}>
-      <DialogTrigger asChild>{gatilho}</DialogTrigger>
+      {gatilho && <DialogTrigger asChild>{gatilho}</DialogTrigger>}
       <DialogContent className="max-w-md text-center">
         <DialogHeader className="gap-3 pr-0">
           <div aria-hidden className={cn('mx-auto flex size-20 items-center justify-center rounded-full border-4', ap.anel)}>

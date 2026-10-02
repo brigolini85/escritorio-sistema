@@ -13,10 +13,11 @@ export async function GET(req: NextRequest) {
   const { termo, digitos, numero } = c;
 
   const [empresas, contatos, demandas] = await Promise.all([
-    sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj')
+    // Arquivado sai das buscas (spec 5.1).
+    sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj').eq('ativo', true)
       .or(`razao_social.ilike.%${termo}%,nome_fantasia.ilike.%${termo}%,cnpj.ilike.%${digitos || termo}%`)
       .order('razao_social').limit(LIMITE_POR_GRUPO),
-    sb.from('contatos').select('id, nome, telefone')
+    sb.from('contatos').select('id, nome, telefone').eq('ativo', true)
       .or(`nome.ilike.%${termo}%,telefone.ilike.%${digitos || termo}%`)
       .order('nome').limit(LIMITE_POR_GRUPO),
     sb.from('chamados').select('id, numero, titulo, status, conversa_id, clientes(razao_social, nome_fantasia)')
