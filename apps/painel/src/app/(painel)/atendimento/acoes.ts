@@ -83,7 +83,8 @@ export async function cadastrarContatoDaConversa(conversaId: string, formData: F
   const { data: conversa, error: e1 } = await sb.from('conversas').select('telefone').eq('id', conversaId).single();
   if (e1) throw new Error(e1.message);
   const { data: contato, error: e2 } = await sb.from('contatos')
-    .upsert({ nome, telefone: conversa.telefone, agente_pausado: formData.get('agente_atende') !== 'on' }, { onConflict: 'telefone' })
+    // Cadastrar de novo um telefone arquivado traz o contato de volta (o gatilho limpa o arquivo).
+    .upsert({ nome, telefone: conversa.telefone, ativo: true, agente_pausado: formData.get('agente_atende') !== 'on' }, { onConflict: 'telefone' })
     .select('id').single();
   if (e2) throw new Error(e2.message);
   if (clienteId) {

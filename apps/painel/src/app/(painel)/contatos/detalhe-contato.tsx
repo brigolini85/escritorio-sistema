@@ -4,10 +4,12 @@ import type { ReactNode } from 'react';
 import { ApagarDadosContato } from '@/components/patterns/apagar-dados-contato';
 import { DocumentText } from '@/components/patterns/document-text';
 import { EmptyState } from '@/components/patterns/empty-state';
+import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
+import { AvisoArquivado } from '@/components/patterns/lista-arquivados';
 import { SwitchAgenteContato } from '@/components/patterns/switch-agente-contato';
-import { Badge } from '@/components/ui/badge';
 import { SheetBody, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { NOME_ANONIMIZADO } from '@/lib/arquivo';
+import { nomeDaPessoa } from '@/lib/arquivados';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato } from '../atendimento/acoes';
@@ -27,7 +29,7 @@ function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
 export async function DetalheContato({ id, pode, admin }: { id: string; pode: boolean; admin: boolean }) {
   const sb = await supabaseServidor();
   const { data: c } = await sb.from('contatos')
-    .select('id, nome, telefone, agente_pausado, ativo, contato_clientes(pode_pedir_nota, pode_atualizar_preco, clientes(id, razao_social, nome_fantasia))')
+    .select('id, nome, telefone, agente_pausado, ativo, arquivado_em, arquivado_por, contato_clientes(pode_pedir_nota, pode_atualizar_preco, clientes(id, razao_social, nome_fantasia))')
     .eq('id', id).maybeSingle();
 
   if (!c) {
@@ -45,6 +47,7 @@ export async function DetalheContato({ id, pode, admin }: { id: string; pode: bo
   const vinculos: Vinculo[] = c.contato_clientes.flatMap((v) => (v.clientes
     ? [{ empresaId: v.clientes.id, empresa: nomeEmpresa(v.clientes), podePedirNota: v.pode_pedir_nota, podeMudarPreco: v.pode_atualizar_preco }]
     : []));
+  const arquivadoPor = c.ativo ? null : await nomeDaPessoa(sb, c.arquivado_por);
   const anonimizado = c.nome === NOME_ANONIMIZADO && !c.ativo;
 
   return (
@@ -53,10 +56,12 @@ export async function DetalheContato({ id, pode, admin }: { id: string; pode: bo
         <SheetTitle>{c.nome}</SheetTitle>
         <SheetDescription className="flex flex-wrap items-center gap-2">
           <DocumentText valor={c.telefone} tipo="telefone" />
-          {!c.ativo && <Badge variant="neutral">Inativo</Badge>}
         </SheetDescription>
       </SheetHeader>
       <SheetBody>
+        {!c.ativo && !anonimizado && (
+          <div className="py-4"><AvisoArquivado tipo="contato" id={c.id} nome={c.nome} arquivadoEm={c.arquivado_em} arquivadoPor={arquivadoPor} pode={pode} /></div>
+        )}
         <Secao titulo="Agente">
           <SwitchAgenteContato
             acao={alternarAgenteContato.bind(null, c.id, null, c.agente_pausado)}
@@ -86,6 +91,9 @@ export async function DetalheContato({ id, pode, admin }: { id: string; pode: bo
           )}
         </Secao>
 
+        {pode && c.ativo && (
+          <div className="py-4"><ExcluirCadastro tipo="contato" id={c.id} nome={c.nome} variante="area" voltarPara="/contatos" /></div>
+        )}
         {admin && !anonimizado && (
           <section aria-labelledby="zona-perigo" className="my-4 flex flex-col gap-2 rounded-md border border-danger p-4">
             <h3 id="zona-perigo" className="flex items-center gap-2 text-base font-semibold text-danger">

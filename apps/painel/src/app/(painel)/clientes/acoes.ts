@@ -51,7 +51,8 @@ export async function adicionarContato(clienteId: string, formData: FormData) {
 async function adicionarContatoSemAviso(clienteId: string, formData: FormData) {
   const sb = await exigirEdicao();
   const c = ContatoForm.parse(campos(formData));
-  const { data: contato, error } = await sb.from('contatos').upsert({ nome: c.nome, telefone: c.telefone }, { onConflict: 'telefone' }).select('id').single();
+  // Cadastrar de novo um telefone arquivado traz o contato de volta (o gatilho limpa o arquivo).
+  const { data: contato, error } = await sb.from('contatos').upsert({ nome: c.nome, telefone: c.telefone, ativo: true }, { onConflict: 'telefone' }).select('id').single();
   if (error) throw new Error(error.message);
   const { error: e2 } = await sb.from('contato_clientes').upsert({
     contato_id: contato.id, cliente_id: clienteId, pode_pedir_nota: c.pode_pedir_nota, pode_atualizar_preco: c.pode_atualizar_preco,

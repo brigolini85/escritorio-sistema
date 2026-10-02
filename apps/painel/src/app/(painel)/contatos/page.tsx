@@ -4,13 +4,15 @@ import { Suspense } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { DataTable, type ColunaTabela } from '@/components/patterns/data-table';
 import { EmptyState } from '@/components/patterns/empty-state';
+import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
 import { FilterBar } from '@/components/patterns/filter-bar';
+import { LinkArquivados, TelaArquivados } from '@/components/patterns/lista-arquivados';
 import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
 import { SwitchAgenteContato } from '@/components/patterns/switch-agente-contato';
-import { Badge } from '@/components/ui/badge';
 import { Button, variantesBotao } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { contarArquivados } from '@/lib/arquivados';
 import { termoSeguroPostgrest } from '@/lib/busca';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -35,6 +37,9 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const u = await obterUsuario();
   const pode = temPermissao(u, 'editar_clientes');
+  if (valorParam(params, 'ver') === 'arquivados') {
+    return <TelaArquivados tipo="contato" titulo="Contatos arquivados" voltar={{ rotulo: 'Contatos', href: '/contatos' }} pode={pode} />;
+  }
   const q = termoSeguroPostgrest(valorParam(params, 'q'));
   const agente = valorParam(params, 'agente');
   const aberto = valorParam(params, 'contato');
@@ -43,7 +48,8 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
   const sb = await supabaseServidor();
 
   const filtrar = <Q extends Filtravel<Q>>(consulta: Q): Q => {
-    let r = consulta;
+    // Arquivado sai da lista (spec 5.1)
+    let r = consulta.eq('ativo', true);
     if (q) r = r.or(`nome.ilike.%${q}%,telefone.ilike.%${q.replace(/\D/g, '') || q}%`);
     if (agente === 'atende') r = r.eq('agente_pausado', false);
     else if (agente === 'desligado') r = r.eq('agente_pausado', true);
@@ -51,6 +57,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
   };
   const contados = await filtrar(sb.from('contatos').select('id', { count: 'exact', head: true }));
   const total = contados.count ?? 0;
+  const arquivados = await contarArquivados(sb, 'contato');
   const lerPaginaDaLista = (p: Paginacao) => {
     const [de, ate] = faixaDaConsulta(p, POR_PAGINA);
     return filtrar(sb.from('contatos').select('id, nome, telefone, agente_pausado, ativo, contato_clientes(pode_pedir_nota, pode_atualizar_preco, clientes(id, razao_social, nome_fantasia))'))
@@ -81,7 +88,6 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
       celula: (c) => (
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate font-medium text-foreground">{c.nome}</span>
-          {!c.ativo && <Badge variant="neutral">Inativo</Badge>}
         </span>
       ),
     },
@@ -121,12 +127,17 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
         titulo="Contatos"
         contagem={total}
         descricao="Quem fala com o escritório pelo WhatsApp, as empresas de cada um e se o agente atende."
-        acoes={pode ? (
-          <a href="#novo-contato" className={variantesBotao({ size: 'sm' })}>
-            <UserPlus aria-hidden size={16} strokeWidth={1.75} />
-            Novo contato
-          </a>
-        ) : undefined}
+        acoes={(
+          <>
+            <LinkArquivados href="/contatos?ver=arquivados" total={arquivados} />
+            {pode && (
+              <a href="#novo-contato" className={variantesBotao({ size: 'sm' })}>
+                <UserPlus aria-hidden size={16} strokeWidth={1.75} />
+                Novo contato
+              </a>
+            )}
+          </>
+        )}
       />
       <FilterBar
         className="mb-3"
@@ -142,6 +153,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
         params={params}
         ordem={ordem}
         paginacao={paginacao}
+        acoesLinha={pode ? (c) => <ExcluirCadastro tipo="contato" id={c.id} nome={c.nome} /> : undefined}
         hrefLinha={(c) => hrefContato(c.id)}
         linhaAtiva={contatoAberto}
         erro={resultado.error ? 'Não consegui carregar os contatos agora.' : undefined}

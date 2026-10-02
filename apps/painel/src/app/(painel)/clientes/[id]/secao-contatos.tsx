@@ -19,7 +19,7 @@ import { LinhaContato } from './linha-contato';
 export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPainel; pode: boolean }) {
   const sb = await supabaseServidor();
   const { data: vinculos } = await sb.from('contato_clientes')
-    .select('pode_pedir_nota, pode_atualizar_preco, contatos(id, nome, telefone, agente_pausado)').eq('cliente_id', id);
+    .select('pode_pedir_nota, pode_atualizar_preco, contatos!inner(id, nome, telefone, agente_pausado, ativo)').eq('cliente_id', id).eq('contatos.ativo', true);
   const { data: todos } = await sb.from('contatos').select('id, nome, telefone').eq('ativo', true).order('nome');
   const lista = (vinculos ?? []).flatMap((v) => (v.contatos ? [{ ...v, contato: v.contatos }] : []))
     .sort((a, b) => a.contato.nome.localeCompare(b.contato.nome, 'pt-BR'));

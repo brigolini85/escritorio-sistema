@@ -14,7 +14,8 @@ export async function cadastrarContato(formData: FormData) {
   if (!telefone) throw new Error('Telefone inválido. Use DDD + número, ex.: (31) 99999-0000.');
   const sb = await supabaseServidor();
   const { error } = await sb.from('contatos')
-    .upsert({ nome, telefone, agente_pausado: formData.get('agente_atende') !== 'on' }, { onConflict: 'telefone' });
+    // Cadastrar de novo um telefone arquivado traz o contato de volta (o gatilho limpa o arquivo).
+    .upsert({ nome, telefone, ativo: true, agente_pausado: formData.get('agente_atende') !== 'on' }, { onConflict: 'telefone' });
   if (error) throw new Error(error.message);
   revalidatePath('/contatos');
 }
