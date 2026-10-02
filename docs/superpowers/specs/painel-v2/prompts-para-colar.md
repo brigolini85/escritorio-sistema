@@ -13,7 +13,7 @@ Pasta: `docs/superpowers/specs/painel-v2/`
 
 ---
 
-## TEXTO ÚNICO — cole este numa conversa nova (faz A → H na ordem, parando em cada parte)
+## TEXTO ÚNICO — cole este numa conversa nova (faz A → I na ordem, parando em cada parte)
 
 ```
 Quero implantar o Painel v2, na ordem, uma parte de cada vez.
@@ -45,7 +45,7 @@ Comece conferindo o estado no git e me dizendo de onde vai continuar.
 
 ```
 Aprovei as Partes A e B. Agora sigo para as Partes C, D, E, F, G, H e I, nessa ordem, com as mesmas regras de antes (plano primeiro, --dry-run antes do banco, parar no fim de cada parte, não juntar nada na etapa-1).
-O spec mudou bastante: traga a pasta atualizada com git checkout etapa-1 -- docs/superpowers/specs/painel-v2 e RELEIA o spec inteiro antes do plano — principalmente a seção 3.0 (estado de 02/10 e as 6 sobras da Parte B, que entram no começo da C), a 3.1 (decisões gerais) e as Partes G e H, que são novas.
+O spec mudou bastante: traga a pasta atualizada com git checkout etapa-1 -- docs/superpowers/specs/painel-v2 e RELEIA o spec inteiro antes do plano — principalmente a seção 3.0 (estado de 02/10 e as 6 sobras da Parte B, que entram no começo da C), a 3.1 (decisões gerais) e as Partes G, H e I, que são novas.
 Siga os Prompts C a I de docs/superpowers/specs/painel-v2/prompts-para-colar.md. A Parte C parte da branch painel-v2-parte-b. Comece pelas sobras da Parte B e depois a C.
 ```
 
