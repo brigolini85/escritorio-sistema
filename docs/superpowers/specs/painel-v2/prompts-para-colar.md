@@ -26,7 +26,7 @@ Tudo está na pasta docs/superpowers/specs/painel-v2/ (branch etapa-1):
 Leia os três antes de começar, e também docs/design-system.md e docs/operacao.md.
 
 ORDEM: A (visual e login) → B (cadastros: arquivar) → C (demandas) → D (usuários e permissões) → E (atendimento) → F (gastos com IA) → G (início, contatos, assistente, configurações, treinar o agente) → H (cadastro completo do cliente e acesso por contato).
-Se alguma parte já estiver feita (existe a branch painel-v2-parte-X aprovada), me diga e continue da próxima.
+Em 02/10 as Partes A e B já estavam prontas (branches painel-v2-parte-a e painel-v2-parte-b; ver seção 3.0 do spec). Confira no git; se estiverem lá, NÃO refaça: comece pelas sobras da Parte B e pela Parte C a partir de painel-v2-parte-b.
 
 REGRAS PARA TODAS AS PARTES:
 - Cada parte numa worktree e branch próprias (painel-v2-parte-a a partir de treinar-agente; cada parte seguinte a partir da anterior). Traga a pasta do spec com: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
@@ -38,13 +38,15 @@ REGRAS PARA TODAS AS PARTES:
 - Nunca junte nenhuma branch na etapa-1 sem eu pedir.
 - Se algo do spec estiver ambíguo ou conflitar com o código, pergunte em vez de supor.
 
-Comece pela Parte A.
+Comece conferindo o estado no git e me dizendo de onde vai continuar.
 ```
 
-**Se a conversa que já está rodando A–D continuar aberta**, quando a D terminar e você aprovar, cole lá só isto:
+**Se a conversa que fez A e B continuar aberta** (estado de 02/10: A e B prontas, parada esperando aprovação), depois de aprovar A e B na prática cole lá só isto:
 
 ```
-Agora as Partes E, F, G e H, nessa ordem, com as mesmas regras de antes (plano primeiro, --dry-run antes do banco, parar no fim de cada parte). Traga a pasta do spec atualizada com git checkout etapa-1 -- docs/superpowers/specs/painel-v2, releia o spec (ele mudou: seção 3 e Partes E–H) e siga os Prompts E, F, G e H de docs/superpowers/specs/painel-v2/prompts-para-colar.md. Comece pela E.
+Aprovei as Partes A e B. Agora sigo para as Partes C, D, E, F, G e H, nessa ordem, com as mesmas regras de antes (plano primeiro, --dry-run antes do banco, parar no fim de cada parte, não juntar nada na etapa-1).
+O spec mudou bastante: traga a pasta atualizada com git checkout etapa-1 -- docs/superpowers/specs/painel-v2 e RELEIA o spec inteiro antes do plano — principalmente a seção 3.0 (estado de 02/10 e as 5 sobras da Parte B, que entram no começo da C), a 3.1 (decisões gerais) e as Partes G e H, que são novas.
+Siga os Prompts C a H de docs/superpowers/specs/painel-v2/prompts-para-colar.md. A Parte C parte da branch painel-v2-parte-b. Comece pelas sobras da Parte B e depois a C.
 ```
 
 **Como usar os prompts por parte (abaixo):** só se quiser mandar uma parte isolada. Abra o Claude Code na pasta do projeto (`C:\Users\Thiago\Desktop\PROJETO\AGENTESDEIA`), cole um prompt por vez, espere terminar, veja na prática, aprove, e só então cole o próximo. Cada parte fica numa branch própria e nada é juntado à `etapa-1` sem você dizer.
@@ -104,7 +106,7 @@ Ao terminar: todas as suítes (painel, trabalhador, db, supabase test db) com re
 ```
 Vamos implementar a PARTE C do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 6). Imagens: imagens/03-demandas-tabela.png, 04-demandas-quadro-e-nova.png, 05-demanda-painel-lateral.png.
 
-Base: branch painel-v2-parte-c a partir de painel-v2-parte-b, em worktree.
+Base: branch painel-v2-parte-c a partir de painel-v2-parte-b, em worktree. ANTES da Parte C, faça as 5 "sobras da Parte B" da seção 3.0 do spec (commits separados, testes), e me mostre.
 
 Escopo (tudo na seção 6 do spec): tabela "Gestão das demandas" com duas informações por coluna e filtros rápidos com contador (abre primeiro, lembra a escolha); quadro com arrastar (concluir pede confirmação, alternativa por teclado); painel lateral com todas as ações (assumir, responsável, status, prioridade, prazo, nota interna, transferir, concluir, reabrir, editar título/descrição); nova demanda; busca; prioridade e prazo em dias úteis (urgente = mesmo dia, alta = 1, normal = 2, baixa = 5, editáveis em Configurações › Prazos), "Com o cliente" pausa o prazo; linha do tempo com todos os eventos; CSV Bling respeitando todos os filtros; avisos do trabalhador dizendo "Demanda #N".
 

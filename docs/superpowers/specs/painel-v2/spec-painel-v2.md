@@ -57,6 +57,31 @@ Imagens de referência das telas: pasta `imagens/` ao lado deste arquivo. Elas m
 
 As outras opções (`00-contatos-opcao-b`, `00-assistente-opcao-a`, `00-treinar-agente-opcao-a`) ficam só como referência — **não implementar**.
 
+### 3.0 Estado em 02/10/2026 (conferido no git e no documento "Arquitetura do sistema do escritório — 02/10/2026")
+
+| Parte | Estado | Branch / teste |
+|---|---|---|
+| A | **Pronta e revisada** (inclui aviso do login, tamanho da letra por pessoa, testes de tela grande) | `painel-v2-parte-a` (13dde51) · painel em localhost:3002 |
+| B | **Pronta e revisada**; migração 20261002000100 aplicada na homologação | `painel-v2-parte-b` (b63a9ed) · painel em localhost:3004 |
+| C–H | Só especificação, imagens e prompts | — |
+
+**Não refazer A nem B.** A Parte C parte de `painel-v2-parte-b`.
+
+O que a Parte B fez além deste spec (já vale, considerar nas próximas partes):
+- Pessoa da equipe arquivada deixa de receber demandas novas e o telefone dela passa a ser tratado como **contato desconhecido** (com a Parte H, isso significa perfil Básico).
+- Contato arquivado cadastrado de novo volta **só com a empresa nova** (`cadastrar_contato`).
+- Ninguém arquiva nem exclui o próprio acesso; contato apagado pela LGPD não volta.
+- A chave "Ativo" saiu dos formulários (clientes, contatos, produtos, redes, unidades, usuários) — a situação agora é "ativo / arquivado" pelo Excluir… e Restaurar.
+
+**Sobras da Parte B — fazer no começo da Parte C** (pequenas, apontadas na revisão de 02/10):
+1. Ícones de editar nas linhas de Contatos e Usuários (spec 5.1).
+2. "(inativo)" ainda aparece em Demandas → trocar por "arquivado" ou ocultar conforme o spec 5.1.
+3. Restaurar uma unidade cuja rede está arquivada: a unidade volta mas não aparece → avisar na hora ("a rede X está arquivada; restaurar a rede também?") e restaurar as duas se a pessoa aceitar.
+4. Mensagem "Este telefone já é de …" quando o dono é pessoa arquivada → dizer que está arquivada e oferecer o caminho (restaurar a pessoa ou usar outro telefone).
+5. Erro ao salvar em Usuários fecha o painel lateral e o aviso fica no topo (visto em 02/10 com telefone repetido) → mostrar o erro no próprio campo sem fechar (a Parte D troca o painel por página inteira; até lá, corrigir no painel atual).
+
+Operação (não é código): trocar o trabalhador da porta 3001 (ainda na versão da Parte A) pelo da Parte B antes de testar o agente com arquivados.
+
 ### 3.1 Decisões gerais (valem para todas as partes)
 
 - Termos da tela: Demanda (nunca "chamado"/"ticket"), Atendimento, Conversa, Empresa, Contato, Setor, Pedido de nota, CSV do Bling, Assumir, Devolver ao agente, Nota interna, Concluir.
@@ -264,7 +289,7 @@ Inspirada na tela "Cadastro de usuário e suas permissões" do Acessórias, sem 
 | Gastos com IA (Parte F) | Só administrador (não é permissão configurável) |
 
 - **Horário de acesso ao painel**: Seg a sex, Sábado, Domingo — cada um Permitido/Bloqueado com hora de início e fim (padrão: seg–sex 08–18, sábado e domingo bloqueados para não-admin). Admin nunca é bloqueado.
-- **Situação**: Usuário ativo? (liga com o arquivar da Parte B), Observações.
+- **Situação**: só leitura — "Ativo" ou "Arquivado em <data> por <pessoa>" (a chave "Ativo" saiu na Parte B; arquivar e restaurar são pelo Excluir… / Arquivados, que já existem). Observações.
 - Rodapé: "Senha: convite enviado por e-mail · reenviar convite"; botões **VOLTAR** e **SALVAR**. Erro ao salvar mantém tudo o que foi digitado (resolve a pendência 14 do redesign).
 - Lista de usuários continua em tabela, com colunas Nome / Cargo, Setores, Nível de Demandas, Último acesso, Situação.
 
