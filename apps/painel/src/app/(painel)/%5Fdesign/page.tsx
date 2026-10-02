@@ -144,7 +144,7 @@ export default async function PaginaDesign({ searchParams }: { searchParams: Pro
         </div>
       </Secao>
 
-      <Secao titulo="Tipografia" descricao="Inter. Escala fechada; corpo em 14px. Números com o utilitário tabular.">
+      <Secao titulo="Tipografia" descricao="Plus Jakarta Sans. Escala fechada; corpo em 14px. Números com o utilitário tabular.">
         <Card>
           <CardContent className="space-y-3">
             {TIPOGRAFIA.map(([classe, px, uso]) => (

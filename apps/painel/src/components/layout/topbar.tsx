@@ -5,16 +5,19 @@ import { AgentStateIndicator, type EstadoAgente } from '@/components/patterns/ag
 import type { EscolhaTema } from '@/components/tema/tema';
 import { BuscaGlobal } from './busca-global';
 import { MenuUsuario } from './menu-usuario';
+import type { TamanhoLetra } from './tamanho-letra';
 
 /** Barra do topo: menu (só em telas menores), busca global, estado geral do agente e menu da pessoa. */
 export function Topbar({
   usuario,
   tema,
+  tamanhoLetra,
   estadoAgente,
   onAbrirMenu,
 }: {
   usuario: { nome: string; papel: 'admin' | 'atendente' };
   tema: EscolhaTema;
+  tamanhoLetra: TamanhoLetra;
   estadoAgente: EstadoAgente | null;
   onAbrirMenu: () => void;
 }) {
@@ -32,7 +35,7 @@ export function Topbar({
         <BuscaGlobal />
       </div>
       {estadoAgente && <AgentStateIndicator estado={estadoAgente} />}
-      <MenuUsuario nome={usuario.nome} papel={usuario.papel} tema={tema} />
+      <MenuUsuario nome={usuario.nome} papel={usuario.papel} tema={tema} tamanhoLetra={tamanhoLetra} />
     </div>
   );
 }

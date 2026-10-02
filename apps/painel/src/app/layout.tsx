@@ -1,19 +1,24 @@
 import './globals.css';
-import { Inter } from 'next/font/google';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
+import { COOKIE_LETRA, classeDoTamanho, tamanhoDoValor } from '@/components/layout/tamanho-letra';
 import { COOKIE_TEMA, dataThemeDoCookie } from '@/components/tema/tema';
+import { cn } from '@/lib/cn';
 
 export const metadata = { title: 'Painel do Escritório' };
 
-// A fonte vira a variável --font-inter; tokens.css monta --font-sans a partir dela.
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+// A fonte vira a variável --font-jakarta; tokens.css monta --font-sans a partir dela.
+const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['300', '400', '500', '700', '800'], variable: '--font-jakarta', display: 'swap' });
 
 export default async function Raiz({ children }: { children: ReactNode }) {
   // Tema escolhido no cookie vai para o <html> já no servidor (sem piscar); sem cookie, segue o sistema.
-  const tema = dataThemeDoCookie((await cookies()).get(COOKIE_TEMA)?.value);
+  const loja = await cookies();
+  const tema = dataThemeDoCookie(loja.get(COOKIE_TEMA)?.value);
+  // Tamanho da letra também vem do cookie, para a classe já estar no <html> do servidor.
+  const letra = classeDoTamanho(tamanhoDoValor(loja.get(COOKIE_LETRA)?.value));
   return (
-    <html lang="pt-BR" data-theme={tema} className={inter.variable}>
+    <html lang="pt-BR" data-theme={tema} className={cn(jakarta.variable, letra)}>
       <body>{children}</body>
     </html>
   );

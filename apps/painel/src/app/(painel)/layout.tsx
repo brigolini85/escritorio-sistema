@@ -27,6 +27,7 @@ export default async function LayoutPainel({ children }: { children: ReactNode }
       contadores={{ atendimento, demandas }}
       estadoAgente={estadoPelaPausaGeral(pausado)}
       ambiente={rotuloAmbiente(process.env.NEXT_PUBLIC_AMBIENTE ?? process.env.AMBIENTE)}
+      tamanhoLetra={u.tamanhoLetra}
       tema={escolhaDoCookie(loja.get(COOKIE_TEMA)?.value)}
       recolhidoInicial={menuRecolhidoDoCookie(loja.get(COOKIE_MENU)?.value)}
     >

@@ -1,7 +1,8 @@
 'use client';
 
 import { ChevronDown, Keyboard, LogOut } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { sair } from '@/app/entrar/acoes';
 import { OPCOES_TEMA, useEscolhaTema } from '@/components/tema/alternador-tema';
 import type { EscolhaTema } from '@/components/tema/tema';
@@ -17,7 +18,9 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { definirTamanhoLetra } from './acoes-perfil';
 import { EVENTO_ABRIR_ATALHOS } from './atalhos';
+import { classeDoTamanho, OPCOES_LETRA, tamanhoDoValor, type TamanhoLetra } from './tamanho-letra';
 
 function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/).filter(Boolean);
@@ -25,9 +28,43 @@ function iniciais(nome: string): string {
   return ((a?.[0] ?? '') + (b?.[0] ?? '')).toUpperCase() || '?';
 }
 
-/** Menu da pessoa logada: nome, papel, tema e Sair (mesma server action de antes). */
-export function MenuUsuario({ nome, papel, tema }: { nome: string; papel: 'admin' | 'atendente'; tema: EscolhaTema }) {
+// Põe no <html> a classe do tamanho (ou nenhuma, no normal), trocando a anterior na hora.
+function aplicarClasseLetra(t: TamanhoLetra) {
+  const lista = document.documentElement.classList;
+  lista.remove('letra-grande', 'letra-maior');
+  const classe = classeDoTamanho(t);
+  if (classe) lista.add(classe);
+}
+
+/** Menu da pessoa logada: nome, papel, tema, tamanho da letra e Sair (mesma server action de antes). */
+export function MenuUsuario({
+  nome,
+  papel,
+  tema,
+  tamanhoLetra,
+}: {
+  nome: string;
+  papel: 'admin' | 'atendente';
+  tema: EscolhaTema;
+  tamanhoLetra: TamanhoLetra;
+}) {
   const [escolha, escolher] = useEscolhaTema(tema);
+  const [letra, setLetra] = useState(tamanhoLetra);
+
+  async function escolherLetra(valor: string) {
+    const novo = tamanhoDoValor(valor);
+    const anterior = letra;
+    setLetra(novo);
+    aplicarClasseLetra(novo);
+    const r = await definirTamanhoLetra(novo);
+    if (!r.ok) {
+      // Não gravou: volta ao tamanho anterior para a tela não mentir.
+      setLetra(anterior);
+      aplicarClasseLetra(anterior);
+      toast.error(r.erro);
+    }
+  }
+
   const gatilho = useRef<HTMLButtonElement>(null);
   return (
     <DropdownMenu modal={false}>
@@ -53,6 +90,15 @@ export function MenuUsuario({ nome, papel, tema }: { nome: string; papel: 'admin
           {OPCOES_TEMA.map(({ valor, rotulo, Icone }) => (
             <DropdownMenuRadioItem key={valor} value={valor} onSelect={(e) => e.preventDefault()}>
               <Icone aria-hidden size={16} strokeWidth={1.75} className="text-muted" />
+              {rotulo}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Tamanho da letra</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={letra} onValueChange={escolherLetra}>
+          {OPCOES_LETRA.map(({ valor, rotulo }) => (
+            <DropdownMenuRadioItem key={valor} value={valor} onSelect={(e) => e.preventDefault()}>
               {rotulo}
             </DropdownMenuRadioItem>
           ))}

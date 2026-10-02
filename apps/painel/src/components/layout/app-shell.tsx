@@ -10,6 +10,7 @@ import { useAoVivo } from './ao-vivo';
 import { AtalhosTeclado } from './atalhos-teclado';
 import { FaixaAmbiente } from './faixa-ambiente';
 import { cookieDoMenu } from './preferencias';
+import type { TamanhoLetra } from './tamanho-letra';
 import { Sidebar, type Contadores, type ItemMenu } from './sidebar';
 import { Topbar } from './topbar';
 
@@ -25,6 +26,7 @@ export function AppShell({
   estadoAgente,
   ambiente,
   tema,
+  tamanhoLetra,
   recolhidoInicial,
 }: {
   children: ReactNode;
@@ -34,6 +36,7 @@ export function AppShell({
   estadoAgente: EstadoAgente | null;
   ambiente: string | null;
   tema: EscolhaTema;
+  tamanhoLetra: TamanhoLetra;
   recolhidoInicial: boolean;
 }) {
   const [recolhido, setRecolhido] = useState(recolhidoInicial);
@@ -88,7 +91,7 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header ref={cabecalho} className="sticky top-0 z-40">
           <FaixaAmbiente rotulo={ambiente} />
-          <Topbar usuario={usuario} tema={tema} estadoAgente={aoVivo.estadoAgente} onAbrirMenu={() => setGaveta(true)} />
+          <Topbar usuario={usuario} tema={tema} tamanhoLetra={tamanhoLetra} estadoAgente={aoVivo.estadoAgente} onAbrirMenu={() => setGaveta(true)} />
         </header>
         <main id="conteudo" tabIndex={-1} className="flex-1 p-6 focus-visible:outline-none">{children}</main>
       </div>
