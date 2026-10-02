@@ -11,7 +11,9 @@ import { descricaoContador, rotuloContador } from '@/lib/contadores';
 import { cn } from '@/lib/cn';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-export type ItemMenu = { rotulo: string; href: string };
+// O tipo vive em lib/menu.ts (agora com filhos); reexportado para quem importa daqui.
+import type { ItemMenu } from '@/lib/menu';
+export type { ItemMenu };
 export type Contadores = { atendimento: number | null; demandas: number | null };
 
 // Ícone e grupo por href: os itens (e quem vê cada um) continuam vindo de itensDoMenu (lib/menu.ts).

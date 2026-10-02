@@ -15,10 +15,18 @@ describe('itensDoMenu', () => {
     expect(itensDoMenu({ papel: 'atendente', permissoes: ['treinar_agente', 'assistente_site'] }).map((i) => i.href))
       .toEqual(['/inicio', '/atendimento', '/demandas', '/clientes', '/contatos', '/assistente', '/treinar-agente']);
   });
-  it('administrador vê Treinar o agente, Usuários e Configurações; Assistente só com a marcação', () => {
-    expect(itensDoMenu({ papel: 'admin', permissoes: [] }).map((i) => i.rotulo))
-      .toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Treinar o agente', 'Usuários', 'Configurações']);
+  it('administrador vê Treinar o agente e Configurações; Usuários e permissões fica dentro de Configurações', () => {
+    const itens = itensDoMenu({ papel: 'admin', permissoes: [] });
+    expect(itens.map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Treinar o agente', 'Configurações']);
+    expect(itens.at(-1)!.filhos!.map((f) => [f.rotulo, f.href])).toEqual([
+      ['Usuários e permissões', '/usuarios'],
+      ['Setores', '/configuracoes#setores'],
+      ['Expediente e IA', '/configuracoes#expediente'],
+      ['Mensagens', '/configuracoes#mensagens'],
+      ['Respostas prontas', '/configuracoes#respostas'],
+      ['Feriados', '/configuracoes#feriados'],
+    ]);
     expect(itensDoMenu({ papel: 'admin', permissoes: ['assistente_site'] }).map((i) => i.rotulo))
-      .toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Assistente', 'Treinar o agente', 'Usuários', 'Configurações']);
+      .toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Assistente', 'Treinar o agente', 'Configurações']);
   });
 });
