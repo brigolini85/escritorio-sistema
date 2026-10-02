@@ -126,12 +126,15 @@ end $$;
 -- Arquivar: sai das listas e do agente; o histórico fica. Demanda aberta só gera aviso na tela.
 create function public.arquivar_cadastro(p_tipo text, p_id uuid) returns void
 language plpgsql security definer set search_path = '' as $$
-declare v_tabela text := public.exigir_arquivar(p_tipo); v_uso jsonb;
+declare v_tabela text := public.exigir_arquivar(p_tipo); v_uso jsonb; v_n int;
 begin
   if p_tipo = 'usuario' and p_id = auth.uid() then raise exception 'Você não pode arquivar o próprio acesso.'; end if;
   v_uso := public.uso_do_cadastro(p_tipo, p_id);
   execute format('update public.%I set ativo = false, arquivado_em = now(), arquivado_por = $2 where id = $1 and ativo', v_tabela)
     using p_id, auth.uid();
+  get diagnostics v_n = row_count;
+  -- Já estava arquivado (dois cliques, duas abas): nada mudou, então a auditoria não ganha linha repetida.
+  if v_n = 0 then return; end if;
   insert into public.auditoria_acessos (usuario_id, acao, entidade, entidade_id, detalhes)
   values (auth.uid(), 'arquivar', v_tabela, p_id::text, v_uso);
 end $$;

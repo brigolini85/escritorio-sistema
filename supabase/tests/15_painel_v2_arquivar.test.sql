@@ -1,7 +1,7 @@
 -- supabase/tests/15_painel_v2_arquivar.test.sql
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(49);
+select plan(53);
 
 -- Pessoas: admin, Bia (editar_clientes), Ana (sem permissão), Inativa (tinha editar_clientes), Zeca (responsável por demanda aberta), Novo (nunca usou).
 insert into auth.users (id, email) values
@@ -65,6 +65,10 @@ select ok(not has_function_privilege('anon', 'public.restaurar_cadastro(text, uu
 select ok(not has_function_privilege('anon', 'public.excluir_cadastro_definitivo(text, uuid)', 'execute'), 'visitante não exclui');
 select ok(has_function_privilege('authenticated', 'public.excluir_cadastro_definitivo(text, uuid)', 'execute'), 'quem entrou chama a função (ela confere o papel)');
 select ok(not has_function_privilege('authenticated', 'public.tabela_do_cadastro(text)', 'execute'), 'ajudante interno fechado');
+-- 7b. O ajudante que confere a permissão também fica fechado (revisão final).
+select ok(not (has_function_privilege('anon', 'public.exigir_arquivar(text)', 'execute')
+  or has_function_privilege('authenticated', 'public.exigir_arquivar(text)', 'execute')
+  or has_function_privilege('public', 'public.exigir_arquivar(text)', 'execute')), 'exigir_arquivar fechado para visitante, quem entrou e público');
 
 set local role authenticated;
 
@@ -101,6 +105,9 @@ select throws_ok($$ select public.excluir_cadastro_definitivo('cliente', '150000
   'P0001', 'Só o administrador exclui de vez.', 'editor não exclui de vez');
 select lives_ok($$ select public.arquivar_cadastro('cliente', '15000000-0000-0000-0000-000000000001') $$,
   'arquivar cliente com demanda aberta: avisa na tela, não bloqueia');
+-- 20b. Arquivar de novo o que já está arquivado (dois cliques, duas abas) não muda nada.
+select lives_ok($$ select public.arquivar_cadastro('cliente', '15000000-0000-0000-0000-000000000001') $$,
+  'arquivar o que já está arquivado não quebra');
 select lives_ok($$ update public.produtos set ativo = false where id = '15300000-0000-0000-0000-000000000003' $$,
   'desativar pelo ativo (caminho antigo) continua valendo');
 
@@ -110,6 +117,11 @@ select ok((select not ativo and arquivado_em is not null and arquivado_por = '00
   from public.clientes where id = '15000000-0000-0000-0000-000000000001'), 'arquivado: ativo = false, quando e quem');
 select ok(exists (select 1 from public.auditoria_acessos where acao = 'arquivar' and entidade = 'clientes'
   and entidade_id = '15000000-0000-0000-0000-000000000001'), 'auditoria registra a ação de arquivar');
+-- 23b e 23c. Uma linha só na auditoria, e quem/quando continuam os do primeiro arquivamento.
+select is((select count(*) from public.auditoria_acessos where acao = 'arquivar' and entidade = 'clientes'
+  and entidade_id = '15000000-0000-0000-0000-000000000001')::int, 1, 'arquivar de novo não repete a auditoria');
+select ok((select arquivado_por = '00000000-0000-0000-0000-0000000015a2' from public.clientes
+  where id = '15000000-0000-0000-0000-000000000001'), 'arquivar de novo não troca quem arquivou');
 select ok((select arquivado_em is not null and arquivado_por = '00000000-0000-0000-0000-0000000015a2'
   from public.produtos where id = '15300000-0000-0000-0000-000000000003'), 'o gatilho grava quando e quem em qualquer mudança de ativo');
 
