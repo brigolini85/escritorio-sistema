@@ -6,7 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { textoConfere } from './confirmacao';
+import { Archive, CircleCheck, CircleHelp, Trash2, TriangleAlert } from 'lucide-react';
+import { cn } from '@/lib/cn';
+import { APARENCIA_CONFIRMACAO, textoConfere, tipoPadrao, type TipoConfirmacao } from './confirmacao';
+
+// Ícone de cada tipo: o desenho diz o que a ação faz antes de ler o texto.
+const ICONE_CONFIRMACAO = { arquivar: Archive, excluir: Trash2, concluir: CircleCheck, perigo: TriangleAlert, neutro: CircleHelp } as const;
 
 type Base = {
   /** Botão que abre a confirmação (ex.: <Button variant="danger">Concluir</Button>). */
@@ -18,6 +23,8 @@ type Base = {
   /** Texto enquanto envia, ex.: "Concluindo…". */
   enviando?: string;
   variante?: 'primary' | 'danger';
+  /** Aparência da janela (ícone, anel e botão). Sem ele, a variante decide. */
+  tipo?: TipoConfirmacao;
   /** Exige digitar este texto (ex.: o nome do contato) antes de liberar o botão. */
   digitarParaConfirmar?: string;
 };
@@ -32,9 +39,13 @@ type Base = {
  */
 export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void | Promise<void>; children?: ReactNode; formulario?: never } | { formulario: string; acao?: never; children?: never })) {
   const { gatilho, titulo, descricao, confirmar, enviando, variante = 'danger', digitarParaConfirmar } = props;
+  const tipo = props.tipo ?? tipoPadrao(variante);
+  const ap = APARENCIA_CONFIRMACAO[tipo];
+  const Icone = ICONE_CONFIRMACAO[tipo];
   const [aberto, setAberto] = useState(false);
   const [digitado, setDigitado] = useState('');
   const idDigitar = useId();
+  const idEsperado = useId();
   const liberado = !digitarParaConfirmar || textoConfere(digitado, digitarParaConfirmar);
 
   // Formulário externo: fecha a janela depois que o envio começou (fechar no clique cortaria o submit).
@@ -70,37 +81,39 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
   };
 
   const campoDigitar = digitarParaConfirmar && (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={idDigitar} className="block">
-        Para confirmar, digite <strong className="font-semibold">{digitarParaConfirmar}</strong>
-      </Label>
-      <Input id={idDigitar} value={digitado} onChange={(e) => setDigitado(e.target.value)} autoComplete="off" spellCheck={false} />
+    <div className="flex flex-col gap-1.5 text-left">
+      <Label htmlFor={idDigitar} className="block normal-case font-normal tracking-normal text-muted">Digite o nome para confirmar</Label>
+      <span id={idEsperado} className="sr-only">Nome esperado: {digitarParaConfirmar}</span>
+      <Input id={idDigitar} aria-describedby={idEsperado} value={digitado} onChange={(e) => setDigitado(e.target.value)} autoComplete="off" spellCheck={false} />
     </div>
   );
 
   return (
     <Dialog open={aberto} onOpenChange={mudarAberto}>
       <DialogTrigger asChild>{gatilho}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-md text-center">
         <DialogHeader>
-          <DialogTitle>{titulo}</DialogTitle>
-          {descricao ? <DialogDescription>{descricao}</DialogDescription> : <DialogDescription className="sr-only">Confirme a ação.</DialogDescription>}
+          <div aria-hidden className={cn('mx-auto flex size-20 items-center justify-center rounded-full border-4', ap.anel)}>
+            <Icone size={40} strokeWidth={1.5} className={ap.icone} />
+          </div>
+          <DialogTitle className="text-2xl font-light">{titulo}</DialogTitle>
+          {descricao ? <DialogDescription className="text-base text-muted">{descricao}</DialogDescription> : <DialogDescription className="sr-only">Confirme a ação.</DialogDescription>}
         </DialogHeader>
         {'acao' in props && props.acao ? (
           <form action={props.acao} className="grid gap-4">
             {props.children}
             {campoDigitar}
-            <DialogFooter>
-              <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
-              <BotaoEnviar rotulo={confirmar} enviando={enviando} variante={variante} liberado={liberado} aoTerminar={() => mudarAberto(false)} />
+            <DialogFooter className="justify-center">
+              <DialogClose asChild><Button type="button" variant="outline" className="rounded-pill px-6">Cancelar</Button></DialogClose>
+              <BotaoEnviar rotulo={confirmar} enviando={enviando} variante={ap.botao} liberado={liberado} aoTerminar={() => mudarAberto(false)} />
             </DialogFooter>
           </form>
         ) : (
           <div className="grid gap-4">
             {campoDigitar}
-            <DialogFooter>
-              <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
-              <Button type="submit" form={externo} variant={variante} disabled={!liberado}>{confirmar}</Button>
+            <DialogFooter className="justify-center">
+              <DialogClose asChild><Button type="button" variant="outline" className="rounded-pill px-6">Cancelar</Button></DialogClose>
+              <Button type="submit" form={externo} variant={ap.botao} className="rounded-pill px-6" disabled={!liberado}>{confirmar}</Button>
             </DialogFooter>
           </div>
         )}
@@ -110,7 +123,7 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
 }
 
 /** Submit dentro do form: mostra "enviando" e fecha a janela quando a ação termina (erro volta pela página com ?erro=). */
-function BotaoEnviar({ rotulo, enviando, variante, liberado, aoTerminar }: { rotulo: string; enviando?: string; variante: 'primary' | 'danger'; liberado: boolean; aoTerminar: () => void }) {
+function BotaoEnviar({ rotulo, enviando, variante, liberado, aoTerminar }: { rotulo: string; enviando?: string; variante: 'primary' | 'grafite' | 'success' | 'danger'; liberado: boolean; aoTerminar: () => void }) {
   const { pending } = useFormStatus();
   const antes = useRef(false);
   useEffect(() => {
@@ -118,7 +131,7 @@ function BotaoEnviar({ rotulo, enviando, variante, liberado, aoTerminar }: { rot
     antes.current = pending;
   }, [pending, aoTerminar]);
   return (
-    <Button type="submit" variant={variante} disabled={!liberado || pending} aria-disabled={!liberado || pending}>
+    <Button type="submit" variant={variante} className="rounded-pill px-6" disabled={!liberado || pending} aria-disabled={!liberado || pending}>
       {pending ? enviando ?? `${rotulo}…` : rotulo}
     </Button>
   );

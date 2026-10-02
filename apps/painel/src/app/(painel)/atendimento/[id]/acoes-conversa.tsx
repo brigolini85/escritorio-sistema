@@ -116,6 +116,7 @@ export function AcoesConversa({
             confirmar="Concluir"
             enviando="Concluindo…"
             variante="primary"
+            tipo="concluir"
             acao={d.concluir}
           />
         </>

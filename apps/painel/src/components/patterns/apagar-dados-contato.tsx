@@ -41,6 +41,7 @@ export function ApagarDadosContato({ nome, acao, variante = 'discreto' }: {
       descricao="A pedido do titular (LGPD): nome, telefone, mensagens, áudios e arquivos deste contato são apagados de vez, em todas as empresas. As conversas ficam, mas sem o conteúdo. Não dá para desfazer."
       confirmar="Apagar dados"
       enviando="Apagando…"
+      tipo="excluir"
       digitarParaConfirmar={nome}
       acao={enviar}
     >

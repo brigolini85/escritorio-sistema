@@ -61,6 +61,7 @@ export async function SecaoDocumentos({ id, pode, admin }: { id: string; pode: b
                         descricao="O arquivo é apagado do armazenamento e o agente deixa de poder enviá-lo. Não dá para desfazer."
                         confirmar="Excluir"
                         enviando="Excluindo…"
+                        tipo="excluir"
                         acao={excluirDocumento.bind(null, id, d.id)}
                       />
                     )}

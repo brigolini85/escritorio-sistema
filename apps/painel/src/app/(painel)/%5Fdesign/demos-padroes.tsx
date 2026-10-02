@@ -33,6 +33,7 @@ export function DemoConfirmacoes() {
         confirmar="Concluir"
         enviando="Concluindo…"
         variante="primary"
+        tipo="concluir"
         acao={async (dados) => {
           await new Promise((r) => setTimeout(r, 800));
           toast.success(`Demanda concluída (campo enviado: chamado_id=${String(dados.get('chamado_id'))}).`);
@@ -55,6 +56,7 @@ export function DemoConfirmacoes() {
         descricao="Nome, telefone e conversas deste contato serão apagados. Não dá para desfazer."
         confirmar="Apagar dados"
         digitarParaConfirmar="João Lima"
+        tipo="excluir"
       />
     </div>
   );
