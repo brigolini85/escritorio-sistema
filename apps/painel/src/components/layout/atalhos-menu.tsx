@@ -60,7 +60,7 @@ export function AtalhosMenu({ recolhido = false, whatsapp }: { recolhido?: boole
 
       {whatsapp ? (
         <Dica rotulo={rotuloZap}>
-          <Link href="/configuracoes#integracoes" aria-label={rotuloZap} aria-describedby={undefined} className={cn(QUADRADO, 'border-modulo-atendimento')}>
+          <Link href="/configuracoes#integracoes" aria-label={rotuloZap} aria-describedby={undefined} className={cn(QUADRADO, 'border-modulo-inicio')}>
             <MessageCircle aria-hidden size={18} strokeWidth={1.75} />
             <span aria-hidden className={cn('absolute -right-1 -top-1 size-2 rounded-full ring-2 ring-sidebar', COR_PONTO[whatsapp])} />
           </Link>
@@ -71,7 +71,7 @@ export function AtalhosMenu({ recolhido = false, whatsapp }: { recolhido?: boole
           aria-label="WhatsApp"
           role="img"
           title="O estado do WhatsApp só o administrador vê"
-          className={cn(QUADRADO, 'cursor-default border-modulo-atendimento hover:bg-sidebar-raised')}
+          className={cn(QUADRADO, 'cursor-default border-modulo-inicio hover:bg-sidebar-raised')}
         >
           <MessageCircle aria-hidden size={18} strokeWidth={1.75} />
         </span>

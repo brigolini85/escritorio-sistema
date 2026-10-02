@@ -12,9 +12,8 @@
  * - Regra das semânticas e de domínio: --x é a cor "forte" (texto sobre --surface/--x-soft e fundo
  *   de botão/selo sólido), --x-foreground é o texto sobre --x, --x-soft é o fundo suave.
  * - Contraste WCAG AA (texto >= 4.5:1, bordas de controle e foco >= 3:1) é conferido por
- *   src/styles/tokens.test.ts, que lê este arquivo. Razões principais anotadas ao lado de cada cor;
- *   semânticas e de domínio (--x-foreground sobre --x, --x sobre --x-soft e sobre --surface):
- *   claro de 5.4:1 a 7.3:1, escuro de 5.1:1 a 9.3:1.
+ *   src/styles/tokens.test.ts, que lê este arquivo. Razões principais anotadas ao lado de cada cor
+ *   (texto e contorno de campo); as das semânticas e de domínio só o teste confere.
  * - Tema escuro: o mesmo conjunto de cores aparece em DOIS blocos idênticos (tema escolhido no
  *   cookie e tema do sistema). O teste falha se os dois blocos divergirem.
  */
@@ -33,14 +32,14 @@
   --surface: hsl(0 0% 100%); /* cards, painéis, tabelas, diálogos, menus */
   --surface-muted: hsl(20 9% 92%); /* zebra, hover de linha, áreas secundárias, trilho de abas */
   --border: hsl(20 8% 86%); /* divisórias e contorno de cards (decorativo) */
-  --border-input: hsl(345 4% 52%); /* contorno de campos, caixas de seleção e switches; 3.4:1 em --surface */
+  --border-input: hsl(345 4% 52%); /* contorno de campos, caixas de seleção e switches; 3.8:1 em --surface */
   --ring: var(--brand); /* anel de foco visível de todo elemento interativo (segue a marca nos dois temas) */
   --overlay: hsl(345 10% 8% / 0.5); /* véu atrás de Dialog e Sheet */
 
   /* Texto */
-  --text: hsl(345 6% 14%); /* texto principal, títulos; 17.1:1 em --surface */
-  --text-muted: hsl(345 5% 32%); /* texto secundário, rótulos, descrições; 8.3:1 em --surface, 7.2:1 em --surface-muted */
-  --text-subtle: hsl(345 4% 42%); /* metadados, placeholders, horários; 5.4:1 em --surface, 4.7:1 em --surface-muted, 4.8:1 em --internal-note */
+  --text: hsl(345 6% 14%); /* texto principal, títulos; 15.8:1 em --surface */
+  --text-muted: hsl(345 5% 32%); /* texto secundário, rótulos, descrições; 8.1:1 em --surface, 6.8:1 em --surface-muted */
+  --text-subtle: hsl(345 4% 42%); /* metadados, placeholders, horários; 5.5:1 em --surface, 4.6:1 em --surface-muted, 4.9:1 em --internal-note */
 
   /* Semânticas: usar só com significado */
   --success: hsl(168 70% 19%); /* sucesso, concluído, conectado */
@@ -121,10 +120,10 @@
   --surface: hsl(345 5% 11%);
   --surface-muted: hsl(345 4% 16%);
   --border: hsl(345 4% 22%);
-  --border-input: hsl(345 3% 44%); /* 3.3:1 em --surface */
+  --border-input: hsl(345 3% 44%); /* 3.4:1 em --surface */
   --overlay: hsl(345 15% 3% / 0.7);
-  --text: hsl(345 8% 93%); /* 14.7:1 em --surface */
-  --text-muted: hsl(345 5% 70%); /* 7.9:1 em --surface */
+  --text: hsl(345 8% 93%); /* 14.6:1 em --surface */
+  --text-muted: hsl(345 5% 70%); /* 8.0:1 em --surface */
   --text-subtle: hsl(345 4% 62%); /* 6.3:1 em --surface, 5.4:1 em --surface-muted, 4.8:1 em --internal-note */
   --success: hsl(150 55% 55%);
   --success-foreground: hsl(150 60% 8%);

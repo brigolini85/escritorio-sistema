@@ -41,7 +41,7 @@ Edite **uma linha** em `tokens.css`: `--brand-base`, no topo do bloco `:root`.
 ## Raio e fonte
 
 - **Raio**: `--radius-sm` 4px (selos, caixas de seleção), `--radius-md` 5px (botões, campos, abas) e `--radius-lg` 8px (cards, tabelas, janelas). Os utilitários `rounded-sm/md/lg` leem daqui. A **pílula** (18px, `rounded-pill`, `--radius-pill` em `globals.css`) vale para botões das janelas de confirmação, selos e campos de busca arredondados. `rounded-full` fica só para círculos e pontos.
-- **Fonte**: Plus Jakarta Sans, com pesos de 300 a 800. Ela vem do `next/font` em `app/layout.tsx`, pela variável `--font-jakarta`; o `--font-sans` do `tokens.css` monta a pilha a partir dela. Para trocar de fonte, troque o `next/font` e a variável. Para testar rápido, coloque a fonte direto em `--font-sans`.
+- **Fonte**: Plus Jakarta Sans, com a faixa completa de pesos da fonte variável (300 a 800; o `font-semibold` usa o 600). Ela vem do `next/font` em `app/layout.tsx`, pela variável `--font-jakarta`; o `--font-sans` do `tokens.css` monta a pilha a partir dela. Para trocar de fonte, troque o `next/font` e a variável. Para testar rápido, coloque a fonte direto em `--font-sans`.
 - **Escala de texto** (fechada, em `globals.css`): 12, 13, 14, 16, 20, 24, 32 e 64 px, na **base 14** e escrita em **rem** (`text-xs`, `text-sm`, `text-base`, `text-lg`, `text-xl`, `text-2xl`, `text-3xl` e `text-display`). O espaçamento (`--spacing`) também é rem na base 14. Não crie tamanhos novos.
 
 Para conferir uma troca de marca, raio ou fonte, edite o `tokens.css` e veja o `/_design` nos dois temas. O painel inteiro muda junto.
@@ -50,8 +50,8 @@ Para conferir uma troca de marca, raio ou fonte, edite o `tokens.css` e veja o `
 
 O painel não tem zoom: o tamanho da letra sobe sozinho com a tela, e a pessoa ainda pode somar um pouco.
 
-- A letra base mora no `<html>` (`--letra-base` em `globals.css`): **14px** até 1599px de largura, **15px** a partir de 1600px e **16px** a partir de 1920px.
-- A preferência "Tamanho da letra" (menu da pessoa: Normal, Grande, Maior) soma `--letra-extra`: a classe `letra-grande` no `<html>` soma 1px e `letra-maior` soma 2px. A escolha fica no perfil e no cookie `tamanho_letra`; o login a traz de volta e o "Sair" apaga o cookie.
+- A letra base mora no `<html>` (`--letra-base` em `globals.css`): **14px** até 1599px de largura, **15px** a partir de 1600px e **16px** a partir de 1920px. Os valores são escritos em rem (`0.875rem`, `0.9375rem`, `1rem`), então valem 14, 15 e 16px na preferência padrão do navegador e acompanham quem aumentou a fonte padrão.
+- A preferência "Tamanho da letra" (menu da pessoa: Normal, Grande, Maior) soma `--letra-extra`: a classe `letra-grande` no `<html>` soma 1px e `letra-maior` soma 2px (`calc(1rem / 16)` e `calc(2rem / 16)`). A escolha fica no perfil e no cookie `tamanho_letra`; o login a traz de volta e o "Sair" apaga o cookie.
 - **Por que tudo é rem**: o rem é relativo ao `<html>`. Texto, espaçamento, larguras do menu, raios e ícones em rem crescem juntos quando o `<html>` cresce; um `px` solto ficaria pequeno em tela grande.
 - Por isso não se usa valor arbitrário em px nas classes (`text-[13px]`, `w-[300px]`). Para um tamanho novo, use a escala ou crie um token em rem (`calc(260rem / 14)`).
 - Os ícones do `lucide-react` têm regra de tamanho em rem no `globals.css` (`svg.lucide[width="16"]`...). Se usar um tamanho novo, acrescente a regra.

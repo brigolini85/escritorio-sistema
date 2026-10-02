@@ -65,6 +65,11 @@ export function ProvedorMenuUsuario({
   const [escolha, escolher] = useEscolhaTema(tema);
   const [letra, setLetra] = useState(tamanhoLetra);
 
+  // O perfil manda: se mudou noutro lugar, o seletor do menu acompanha a prop.
+  useEffect(() => {
+    setLetra(tamanhoLetra);
+  }, [tamanhoLetra]);
+
   // O perfil manda: se o cookie expirou ou o tamanho mudou noutro aparelho, acerta a classe do <html> e o cookie.
   useEffect(() => {
     if (!precisaSincronizarLetra(lerCookieLetra(document.cookie), tamanhoLetra)) return;
@@ -75,12 +80,16 @@ export function ProvedorMenuUsuario({
   async function escolherLetra(valor: string) {
     const novo = tamanhoDoValor(valor);
     const anterior = letra;
+    const cookieAnterior = lerCookieLetra(document.cookie);
     setLetra(novo);
     aplicarClasseLetra(novo);
-    // Não gravou (erro do servidor ou da rede): volta ao tamanho anterior para a tela não mentir.
+    // Cookie já na hora: recarregar antes de a gravação terminar não pode trazer o tamanho antigo.
+    document.cookie = cookieDoTamanho(novo);
+    // Não gravou (erro do servidor ou da rede): volta ao tamanho anterior (tela e cookie) para a tela não mentir.
     const voltar = (erro: string) => {
       setLetra(anterior);
       aplicarClasseLetra(anterior);
+      document.cookie = cookieDoTamanho(tamanhoDoValor(cookieAnterior ?? anterior));
       toast.error(erro);
     };
     try {

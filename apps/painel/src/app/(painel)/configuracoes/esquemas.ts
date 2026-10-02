@@ -20,5 +20,7 @@ export const GeraisForm = z.preprocess((v) => {
   telefone_dono: telefoneOpcional,
 }).refine((g) => g.horario_fim > g.horario_inicio, { message: 'O fim do expediente precisa ser depois do início', path: ['horario_fim'] }));
 
-/** Recado na tela de entrada: aparado, pode ficar vazio (não mostra nada), até 200 caracteres. */
-export const esquemaAvisoLogin = z.object({ aviso_login: z.string().trim().max(200, 'Até 200 caracteres.') });
+/** Recado na tela de entrada: aparado, pode ficar vazio, até 200 caracteres; o CRLF do textarea vira LF antes de contar (senão 200 visíveis passariam do limite). */
+export const esquemaAvisoLogin = z.object({
+  aviso_login: z.string().transform((v) => v.replace(/\r\n/g, '\n')).pipe(z.string().trim().max(200, 'Até 200 caracteres.')),
+});

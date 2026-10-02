@@ -34,7 +34,7 @@ export default async function Entrar({ searchParams }: { searchParams: Promise<{
       <div className="grid min-h-dvh gap-12 px-6 py-12 login:grid-cols-2 login:items-center login:gap-16 login:pl-40 login:pr-24">
         <div>
           <div className="flex items-center gap-3">
-            <span aria-hidden className="grid size-11 place-items-center rounded-lg bg-brand font-extrabold text-brand-foreground">{MONOGRAMA}</span>
+            <span aria-hidden className="grid size-11 place-items-center rounded-lg bg-sidebar-active font-extrabold text-sidebar-active-foreground">{MONOGRAMA}</span>
             <span className="font-bold">{NOME_ESCRITORIO}</span>
           </div>
           <p className="mt-12 text-sm font-bold uppercase tracking-widest text-brand">Acesso da equipe</p>

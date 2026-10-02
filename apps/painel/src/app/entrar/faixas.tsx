@@ -3,10 +3,10 @@ export function FaixasLogin() {
   return (
     <>
       <div aria-hidden className="login:hidden">
-        <div className="h-2 bg-brand" />
+        <div className="h-2 bg-sidebar-active" />
         <div className="h-1 bg-champagne" />
       </div>
-      <div aria-hidden className="fixed inset-y-0 left-0 hidden w-7 bg-brand login:block" />
+      <div aria-hidden className="fixed inset-y-0 left-0 hidden w-7 bg-sidebar-active login:block" />
       <div aria-hidden className="fixed inset-y-0 left-7 hidden w-2.5 bg-champagne login:block" />
     </>
   );

@@ -21,4 +21,8 @@ describe('esquemaAvisoLogin', () => {
     expect(esquemaAvisoLogin.parse({ aviso_login: '' })).toEqual({ aviso_login: '' });
     expect(esquemaAvisoLogin.safeParse({ aviso_login: 'x'.repeat(201) }).success).toBe(false);
   });
+  it('conta o CRLF do textarea como um caractere e grava só LF', () => {
+    const visiveis200 = `${'x'.repeat(99)}\r\n${'y'.repeat(100)}`; // 200 caracteres na tela, 201 com o CRLF
+    expect(esquemaAvisoLogin.parse({ aviso_login: visiveis200 })).toEqual({ aviso_login: `${'x'.repeat(99)}\n${'y'.repeat(100)}` });
+  });
 });

@@ -149,8 +149,8 @@ function ItemComFilhos({
     <DropdownMenu modal={false}>
       <ComDica recolhido={recolhido} dica={item.rotulo}>
         <DropdownMenuTrigger
-          aria-label={`${item.rotulo}: abrir submenu`}
-          aria-current={atual ? 'page' : undefined}
+          aria-label={`${item.rotulo}: abrir submenu${atual ? ' (página atual)' : ''}`}
+          data-atual={atual ? '' : undefined}
           className={cn(classeItem(atual, recolhido), 'cursor-pointer')}
         >
           <IconeItem href={item.href} atual={atual} />

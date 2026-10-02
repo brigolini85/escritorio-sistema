@@ -27,7 +27,7 @@ test.describe('letra que acompanha a tela (spec 4.2)', () => {
     await entrar(page, 'letra@teste.com', 'senha-forte-123');
     await page.getByRole('button', { name: 'Menu do usuário' }).click();
     // Espera a gravação no perfil terminar: recarregar antes disso volta a letra do perfil antigo.
-    const salvou = page.waitForResponse((r) => r.request().method() === 'POST');
+    const salvou = page.waitForResponse((r) => r.request().method() === 'POST' && !!r.request().headers()['next-action']);
     await page.getByRole('menuitemradio', { name: 'Grande' }).click();
     await salvou;
     expect(await tamanho(page)).toBe('15px');

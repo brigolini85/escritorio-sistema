@@ -16,13 +16,17 @@ function arquivos(dir: string): string[] {
 }
 
 describe('escala que acompanha a tela', () => {
-  it('a letra base mora no html: 14px, 15px a partir de 1600px e 16px a partir de 1920px, mais o extra da pessoa', () => {
-    expect(globais).toMatch(/--letra-base:\s*14px/);
-    expect(globais).toMatch(/@media \(min-width: 1600px\)[\s\S]*?--letra-base:\s*15px/);
-    expect(globais).toMatch(/@media \(min-width: 1920px\)[\s\S]*?--letra-base:\s*16px/);
+  it('a letra base mora no html em rem (14/15/16px na preferência padrão do navegador, a partir de 1600px e 1920px), mais o extra da pessoa', () => {
+    expect(globais).toMatch(/--letra-base:\s*0\.875rem/); // 14px
+    expect(globais).toMatch(/@media \(min-width: 1600px\)[\s\S]*?--letra-base:\s*0\.9375rem/); // 15px
+    expect(globais).toMatch(/@media \(min-width: 1920px\)[\s\S]*?--letra-base:\s*1rem/); // 16px
     expect(globais).toMatch(/font-size:\s*calc\(var\(--letra-base\) \+ var\(--letra-extra\)\)/);
-    expect(globais).toMatch(/\.letra-grande\s*\{[^}]*--letra-extra:\s*1px/);
-    expect(globais).toMatch(/\.letra-maior\s*\{[^}]*--letra-extra:\s*2px/);
+    expect(globais).toMatch(/\.letra-grande\s*\{[^}]*--letra-extra:\s*calc\(1rem \/ 16\)/); // +1px
+    expect(globais).toMatch(/\.letra-maior\s*\{[^}]*--letra-extra:\s*calc\(2rem \/ 16\)/); // +2px
+  });
+
+  it('a letra não usa px (px ignoraria a fonte padrão escolhida no navegador)', () => {
+    expect(globais).not.toMatch(/--letra-(base|extra):\s*[\d.]+px/);
   });
 
   it('escala de texto e espaçamento em rem (nenhum px)', () => {

@@ -221,15 +221,15 @@
 @layer base {
   /* A letra base mora na raiz e cresce com a tela (spec 4.2); tudo o mais é rem e cresce junto. */
   html {
-    --letra-base: 14px;
-    --letra-extra: 0px;
+    --letra-base: 0.875rem;
+    --letra-extra: 0rem;
     font-size: calc(var(--letra-base) + var(--letra-extra));
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
-  /* Preferência da pessoa no menu (Tamanho da letra): Grande +1px, Maior +2px. */
-  html.letra-grande { --letra-extra: 1px; }
-  html.letra-maior { --letra-extra: 2px; }
+  /* Preferência da pessoa no menu (Tamanho da letra): Grande +1px, Maior +2px (em rem, para respeitar a preferência de fonte do navegador). */
+  html.letra-grande { --letra-extra: calc(1rem / 16); }
+  html.letra-maior { --letra-extra: calc(2rem / 16); }
 
   /* Ícones do lucide nascem com width/height em px; aqui viram rem para crescer com a letra. */
   svg.lucide[width="8"] { width: calc(8rem / 14); height: calc(8rem / 14); }
@@ -276,8 +276,8 @@
 
 /* Degraus da letra base em tela grande (fora do @layer para vencer a regra do html). */
 @media (min-width: 1600px) {
-  html { --letra-base: 15px; }
+  html { --letra-base: 0.9375rem; }
 }
 @media (min-width: 1920px) {
-  html { --letra-base: 16px; }
+  html { --letra-base: 1rem; }
 }

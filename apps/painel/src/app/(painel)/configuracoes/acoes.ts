@@ -70,7 +70,7 @@ export async function salvarMensagens(formData: FormData) {
 export async function salvarAvisoLogin(formData: FormData) {
   await exigirAdmin();
   const dados = esquemaAvisoLogin.safeParse({ aviso_login: String(formData.get('aviso_login') ?? '') });
-  if (!dados.success) redirect('/configuracoes?erro=aviso_login#mensagens');
+  if (!dados.success) redirect('/configuracoes?erro=aviso_login#aviso-login');
   checar(await (await supabaseServidor()).from('configuracoes').update({ aviso_login: dados.data.aviso_login }).eq('id', 1));
   recarregar();
 }

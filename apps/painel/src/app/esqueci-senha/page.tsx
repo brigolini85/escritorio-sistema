@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { pedirNovaSenha } from './acoes';
 
-export default async function EsqueciSenha({ searchParams }: { searchParams: Promise<{ enviado?: string }> }) {
-  const { enviado } = await searchParams;
+export default async function EsqueciSenha({ searchParams }: { searchParams: Promise<{ enviado?: string; erro?: string }> }) {
+  const { enviado, erro } = await searchParams;
   return (
     <main className="relative min-h-dvh bg-surface">
       <FaixasLogin />
@@ -20,6 +20,9 @@ export default async function EsqueciSenha({ searchParams }: { searchParams: Pro
             </>
           ) : (
             <form action={pedirNovaSenha} className="flex flex-col gap-8">
+              {erro === 'envio' && (
+                <p role="alert" className="text-base font-medium text-danger">Não deu para enviar agora. Tente de novo em alguns minutos.</p>
+              )}
               <p className="text-muted">Informe o e-mail do seu acesso. Enviamos um link para definir uma nova senha.</p>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="esqueci-email" className={classeRotuloLogin}>E-mail</Label>
