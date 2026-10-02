@@ -1,0 +1,251 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0}body{font-family:'Plus Jakarta Sans',sans-serif;width:1440px;display:flex;color:#1C1A1B;background:#F1EFEE;font-size:15px}
+.nav{width:64px;background:#262223;display:flex;flex-direction:column;align-items:center;padding-top:14px;min-height:100vh;flex-shrink:0}.nav .lg{width:40px;height:40px;border-radius:50%;background:#7A2335;border:2px solid #C8A97E;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:14px}.nav i{font-size:22px;width:64px;text-align:center;padding:12px 0}.nav .on{background:#7A2335;color:#fff!important;box-shadow:inset 3px 0 0 #C8A97E}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{background:#fff;border-bottom:1px solid #E4E0DF;padding:13px 24px;display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#6B6466}
+.c{padding:20px 24px 28px;display:flex;flex-direction:column;gap:16px}
+.cd{background:#fff;border:1px solid #E4E0DF;border-radius:8px;padding:18px 20px}
+.k{font-size:13px;font-weight:800;letter-spacing:.04em;color:#7A2335;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;text-transform:uppercase}.k .r{color:#8E8689;font-weight:600;letter-spacing:0;text-transform:none;font-size:13px}
+.lb{font-size:12px;font-weight:800;letter-spacing:.04em;color:#7A2335;text-transform:uppercase;margin-bottom:5px}
+.btn{font-size:13px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:10px 16px;border-radius:6px;border:1px solid #D6D0CF;background:#fff;color:#262223;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn.p{background:#7A2335;border-color:#7A2335;color:#fff}.btn.g{background:#262223;border-color:#262223;color:#fff}.btn.s{padding:7px 12px;font-size:12px}
+.tag{font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.fld{border:1px solid #D6D0CF;border-radius:6px;padding:9px 12px;font-size:14px;display:flex;justify-content:space-between;align-items:center;background:#fff}
+.mut{color:#6B6466}.sm{font-size:13px}
+/* cabeçalho */
+.hd{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start}
+.t{font-size:27px;font-weight:800;line-height:1.2}.t span{color:#7A2335}
+.meta{display:grid;grid-template-columns:repeat(5,auto);gap:28px;margin-top:16px;padding-top:14px;border-top:1px solid #F0EDEC;justify-content:start}
+.meta .v{font-size:15px;font-weight:700;display:flex;align-items:center;gap:7px}
+.av{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+/* layout */
+.grid{display:grid;grid-template-columns:1fr 372px;gap:16px;align-items:start}
+.col{display:flex;flex-direction:column;gap:16px}
+/* tarefa */
+.task{border:1px solid #CFE3DC;border-top:4px solid #0F5446}
+.th1{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.ag{width:44px;height:44px;border-radius:8px;background:#E3F2EE;color:#0F5446;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.st{display:flex;gap:8px}.st span{white-space:nowrap;font-size:13px;font-weight:700;padding:6px 12px;border-radius:6px;border:1px solid #E4E0DF;color:#8E8689;display:inline-flex;align-items:center;gap:6px}
+.st .on{background:#FDF1E0;border-color:#EBC995;color:#7A4A0E}
+.steps{display:grid;grid-template-columns:repeat(5,1fr);margin-top:20px}
+.sp{position:relative;padding-top:34px;font-size:14px;font-weight:700;text-align:center}
+.sp:before{content:"";position:absolute;top:13px;left:0;right:0;height:3px;background:#E4E0DF}
+.sp:first-child:before{left:50%}.sp:last-child:before{right:50%}
+.sp.ok:before{background:#5DBB8F}.sp.half:before{background:linear-gradient(90deg,#5DBB8F 50%,#E4E0DF 50%)}
+.sp .b{position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:28px;border-radius:50%;background:#fff;border:2px solid #D6D0CF;color:#8E8689;display:flex;align-items:center;justify-content:center;font-size:15px;z-index:1}
+.sp.ok .b{background:#0F5446;border-color:#0F5446;color:#fff}
+.sp.now .b{background:#C07A1E;border-color:#C07A1E;color:#fff}
+.sp small{display:block;font-size:12.5px;font-weight:500;color:#6B6466;margin-top:2px}
+.sec{margin-top:22px;padding-top:18px;border-top:1px solid #F0EDEC}
+.src{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.fold{border:1px solid #E4E0DF;border-radius:6px;padding:12px 14px;background:#FAF9F9}
+.fl{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #F3F1F0;font-size:14px}
+.fl:last-child{border:0}.fl i{font-size:18px}
+.miss{color:#B23A1E;font-weight:700}
+.pd{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pl{border:1px solid #E4E0DF;border-radius:6px;overflow:hidden}
+.plh{padding:10px 14px;background:#F7F5F5;border-bottom:1px solid #E4E0DF;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;align-items:center}
+.pi{padding:14px;border-bottom:1px solid #F0EDEC}.pi:last-child{border:0}
+.pi .q{font-size:14.5px;font-weight:700;line-height:1.45}
+.pi .d{font-size:13px;color:#6B6466;margin-top:5px;line-height:1.45}
+.qk{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.qk span{font-size:12.5px;font-weight:700;padding:6px 10px;border:1px solid #D9C3C8;color:#7A2335;border-radius:6px;background:#fff}
+.in{display:flex;gap:6px;margin-top:8px}.in .fld{flex:1;color:#8E8689;font-size:13.5px;padding:8px 12px}
+.note{font-size:13.5px;padding:10px 12px;border-radius:6px;background:#E3F2EE;color:#0F5446;display:flex;gap:8px;align-items:center;margin-top:14px}
+.kp{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kp div{border:1px solid #E4E0DF;border-radius:6px;padding:12px 14px}
+.kp b{display:block;font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15;margin-top:4px}
+.kp span{font-size:12px;font-weight:800;color:#6B6466;text-transform:uppercase;letter-spacing:.04em}
+.kp em{font-style:normal;font-size:12.5px;color:#6B6466;display:block;margin-top:2px}
+.gf{display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid #F3F1F0}
+.gf:last-child{border:0}.gf .ic{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.rule{font-size:13.5px;padding:10px 12px;border-radius:6px;background:#F7F1E8;color:#6B5130;display:flex;gap:8px;align-items:center;margin-top:12px;border-left:3px solid #C8A97E}
+/* lateral */
+.ap{border:1px solid #D9C3C8;border-top:4px solid #7A2335}
+.ap .btn{width:100%;justify-content:center}
+.warn{font-size:13px;padding:10px 12px;border-radius:6px;background:#FDF1E0;color:#7A4A0E;display:flex;gap:8px;align-items:flex-start;line-height:1.45}
+.ta{border:1px solid #D6D0CF;border-radius:6px;padding:10px 12px;font-size:13.5px;color:#8E8689;height:70px;margin:8px 0}
+.tl{border-left:2px solid #E4E0DF;padding-left:14px;display:flex;flex-direction:column;gap:11px}
+.tl div{font-size:13.5px;line-height:1.4;position:relative}.tl div:before{content:"";position:absolute;left:-19px;top:5px;width:8px;height:8px;border-radius:50%;background:#C8A97E}
+.tl div.ia:before{background:#5DBB8F}.tl div.wt:before{background:#C07A1E}
+.tl small{color:#8E8689;font-size:12.5px}
+.cost{display:flex;justify-content:space-between;align-items:baseline}
+.cost b{font-size:28px;font-weight:800}
+.cr{display:flex;justify-content:space-between;font-size:13.5px;padding:6px 0;border-bottom:1px solid #F3F1F0}.cr:last-child{border:0}
+</style></head><body>
+<div class="nav"><div class="lg">EC</div><i class="ti ti-layout-dashboard" style="color:#D6AE5C"></i><i class="ti ti-message-circle" style="color:#5DBB8F"></i><i class="ti ti-checklist on" style="color:#A6C95A"></i><i class="ti ti-building" style="color:#6E9BC9"></i><i class="ti ti-address-book" style="color:#A98BCB"></i><i class="ti ti-sparkles" style="color:#D6AE5C"></i><i class="ti ti-school" style="color:#E0894A"></i><i class="ti ti-coin" style="color:#C8A97E"></i><i class="ti ti-settings" style="color:#4FB0B8"></i></div>
+<div class="main">
+<div class="top"><span><i class="ti ti-checklist" style="color:#A6C95A"></i> › Gestão das demandas › Contábil › <b style="color:#1C1A1B">Nº 1088</b></span><span><i class="ti ti-arrow-left"></i> Voltar para a lista &nbsp;·&nbsp; <i class="ti ti-chevron-up"></i> <i class="ti ti-chevron-down"></i> anterior / próxima</span></div>
+<div class="c">
+
+<!-- CABEÇALHO DA DEMANDA -->
+<div class="cd">
+<div class="hd">
+<div>
+<div class="sm mut" style="font-weight:700;letter-spacing:.03em">Nº 1088 · <span style="color:#7A2335">CONTÁBIL</span> · aberta por Thiago pelo WhatsApp em 01/10 08:12</div>
+<div class="t" style="margin-top:6px">Fechamento de outubro · <span>Padaria Sol ME</span> <i class="ti ti-pencil" style="font-size:18px;color:#8E8689"></i></div>
+<div class="sm mut" style="margin-top:6px">CNPJ 21.448.390/0001-07 · Simples Nacional · competência 10/2026</div>
+</div>
+<div style="display:flex;gap:8px;align-items:center"><span class="btn"><i class="ti ti-note"></i> Nota</span><span class="btn"><i class="ti ti-arrows-exchange"></i> Transferir</span><span class="btn"><i class="ti ti-message-circle"></i> Abrir conversa</span></div>
+</div>
+<div class="meta">
+<div><div class="lb">Setor</div><div class="v"><span class="dot" style="background:#7A2335"></span>Contábil</div></div>
+<div><div class="lb">Responsável</div><div class="v"><span class="av" style="background:#F3E8D9;color:#8A5A1E">CL</span>Cláudia <i class="ti ti-chevron-down mut" style="font-size:15px"></i></div></div>
+<div><div class="lb">Status</div><div class="v"><span class="dot" style="background:#C07A1E"></span>Em andamento · com o agente</div></div>
+<div><div class="lb">Prioridade</div><div class="v" style="color:#C07A1E"><i class="ti ti-flag"></i>Alta</div></div>
+<div><div class="lb">Prazo</div><div class="v"><i class="ti ti-calendar mut"></i>10/10 18h <span class="sm mut" style="font-weight:500">· faltam 9 dias</span></div></div>
+</div>
+</div>
+
+<div class="grid">
+<div class="col">
+
+<!-- TAREFA DO AGENTE -->
+<div class="cd task">
+<div class="th1">
+<div style="display:flex;gap:14px;align-items:flex-start">
+<div class="ag"><i class="ti ti-robot"></i></div>
+<div>
+<div class="k" style="margin-bottom:4px;color:#0F5446">Tarefa do agente contábil</div>
+<div style="font-size:18px;font-weight:800">Fazer o fechamento de outubro e gerar os lançamentos para o Domínio</div>
+<div class="sm mut" style="margin-top:5px"><i class="ti ti-brand-whatsapp" style="color:#5DBB8F"></i> pedido por <b style="color:#1C1A1B">Thiago</b> pelo WhatsApp · 01/10 08:12 &nbsp;·&nbsp; <i class="ti ti-repeat"></i> depois disso, automático <b style="color:#1C1A1B">todo dia 1º</b></div>
+</div>
+</div>
+<span class="btn s"><i class="ti ti-player-pause"></i> Pausar</span>
+</div>
+<div style="display:flex;gap:16px;align-items:center;margin-top:16px">
+<div class="st"><span><i class="ti ti-loader-2"></i> Trabalhando</span><span class="on"><i class="ti ti-hourglass"></i> Aguardando pendências</span><span><i class="ti ti-circle-check"></i> Pronto para aprovar</span></div>
+<span class="sm mut">3 pendências abertas · retoma sozinho quando forem respondidas</span>
+</div>
+<div class="steps">
+<div class="sp ok"><div class="b"><i class="ti ti-check"></i></div>Coletar documentos<small>01/10 08:14</small></div>
+<div class="sp ok"><div class="b"><i class="ti ti-check"></i></div>Ler e lançar<small>214 lançamentos</small></div>
+<div class="sp ok"><div class="b"><i class="ti ti-check"></i></div>Conciliar<small>Itaú 100% · BB falta</small></div>
+<div class="sp now half"><div class="b"><i class="ti ti-hourglass"></i></div>Revisar pendências<small style="color:#7A4A0E;font-weight:700">aguardando 3</small></div>
+<div class="sp"><div class="b">5</div>Aprovação<small>pessoa do Contábil</small></div>
+</div>
+
+<!-- FONTES -->
+<div class="sec">
+<div class="k">Fontes lidas <span class="r"><i class="ti ti-lock"></i> só leitura · o agente nunca altera nem apaga arquivos do cliente</span></div>
+<div class="src">
+<div class="fold">
+<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;margin-bottom:6px"><i class="ti ti-brand-google-drive" style="color:#6E9BC9;font-size:20px"></i> Clientes/Padaria Sol/2026-10 <span class="tag" style="background:#EEEBEA;color:#4A4547;margin-left:auto">Drive · só leitura</span></div>
+<div class="fl"><i class="ti ti-file-type-pdf" style="color:#B23A1E"></i><span>extrato Itaú.pdf <span class="mut sm">· 6 págs</span></span><i class="ti ti-circle-check" style="color:#0F5446"></i></div>
+<div class="fl"><i class="ti ti-file-code" style="color:#6E9BC9"></i><span>NF-e XML <b>×38</b> <span class="mut sm">· 31 saídas, 7 entradas</span></span><i class="ti ti-circle-check" style="color:#0F5446"></i></div>
+<div class="fl"><i class="ti ti-file-type-pdf" style="color:#B23A1E"></i><span>folha.pdf <span class="mut sm">· 4 funcionários</span></span><i class="ti ti-circle-check" style="color:#0F5446"></i></div>
+</div>
+<div class="fold" style="background:#FDF6F4;border-color:#EBCFC6">
+<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;margin-bottom:6px;color:#B23A1E"><i class="ti ti-file-alert" style="font-size:20px"></i> Faltando</div>
+<div class="fl"><i class="ti ti-file-x" style="color:#B23A1E"></i><span class="miss">extrato Banco do Brasil · outubro</span><span class="tag" style="background:#FDF1E0;color:#7A4A0E">pedido ao cliente</span></div>
+<div class="sm mut" style="margin-top:8px;line-height:1.5">Sem ele, a conta 1.1.1.03 (BB) fica sem conciliar. Os lançamentos dessa conta ficam marcados como provisórios.</div>
+<div style="margin-top:10px;display:flex;gap:6px"><span class="btn s"><i class="ti ti-upload"></i> Enviar arquivo</span><span class="btn s"><i class="ti ti-refresh"></i> Ler a pasta de novo</span></div>
+</div>
+</div>
+</div>
+
+<!-- PENDÊNCIAS -->
+<div class="sec">
+<div class="k">Pendências <span class="r">o agente para e pergunta em vez de chutar</span></div>
+<div class="pd">
+<div class="pl">
+<div class="plh"><span><i class="ti ti-building-store" style="color:#6E9BC9"></i> Do cliente</span><span class="tag" style="background:#FDF1E0;color:#7A4A0E">1 aguardando</span></div>
+<div class="pi">
+<div class="q">Extrato do Banco do Brasil de outubro</div>
+<div class="d"><i class="ti ti-brand-whatsapp" style="color:#5DBB8F"></i> Pedido pelo <b style="color:#1C1A1B">Thiago</b> ao contato <b style="color:#1C1A1B">Roberto</b> <span class="tag" style="background:#E3F2EE;color:#0F5446;padding:1px 8px">Contábil permitido</span> há 2h</div>
+<div class="d" style="margin-top:8px;padding:9px 11px;background:#F7F5F5;border-radius:6px;color:#4A4547;font-style:italic">"Roberto, bom dia! Para fechar outubro só falta o extrato do Banco do Brasil. Pode mandar o PDF por aqui?"</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span class="sm" style="color:#C07A1E;font-weight:700"><span class="dot" style="background:#C07A1E"></span> aguardando resposta</span><span style="display:flex;gap:6px"><span class="btn s">Cobrar de novo</span><span class="btn s">Já recebi</span></span></div>
+</div>
+<div class="pi" style="background:#FAF9F9">
+<div class="d" style="margin:0"><i class="ti ti-info-circle"></i> Quando o arquivo chegar na conversa ou na pasta do Drive, o agente lê e concilia sozinho.</div>
+</div>
+</div>
+<div class="pl">
+<div class="plh"><span><i class="ti ti-user-check" style="color:#7A2335"></i> Para o analista</span><span class="tag" style="background:#FDF1E0;color:#7A4A0E">2 abertas</span></div>
+<div class="pi">
+<div class="q">PIX de R$ 3.200,00 em 12/10 para Roberto Faria: é pró-labore, distribuição de lucro ou empréstimo do sócio?</div>
+<div class="d">Extrato Itaú, pág. 3 · Roberto Faria é sócio no contrato social · não há pró-labore na folha</div>
+<div class="qk"><span>Pró-labore</span><span>Distribuição de lucro</span><span>Empréstimo do sócio</span></div>
+<div class="in"><div class="fld">Outra resposta ou observação…</div><span class="btn s p">Responder</span></div>
+</div>
+<div class="pi">
+<div class="q">Despesa sem nota R$ 480,00 em 22/10 — classificar</div>
+<div class="d">Débito "PAG*MANUTENCAOFRIO" no Itaú · nenhuma NF-e corresponde</div>
+<div class="qk"><span>Manutenção</span><span>Pedir nota ao cliente</span><span>Não é da empresa</span></div>
+<div class="in"><div class="fld">Conta ou observação…</div><span class="btn s p">Responder</span></div>
+</div>
+</div>
+</div>
+<div class="note"><i class="ti ti-player-play"></i> O agente retoma sozinho assim que as pendências forem respondidas e avisa a Cláudia quando ficar pronto para aprovar.</div>
+</div>
+
+<!-- RESULTADO -->
+<div class="sec">
+<div class="k">Resultado <span class="tag" style="background:#FDF1E0;color:#7A4A0E;text-transform:none;letter-spacing:0">rascunho · ainda não vale</span></div>
+<div class="kp">
+<div><span>Lançamentos</span><b>214</b><em>partidas dobradas</em></div>
+<div><span>Conciliado</span><b>96%</b><em>falta a conta BB</em></div>
+<div><span>Diferenças Itaú</span><b style="color:#0F5446">R$ 0,00</b><em>saldo bate com o extrato</em></div>
+<div><span>Provisórios</span><b style="color:#C07A1E">9</b><em>dependem de pendência</em></div>
+</div>
+<div style="margin-top:14px">
+<div class="gf"><div class="ic" style="background:#E3F2EE;color:#0F5446"><i class="ti ti-file-spreadsheet"></i></div><div><b>lancamentos-dominio-2026-10.xlsx</b><div class="sm mut">layout de importação do Domínio · 214 linhas · gerado 01/10 09:41</div></div><span class="btn s"><i class="ti ti-download"></i> Baixar</span></div>
+<div class="gf"><div class="ic" style="background:#FBEDEA;color:#B23A1E"><i class="ti ti-file-type-pdf"></i></div><div><b>relatorio-pendencias.pdf</b><div class="sm mut">3 pendências e 9 lançamentos provisórios · para mandar ao cliente</div></div><span class="btn s"><i class="ti ti-download"></i> Baixar</span></div>
+</div>
+<div class="rule"><i class="ti ti-shield-check"></i> <span><b>Nunca inventa valores:</b> o que não tem documento vira pendência — nada entra no Domínio sem fonte.</span></div>
+</div>
+</div>
+
+</div>
+
+<!-- LATERAL -->
+<div class="col">
+<div class="cd ap">
+<div class="k">Aprovação</div>
+<div class="warn"><i class="ti ti-lock" style="margin-top:2px"></i><span>Só vale depois da aprovação de uma pessoa do <b>Contábil</b>. Antes disso é rascunho.</span></div>
+<div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
+<span class="btn p" style="padding:13px 16px;font-size:14px;opacity:.55"><i class="ti ti-circle-check"></i> Aprovar e concluir</span>
+<div class="sm mut" style="text-align:center;margin-top:-4px">liberado quando não houver pendências</div>
+</div>
+<div style="margin-top:16px;padding-top:14px;border-top:1px solid #F0EDEC">
+<div class="lb" style="color:#262223">Pedir ajuste ao agente</div>
+<div class="ta">Ex.: "Lance a conta de energia em despesas administrativas, não em custo."</div>
+<span class="btn"><i class="ti ti-arrow-back-up"></i> Pedir ajuste</span>
+</div>
+<div style="margin-top:16px;padding-top:14px;border-top:1px solid #F0EDEC;display:flex;justify-content:space-between;align-items:center">
+<span class="sm mut">Descarta o rascunho; a demanda continua aberta.</span>
+<span class="btn s" style="color:#B23A1E;border-color:#E9C3B8"><i class="ti ti-trash"></i> Descartar</span>
+</div>
+</div>
+
+<div class="cd">
+<div class="k">Custo desta tarefa</div>
+<div class="cost"><b>US$ 0,86</b><span class="sm mut">≈ R$ 4,77</span></div>
+<div style="margin-top:10px">
+<div class="cr"><span>Ler documentos (41 arquivos)</span><b>US$ 0,52</b></div>
+<div class="cr"><span>Lançar e conciliar</span><b>US$ 0,27</b></div>
+<div class="cr"><span>Pendências e relatório</span><b>US$ 0,07</b></div>
+</div>
+<div class="sm mut" style="margin-top:8px">Entra em Gastos com IA como "Tarefa do agente".</div>
+</div>
+
+<div class="cd">
+<div class="k">Linha do tempo</div>
+<div class="tl">
+<div><b>Thiago</b> pediu pelo WhatsApp <small>· 01/10 08:12</small></div>
+<div class="ia"><b>Agente</b> leu 41 arquivos do Drive <small>· 08:14</small></div>
+<div class="ia"><b>Agente</b> gerou 214 lançamentos <small>· 09:38</small></div>
+<div class="ia"><b>Agente</b> conciliou Itaú: diferença R$ 0,00 <small>· 09:40</small></div>
+<div class="wt"><b>Agente</b> abriu 3 pendências <small>· 09:41</small></div>
+<div><b>Thiago</b> pediu o extrato BB ao Roberto <small>· 10:05</small></div>
+<div><b>Sistema</b> responsável: Cláudia <small>· 10:05</small></div>
+</div>
+</div>
+</div>
+</div>
+
+</div></div></body></html>

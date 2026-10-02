@@ -1,0 +1,125 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0}body{font-family:'Plus Jakarta Sans',sans-serif;width:1440px;display:flex;color:#1C1A1B;background:#F1EFEE;font-size:15px}
+.nav{width:64px;background:#262223;display:flex;flex-direction:column;align-items:center;padding-top:14px;min-height:100vh;flex-shrink:0}.nav .lg{width:40px;height:40px;border-radius:50%;background:#7A2335;border:2px solid #C8A97E;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:14px}.nav i{font-size:22px;width:64px;text-align:center;padding:12px 0}.nav .on{background:#7A2335;color:#fff;box-shadow:inset 3px 0 0 #C8A97E}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{background:#fff;border-bottom:1px solid #E4E0DF;padding:13px 24px;display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#6B6466}
+.c{padding:20px 24px 28px;display:flex;flex-direction:column;gap:16px}
+.hd{display:flex;justify-content:space-between;align-items:center}.t{font-size:28px;font-weight:800}.t span{color:#7A2335}
+.st{font-size:14px;color:#6B6466;margin-top:4px}
+.btn{font-size:13px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:10px 16px;border-radius:6px;display:inline-flex;gap:6px;align-items:center}
+.bp{background:#7A2335;color:#fff}.bs{background:#fff;border:1px solid #D6D0CF;color:#262223}
+.fb{display:flex;justify-content:space-between;align-items:center}
+.sel{display:flex;gap:6px}.sel span{font-size:13px;font-weight:700;padding:8px 14px;border:1px solid #D6D0CF;border-radius:6px;background:#fff;display:inline-flex;gap:6px;align-items:center}.sel .on{background:#262223;color:#fff;border-color:#262223}.sel b{font-weight:800}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.info{background:#fff;border:1px solid #E4E0DF;border-left:4px solid #C8A97E;border-radius:6px;padding:11px 16px;font-size:14px;color:#4A4547;display:flex;gap:10px;align-items:center}.info i{font-size:19px;color:#A8865A}.info b{color:#1C1A1B}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.cd{background:#fff;border:1px solid #E4E0DF;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.ch{display:flex;gap:12px;align-items:flex-start}
+.ic{width:46px;height:46px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.nm{font-size:17px;font-weight:800;line-height:1.25}.nm small{font-weight:600;color:#6B6466;font-size:14px}
+.ms{font-size:13px;color:#6B6466;margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ty{font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;background:#F1EFEE;color:#4A4547;display:inline-flex;gap:4px;align-items:center}
+.es{margin-left:auto;text-align:right;flex-shrink:0}
+.tag{font-size:12px;font-weight:800;padding:4px 10px;border-radius:12px;display:inline-flex;gap:6px;align-items:center;letter-spacing:.03em;text-transform:uppercase}
+.on-g{background:#E3F2EE;color:#0F5446}.on-a{background:#FDF1E0;color:#7A4A0E}.on-c{background:#EFEDEC;color:#6B6466}
+.es div{font-size:12.5px;color:#6B6466;margin-top:5px}.es div b{color:#7A4A0E}
+.kit{display:flex;gap:16px;font-size:13.5px;color:#4A4547}.kit i{color:#8E8689;font-size:16px;vertical-align:-2px}.kit b{color:#1C1A1B}
+.nums{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #F0EDEC;border-radius:6px;background:#FBFAFA}
+.nums>div{padding:10px 12px;border-right:1px solid #F0EDEC}.nums>div:last-child{border:0}
+.nl{font-size:11px;font-weight:800;color:#6B6466;letter-spacing:.04em;text-transform:uppercase}
+.nv{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:3px;line-height:1.1}.nv small{font-size:13px;color:#6B6466;font-weight:600}
+.big .nv{font-size:28px}.nv,.nl{white-space:nowrap}
+.voz{font-size:13.5px;color:#4A4547;display:flex;gap:6px;align-items:center}.voz i{font-size:17px;color:#A8865A}.voz b{color:#1C1A1B}
+.ft{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #F0EDEC;padding-top:12px;font-size:13px;color:#6B6466;margin-top:auto}
+.lk{color:#7A2335;font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.03em;display:inline-flex;gap:4px;align-items:center}
+.wa{background:#FDF1E0;color:#7A4A0E;border-radius:6px;padding:9px 12px;font-size:13.5px;display:flex;gap:8px;align-items:center}.wa b{font-weight:800}
+.off{background:#FCFBFB}.off .nm{color:#4A4547}
+.empty{border:1px dashed #DDD7D6;border-radius:6px;padding:12px;font-size:13.5px;color:#8E8689;display:flex;gap:8px;align-items:center}
+.ln{font-size:13px;color:#6B6466}
+</style></head><body>
+<div class="nav"><div class="lg">EC</div><i class="ti ti-layout-dashboard" style="color:#D6AE5C"></i><i class="ti ti-message-circle" style="color:#5DBB8F"></i><i class="ti ti-checklist" style="color:#A6C95A"></i><i class="ti ti-building" style="color:#6E9BC9"></i><i class="ti ti-address-book" style="color:#A98BCB"></i><i class="ti ti-sparkles" style="color:#D6AE5C"></i><i class="ti ti-robot on"></i><i class="ti ti-settings" style="color:#4FB0B8"></i><i class="ti ti-coin" style="color:#C9A35A"></i></div>
+<div class="main">
+<div class="top"><span><i class="ti ti-robot" style="color:#7A2335"></i> › Administração › <b style="color:#1C1A1B">Agentes</b></span><span>Só dono e administrador · números de outubro</span></div>
+<div class="c">
+<div class="hd"><div><div class="t">Agentes <span>7</span></div><div class="st">Um agente por departamento, mais o Radar de legislação. O Thiago atende no WhatsApp e chama os outros quando precisa.</div></div>
+<div style="display:flex;gap:8px"><span class="btn bs"><i class="ti ti-coin"></i> Gastos com IA</span><span class="btn bp"><i class="ti ti-plus"></i> Novo agente</span></div></div>
+
+<div class="info"><i class="ti ti-lock"></i><span><b>Só você altera skills, ferramentas e modo de contato.</b> Orientações: quem tem permissão (hoje Ana e Cláudia editam as do Fiscal e do Contábil).</span></div>
+
+<div class="fb"><div class="sel"><span class="on">Todos <b>7</b></span><span><i class="dot" style="background:#5DBB8F"></i> Ligados <b>2</b></span><span><i class="dot" style="background:#C07A1E"></i> Em teste <b>2</b></span><span><i class="dot" style="background:#B5ADAF"></i> Desligados <b>3</b></span></div>
+<div class="sel"><span>Tipo: todos <i class="ti ti-chevron-down"></i></span><span><i class="ti ti-search"></i> Buscar agente</span></div></div>
+
+<div class="grid">
+
+<div class="cd" style="border-top:4px solid #5DBB8F">
+<div class="ch"><div class="ic" style="background:#E3F2EE;color:#0F5446"><i class="ti ti-message-circle"></i></div>
+<div><div class="nm">Thiago <small>· Atendimento</small></div><div class="ms"><span class="ty"><i class="ti ti-messages"></i> Conversa</span> porta de entrada no WhatsApp</div></div>
+<div class="es"><span class="tag on-g"><i class="dot" style="background:#0F5446"></i> Ligado</span><div>desde 14/08</div></div></div>
+<div class="kit"><span><i class="ti ti-book-2"></i> <b>6</b> skills</span><span><i class="ti ti-tool"></i> <b>9</b> ferramentas</span><span><i class="ti ti-list-check"></i> <b>23</b> orientações</span></div>
+<div class="nums big"><div><div class="nl">Conversas</div><div class="nv">438</div></div><div><div class="nl">Sozinho</div><div class="nv" style="color:#0F5446">74%</div></div><div><div class="nl">Custo</div><div class="nv">27,80 <small>US$</small></div></div></div>
+<div class="voz"><i class="ti ti-user-circle"></i> Fala com o cliente: <b>Direto, é a voz do escritório</b></div>
+<div class="ft"><span><i class="ti ti-clock"></i> agora · Padaria Sol ME</span><span class="lk">Abrir <i class="ti ti-chevron-right"></i></span></div></div>
+
+<div class="cd" style="border-top:4px solid #5DBB8F">
+<div class="ch"><div class="ic" style="background:#F4E4E8;color:#7A2335"><i class="ti ti-radar-2"></i></div>
+<div><div class="nm">Radar de legislação</div><div class="ms"><span class="ty"><i class="ti ti-player-play"></i> Trabalho</span><span class="ty"><i class="ti ti-calendar-time"></i> todo dia 7h</span></div></div>
+<div class="es"><span class="tag on-g"><i class="dot" style="background:#0F5446"></i> Ligado</span><div>desde 22/09</div></div></div>
+<div class="kit"><span><i class="ti ti-book-2"></i> <b>2</b> skills</span><span><i class="ti ti-tool"></i> <b>4</b> ferramentas</span><span><i class="ti ti-list-check"></i> <b>6</b> orientações</span></div>
+<div class="nums"><div><div class="nl">Rodadas</div><div class="nv">2</div></div><div><div class="nl">Novidades</div><div class="nv">9</div></div><div><div class="nl">Custo</div><div class="nv">0,90 <small>US$</small></div></div></div>
+<div class="wa" style="background:#E3F2EE;color:#0F5446"><i class="ti ti-news"></i> <span><b>5 novidades esta semana</b> · 2 viraram demanda</span></div>
+<div class="ln">Leis contábeis, fiscais, trabalhistas e societárias em fontes oficiais (DOU, Receita, CGSN).</div>
+<div class="voz"><i class="ti ti-user-circle"></i> Fala com o cliente: <b>Por trás</b> <span class="ln">(avisa a equipe)</span></div>
+<div class="ft"><span><i class="ti ti-clock"></i> hoje 7h · próxima amanhã 7h</span><span class="lk">Abrir <i class="ti ti-chevron-right"></i></span></div></div>
+
+<div class="cd" style="border-top:4px solid #C07A1E">
+<div class="ch"><div class="ic" style="background:#FBEADB;color:#B0601F"><i class="ti ti-receipt"></i></div>
+<div><div class="nm">Agente Fiscal</div><div class="ms"><span class="ty"><i class="ti ti-messages"></i> Conversa</span><span class="ty"><i class="ti ti-player-play"></i> Trabalho</span> notas e guias</div></div>
+<div class="es"><span class="tag on-a"><i class="dot" style="background:#C07A1E"></i> Teste</span><div><b>3 contatos</b></div></div></div>
+<div class="kit"><span><i class="ti ti-book-2"></i> <b>4</b> skills</span><span><i class="ti ti-tool"></i> <b>5</b> ferramentas</span><span><i class="ti ti-list-check"></i> <b>11</b> orientações</span></div>
+<div class="nums"><div><div class="nl">Conv. · tarefas</div><div class="nv">37 <small>· 6</small></div></div><div><div class="nl">Sozinho</div><div class="nv">62%</div></div><div><div class="nl">Custo</div><div class="nv">3,10 <small>US$</small></div></div></div>
+<div class="voz"><i class="ti ti-user-circle"></i> Fala com o cliente: <b>Mesma voz</b> <span class="ln">(responde como Thiago)</span></div>
+<div class="ft"><span><i class="ti ti-clock"></i> há 25 min · Rede Bom Preço Ltda</span><span class="lk">Abrir <i class="ti ti-chevron-right"></i></span></div></div>
+
+<div class="cd" style="border-top:4px solid #C07A1E">
+<div class="ch"><div class="ic" style="background:#E6EEF7;color:#2F5D8A"><i class="ti ti-calculator"></i></div>
+<div><div class="nm">Agente Contábil</div><div class="ms"><span class="ty"><i class="ti ti-player-play"></i> Trabalho</span> fechamento e conferências</div></div>
+<div class="es"><span class="tag on-a"><i class="dot" style="background:#C07A1E"></i> Teste</span><div><b>2 contatos</b></div></div></div>
+<div class="kit"><span><i class="ti ti-book-2"></i> <b>3</b> skills</span><span><i class="ti ti-tool"></i> <b>7</b> ferramentas</span><span><i class="ti ti-list-check"></i> <b>8</b> orientações</span></div>
+<div class="nums"><div><div class="nl">Tarefas</div><div class="nv">14</div></div><div><div class="nl">Sozinho</div><div class="nv">50%</div></div><div><div class="nl">Custo</div><div class="nv">6,40 <small>US$</small></div></div></div>
+<div class="wa"><i class="ti ti-hourglass"></i> <span><b>2 tarefas aguardando aprovação</b> · fechamento de setembro</span></div>
+<div class="voz"><i class="ti ti-user-circle"></i> Fala com o cliente: <b>Por trás</b> <span class="ln">(Thiago repassa)</span></div>
+<div class="ft"><span><i class="ti ti-clock"></i> há 2 h · Mercado Central</span><span class="lk">Revisar <i class="ti ti-chevron-right"></i></span></div></div>
+
+<div class="cd off">
+<div class="ch"><div class="ic" style="background:#EEE9F5;color:#5E4685"><i class="ti ti-users"></i></div>
+<div><div class="nm">Departamento Pessoal</div><div class="ms"><span class="ty"><i class="ti ti-messages"></i> Conversa</span><span class="ty"><i class="ti ti-player-play"></i> Trabalho</span> folha e admissões</div></div>
+<div class="es"><span class="tag on-c"><i class="dot" style="background:#9A9294"></i> Desligado</span></div></div>
+<div class="kit"><span><i class="ti ti-book-2"></i> <b>0</b> skills</span><span><i class="ti ti-tool"></i> <b>0</b> ferramentas</span><span><i class="ti ti-list-check"></i> <b>0</b> orientações</span></div>
+<div class="empty"><i class="ti ti-settings"></i> Ainda não configurado</div>
+<div class="voz"><i class="ti ti-user-circle"></i> Fala com o cliente: <b style="color:#8E8689">a definir</b></div>
+<div class="ft"><span>nunca usado</span><span class="lk">Configurar <i class="ti ti-chevron-right"></i></span></div></div>
+
+<div class="cd off">
+<div class="ch"><div class="ic" style="background:#E0F2F3;color:#2A7A80"><i class="ti ti-file-certificate"></i></div>
+<div><div class="nm">Agente de Legalização</div><div class="ms"><span class="ty"><i class="ti ti-messages"></i> Conversa</span><span class="ty"><i class="ti ti-player-play"></i> Trabalho</span> aberturas e alterações</div></div>
+<div class="es"><span class="tag on-c"><i class="dot" style="background:#9A9294"></i> Desligado</span></div></div>
+<div class="kit"><span><i class="ti ti-book-2"></i> <b>0</b> skills</span><span><i class="ti ti-tool"></i> <b>0</b> ferramentas</span><span><i class="ti ti-list-check"></i> <b>0</b> orientações</span></div>
+<div class="empty"><i class="ti ti-settings"></i> Ainda não configurado</div>
+<div class="voz"><i class="ti ti-user-circle"></i> Fala com o cliente: <b style="color:#8E8689">a definir</b></div>
+<div class="ft"><span>nunca usado</span><span class="lk">Configurar <i class="ti ti-chevron-right"></i></span></div></div>
+
+<div class="cd off">
+<div class="ch"><div class="ic" style="background:#EEF4E0;color:#5E7A22"><i class="ti ti-briefcase"></i></div>
+<div><div class="nm">Agente Comercial</div><div class="ms"><span class="ty"><i class="ti ti-messages"></i> Conversa</span> orçamentos de novos clientes</div></div>
+<div class="es"><span class="tag on-c"><i class="dot" style="background:#9A9294"></i> Desligado</span></div></div>
+<div class="kit"><span><i class="ti ti-book-2"></i> <b>0</b> skills</span><span><i class="ti ti-tool"></i> <b>0</b> ferramentas</span><span><i class="ti ti-list-check"></i> <b>0</b> orientações</span></div>
+<div class="empty"><i class="ti ti-settings"></i> Ainda não configurado</div>
+<div class="voz"><i class="ti ti-user-circle"></i> Fala com o cliente: <b style="color:#8E8689">a definir</b></div>
+<div class="ft"><span>nunca usado</span><span class="lk">Configurar <i class="ti ti-chevron-right"></i></span></div></div>
+
+</div>
+<div style="display:flex;gap:20px;font-size:13px;color:#6B6466;flex-wrap:wrap"><span><b style="color:#1C1A1B">Conversa</b>: fala no WhatsApp ou no painel</span><span><b style="color:#1C1A1B">Trabalho</b>: tarefas longas em segundo plano (fechamento, conferências, relatórios)</span><span><b style="color:#1C1A1B">Teste</b>: só atende os contatos escolhidos</span><span><b style="color:#1C1A1B">Sozinho</b>: resolvido sem passar para uma pessoa</span></div>
+</div></div></body></html>
