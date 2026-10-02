@@ -1,23 +1,55 @@
 'use client';
 
-import { Menu } from 'lucide-react';
+import { ChevronRight, House, Menu } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { AgentStateIndicator, type EstadoAgente } from '@/components/patterns/agent-state-indicator';
-import type { EscolhaTema } from '@/components/tema/tema';
+import { cn } from '@/lib/cn';
 import { BuscaGlobal } from './busca-global';
 import { MenuUsuario } from './menu-usuario';
-import type { TamanhoLetra } from './tamanho-letra';
+import { trilhaDaRota } from './trilha';
 
-/** Barra do topo: menu (só em telas menores), busca global, estado geral do agente e menu da pessoa. */
+/** Trilha da tela atual (casa › Seção › Tela); o último passo é a página e não é link. */
+function Trilha() {
+  const passos = trilhaDaRota(usePathname());
+  return (
+    <nav aria-label="Trilha" className="min-w-0 flex-1">
+      <ol className="flex min-w-0 items-center gap-1.5 text-base">
+        <li className="shrink-0">
+          <Link
+            href="/inicio"
+            aria-label="Início"
+            className="inline-flex size-7 items-center justify-center rounded-md text-muted transition-colors duration-150 ease-out hover:bg-surface-muted hover:text-foreground"
+          >
+            <House aria-hidden size={16} strokeWidth={1.75} />
+          </Link>
+        </li>
+        {passos.map((p, i) => {
+          const ultimo = i === passos.length - 1;
+          return (
+            // O último passo pode encolher (nome longo); os do meio ficam inteiros.
+            <li key={`${i}-${p.rotulo}`} className={cn('flex items-center gap-1.5', ultimo ? 'min-w-0' : 'shrink-0')}>
+              <ChevronRight aria-hidden size={14} strokeWidth={1.75} className="shrink-0 text-subtle" />
+              {ultimo ? (
+                <span aria-current="page" className="truncate font-bold text-foreground">{p.rotulo}</span>
+              ) : p.href ? (
+                <Link href={p.href} className="truncate text-muted underline-offset-4 hover:text-foreground hover:underline">{p.rotulo}</Link>
+              ) : (
+                <span className="truncate text-muted">{p.rotulo}</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+/** Barra do topo: menu (só em telas menores), trilha, busca global, estado geral do agente e menu da pessoa. */
 export function Topbar({
-  usuario,
-  tema,
-  tamanhoLetra,
   estadoAgente,
   onAbrirMenu,
 }: {
-  usuario: { nome: string; papel: 'admin' | 'atendente' };
-  tema: EscolhaTema;
-  tamanhoLetra: TamanhoLetra;
   estadoAgente: EstadoAgente | null;
   onAbrirMenu: () => void;
 }) {
@@ -31,11 +63,12 @@ export function Topbar({
       >
         <Menu aria-hidden size={20} strokeWidth={1.75} />
       </button>
-      <div className="min-w-0 flex-1">
+      <Trilha />
+      <div className="w-44 shrink-0 md:w-72">
         <BuscaGlobal />
       </div>
       {estadoAgente && <AgentStateIndicator estado={estadoAgente} />}
-      <MenuUsuario nome={usuario.nome} papel={usuario.papel} tema={tema} tamanhoLetra={tamanhoLetra} />
+      <MenuUsuario />
     </div>
   );
 }

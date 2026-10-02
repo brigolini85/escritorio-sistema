@@ -13,5 +13,7 @@ const config: NextConfig = {
   transpilePackages: ['@escritorio/core', '@escritorio/db'],
   serverExternalPackages: ['pg-boss'],
   experimental: { serverActions: { bodySizeLimit: '15mb' } },
+  // Indicador do Next (só em desenvolvimento) no canto direito: no esquerdo ele cobre o "Recolher" do menu.
+  devIndicators: { position: 'bottom-right' },
 };
 export default config;

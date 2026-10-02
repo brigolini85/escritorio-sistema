@@ -46,7 +46,8 @@ test('administrador convida pessoa na aba Usuários e vê aviso ao faltar telefo
   if (antigo) await db.auth.admin.deleteUser(antigo.id);
   await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
   await entrar(page, 'admin@teste.com', 'senha-forte-123');
-  await page.getByRole('link', { name: 'Usuários' }).click();
+  await page.getByRole('button', { name: 'Configurações: abrir submenu' }).click();
+  await page.getByRole('menuitem', { name: 'Usuários e permissões' }).click();
   const preencher = async () => {
     // O convite fica numa janela; depois de cada envio ela fecha.
     await page.getByRole('button', { name: 'Convidar pessoa' }).click();

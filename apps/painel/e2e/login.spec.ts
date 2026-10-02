@@ -4,7 +4,7 @@ import { criarUsuarioTeste, entrar } from './apoio';
 test('administrador entra e vê o menu completo', async ({ page }) => {
   await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
   await entrar(page, 'admin@teste.com', 'senha-forte-123');
-  await expect(page.getByRole('link', { name: 'Configurações' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Configurações: abrir submenu' })).toBeVisible();
 });
 
 test('senha errada mostra aviso em português', async ({ page }) => {

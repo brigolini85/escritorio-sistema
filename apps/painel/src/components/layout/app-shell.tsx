@@ -6,11 +6,13 @@ import type { EscolhaTema } from '@/components/tema/tema';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/cn';
+import type { SituacaoSinal } from '@/lib/sinal-vida';
 import { useAoVivo } from './ao-vivo';
 import { AtalhosTeclado } from './atalhos-teclado';
 import { FaixaAmbiente } from './faixa-ambiente';
 import { cookieDoMenu } from './preferencias';
 import type { TamanhoLetra } from './tamanho-letra';
+import { ProvedorMenuUsuario } from './menu-usuario';
 import { Sidebar, type Contadores, type ItemMenu } from './sidebar';
 import { Topbar } from './topbar';
 
@@ -27,6 +29,7 @@ export function AppShell({
   ambiente,
   tema,
   tamanhoLetra,
+  whatsapp,
   recolhidoInicial,
 }: {
   children: ReactNode;
@@ -37,6 +40,8 @@ export function AppShell({
   ambiente: string | null;
   tema: EscolhaTema;
   tamanhoLetra: TamanhoLetra;
+  /** Situação do WhatsApp para o atalho do menu; null para quem não é administrador. */
+  whatsapp: SituacaoSinal | null;
   recolhidoInicial: boolean;
 }) {
   const [recolhido, setRecolhido] = useState(recolhidoInicial);
@@ -64,40 +69,46 @@ export function AppShell({
   }, []);
 
   return (
-    <div className="flex min-h-screen">
-      <a
-        href="#conteudo"
-        className="sr-only z-50 rounded-md bg-brand px-3 py-2 text-base font-medium text-brand-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
-      >
-        Pular para o conteúdo
-      </a>
-      <aside
-        className={cn(
-          'sticky top-0 hidden h-screen shrink-0 border-r border-border bg-surface transition-[width] duration-150 ease-out lg:block',
-          recolhido ? 'w-sidebar-recolhida' : 'w-sidebar',
-        )}
-      >
-        <Sidebar itens={itens} contadores={aoVivo.contadores} recolhido={recolhido} onAlternar={alternar} />
-      </aside>
-
-      <Sheet open={gaveta} onOpenChange={setGaveta}>
-        <SheetContent side="left" className="w-sidebar max-w-full gap-0 p-0">
-          <SheetTitle className="sr-only">Menu</SheetTitle>
-          <SheetDescription className="sr-only">Navegação do painel</SheetDescription>
-          <Sidebar itens={itens} contadores={aoVivo.contadores} onNavegar={() => setGaveta(false)} />
-        </SheetContent>
-      </Sheet>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header ref={cabecalho} className="sticky top-0 z-40">
-          <FaixaAmbiente rotulo={ambiente} />
-          <Topbar usuario={usuario} tema={tema} tamanhoLetra={tamanhoLetra} estadoAgente={aoVivo.estadoAgente} onAbrirMenu={() => setGaveta(true)} />
-        </header>
-        <main id="conteudo" tabIndex={-1} className="flex-1 p-6 focus-visible:outline-none">{children}</main>
+    <ProvedorMenuUsuario nome={usuario.nome} papel={usuario.papel} tema={tema} tamanhoLetra={tamanhoLetra}>
+      <div className="flex min-h-screen">
+        <a
+          href="#conteudo"
+          className="sr-only z-50 rounded-md bg-brand px-3 py-2 text-base font-medium text-brand-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+        >
+          Pular para o conteúdo
+        </a>
+        <aside
+          className={cn(
+            'sticky top-0 hidden h-screen shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-150 ease-out lg:block',
+            recolhido ? 'w-sidebar-recolhida' : 'w-sidebar',
+          )}
+        >
+          <Sidebar itens={itens} contadores={aoVivo.contadores} whatsapp={whatsapp} recolhido={recolhido} onAlternar={alternar} />
+        </aside>
+  
+        <Sheet open={gaveta} onOpenChange={setGaveta}>
+          {/* Gaveta também grafite; o X de fechar (último botão da gaveta) ganha a cor do texto do menu para não sumir. */}
+          <SheetContent
+            side="left"
+            className="w-sidebar max-w-full gap-0 border-sidebar-border bg-sidebar p-0 text-sidebar-foreground [&>button:last-child]:text-sidebar-foreground [&>button:last-child]:hover:bg-sidebar-raised"
+          >
+            <SheetTitle className="sr-only">Menu</SheetTitle>
+            <SheetDescription className="sr-only">Navegação do painel</SheetDescription>
+            <Sidebar itens={itens} contadores={aoVivo.contadores} whatsapp={whatsapp} onNavegar={() => setGaveta(false)} />
+          </SheetContent>
+        </Sheet>
+  
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header ref={cabecalho} className="sticky top-0 z-40">
+            <FaixaAmbiente rotulo={ambiente} />
+            <Topbar estadoAgente={aoVivo.estadoAgente} onAbrirMenu={() => setGaveta(true)} />
+          </header>
+          <main id="conteudo" tabIndex={-1} className="flex-1 p-6 focus-visible:outline-none">{children}</main>
+        </div>
+        <Toaster />
+        <AtalhosTeclado />
       </div>
-      <Toaster />
-      <AtalhosTeclado />
-    </div>
+    </ProvedorMenuUsuario>
   );
 }
 
