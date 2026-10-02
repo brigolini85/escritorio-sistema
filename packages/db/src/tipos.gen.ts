@@ -218,16 +218,22 @@ isOneToOne: false
                   ]
                 },"clientes": {
                   Row: {
-                    "agente_pausado": boolean,"ativo": boolean,"cnpj": string,"criado_em": string,"endereco": string | null,"id": string,"inscricao_estadual": string | null,"nome_fantasia": string | null,"razao_social": string,"regime": string | null,"uf": string | null
+                    "agente_pausado": boolean,"arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cnpj": string,"criado_em": string,"endereco": string | null,"id": string,"inscricao_estadual": string | null,"nome_fantasia": string | null,"razao_social": string,"regime": string | null,"uf": string | null
                   }
                   Insert: {
-                    "agente_pausado"?: boolean,"ativo"?: boolean,"cnpj": string,"criado_em"?: string,"endereco"?: string | null,"id"?: string,"inscricao_estadual"?: string | null,"nome_fantasia"?: string | null,"razao_social": string,"regime"?: string | null,"uf"?: string | null
+                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cnpj": string,"criado_em"?: string,"endereco"?: string | null,"id"?: string,"inscricao_estadual"?: string | null,"nome_fantasia"?: string | null,"razao_social": string,"regime"?: string | null,"uf"?: string | null
                   }
                   Update: {
-                    "agente_pausado"?: boolean,"ativo"?: boolean,"cnpj"?: string,"criado_em"?: string,"endereco"?: string | null,"id"?: string,"inscricao_estadual"?: string | null,"nome_fantasia"?: string | null,"razao_social"?: string,"regime"?: string | null,"uf"?: string | null
+                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cnpj"?: string,"criado_em"?: string,"endereco"?: string | null,"id"?: string,"inscricao_estadual"?: string | null,"nome_fantasia"?: string | null,"razao_social"?: string,"regime"?: string | null,"uf"?: string | null
                   }
                   Relationships: [
-                    
+                    {
+      foreignKeyName: "clientes_arquivado_por_fkey"
+      columns: ["arquivado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"configuracoes": {
                   Row: {
@@ -269,16 +275,22 @@ isOneToOne: false
                   ]
                 },"contatos": {
                   Row: {
-                    "agente_pausado": boolean,"ativo": boolean,"criado_em": string,"id": string,"nome": string,"telefone": string
+                    "agente_pausado": boolean,"arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"criado_em": string,"id": string,"nome": string,"telefone": string
                   }
                   Insert: {
-                    "agente_pausado"?: boolean,"ativo"?: boolean,"criado_em"?: string,"id"?: string,"nome": string,"telefone": string
+                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"id"?: string,"nome": string,"telefone": string
                   }
                   Update: {
-                    "agente_pausado"?: boolean,"ativo"?: boolean,"criado_em"?: string,"id"?: string,"nome"?: string,"telefone"?: string
+                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"id"?: string,"nome"?: string,"telefone"?: string
                   }
                   Relationships: [
-                    
+                    {
+      foreignKeyName: "contatos_arquivado_por_fkey"
+      columns: ["arquivado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"conversas": {
                   Row: {
@@ -481,16 +493,22 @@ isOneToOne: false
                   ]
                 },"parceiros_grupos": {
                   Row: {
-                    "ativo": boolean,"cliente_id": string,"criado_em": string,"id": string,"nome": string,"palavras_chave": (string)[],"tipo": Database["public"]['Enums']["tipo_parceiro"]
+                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cliente_id": string,"criado_em": string,"id": string,"nome": string,"palavras_chave": (string)[],"tipo": Database["public"]['Enums']["tipo_parceiro"]
                   }
                   Insert: {
-                    "ativo"?: boolean,"cliente_id": string,"criado_em"?: string,"id"?: string,"nome": string,"palavras_chave"?: (string)[],"tipo": Database["public"]['Enums']["tipo_parceiro"]
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cliente_id": string,"criado_em"?: string,"id"?: string,"nome": string,"palavras_chave"?: (string)[],"tipo": Database["public"]['Enums']["tipo_parceiro"]
                   }
                   Update: {
-                    "ativo"?: boolean,"cliente_id"?: string,"criado_em"?: string,"id"?: string,"nome"?: string,"palavras_chave"?: (string)[],"tipo"?: Database["public"]['Enums']["tipo_parceiro"]
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cliente_id"?: string,"criado_em"?: string,"id"?: string,"nome"?: string,"palavras_chave"?: (string)[],"tipo"?: Database["public"]['Enums']["tipo_parceiro"]
                   }
                   Relationships: [
                     {
+      foreignKeyName: "parceiros_grupos_arquivado_por_fkey"
+      columns: ["arquivado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "parceiros_grupos_cliente_id_fkey"
       columns: ["cliente_id"]
 isOneToOne: false
@@ -500,16 +518,22 @@ isOneToOne: false
                   ]
                 },"parceiros_unidades": {
                   Row: {
-                    "ativo": boolean,"bairro": string | null,"cep": string | null,"cidade": string | null,"cliente_id": string,"cnpj": string | null,"complemento": string | null,"criado_em": string,"endereco": string | null,"grupo_id": string,"id": string,"inscricao_estadual": string | null,"nome_unidade": string,"numero": string | null,"palavras_chave": (string)[],"razao_social": string | null,"telefone": string | null,"uf": string | null
+                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"bairro": string | null,"cep": string | null,"cidade": string | null,"cliente_id": string,"cnpj": string | null,"complemento": string | null,"criado_em": string,"endereco": string | null,"grupo_id": string,"id": string,"inscricao_estadual": string | null,"nome_unidade": string,"numero": string | null,"palavras_chave": (string)[],"razao_social": string | null,"telefone": string | null,"uf": string | null
                   }
                   Insert: {
-                    "ativo"?: boolean,"bairro"?: string | null,"cep"?: string | null,"cidade"?: string | null,"cliente_id": string,"cnpj"?: string | null,"complemento"?: string | null,"criado_em"?: string,"endereco"?: string | null,"grupo_id": string,"id"?: string,"inscricao_estadual"?: string | null,"nome_unidade": string,"numero"?: string | null,"palavras_chave"?: (string)[],"razao_social"?: string | null,"telefone"?: string | null,"uf"?: string | null
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"bairro"?: string | null,"cep"?: string | null,"cidade"?: string | null,"cliente_id": string,"cnpj"?: string | null,"complemento"?: string | null,"criado_em"?: string,"endereco"?: string | null,"grupo_id": string,"id"?: string,"inscricao_estadual"?: string | null,"nome_unidade": string,"numero"?: string | null,"palavras_chave"?: (string)[],"razao_social"?: string | null,"telefone"?: string | null,"uf"?: string | null
                   }
                   Update: {
-                    "ativo"?: boolean,"bairro"?: string | null,"cep"?: string | null,"cidade"?: string | null,"cliente_id"?: string,"cnpj"?: string | null,"complemento"?: string | null,"criado_em"?: string,"endereco"?: string | null,"grupo_id"?: string,"id"?: string,"inscricao_estadual"?: string | null,"nome_unidade"?: string,"numero"?: string | null,"palavras_chave"?: (string)[],"razao_social"?: string | null,"telefone"?: string | null,"uf"?: string | null
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"bairro"?: string | null,"cep"?: string | null,"cidade"?: string | null,"cliente_id"?: string,"cnpj"?: string | null,"complemento"?: string | null,"criado_em"?: string,"endereco"?: string | null,"grupo_id"?: string,"id"?: string,"inscricao_estadual"?: string | null,"nome_unidade"?: string,"numero"?: string | null,"palavras_chave"?: (string)[],"razao_social"?: string | null,"telefone"?: string | null,"uf"?: string | null
                   }
                   Relationships: [
                     {
+      foreignKeyName: "parceiros_unidades_arquivado_por_fkey"
+      columns: ["arquivado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "parceiros_unidades_cliente_id_fkey"
       columns: ["cliente_id"]
 isOneToOne: false
@@ -568,16 +592,22 @@ isOneToOne: false
                   ]
                 },"produtos": {
                   Row: {
-                    "apelidos": (string)[],"ativo": boolean,"cliente_id": string,"codigo": string,"criado_em": string,"descricao": string,"id": string,"unidade": string
+                    "apelidos": (string)[],"arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cliente_id": string,"codigo": string,"criado_em": string,"descricao": string,"id": string,"unidade": string
                   }
                   Insert: {
-                    "apelidos"?: (string)[],"ativo"?: boolean,"cliente_id": string,"codigo": string,"criado_em"?: string,"descricao": string,"id"?: string,"unidade"?: string
+                    "apelidos"?: (string)[],"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cliente_id": string,"codigo": string,"criado_em"?: string,"descricao": string,"id"?: string,"unidade"?: string
                   }
                   Update: {
-                    "apelidos"?: (string)[],"ativo"?: boolean,"cliente_id"?: string,"codigo"?: string,"criado_em"?: string,"descricao"?: string,"id"?: string,"unidade"?: string
+                    "apelidos"?: (string)[],"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cliente_id"?: string,"codigo"?: string,"criado_em"?: string,"descricao"?: string,"id"?: string,"unidade"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "produtos_arquivado_por_fkey"
+      columns: ["arquivado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "produtos_cliente_id_fkey"
       columns: ["cliente_id"]
 isOneToOne: false
@@ -720,16 +750,22 @@ isOneToOne: false
                   ]
                 },"usuarios": {
                   Row: {
-                    "ativo": boolean,"criado_em": string,"email": string,"id": string,"nome": string,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null
+                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"criado_em": string,"email": string,"id": string,"nome": string,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null
                   }
                   Insert: {
-                    "ativo"?: boolean,"criado_em"?: string,"email": string,"id": string,"nome": string,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"email": string,"id": string,"nome": string,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null
                   }
                   Update: {
-                    "ativo"?: boolean,"criado_em"?: string,"email"?: string,"id"?: string,"nome"?: string,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"email"?: string,"id"?: string,"nome"?: string,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null
                   }
                   Relationships: [
-                    
+                    {
+      foreignKeyName: "usuarios_arquivado_por_fkey"
+      columns: ["arquivado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
                   ]
                 }
           }
@@ -758,6 +794,9 @@ isOneToOne: false
                            },
 "anonimizar_contato":
 { Args: { "p_contato": string }; Returns: (string)[]
+                           },
+"arquivar_cadastro":
+{ Args: { "p_id": string,"p_tipo": string }; Returns: undefined
                            },
 "assumir_conversa":
 { Args: { "p_conversa": string }; Returns: undefined
@@ -798,6 +837,12 @@ isOneToOne: false
 "eh_usuario_ativo":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"excluir_cadastro_definitivo":
+{ Args: { "p_id": string,"p_tipo": string }; Returns: undefined
+                           },
+"exigir_arquivar":
+{ Args: { "p_tipo": string }; Returns: string
+                           },
 "marcar_alerta_lido":
 { Args: { "p_alerta": string }; Returns: undefined
                            },
@@ -816,17 +861,26 @@ isOneToOne: false
 "registrar_resposta":
 { Args: { "p_arquivo_mime": string,"p_arquivo_nome": string,"p_arquivo_path": string,"p_conversa": string,"p_texto": string }; Returns: string
                            },
+"restaurar_cadastro":
+{ Args: { "p_id": string,"p_tipo": string }; Returns: undefined
+                           },
 "restaurar_orientacao":
 { Args: { "p_versao_id": string }; Returns: string
                            },
 "salvar_orientacao":
 { Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
                            },
+"tabela_do_cadastro":
+{ Args: { "p_tipo": string }; Returns: string
+                           },
 "tem_permissao":
 { Args: { "p": string }; Returns: boolean
                            },
 "transferir_chamado":
 { Args: { "p_chamado": string,"p_responsavel": string,"p_setor": string }; Returns: undefined
+                           },
+"uso_do_cadastro":
+{ Args: { "p_id": string,"p_tipo": string }; Returns: Json
                            },
 "vincular_contato_conversa":
 { Args: { "p_contato": string,"p_conversa": string }; Returns: undefined
