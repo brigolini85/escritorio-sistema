@@ -200,7 +200,7 @@ insert into public.contatos (id, nome, telefone, ativo) values ('15200000-0000-0
 insert into public.contato_clientes (contato_id, cliente_id, pode_pedir_nota, pode_atualizar_preco) values
   ('15200000-0000-0000-0000-000000000004', '15000000-0000-0000-0000-000000000001', true, true),
   ('15200000-0000-0000-0000-000000000004', '15000000-0000-0000-0000-000000000003', false, true);
-select ok(not has_function_privilege('anon', 'public.cadastrar_contato(text, text, uuid, boolean)', 'execute'), 'visitante não cadastra contato');
+select ok(not has_function_privilege('anon', 'public.cadastrar_contato(text, text, uuid, boolean, uuid[])', 'execute'), 'visitante não cadastra contato');
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000015a3","role":"authenticated"}', true);
@@ -208,9 +208,9 @@ select throws_ok($$ select public.cadastrar_contato('Zé', '5531999991504') $$,
   'P0001', 'Você não tem permissão para cadastrar contatos.', 'sem editar_clientes não cadastra contato');
 -- Bia é editora, não administradora: mesmo assim os vínculos antigos saem.
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000015a2","role":"authenticated"}', true);
-select is(public.cadastrar_contato('Zé Voltou', '5531999991504', '15000000-0000-0000-0000-000000000003') - 'id',
+select is(public.cadastrar_contato('Zé Voltou', '5531999991504', '15000000-0000-0000-0000-000000000003') - array['id', 'vinculos_mantidos'],
   '{"reativado":true,"vinculos_removidos":1}'::jsonb, 'arquivado volta; conta só os vínculos de outras empresas');
-select is(public.cadastrar_contato('Contato Usado', '5531999991501', '15000000-0000-0000-0000-000000000003') - 'id',
+select is(public.cadastrar_contato('Contato Usado', '5531999991501', '15000000-0000-0000-0000-000000000003') - array['id', 'vinculos_mantidos'],
   '{"reativado":false,"vinculos_removidos":0}'::jsonb, 'contato ativo: nada sai');
 select lives_ok($$ select public.cadastrar_contato('Contato Novo 2', '5531999991505', null, true) $$, 'telefone novo cadastra');
 reset role;

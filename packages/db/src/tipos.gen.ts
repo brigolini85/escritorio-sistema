@@ -805,13 +805,16 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: string
                            },
 "cadastrar_contato":
-{ Args: { "p_agente_pausado"?: boolean,"p_cliente"?: string,"p_nome": string,"p_telefone": string }; Returns: Json
+{ Args: { "p_agente_pausado"?: boolean,"p_cliente"?: string,"p_manter"?: (string)[],"p_nome": string,"p_telefone": string }; Returns: Json
                            },
 "cadastrar_produto_agente":
 { Args: { "p_apelidos": (string)[],"p_cliente": string,"p_codigo": string,"p_contato": string,"p_descricao": string,"p_unidade": string }; Returns: string
                            },
 "concluir_chamado":
 { Args: { "p_chamado": string }; Returns: undefined
+                           },
+"contato_arquivado_do_telefone":
+{ Args: { "p_telefone": string }; Returns: Json
                            },
 "criar_simulacao":
 { Args: { "p_cliente_id"?: string,"p_mensagem": string,"p_rascunho"?: Json }; Returns: string
