@@ -97,6 +97,28 @@ Ao terminar: todas as suítes com resultado real; --dry-run da migração antes 
 
 ---
 
-## Depois das quatro partes
+## Prompt E — Atendimento
 
-Quando você aprovar tudo na prática, peça: "junte painel-v2-parte-d na etapa-1" (ela já contém A, B e C). Depois seguimos com as outras telas (Atendimento, Contatos, Assistente, Configurações, Treinar o agente) no mesmo processo: desenho com imagens aqui → spec → prompt.
+```
+Vamos implementar a PARTE E do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 7A — Atendimento). Imagem: docs/superpowers/specs/painel-v2/imagens/00-atendimento.png.
+
+Base: branch painel-v2-parte-e a partir da última parte aprovada (painel-v2-parte-d, ou a mais recente que existir), em worktree. Traga a pasta do spec atualizada: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
+
+Escopo (seção 7A): lista com grupos "Esperando pessoa"/"Com o agente", cronômetro de espera colorido, não lidas por pessoa, motivo da passagem e pausas visíveis; conversa com faixa de passagem, "por quê?" nas respostas do agente, cartões de decisão e marcos; trocar empresa; link do documento enviado pela IA; compositor com Anexar e Respostas prontas (já existem), Sugerir resposta (assistente só com leitura, nada é enviado sem clicar ENVIAR) e Abrir demanda (usa o painel de Nova demanda da Parte C); coluna direita com abas CLIENTE / ASSISTENTE / AGENTE.
+
+Pontos que não podem falhar:
+- Sugerir resposta nunca envia nem grava nada: teste que falha se a sugestão chamar responder ou qualquer ferramenta que grava.
+- Não lidas são por pessoa (conversa_leituras com RLS da própria pessoa).
+- Trocar empresa só entre empresas vinculadas ao contato.
+- Atalhos J/K/A/N/Esc e os testes atuais do Atendimento continuam passando.
+
+Processo: writing-plans → me mostre o plano → depois de aprovado, subagent-driven-development com TDD. pgTAP para banco, testes do trabalhador para motivo de passagem e sugestão, Playwright para a tela.
+
+Ao terminar: todas as suítes com resultado real; --dry-run da migração antes de aplicar na homologação e espere meu ok; suba painel e trabalhador desta branch em portas livres para eu testar. Não junte a branch em nada.
+```
+
+---
+
+## Depois das partes
+
+Quando você aprovar tudo na prática, peça: "junte a última parte na etapa-1" (cada parte contém as anteriores). Depois seguimos com as outras telas (Contatos, Assistente, Configurações, Treinar o agente) no mesmo processo: desenho com imagens aqui → spec → prompt.

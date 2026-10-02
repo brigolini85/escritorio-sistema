@@ -27,7 +27,8 @@ Quatro partes independentes, cada uma com plano, branch e testes próprios, nest
 | A | Identidade visual (inclui o login novo) | Toca todas as telas; as telas novas já nascem no visual novo |
 | B | Cadastros: arquivar / excluir / restaurar | Pequena, resolve a dor imediata |
 | C | Gestão de demandas | A maior; depende do visual e dos padrões de A |
-| D | Usuários e permissões por nível + horário de acesso | Mexe nas regras de visibilidade (RLS); fica por último, com testes de regressão |
+| D | Usuários e permissões por nível + horário de acesso | Mexe nas regras de visibilidade (RLS), com testes de regressão |
+| E | Atendimento (seção 7A) | Desenhada depois; usa o visual de A e a Nova demanda de C |
 
 Imagens de referência das telas: pasta `imagens/` ao lado deste arquivo (00 login · 01 menu e clientes/arquivar · 02 excluir de vez · 03 demandas tabela · 04 quadro e nova demanda · 05 painel lateral da demanda · 06 cadastro de usuário). Elas mostram estilo e organização; medidas e textos finais seguem este spec.
 
@@ -242,6 +243,47 @@ Inspirada na tela "Cadastro de usuário e suas permissões" do Acessórias, sem 
 pgTAP: cada nível de Demandas e Atendimento vê exatamente o esperado (inclusive Realtime); migração converte as permissões atuais sem mudar o que cada pessoa vê; fora do horário as gravações falham; admin nunca bloqueado. Playwright: criar pessoa, esconder permissões ao marcar admin, erro de salvar sem perder dados, login fora do horário bloqueado.
 
 **Risco principal:** mexer em `pode_ver_*` afeta segurança de tudo. Por isso é a última parte, com testes de regressão de RLS antes e depois.
+
+## 7A. Parte E — Atendimento
+
+Imagem: `imagens/00-atendimento.png` (fonte `fragmentos/00-atendimento.html`). Aprovada pelo dono em 01/10. Criada do zero (sem referência do Acessórias). Base: Parte A pronta; pode ser feita depois da C ou da D.
+
+### 7A.1 Tela (três colunas; menu recolhido só com ícones nesta tela)
+
+**Esquerda — lista ("achar quem precisa de mim")**
+- Título "Atendimento **3** esperando você", busca por contato, empresa ou telefone.
+- Grupos: **ESPERANDO PESSOA** (no topo, ordenado por quem espera há mais tempo) · **COM O AGENTE** · (recolhido) Concluídas hoje.
+- Cada item: iniciais, contato, empresa (vinho), prévia da última mensagem (áudio mostra a transcrição), **cronômetro de espera** (verde ≤ 5 min, âmbar ≤ 15, vermelho > 15; limites em Configurações), **bolinha de não lidas**, e uma linha de estado: *agente passou: <motivo>*, *pediu para falar com pessoa*, *com Fulano*, *respondendo*, *resolvido pelo agente*, *agente pausado para este contato/empresa*.
+
+**Centro — conversa ("ver o que o agente fez")**
+- Cabeçalho: contato + telefone, empresa com **trocar empresa** (contato que fala por várias), botões TRANSFERIR, ENSINAR, **ASSUMIR** (vira DEVOLVER AO AGENTE e CONCLUIR depois de assumir).
+- **Faixa de passagem** quando o agente passou para pessoa: "O agente passou para uma pessoa há 18 min. Motivo: …" + *Ver decisão*.
+- Mensagens: cliente (branco, à esquerda), agente (verde-claro, ícone de robô), pessoa da equipe (vinho-claro, nome), nota interna (fundo próprio `--internal-note`, aviso "o cliente não vê").
+- Cada resposta do agente tem **"por quê?"** (expande as ferramentas usadas, de `decisoes_agente`). **Cartões de decisão** (tracejados) e **marcos** centralizados ("Demanda #1042 aberta no Fiscal · urgente", "Ana assumiu", "Devolvido ao agente").
+- Documento enviado pela IA aparece com **link** para abrir (passando pela auditoria de download).
+
+**Embaixo — compositor ("responder mais rápido")**
+- Abas **Responder ao cliente** / **Nota interna**; Enter envia, Shift+Enter quebra linha.
+- Botões: **Anexar** (já existe), **Respostas prontas** com atalho `/` (já existe), **Sugerir resposta**, **Abrir demanda** (abre o painel "Nova demanda" da Parte C já com empresa, contato e conversa ligados).
+- **Sugerir resposta:** só ao clicar. O assistente lê a conversa (últimas 20 mensagens), a empresa e as demandas abertas, **só com ferramentas de leitura**, e devolve um rascunho que aparece no campo marcado "SUGESTÃO DO ASSISTENTE (editável)". Nada é enviado sem a pessoa clicar ENVIAR. Respeita o teto de IA, conta em `uso_ia` e exige a permissão de usar o assistente pelo site.
+
+**Direita — abas CLIENTE · ASSISTENTE · AGENTE**
+- **CLIENTE:** empresa (nome, CNPJ, regime, serviços, *abrir ficha*), contato (papel, pode pedir nota, pode mudar preço), **demandas abertas** com prioridade e prazo, **últimos pedidos de nota** com valor, **documentos liberados** com download.
+- **ASSISTENTE:** a caixa contextualizada que já existe.
+- **AGENTE:** linha do tempo completa das decisões do agente nesta conversa.
+
+### 7A.2 Banco e trabalhador
+
+- `conversas.aguardando_pessoa_desde timestamptz` e `conversas.motivo_pessoa text` — preenchidos quando o agente passa para pessoa (`sinalizar_nao_entendido` na segunda vez, pedido do cliente, teto/pausa, modo seguro) e limpos ao assumir/devolver.
+- **Não lidas:** tabela `conversa_leituras(usuario_id, conversa_id, lida_ate timestamptz)`; contador = mensagens do cliente depois de `lida_ate`; abrir a conversa marca como lida. RLS: cada pessoa só lê/grava as próprias.
+- `caixa_entrada` passa a trazer: espera, motivo, não lidas da pessoa, pausa por contato/empresa (resolve as pendências 7 e 15 do redesign).
+- **Trocar empresa:** função `trocar_empresa_conversa(conversa, cliente)` — só entre empresas às quais o contato está vinculado; gera marco na conversa e auditoria (pendência 6).
+- **Sugerir resposta:** fila nova `sugerir_resposta` no trabalhador (mesmo padrão da fila `assistente`, só leitura, máximo 3 rodadas, limite 1 sugestão em andamento por pessoa); resultado entregue por Realtime para quem pediu e não gravado na conversa.
+- Marcos de assumir/devolver/transferir/abrir demanda viram eventos exibidos na conversa (a partir de `chamado_eventos` e de um registro de eventos da conversa).
+
+### 7A.3 Verificação da Parte E
+
+pgTAP: `conversa_leituras` só da própria pessoa; trocar empresa recusa empresa não vinculada; espera/motivo preenchidos e limpos. Trabalhador: motivo gravado em cada caminho de passagem; sugestão usa só ferramentas de leitura e não envia nada (teste que falha se chamar `responder` ou ferramenta que grava). Playwright: grupos e ordenação por espera, cronômetro, não lidas zerando ao abrir, "por quê?", trocar empresa, sugerir → editar → enviar, abrir demanda a partir da conversa, atalhos J/K/A/N continuam.
 
 ## 8. Riscos e cuidados
 

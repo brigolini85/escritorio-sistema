@@ -1,0 +1,87 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0}body{font-family:'Plus Jakarta Sans',sans-serif;width:1440px;height:900px;display:flex;color:#1C1A1B;background:#F1EFEE;font-size:13px}
+.nav{width:64px;background:#262223;display:flex;flex-direction:column;align-items:center;padding-top:14px;gap:4px}
+.nav .lg{width:38px;height:38px;border-radius:50%;background:#7A2335;border:2px solid #C8A97E;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:13px}
+.nav i{font-size:21px;width:64px;text-align:center;padding:11px 0}.nav .on{background:#7A2335;color:#fff;box-shadow:inset 3px 0 0 #C8A97E}
+.list{width:330px;background:#fff;border-right:1px solid #E4E0DF;display:flex;flex-direction:column}
+.lh{padding:14px 14px 10px;border-bottom:1px solid #ECE8E7}.t{font-size:18px;font-weight:300}.t b{font-weight:800;color:#7A2335}
+.sr{margin-top:10px;border:1px solid #D6D0CF;border-radius:6px;padding:7px 10px;color:#8E8689;font-size:12.5px}
+.grp{font-size:10.5px;font-weight:800;letter-spacing:.08em;color:#6B6466;padding:10px 14px 6px;display:flex;justify-content:space-between;background:#FAF9F8;border-bottom:1px solid #ECE8E7}
+.it{display:grid;grid-template-columns:34px 1fr auto;gap:10px;padding:10px 14px;border-bottom:1px solid #F0EDEC;align-items:start}
+.av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+.nm{font-weight:700;font-size:13px}.em{font-size:11.5px;color:#7A2335;font-weight:700}.pv{font-size:12px;color:#6B6466;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+.tm{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:10px;white-space:nowrap}.ur{margin-top:6px;margin-left:auto;width:19px;height:19px;border-radius:50%;background:#7A2335;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.st{font-size:10.5px;color:#8E8689;margin-top:4px;display:flex;align-items:center;gap:4px}
+.chat{flex:1;display:flex;flex-direction:column;min-width:0}
+.ch{background:#fff;border-bottom:1px solid #E4E0DF;padding:12px 18px;display:flex;justify-content:space-between;align-items:center}
+.bar{background:#E3F2EE;color:#0F5446;padding:8px 18px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #CFE6DF}
+.btn{font-size:11px;font-weight:800;letter-spacing:.06em;border-radius:5px;padding:7px 13px;display:inline-flex;gap:5px;align-items:center}
+.msgs{flex:1;padding:16px 22px;overflow:hidden;display:flex;flex-direction:column;gap:10px}
+.m{max-width:62%;padding:9px 12px;border-radius:10px;font-size:13px;line-height:1.5}.ci{background:#fff;border:1px solid #E4E0DF;align-self:flex-start;border-bottom-left-radius:3px}
+.ag{background:#EAF3F0;border:1px solid #CFE6DF;align-self:flex-end;border-bottom-right-radius:3px}.hu{background:#F3ECEE;border:1px solid #E7D3D8;align-self:flex-end;border-bottom-right-radius:3px}
+.who{font-size:10.5px;font-weight:800;letter-spacing:.04em;margin-bottom:3px;display:flex;justify-content:space-between;gap:12px}.why{font-size:11px;color:#0F5446;margin-top:5px;font-weight:700}
+.ev{align-self:center;font-size:11.5px;color:#6B6466;background:#E9E6E5;border-radius:12px;padding:4px 12px;display:flex;gap:6px;align-items:center}
+.dec{align-self:flex-end;max-width:62%;background:#fff;border:1px dashed #9DBFB3;border-radius:8px;padding:8px 11px;font-size:11.5px;color:#4A4547}
+.cmp{background:#fff;border-top:1px solid #E4E0DF;padding:10px 18px 14px}
+.tabs{display:flex;gap:4px;margin-bottom:8px}.tab{font-size:11.5px;font-weight:800;padding:6px 12px;border-radius:5px;color:#6B6466}.tab.on{background:#262223;color:#fff}
+.box{border:1.5px solid #7A2335;border-radius:8px;padding:10px 12px;min-height:62px;color:#4A4547;font-size:13px}
+.tb{display:flex;justify-content:space-between;align-items:center;margin-top:8px}.tb .ic{display:flex;gap:4px}.tb .ic span{font-size:11.5px;color:#4A4547;padding:5px 9px;border:1px solid #E4E0DF;border-radius:5px;display:inline-flex;gap:5px;align-items:center}
+.side{width:340px;background:#fff;border-left:1px solid #E4E0DF;display:flex;flex-direction:column}
+.stabs{display:flex;border-bottom:1px solid #E4E0DF}.stabs span{flex:1;text-align:center;padding:11px 0;font-size:11.5px;font-weight:800;color:#6B6466;letter-spacing:.04em}.stabs .on{color:#7A2335;box-shadow:inset 0 -2px 0 #7A2335}
+.sec{padding:12px 16px;border-bottom:1px solid #F0EDEC}.lb{font-size:10.5px;font-weight:800;letter-spacing:.08em;color:#7A2335;margin-bottom:6px;display:flex;justify-content:space-between}
+.kv{display:flex;justify-content:space-between;font-size:12px;padding:3px 0}.kv span:first-child{color:#6B6466}
+.dm{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 0;border-bottom:1px solid #F5F3F2}
+.p{font-size:10px;font-weight:800;letter-spacing:.05em}
+</style></head><body>
+<div class="nav"><div class="lg">EC</div><i class="ti ti-layout-dashboard" style="color:#D6AE5C"></i><i class="ti ti-message-circle on"></i><i class="ti ti-checklist" style="color:#A6C95A"></i><i class="ti ti-building" style="color:#6E9BC9"></i><i class="ti ti-address-book" style="color:#A98BCB"></i><i class="ti ti-sparkles" style="color:#D6AE5C"></i><i class="ti ti-settings" style="color:#4FB0B8"></i></div>
+
+<div class="list">
+<div class="lh"><div class="t">Atendimento <b>3</b> <span style="font-size:12px;color:#6B6466;font-weight:500">esperando você</span></div><div class="sr"><i class="ti ti-search"></i> Contato, empresa ou telefone</div></div>
+<div class="grp"><span>ESPERANDO PESSOA</span><span>3</span></div>
+<div class="it" style="background:#FBF7F8;box-shadow:inset 3px 0 0 #7A2335"><div class="av" style="background:#EADADE;color:#7A2335">CM</div><div><div class="nm">Carla Mendes</div><div class="em">Rede Bom Preço</div><div class="pv">Preciso da nota ainda hoje, é urgente</div><div class="st"><i class="ti ti-hand-stop"></i> agente passou: pedido fora do padrão</div></div><div style="text-align:right"><span class="tm" style="background:#FBE5DF;color:#B23A1E">18 min</span><div class="ur">3</div></div></div>
+<div class="it"><div class="av" style="background:#E6EEF7;color:#2F5D8A">JS</div><div><div class="nm">Jorge Santos</div><div class="em">Padaria Sol ME</div><div class="pv">Áudio: "a funcionária nova começa segunda…"</div><div class="st"><i class="ti ti-hand-stop"></i> pediu para falar com pessoa</div></div><div style="text-align:right"><span class="tm" style="background:#FDF1E0;color:#9A5B12">7 min</span><div class="ur">1</div></div></div>
+<div class="it"><div class="av" style="background:#EEE9F5;color:#5E4685">RL</div><div><div class="nm">Rita Lima</div><div class="em">MEI Lima</div><div class="pv">ok, vou mandar o comprovante</div><div class="st"><i class="ti ti-user"></i> com Bruno</div></div><div style="text-align:right"><span class="tm" style="background:#E8F3EE;color:#0F5446">2 min</span></div></div>
+<div class="grp"><span>COM O AGENTE</span><span>12</span></div>
+<div class="it"><div class="av" style="background:#E3F2EE;color:#0F5446">PA</div><div><div class="nm">Paulo Andrade</div><div class="em">Mercado Central</div><div class="pv">Agente: Anotado, já encaminhei ao Fiscal.</div><div class="st"><i class="ti ti-robot"></i> respondendo</div></div><div style="font-size:10.5px;color:#8E8689">agora</div></div>
+<div class="it"><div class="av" style="background:#E3F2EE;color:#0F5446">LF</div><div><div class="nm">Luiza Faria</div><div class="em">Studio LF</div><div class="pv">Agente: O DAS de outubro vence dia 20.</div><div class="st"><i class="ti ti-robot"></i> resolvido pelo agente</div></div><div style="font-size:10.5px;color:#8E8689">9 min</div></div>
+<div class="it"><div class="av" style="background:#F3F1F0;color:#8E8689">MA</div><div><div class="nm">Marcos Alves</div><div class="em">Auto Peças MA</div><div class="pv">Bom dia</div><div class="st" style="color:#9A5B12"><i class="ti ti-player-pause"></i> agente pausado para esta empresa</div></div><div style="font-size:10.5px;color:#8E8689">22 min</div></div>
+</div>
+
+<div class="chat">
+<div class="ch"><div style="display:flex;gap:12px;align-items:center"><div class="av" style="background:#EADADE;color:#7A2335;width:40px;height:40px">CM</div><div><div style="font-size:15px;font-weight:800">Carla Mendes <span style="font-size:12px;color:#8E8689;font-weight:500">(11) 97777-2211</span></div><div style="font-size:12px"><span style="color:#7A2335;font-weight:700">Rede Bom Preço Ltda</span> <span style="color:#8E8689">· trocar empresa <i class="ti ti-chevron-down"></i></span></div></div></div>
+<div style="display:flex;gap:6px"><span class="btn" style="border:1.5px solid #BDB6B8;color:#4A4547"><i class="ti ti-arrows-exchange"></i>TRANSFERIR</span><span class="btn" style="border:1.5px solid #BDB6B8;color:#4A4547"><i class="ti ti-school"></i>ENSINAR</span><span class="btn" style="background:#7A2335;color:#fff"><i class="ti ti-hand-grab"></i>ASSUMIR</span></div></div>
+<div class="bar" style="background:#FDF1E0;color:#7A4A0E;border-color:#F2DDBF"><span><i class="ti ti-hand-stop"></i> <b>O agente passou para uma pessoa há 18 min.</b> Motivo: pedido com unidade fora do cadastro (caixa).</span><span style="font-weight:800">Ver decisão</span></div>
+<div class="msgs">
+<div class="ev"><i class="ti ti-calendar"></i> Hoje</div>
+<div class="m ci"><div class="who"><span style="color:#7A2335">CARLA</span><span style="color:#8E8689;font-weight:500">14:31</span></div>Bom dia! Preciso de uma nota pra Unidade Centro: 10 caixas de água 500ml e 5 pacotes de copo</div>
+<div class="m ag"><div class="who"><span style="color:#0F5446"><i class="ti ti-robot"></i> AGENTE</span><span style="color:#8E8689;font-weight:500">14:31</span></div>Bom dia, Carla. Os copos eu já anotei. A água em caixa não está no cadastro dessa rede, vou confirmar o valor com a equipe.<div class="why"><i class="ti ti-info-circle"></i> por quê? buscou produtos · unidade "caixa" sem preço</div></div>
+<div class="dec"><b style="color:#0F5446">Decisão do agente · 14:32</b><br>sinalizar_nao_entendido → passou para pessoa · abriu demanda <b>#1042</b> no Fiscal (urgente, prazo hoje 17h)</div>
+<div class="ev"><i class="ti ti-ticket"></i> Demanda #1042 aberta no Fiscal · <span style="color:#B23A1E;font-weight:800">urgente</span></div>
+<div class="m ci"><div class="who"><span style="color:#7A2335">CARLA</span><span style="color:#8E8689;font-weight:500">14:48</span></div>Preciso da nota ainda hoje, é urgente</div>
+</div>
+<div class="cmp">
+<div class="tabs"><span class="tab on">Responder ao cliente</span><span class="tab">Nota interna</span><span style="margin-left:auto;font-size:11px;color:#8E8689;align-self:center">Enter envia · Shift+Enter quebra linha</span></div>
+<div class="box"><span style="color:#0F5446;font-weight:700;font-size:11px;display:block;margin-bottom:4px"><i class="ti ti-sparkles"></i> SUGESTÃO DO ASSISTENTE (editável)</span>Oi, Carla! A caixa de água 500ml sai a R$ 24,90 (12 un). Confirmo a nota com 10 caixas e 5 pacotes de copo para a Unidade Centro?</div>
+<div class="tb"><div class="ic"><span><i class="ti ti-paperclip"></i>Anexar</span><span><i class="ti ti-slash"></i>Respostas prontas</span><span style="color:#0F5446;border-color:#CFE6DF"><i class="ti ti-sparkles"></i>Sugerir resposta</span><span><i class="ti ti-ticket"></i>Abrir demanda</span></div><span class="btn" style="background:#7A2335;color:#fff;padding:9px 18px">ENVIAR <i class="ti ti-send"></i></span></div>
+</div></div>
+
+<div class="side">
+<div class="stabs"><span class="on">CLIENTE</span><span>ASSISTENTE</span><span>AGENTE</span></div>
+<div class="sec"><div class="lb"><span>EMPRESA</span><span style="color:#8E8689;font-weight:500;letter-spacing:0">abrir ficha <i class="ti ti-external-link"></i></span></div>
+<div style="font-size:14px;font-weight:800">Rede Bom Preço Ltda</div><div style="font-size:12px;color:#6B6466;font-variant-numeric:tabular-nums">12.345.678/0001-90 · Simples Nacional</div>
+<div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap"><span style="font-size:10.5px;background:#F3F1F0;border-radius:4px;padding:2px 7px">Fiscal</span><span style="font-size:10.5px;background:#F3F1F0;border-radius:4px;padding:2px 7px">Contábil</span><span style="font-size:10.5px;background:#F3F1F0;border-radius:4px;padding:2px 7px">Pessoal</span></div></div>
+<div class="sec"><div class="lb"><span>CONTATO</span></div><div class="kv"><span>Papel</span><span>Compras</span></div><div class="kv"><span>Pode pedir nota</span><span style="color:#0F5446;font-weight:700">Sim</span></div><div class="kv"><span>Pode mudar preço</span><span>Não</span></div></div>
+<div class="sec"><div class="lb"><span>DEMANDAS ABERTAS</span><span>2</span></div>
+<div class="dm"><span><b>#1042</b> Nota de venda</span><span class="p" style="color:#B23A1E">URGENTE · HOJE</span></div>
+<div class="dm" style="border:0"><span><b>#1017</b> Alteração de sócio</span><span class="p" style="color:#6B6466">NORMAL · 03/10</span></div></div>
+<div class="sec"><div class="lb"><span>ÚLTIMOS PEDIDOS DE NOTA</span></div>
+<div class="dm"><span>26/09 · Unid. Centro</span><span style="font-variant-numeric:tabular-nums">R$ 1.284,00</span></div>
+<div class="dm" style="border:0"><span>19/09 · Unid. Norte</span><span style="font-variant-numeric:tabular-nums">R$ 860,50</span></div></div>
+<div class="sec" style="border:0"><div class="lb"><span>DOCUMENTOS LIBERADOS</span><span>4</span></div>
+<div class="dm"><span><i class="ti ti-file-type-pdf" style="color:#B23A1E"></i> Contrato social.pdf</span><i class="ti ti-download" style="color:#8E8689"></i></div>
+<div class="dm" style="border:0"><span><i class="ti ti-file-type-pdf" style="color:#B23A1E"></i> Cartão CNPJ.pdf</span><i class="ti ti-download" style="color:#8E8689"></i></div></div>
+</div>
+</body></html>
