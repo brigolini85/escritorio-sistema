@@ -180,6 +180,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
       <AtualizarAoVivo />
       <PageHeader
         titulo="Demandas"
+        contagem={total}
         descricao="Pedidos dos clientes que precisam da equipe, abertos pelo agente ou por alguém do escritório."
         acoes={podeCsv && partesBling > 0 ? (
           <div className="flex flex-col items-end gap-1">

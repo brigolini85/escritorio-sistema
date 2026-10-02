@@ -119,6 +119,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
     <section>
       <PageHeader
         titulo="Contatos"
+        contagem={total}
         descricao="Quem fala com o escritório pelo WhatsApp, as empresas de cada um e se o agente atende."
         acoes={pode ? (
           <a href="#novo-contato" className={variantesBotao({ size: 'sm' })}>

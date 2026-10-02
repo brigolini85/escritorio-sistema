@@ -162,6 +162,7 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
     <section>
       <PageHeader
         titulo="Usuários"
+        contagem={linhas.length}
         descricao="O administrador pode tudo no painel. As marcações do assistente valem para todos, inclusive o administrador."
         acoes={<ConviteUsuario acao={convidarUsuario} setores={opcoesSetor} emails={linhas.map((l) => l.email.toLowerCase())} />}
       />

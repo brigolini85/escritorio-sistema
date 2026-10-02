@@ -8,12 +8,16 @@ export type Migalha = { rotulo: string; href?: string };
 /** Cabeçalho de página: trilha opcional, título, descrição curta e ações à direita. */
 export function PageHeader({
   titulo,
+  contagem,
+  secao,
   descricao,
   acoes,
   migalhas,
   className,
 }: {
   titulo: ReactNode;
+  contagem?: number;
+  secao?: string;
   descricao?: ReactNode;
   acoes?: ReactNode;
   migalhas?: Migalha[];
@@ -35,7 +39,11 @@ export function PageHeader({
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-foreground">{titulo}</h1>
+          {secao && <p className="text-xs font-bold uppercase tracking-widest text-brand">{secao}</p>}
+          <h1 className="text-3xl font-light text-foreground">
+            {titulo}
+            {contagem !== undefined && <> <strong className="tabular font-extrabold text-brand">{contagem}</strong></>}
+          </h1>
           {descricao && <p className="mt-1 text-base text-muted">{descricao}</p>}
         </div>
         {acoes && <div className="flex shrink-0 flex-wrap items-center gap-2">{acoes}</div>}

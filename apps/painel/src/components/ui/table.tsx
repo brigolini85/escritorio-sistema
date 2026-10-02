@@ -3,7 +3,7 @@ import { cn } from '@/lib/cn';
 
 export function Table({ className, ...props }: ComponentProps<'table'>) {
   return (
-    <div className="relative w-full overflow-x-auto">
+    <div className="relative w-full overflow-x-auto rounded-lg border border-border">
       <table className={cn('w-full caption-bottom text-base', className)} {...props} />
     </div>
   );
@@ -34,7 +34,7 @@ export function TableRow({ className, ...props }: ComponentProps<'tr'>) {
 export function TableHead({ className, ...props }: ComponentProps<'th'>) {
   return (
     <th
-      className={cn('h-9 whitespace-nowrap px-3 text-left align-middle text-sm font-medium text-muted [&:has([role=checkbox])]:w-8', className)}
+      className={cn('h-9 whitespace-nowrap px-3 text-left align-middle text-xs font-bold uppercase tracking-wide text-muted [&:has([role=checkbox])]:w-8', className)}
       {...props}
     />
   );

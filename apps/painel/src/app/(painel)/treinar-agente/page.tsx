@@ -250,6 +250,7 @@ export default async function TreinarAgente({ searchParams }: { searchParams: Pr
     <section>
       <PageHeader
         titulo="Treinar o agente"
+        contagem={linhas.length}
         descricao="Orientações que o agente de clientes segue no WhatsApp. As regras fixas dele continuam valendo; o que você liga aqui vale a partir da próxima mensagem."
         acoes={(
           <>

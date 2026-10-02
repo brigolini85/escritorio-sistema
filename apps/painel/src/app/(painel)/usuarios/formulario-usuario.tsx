@@ -102,7 +102,7 @@ export function FormularioUsuario({
                   key={s.id}
                   htmlFor={`${id}-setor-${s.id}`}
                   className={cn(
-                    'h-8 cursor-pointer rounded-md border border-input bg-surface px-3 text-base font-normal has-data-[state=checked]:border-brand has-data-[state=checked]:bg-brand-soft',
+                    'h-8 cursor-pointer rounded-md border border-input bg-surface px-3 text-base font-normal normal-case font-medium text-foreground tracking-normal has-data-[state=checked]:border-brand has-data-[state=checked]:bg-brand-soft',
                     !s.ativo && 'text-muted',
                   )}
                 >
@@ -126,7 +126,7 @@ export function FormularioUsuario({
               return (
                 <li key={p.valor} className="flex items-start justify-between gap-4 py-2.5">
                   <div className="min-w-0">
-                    <Label htmlFor={idCampo} className={cn('cursor-pointer text-base', implicita && 'text-muted')}>{p.rotulo}</Label>
+                    <Label htmlFor={idCampo} className={cn('cursor-pointer text-base normal-case font-medium text-foreground tracking-normal', implicita && 'text-muted')}>{p.rotulo}</Label>
                     <p id={`${idCampo}-descricao`} className="text-sm text-muted">{DESCRICAO_PERMISSAO[p.valor]}</p>
                     {p.valor === 'assistente_whatsapp' && semTelefone && (
                       <p className="mt-1 flex items-start gap-1.5 text-sm text-warning">
@@ -154,7 +154,7 @@ export function FormularioUsuario({
         {editando && (
           <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
             <div>
-              <Label htmlFor={`${id}-ativo`} className="cursor-pointer text-base">Ativo</Label>
+              <Label htmlFor={`${id}-ativo`} className="cursor-pointer text-base normal-case font-medium text-foreground tracking-normal">Ativo</Label>
               <p id={`${id}-ativo-descricao`} className="text-sm text-muted">Desligado, a pessoa não entra mais no painel.</p>
             </div>
             <Switch id={`${id}-ativo`} name="ativo" defaultChecked={usuario?.ativo} {...inicialRadix(usuario?.ativo)} aria-describedby={`${id}-ativo-descricao`} className="mt-0.5" />

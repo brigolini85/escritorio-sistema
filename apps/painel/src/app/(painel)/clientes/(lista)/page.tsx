@@ -84,6 +84,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
     <section>
       <PageHeader
         titulo="Clientes"
+        contagem={total}
         descricao="Empresas atendidas pelo escritório, com contatos, produtos, preços e documentos."
         acoes={pode ? (
           <Link href="/clientes/novo" className={variantesBotao({ size: 'sm' })}>

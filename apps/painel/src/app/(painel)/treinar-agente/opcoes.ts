@@ -8,4 +8,4 @@ export const DESCRICAO_TIPO: Record<TipoOrientacao, string> = {
 };
 
 /** Opção de rádio em cartão (tipo e "vale para" da orientação). */
-export const classeOpcao = 'flex cursor-pointer items-start gap-2 rounded-md border border-input bg-surface p-3 text-base font-normal has-checked:border-brand has-checked:bg-brand-soft';
+export const classeOpcao = 'flex cursor-pointer items-start gap-2 rounded-md border border-input bg-surface p-3 text-base font-normal normal-case font-medium text-foreground tracking-normal has-checked:border-brand has-checked:bg-brand-soft';

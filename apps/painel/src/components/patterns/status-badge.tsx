@@ -1,5 +1,6 @@
 import { Bot, CircleCheck, CircleDashed, CircleDot, Clock, Headset, MessageCircleHeart, ScrollText, Signpost, UserRound, type LucideIcon } from 'lucide-react';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { cn } from '@/lib/cn';
 import { ROTULO_TIPO, type TipoOrientacao } from '@/lib/orientacoes';
 
 /**
@@ -12,25 +13,25 @@ export type StatusDemanda = 'aberto' | 'em_andamento' | 'aguardando_cliente' | '
 export type StatusConversa = 'agente' | 'humano' | 'aguardando_atendente';
 export type TipoOrientacaoSelo = TipoOrientacao;
 
-type Aparencia = { rotulo: string; Icone: LucideIcon; variant: NonNullable<BadgeProps['variant']> };
+type Aparencia = { rotulo: string; Icone: LucideIcon; variant: NonNullable<BadgeProps['variant']>; cor: string };
 
 export const STATUS_DEMANDA: Record<StatusDemanda, Aparencia> = {
-  aberto: { rotulo: 'Aberta', Icone: CircleDot, variant: 'info' },
-  em_andamento: { rotulo: 'Em andamento', Icone: CircleDashed, variant: 'brand' },
-  aguardando_cliente: { rotulo: 'Aguardando cliente', Icone: Clock, variant: 'warning' },
-  concluido: { rotulo: 'Concluída', Icone: CircleCheck, variant: 'success' },
+  aberto: { rotulo: 'Aberta', Icone: CircleDot, variant: 'info', cor: 'text-info' },
+  em_andamento: { rotulo: 'Em andamento', Icone: CircleDashed, variant: 'brand', cor: 'text-brand' },
+  aguardando_cliente: { rotulo: 'Aguardando cliente', Icone: Clock, variant: 'warning', cor: 'text-warning' },
+  concluido: { rotulo: 'Concluída', Icone: CircleCheck, variant: 'success', cor: 'text-success' },
 };
 
 export const STATUS_CONVERSA: Record<StatusConversa, Aparencia> = {
-  agente: { rotulo: 'Com o agente', Icone: Bot, variant: 'agent-active' },
-  humano: { rotulo: 'Com atendente', Icone: UserRound, variant: 'human-owned' },
-  aguardando_atendente: { rotulo: 'Aguardando atendente', Icone: Headset, variant: 'warning' },
+  agente: { rotulo: 'Com o agente', Icone: Bot, variant: 'agent-active', cor: 'text-agent-active' },
+  humano: { rotulo: 'Com atendente', Icone: UserRound, variant: 'human-owned', cor: 'text-human-owned' },
+  aguardando_atendente: { rotulo: 'Aguardando atendente', Icone: Headset, variant: 'warning', cor: 'text-warning' },
 };
 
 export const TIPO_ORIENTACAO: Record<TipoOrientacaoSelo, Aparencia> = {
-  jeito: { rotulo: ROTULO_TIPO.jeito, Icone: MessageCircleHeart, variant: 'info' },
-  regra: { rotulo: ROTULO_TIPO.regra, Icone: ScrollText, variant: 'brand' },
-  situacao: { rotulo: ROTULO_TIPO.situacao, Icone: Signpost, variant: 'neutral' },
+  jeito: { rotulo: ROTULO_TIPO.jeito, Icone: MessageCircleHeart, variant: 'info', cor: 'text-info' },
+  regra: { rotulo: ROTULO_TIPO.regra, Icone: ScrollText, variant: 'brand', cor: 'text-brand' },
+  situacao: { rotulo: ROTULO_TIPO.situacao, Icone: Signpost, variant: 'neutral', cor: 'text-muted' },
 };
 
 export function StatusBadge(
