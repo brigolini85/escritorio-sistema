@@ -78,7 +78,8 @@ O que a Parte B fez além deste spec (já vale, considerar nas próximas partes)
 2. "(inativo)" ainda aparece em Demandas → trocar por "arquivado" ou ocultar conforme o spec 5.1.
 3. Restaurar uma unidade cuja rede está arquivada: a unidade volta mas não aparece → avisar na hora ("a rede X está arquivada; restaurar a rede também?") e restaurar as duas se a pessoa aceitar.
 4. Mensagem "Este telefone já é de …" quando o dono é pessoa arquivada → dizer que está arquivada e oferecer o caminho (restaurar a pessoa ou usar outro telefone).
-5. Erro ao salvar em Usuários fecha o painel lateral e o aviso fica no topo (visto em 02/10 com telefone repetido) → mostrar o erro no próprio campo sem fechar (a Parte D troca o painel por página inteira; até lá, corrigir no painel atual).
+5. **Decisão do dono (02/10) — contato arquivado cadastrado de novo:** em vez de voltar só com a empresa nova, o painel **pergunta na hora**: mostra as empresas a que ele estava vinculado antes (com as marcações antigas) e deixa escolher quais voltam; nenhuma marcada por padrão; a empresa nova sempre entra. Ajustar `cadastrar_contato` para receber a lista escolhida e registrar na auditoria. (A outra decisão da Parte B — funcionário arquivado atendido como contato desconhecido — foi **confirmada** como está.)
+6. Erro ao salvar em Usuários fecha o painel lateral e o aviso fica no topo (visto em 02/10 com telefone repetido) → mostrar o erro no próprio campo sem fechar (a Parte D troca o painel por página inteira; até lá, corrigir no painel atual).
 
 Operação (não é código): trocar o trabalhador da porta 3001 (ainda na versão da Parte A) pelo da Parte B antes de testar o agente com arquivados.
 

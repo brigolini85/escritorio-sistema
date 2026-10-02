@@ -45,7 +45,7 @@ Comece conferindo o estado no git e me dizendo de onde vai continuar.
 
 ```
 Aprovei as Partes A e B. Agora sigo para as Partes C, D, E, F, G e H, nessa ordem, com as mesmas regras de antes (plano primeiro, --dry-run antes do banco, parar no fim de cada parte, não juntar nada na etapa-1).
-O spec mudou bastante: traga a pasta atualizada com git checkout etapa-1 -- docs/superpowers/specs/painel-v2 e RELEIA o spec inteiro antes do plano — principalmente a seção 3.0 (estado de 02/10 e as 5 sobras da Parte B, que entram no começo da C), a 3.1 (decisões gerais) e as Partes G e H, que são novas.
+O spec mudou bastante: traga a pasta atualizada com git checkout etapa-1 -- docs/superpowers/specs/painel-v2 e RELEIA o spec inteiro antes do plano — principalmente a seção 3.0 (estado de 02/10 e as 6 sobras da Parte B, que entram no começo da C), a 3.1 (decisões gerais) e as Partes G e H, que são novas.
 Siga os Prompts C a H de docs/superpowers/specs/painel-v2/prompts-para-colar.md. A Parte C parte da branch painel-v2-parte-b. Comece pelas sobras da Parte B e depois a C.
 ```
 
@@ -106,7 +106,7 @@ Ao terminar: todas as suítes (painel, trabalhador, db, supabase test db) com re
 ```
 Vamos implementar a PARTE C do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 6). Imagens: imagens/03-demandas-tabela.png, 04-demandas-quadro-e-nova.png, 05-demanda-painel-lateral.png.
 
-Base: branch painel-v2-parte-c a partir de painel-v2-parte-b, em worktree. ANTES da Parte C, faça as 5 "sobras da Parte B" da seção 3.0 do spec (commits separados, testes), e me mostre.
+Base: branch painel-v2-parte-c a partir de painel-v2-parte-b, em worktree. ANTES da Parte C, faça as 6 "sobras da Parte B" da seção 3.0 do spec (commits separados, testes), e me mostre.
 
 Escopo (tudo na seção 6 do spec): tabela "Gestão das demandas" com duas informações por coluna e filtros rápidos com contador (abre primeiro, lembra a escolha); quadro com arrastar (concluir pede confirmação, alternativa por teclado); painel lateral com todas as ações (assumir, responsável, status, prioridade, prazo, nota interna, transferir, concluir, reabrir, editar título/descrição); nova demanda; busca; prioridade e prazo em dias úteis (urgente = mesmo dia, alta = 1, normal = 2, baixa = 5, editáveis em Configurações › Prazos), "Com o cliente" pausa o prazo; linha do tempo com todos os eventos; CSV Bling respeitando todos os filtros; avisos do trabalhador dizendo "Demanda #N".
 
