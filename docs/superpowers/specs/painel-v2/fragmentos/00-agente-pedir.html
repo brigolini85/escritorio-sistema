@@ -1,0 +1,147 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0}body{font-family:'Plus Jakarta Sans',sans-serif;width:1440px;display:flex;color:#1C1A1B;background:#F1EFEE;font-size:15px}
+.nav{width:64px;background:#262223;display:flex;flex-direction:column;align-items:center;padding-top:14px;min-height:100vh;flex-shrink:0}.nav .lg{width:40px;height:40px;border-radius:50%;background:#7A2335;border:2px solid #C8A97E;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:14px}.nav i{font-size:22px;width:64px;text-align:center;padding:12px 0}.nav .on{background:#7A2335;color:#fff!important;box-shadow:inset 3px 0 0 #C8A97E}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{background:#fff;border-bottom:1px solid #E4E0DF;padding:13px 24px;display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#6B6466}
+.c{padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px}
+.t{font-size:28px;font-weight:800}.t span{color:#7A2335}
+.lead{font-size:14.5px;color:#4A4547;margin-top:4px}
+.cols{display:grid;grid-template-columns:1fr 420px;gap:24px;align-items:start}
+.blk{background:#fff;border:1px solid #E4E0DF;border-radius:8px;padding:18px 20px}
+.k{font-size:13px;font-weight:800;letter-spacing:.04em;color:#7A2335;text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.n{width:24px;height:24px;border-radius:50%;background:#7A2335;color:#fff;font-size:13px;display:inline-flex;align-items:center;justify-content:center}
+.cap{font-size:13.5px;color:#6B6466;margin:4px 0 14px}
+.btn{font-size:13px;font-weight:800;letter-spacing:.05em;border-radius:6px;padding:10px 14px;display:inline-flex;align-items:center;gap:8px;justify-content:center;text-transform:uppercase}
+.bp{background:#7A2335;color:#fff}.bs{border:1px solid #D6D0CF;color:#262223;background:#fff}
+.lb{font-size:12px;font-weight:800;letter-spacing:.05em;color:#7A2335;text-transform:uppercase;margin-bottom:6px}
+.fld{border:1px solid #E4E0DF;border-radius:6px;padding:9px 11px;font-size:14px;display:flex;align-items:center;gap:8px;background:#fff}
+/* painel da demanda */
+.dp{width:270px;background:#fff;border:1px solid #E4E0DF;border-radius:8px;padding:14px;flex-shrink:0}
+.ab{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:7px 9px;border:1px solid #E4E0DF;border-radius:6px;background:#fff}
+.sl{font-size:11px;font-weight:800;letter-spacing:.05em;color:#7A2335;margin-bottom:3px}
+/* janela */
+.md{flex:1;background:#fff;border:1px solid #CFC8C7;border-radius:10px;overflow:hidden;min-width:0}
+.mh{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #E4E0DF}
+.mb{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.ag{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ac{border:1px solid #E4E0DF;border-radius:7px;padding:10px 11px;font-size:12.5px;color:#4A4547;line-height:1.45}
+.ac b{display:flex;align-items:center;gap:6px;font-size:14px;color:#1C1A1B;margin-bottom:4px}
+.ac.on{border:2px solid #7A2335;background:#FBF7F8;padding:9px 10px}
+.ta{border:1px solid #7A2335;border-radius:6px;padding:10px 12px;font-size:14.5px;min-height:62px;line-height:1.45;box-shadow:0 0 0 3px #F3E6E9}
+.chip{font-size:12.5px;padding:5px 10px;border-radius:14px;border:1px solid #E4E0DF;display:inline-flex;gap:6px;align-items:center;background:#fff}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:14px;margin-right:16px}
+.chk i{font-size:18px;color:#7A2335}
+.cost{font-size:13px;padding:9px 12px;border-radius:6px;background:#F7F3EC;color:#6B5330;display:flex;gap:8px;align-items:center}
+.mf{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-top:1px solid #E4E0DF;background:#FAF9F9}
+/* celular */
+.ph{width:340px;margin:0 auto;border:10px solid #262223;border-radius:34px;background:#262223;overflow:hidden}
+.ph .bar{background:#262223;color:#fff;padding:4px 16px 10px;display:flex;justify-content:space-between;font-size:11.5px}
+.ph .hd{background:#fff;padding:10px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #E4E0DF}
+.av{width:34px;height:34px;border-radius:50%;background:#7A2335;border:2px solid #C8A97E;color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}
+.ch{background:#F4F1EE;padding:12px 10px 14px;display:flex;flex-direction:column;gap:8px}
+.ms{max-width:84%;font-size:13px;line-height:1.45;padding:8px 10px 6px;border-radius:9px;position:relative}
+.ms .h{display:block;text-align:right;font-size:10.5px;color:#8E8689;margin-top:3px}
+.me{align-self:flex-end;background:#E4EFE8;border:1px solid #D2E3D9}
+.it{align-self:flex-start;background:#fff;border:1px solid #E4E0DF}
+.who{display:block;font-size:11px;font-weight:800;letter-spacing:.03em;margin-bottom:2px}
+.day{align-self:center;font-size:11px;color:#6B6466;background:#fff;border:1px solid #E4E0DF;border-radius:10px;padding:2px 10px}
+.fl{display:flex;align-items:center;gap:8px;border:1px solid #E4E0DF;border-radius:6px;padding:6px 8px;margin-top:6px;background:#FAF9F9;font-size:12px}
+.fl i{font-size:22px}
+.inp{background:#fff;padding:9px 12px;display:flex;align-items:center;gap:8px;font-size:13px;color:#8E8689;border-top:1px solid #E4E0DF}
+.foot{font-size:13.5px;color:#4A4547;background:#fff;border:1px solid #E4E0DF;border-left:4px solid #C8A97E;border-radius:6px;padding:11px 14px;display:flex;gap:10px;align-items:center}
+.arrow{font-size:12.5px;color:#A8865A;font-weight:700;display:flex;align-items:center;gap:4px;margin-top:8px}
+</style></head><body>
+<div class="nav"><div class="lg">EC</div><i class="ti ti-layout-dashboard" style="color:#D6AE5C"></i><i class="ti ti-message-circle" style="color:#5DBB8F"></i><i class="ti ti-checklist on" style="color:#A6C95A"></i><i class="ti ti-building" style="color:#6E9BC9"></i><i class="ti ti-address-book" style="color:#A98BCB"></i><i class="ti ti-sparkles" style="color:#D6AE5C"></i><i class="ti ti-school" style="color:#E0894A"></i><i class="ti ti-coin" style="color:#C8A97E"></i><i class="ti ti-settings" style="color:#4FB0B8"></i></div>
+<div class="main">
+<div class="top"><span><i class="ti ti-checklist" style="color:#A6C95A"></i> › Demandas › <b style="color:#1C1A1B">Pedir ao agente</b></span><span><i class="ti ti-circle-filled" style="color:#5DBB8F;font-size:10px"></i> Agente ativo · Ana (Fiscal, Contábil, Pessoal)</span></div>
+<div class="c">
+<div><div class="t">Pedir ao <span>agente</span></div><div class="lead">Duas formas de mandar trabalho para um agente de setor: pelo painel, dentro de uma demanda, ou pelo WhatsApp do dono.</div></div>
+
+<div class="cols">
+<!-- 1 PELO PAINEL -->
+<div class="blk">
+<div class="k"><span class="n">1</span>Pelo painel</div>
+<div class="cap">Na demanda, o botão PEDIR AO AGENTE abre a janela já com a empresa preenchida.</div>
+<div style="display:flex;gap:16px;align-items:flex-start">
+
+<div>
+<div class="dp">
+<div style="display:flex;justify-content:space-between;font-size:12px;color:#8E8689"><span>Nº 1058 · FISCAL</span><i class="ti ti-x"></i></div>
+<div style="font-size:16px;font-weight:800;margin:4px 0 2px;line-height:1.3">Conferência das notas de setembro</div>
+<div style="font-size:12.5px;color:#6B6466;margin-bottom:10px">Rede Bom Preço Ltda · com Ana</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+<div><div class="sl">RESPONSÁVEL</div><div class="ab">Ana <i class="ti ti-chevron-down" style="margin-left:auto"></i></div></div>
+<div><div class="sl">STATUS</div><div class="ab">Resolvendo <i class="ti ti-chevron-down" style="margin-left:auto"></i></div></div>
+<div><div class="sl">PRIORIDADE</div><div class="ab">Normal <i class="ti ti-chevron-down" style="margin-left:auto"></i></div></div>
+<div><div class="sl">PRAZO</div><div class="ab">07/10 18h <i class="ti ti-calendar" style="margin-left:auto"></i></div></div></div>
+<div style="display:flex;gap:4px;margin-bottom:8px;font-size:12px"><span class="ab" style="flex:1;justify-content:center;padding:7px 4px;gap:3px"><i class="ti ti-note"></i>Nota</span><span class="ab" style="flex:1;justify-content:center;padding:7px 4px;gap:3px"><i class="ti ti-arrows-exchange"></i>Transferir</span><span class="ab" style="flex:1;justify-content:center;color:#0F5446;padding:7px 4px;gap:3px"><i class="ti ti-check"></i>Concluir</span></div>
+<div class="btn bs" style="width:100%;border:2px solid #7A2335;color:#7A2335;margin-bottom:12px"><i class="ti ti-robot" style="font-size:17px"></i>Pedir ao agente</div>
+<div class="sl" style="margin-bottom:4px">LINHA DO TEMPO</div>
+<div style="font-size:12px;border-left:2px solid #E4E0DF;padding-left:8px;line-height:1.85;color:#4A4547">
+<div><b>Agente</b> abriu · 01/10 09:40</div><div><b>Ana</b> assumiu · 01/10 10:05</div><div><b>Ana</b> nota interna · 02/10 08:50</div></div>
+</div>
+<div class="arrow"><i class="ti ti-arrow-right"></i> abre a janela ao lado</div>
+<div class="dp" style="margin-top:14px;padding:12px 14px">
+<div class="sl" style="margin-bottom:8px">TAREFAS DO AGENTE NESTA DEMANDA</div>
+<div style="font-size:12.5px;line-height:1.5;padding-bottom:8px;border-bottom:1px solid #F0EDEC"><b>#T-0139 · Fiscal</b> <span style="color:#0F5446;font-weight:700">● concluída</span><div style="color:#6B6466">Separar os XML de setembro · US$ 0,22</div></div>
+<div style="font-size:12.5px;line-height:1.5;padding-top:8px;color:#6B6466">A nova tarefa aparece aqui e na linha do tempo ao enviar.</div>
+</div>
+</div>
+
+<div class="md">
+<div class="mh"><div style="font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px"><i class="ti ti-robot" style="color:#0F5446;font-size:21px"></i>Pedir ao agente</div><span style="font-size:12.5px;color:#6B6466">demanda #1058 <i class="ti ti-x" style="margin-left:8px;font-size:16px"></i></span></div>
+<div class="mb">
+<div><div class="lb">Agente <span style="color:#8E8689;font-weight:600;text-transform:none;letter-spacing:0">· só os dos seus setores</span></div>
+<div class="ag">
+<div class="ac on"><b><i class="ti ti-receipt" style="color:#7A2335"></i>Fiscal<i class="ti ti-circle-check-filled" style="margin-left:auto;color:#7A2335"></i></b>Confere notas e pedidos, prepara apuração, DAS e obrigações.</div>
+<div class="ac"><b><i class="ti ti-calculator" style="color:#6E9BC9"></i>Contábil</b>Lança extratos, concilia, gera planilha para o Domínio.</div>
+<div class="ac"><b><i class="ti ti-users" style="color:#A98BCB"></i>Pessoal</b>Reúne variáveis da folha, admissões, férias e rescisões.</div>
+</div></div>
+<div style="display:grid;grid-template-columns:1.3fr 1fr;gap:10px">
+<div><div class="lb">Empresa</div><div class="fld"><i class="ti ti-building" style="color:#6E9BC9"></i><b style="font-weight:700">Rede Bom Preço Ltda</b><span style="margin-left:auto;font-size:12px;color:#8E8689">da demanda</span></div></div>
+<div><div class="lb">Prazo desejado</div><div class="fld">04/10 · 12h<i class="ti ti-calendar" style="margin-left:auto;color:#6B6466"></i></div></div></div>
+<div><div class="lb">O que você quer?</div><div class="ta">Confere as 38 notas de setembro contra os pedidos e me diz o que não bate.</div></div>
+<div><div class="lb">Arquivos</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<span class="chip"><i class="ti ti-folder" style="color:#C07A1E"></i>Drive · Rede Bom Preço / Fiscal / 2026-09 <i class="ti ti-x" style="color:#8E8689"></i></span>
+<span class="chip"><i class="ti ti-file-spreadsheet" style="color:#0F5446"></i>pedidos-setembro.xlsx <i class="ti ti-x" style="color:#8E8689"></i></span>
+<span class="btn bs" style="padding:6px 10px;font-size:12px"><i class="ti ti-paperclip"></i>Anexar</span>
+<span class="btn bs" style="padding:6px 10px;font-size:12px"><i class="ti ti-brand-google-drive"></i>Pasta do Drive</span>
+</div></div>
+<div><div class="lb">Avisar quando terminar</div>
+<span class="chk"><i class="ti ti-checkbox"></i>Painel</span><span class="chk"><i class="ti ti-checkbox"></i>Meu WhatsApp</span></div>
+<div class="cost"><i class="ti ti-coin" style="font-size:18px;color:#A8865A"></i>Tarefa de trabalho: costuma custar US$ 0,30–1,00; entra em Gastos com IA.</div>
+</div>
+<div class="mf"><span class="btn bs">Cancelar</span><span class="btn bp"><i class="ti ti-send"></i>Enviar para o agente</span></div>
+</div>
+</div>
+</div>
+
+<!-- 2 PELO WHATSAPP -->
+<div class="blk">
+<div class="k"><span class="n">2</span>Pelo WhatsApp do dono</div>
+<div class="cap">Thiago escreve para o número do escritório; o Assistente interno cria a tarefa e traz as perguntas do agente.</div>
+<div class="ph">
+<div class="bar"><span>09:41</span><span><i class="ti ti-wifi"></i> <i class="ti ti-battery-3"></i></span></div>
+<div class="hd"><i class="ti ti-chevron-left" style="color:#6B6466"></i><div class="av">EC</div><div><div style="font-size:14px;font-weight:800">Escritório · Assistente</div><div style="font-size:11.5px;color:#0F5446">interno · só equipe</div></div></div>
+<div class="ch">
+<div class="day">hoje</div>
+<div class="ms me">pede pro contábil fazer o fechamento de outubro da Padaria Sol<span class="h">09:12</span></div>
+<div class="ms it"><span class="who" style="color:#A8865A">ASSISTENTE</span>Encaminhei para o Agente Contábil. Tarefa #T-0142 na demanda #1061. Te aviso quando terminar.<span class="h">09:12</span></div>
+<div class="ms it"><span class="who" style="color:#0F5446"><i class="ti ti-robot"></i> AGENTE CONTÁBIL</span>Faltou o extrato do Banco do Brasil — já pedi ao Roberto (Padaria Sol). Tem um PIX de R$ 3.200 em 12/10 para o sócio: pró-labore, lucro ou empréstimo?<span class="h">10:03</span></div>
+<div class="ms me">empréstimo<span class="h">10:05</span></div>
+<div class="ms it"><span class="who" style="color:#0F5446"><i class="ti ti-robot"></i> AGENTE CONTÁBIL</span>Pronto: 214 lançamentos, 96% conciliado. Planilha para o Domínio e relatório de pendências anexos. Falta a Cláudia aprovar no painel.
+<div class="fl"><i class="ti ti-file-spreadsheet" style="color:#0F5446"></i><div><b>padaria-sol-2026-10-dominio.xlsx</b><div style="color:#8E8689;font-size:11px">planilha · 48 KB</div></div></div>
+<div class="fl"><i class="ti ti-file-type-pdf" style="color:#B23A1E"></i><div><b>pendencias-outubro.pdf</b><div style="color:#8E8689;font-size:11px">relatório · 3 páginas</div></div></div>
+<span class="h">15:47</span></div>
+</div>
+<div class="inp"><i class="ti ti-plus"></i>Mensagem<i class="ti ti-microphone" style="margin-left:auto"></i></div>
+</div>
+</div>
+</div>
+
+<div class="foot"><i class="ti ti-info-circle" style="font-size:20px;color:#A8865A"></i>Os dois caminhos criam a mesma tarefa do agente, ligada a uma demanda; quem pode pedir a qual agente segue as permissões de setor; tudo fica registrado e o custo entra em Gastos com IA.</div>
+</div></div></body></html>

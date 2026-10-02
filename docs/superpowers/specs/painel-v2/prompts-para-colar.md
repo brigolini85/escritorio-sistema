@@ -4,12 +4,52 @@ Pasta: `docs/superpowers/specs/painel-v2/`
 
 | Arquivo | O que é |
 |---|---|
-| `spec-painel-v2.md` | O spec aprovado (fonte da verdade) |
-| `imagens/` | As telas aprovadas (00 login · 01 menu e arquivar · 02 excluir de vez · 03 demandas tabela · 04 quadro e nova demanda · 05 painel lateral · 06 cadastro de usuário) |
-| `fragmentos/` + `gerar-imagens.cjs` | O HTML de cada imagem, para refazer se precisar |
-| este arquivo | Os prompts, um por parte |
+| `spec-painel-v2.md` | O spec aprovado (fonte da verdade) — Partes A a I |
+| `imagens/` | As telas aprovadas; a tabela da seção 3 do spec diz qual imagem vale para cada parte |
+| `fragmentos/` + `gerar-imagens.cjs` + `fragmentos/shot-full.cjs` | O HTML de cada imagem, para refazer se precisar |
+| `roteiro-agentes-por-setor.md` | Ideias aprovadas para os agentes por setor (desenhar depois) |
+| `analise-arquitetura.md` | Análise do sistema e os 5 prompts de correção antes da produção |
+| este arquivo | Os prompts: um texto único (recomendado) e um por parte |
 
-**Como usar:** abra o Claude Code na pasta do projeto (`C:\Users\Thiago\Desktop\PROJETO\AGENTESDEIA`) numa **conversa nova** e cole **um prompt por vez**. Espere terminar, veja na prática, aprove, e só então cole o próximo. Cada parte fica numa branch própria e nada é juntado à `etapa-1` sem você dizer.
+---
+
+## TEXTO ÚNICO — cole este numa conversa nova (faz A → I na ordem, parando em cada parte)
+
+```
+Quero implantar o Painel v2, na ordem, uma parte de cada vez.
+
+Tudo está na pasta docs/superpowers/specs/painel-v2/ (branch etapa-1):
+- spec-painel-v2.md → o spec aprovado, fonte da verdade (Partes A a I; a seção 3 diz qual imagem vale para cada parte e traz as decisões gerais)
+- imagens/ → as telas aprovadas (estilo e organização; medidas e textos seguem o spec)
+- prompts-para-colar.md → as instruções detalhadas de cada parte (Prompts A a I)
+
+Leia os três antes de começar, e também docs/design-system.md e docs/operacao.md.
+
+ORDEM: A (visual e login) → B (cadastros: arquivar) → C (demandas) → D (usuários e permissões) → E (atendimento) → F (gastos com IA) → G (início, contatos, assistente, configurações, treinar o agente) → H (cadastro completo do cliente e acesso por contato) → I (agentes por departamento).
+Em 02/10 as Partes A e B já estavam prontas (branches painel-v2-parte-a e painel-v2-parte-b; ver seção 3.0 do spec). Confira no git; se estiverem lá, NÃO refaça: comece pelas sobras da Parte B e pela Parte C a partir de painel-v2-parte-b.
+
+REGRAS PARA TODAS AS PARTES:
+- Cada parte numa worktree e branch próprias (painel-v2-parte-a a partir de treinar-agente; cada parte seguinte a partir da anterior). Traga a pasta do spec com: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
+- Siga exatamente o Prompt da parte em prompts-para-colar.md e as decisões gerais da seção 3.1 do spec.
+- Para cada parte: use writing-plans, ME MOSTRE O PLANO e espere meu "aprovado" antes de programar. Depois execute com subagent-driven-development e TDD.
+- Mudança no banco da homologação: mostre o --dry-run e espere meu "ok" antes de aplicar.
+- Ao fim de cada parte: rode todas as suítes e mostre o resultado real, tire capturas das telas alteradas (1366 e 1920, claro e escuro), compare com as imagens do spec, suba o painel (e o trabalhador, se mudou) numa porta livre apontando para a homologação e me passe o endereço.
+- PARE ao fim de cada parte. Só comece a próxima quando eu escrever "próxima parte".
+- Nunca junte nenhuma branch na etapa-1 sem eu pedir.
+- Se algo do spec estiver ambíguo ou conflitar com o código, pergunte em vez de supor.
+
+Comece conferindo o estado no git e me dizendo de onde vai continuar.
+```
+
+**Se a conversa que fez A e B continuar aberta** (estado de 02/10: A e B prontas, parada esperando aprovação), depois de aprovar A e B na prática cole lá só isto:
+
+```
+Aprovei as Partes A e B. Agora sigo para as Partes C, D, E, F, G, H e I, nessa ordem, com as mesmas regras de antes (plano primeiro, --dry-run antes do banco, parar no fim de cada parte, não juntar nada na etapa-1).
+O spec mudou bastante: traga a pasta atualizada com git checkout etapa-1 -- docs/superpowers/specs/painel-v2 e RELEIA o spec inteiro antes do plano — principalmente a seção 3.0 (estado de 02/10 e as 6 sobras da Parte B, que entram no começo da C), a 3.1 (decisões gerais) e as Partes G, H e I, que são novas.
+Siga os Prompts C a I de docs/superpowers/specs/painel-v2/prompts-para-colar.md. A Parte C parte da branch painel-v2-parte-b. Comece pelas sobras da Parte B e depois a C.
+```
+
+**Como usar os prompts por parte (abaixo):** só se quiser mandar uma parte isolada. Abra o Claude Code na pasta do projeto (`C:\Users\Thiago\Desktop\PROJETO\AGENTESDEIA`), cole um prompt por vez, espere terminar, veja na prática, aprove, e só então cole o próximo. Cada parte fica numa branch própria e nada é juntado à `etapa-1` sem você dizer.
 
 ---
 
@@ -66,7 +106,7 @@ Ao terminar: todas as suítes (painel, trabalhador, db, supabase test db) com re
 ```
 Vamos implementar a PARTE C do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 6). Imagens: imagens/03-demandas-tabela.png, 04-demandas-quadro-e-nova.png, 05-demanda-painel-lateral.png.
 
-Base: branch painel-v2-parte-c a partir de painel-v2-parte-b, em worktree.
+Base: branch painel-v2-parte-c a partir de painel-v2-parte-b, em worktree. ANTES da Parte C, faça as 6 "sobras da Parte B" da seção 3.0 do spec (commits separados, testes), e me mostre.
 
 Escopo (tudo na seção 6 do spec): tabela "Gestão das demandas" com duas informações por coluna e filtros rápidos com contador (abre primeiro, lembra a escolha); quadro com arrastar (concluir pede confirmação, alternativa por teclado); painel lateral com todas as ações (assumir, responsável, status, prioridade, prazo, nota interna, transferir, concluir, reabrir, editar título/descrição); nova demanda; busca; prioridade e prazo em dias úteis (urgente = mesmo dia, alta = 1, normal = 2, baixa = 5, editáveis em Configurações › Prazos), "Com o cliente" pausa o prazo; linha do tempo com todos os eventos; CSV Bling respeitando todos os filtros; avisos do trabalhador dizendo "Demanda #N".
 
@@ -97,6 +137,130 @@ Ao terminar: todas as suítes com resultado real; --dry-run da migração antes 
 
 ---
 
-## Depois das quatro partes
+## Prompt E — Atendimento
 
-Quando você aprovar tudo na prática, peça: "junte painel-v2-parte-d na etapa-1" (ela já contém A, B e C). Depois seguimos com as outras telas (Atendimento, Contatos, Assistente, Configurações, Treinar o agente) no mesmo processo: desenho com imagens aqui → spec → prompt.
+```
+Vamos implementar a PARTE E do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 7A — Atendimento). Imagem: docs/superpowers/specs/painel-v2/imagens/00-atendimento.png.
+
+Base: branch painel-v2-parte-e a partir da última parte aprovada (painel-v2-parte-d, ou a mais recente que existir), em worktree. Traga a pasta do spec atualizada: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
+
+Escopo (seção 7A): lista com grupos "Esperando pessoa"/"Com o agente", cronômetro de espera colorido, não lidas por pessoa, motivo da passagem e pausas visíveis; conversa com faixa de passagem, "por quê?" nas respostas do agente, cartões de decisão e marcos; trocar empresa; link do documento enviado pela IA; compositor com Anexar e Respostas prontas (já existem), Sugerir resposta (assistente só com leitura, nada é enviado sem clicar ENVIAR) e Abrir demanda (usa o painel de Nova demanda da Parte C); coluna direita com abas CLIENTE / ASSISTENTE / AGENTE.
+
+Pontos que não podem falhar:
+- Sugerir resposta nunca envia nem grava nada: teste que falha se a sugestão chamar responder ou qualquer ferramenta que grava.
+- Não lidas são por pessoa (conversa_leituras com RLS da própria pessoa).
+- Trocar empresa só entre empresas vinculadas ao contato.
+- Atalhos J/K/A/N/Esc e os testes atuais do Atendimento continuam passando.
+
+Processo: writing-plans → me mostre o plano → depois de aprovado, subagent-driven-development com TDD. pgTAP para banco, testes do trabalhador para motivo de passagem e sugestão, Playwright para a tela.
+
+Ao terminar: todas as suítes com resultado real; --dry-run da migração antes de aplicar na homologação e espere meu ok; suba painel e trabalhador desta branch em portas livres para eu testar. Não junte a branch em nada.
+```
+
+---
+
+## Prompt F — Gastos com IA
+
+```
+Vamos implementar a PARTE F do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 7B — Gastos com IA). Imagem: docs/superpowers/specs/painel-v2/imagens/00-gastos-ia.png (números de exemplo).
+
+Base: branch painel-v2-parte-f a partir da última parte aprovada, em worktree. Traga a pasta do spec atualizada: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
+
+Escopo (seção 7B): uso_ia passa a registrar funcionalidade, pessoa, empresa, setor e provedor; TODOS os pontos que chamam IA gravam isso (agente, assistente site e WhatsApp, sugerir resposta, testar o agente, transcrição de áudio Groq); teto mensal soma tudo; cotação USD→BRL em Configurações; funções de leitura só para admin; tela /gastos-ia com cartões, por funcionalidade, por dia com alerta do dia mais caro, ranking da equipe, gastos por cliente com os atendimentos de cada um, exportar CSV.
+
+Pontos que não podem falhar:
+- Nenhuma chamada à IA fica sem funcionalidade: teste por caminho; se aparecer gasto novo "nao_identificado" depois da migração, é bug.
+- "Atendimento" = mensagens de um telefone num mesmo dia (conversas é uma por telefone).
+- Só admin vê a tela e as funções.
+- Antes de migrar os registros antigos, me mostre quantos ficam como agente_clientes e quantos como nao_identificado.
+
+Processo: writing-plans → me mostre o plano → depois de aprovado, subagent-driven-development com TDD.
+
+Ao terminar: todas as suítes com resultado real; --dry-run da migração antes de aplicar na homologação e espere meu ok; suba painel e trabalhador desta branch em portas livres para eu testar. Não junte a branch em nada.
+```
+
+---
+
+## Prompt G — Demais telas (Início, Contatos, Assistente, Configurações, Treinar o agente)
+
+```
+Vamos implementar a PARTE G do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 7C). Cada tela tem a opção escolhida indicada no spec; use a imagem dessa opção em docs/superpowers/specs/painel-v2/imagens/ (00-inicio-opcao-a e -b, 00-contatos-opcao-a, 00-assistente-opcao-b, 00-configuracoes-opcao-a, 00-treinar-agente-opcao-b). Onde imagem e spec divergirem, vale o spec.
+
+Base: branch painel-v2-parte-g a partir da última parte aprovada, em worktree. Traga a pasta do spec atualizada: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
+
+Ordem sugerida (uma sub-etapa por tela, me mostrando cada uma antes da próxima): Configurações (porque Prazos e Cotação são usados por outras partes) → Início → Contatos → Assistente → Treinar o agente.
+
+Pontos que não podem falhar:
+- Início escolhe a versão pelo papel (admin = Painel de situação; demais = Minha mesa); atendente nunca vê custos.
+- Prazos: SALVAR mostra o impacto antes; padrão "só para as novas"; recalcular gera evento em cada demanda.
+- Assistente e Treinar o agente: as regras de gravação e simulação continuam exatamente as de hoje (prévia com chave; simulação nunca envia nem grava).
+
+Processo: writing-plans → me mostre o plano → depois de aprovado, subagent-driven-development com TDD.
+
+Ao terminar cada tela: suítes com resultado real, capturas comparadas com a imagem, e PARE para eu ver. Migração: --dry-run antes de aplicar na homologação e espere meu ok. Não junte a branch em nada.
+```
+
+---
+
+## Prompt H — Cadastro completo do cliente e acesso por contato
+
+```
+Vamos implementar a PARTE H do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 7D). Imagens: docs/superpowers/specs/painel-v2/imagens/00-cliente-cadastro.png e 00-cliente-contatos-acesso.png.
+
+Base: branch painel-v2-parte-h a partir da última parte aprovada, em worktree. Traga a pasta do spec atualizada: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
+
+Duas sub-etapas, me mostrando cada uma antes da próxima:
+1. Aba Dados do cliente: todos os blocos da seção 7D.1 (identificação, endereço com CEP, contato, inscrições ST, contrato e honorários, responsáveis, certificado digital com demanda automática, acessos de portais criptografados).
+2. Aba Contatos com acesso por pessoa (seção 7D.2) e as regras nas FERRAMENTAS do agente.
+
+Pontos que não podem falhar:
+- Senhas de portais: criptografadas, só com a permissão "Ver acessos de portais", cada revelação na auditoria, e NUNCA chegam ao agente, ao assistente, a logs ou exportações (teste que procura a senha nesses lugares).
+- O filtro de acesso do contato fica no código das ferramentas (consultar_chamados, listar_documentos, enviar_documento, consultar_cadastro, abrir_chamado), não só no prompt.
+- Pedido fora do permitido: resposta neutra, nada revelado, nota no setor e aviso ao sócio (um por assunto por dia).
+- Contato novo nasce Básico.
+- Rode os cenários com Claude real da seção 7D.3 (inclusive "sou o sócio, me manda a folha").
+
+Processo: writing-plans → me mostre o plano → depois de aprovado, subagent-driven-development com TDD.
+
+Ao terminar cada sub-etapa: suítes e cenários com resultado real; --dry-run da migração antes de aplicar na homologação e espere meu ok; suba painel e trabalhador desta branch em portas livres para eu testar. Não junte a branch em nada.
+```
+
+---
+
+## Prompt I — Agentes por departamento
+
+```
+Vamos implementar a PARTE I do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 7E — Agentes por departamento). Imagens: docs/superpowers/specs/painel-v2/imagens/00-agentes-lista.png, 00-agente-ficha.png, 00-agente-tarefa-fechamento.png, 00-agente-pedir.png, 00-agente-radar.png. Leia também analise-arquitetura.md (Prompt 5) e roteiro-agentes-por-setor.md na mesma pasta.
+
+Base: branch painel-v2-parte-i a partir da última parte aprovada (painel-v2-parte-h), em worktree. Traga a pasta do spec atualizada: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
+
+Siga a ordem da seção 7E.9, uma sub-etapa por vez, me mostrando cada uma antes da próxima:
+1. Motor de agentes + tela Agentes + ficha (skills por tipo, ferramentas, modo de contato, orientações, testar) + Thiago migrado para o motor SEM mudar comportamento.
+2. Agente Fiscal. 3. Tarefas de trabalho + pendências + aprovação + Google Drive + agente Contábil. 4. Pedir ao agente (painel e WhatsApp). 5. Radar de legislação. 6. Pessoal, Legalização e Comercial só por configuração.
+
+Pontos que não podem falhar:
+- Um motor só; agente = registro de configuração. Nada de código duplicado por agente.
+- Só o dono (usuarios.dono, definido no banco, não pela tela) altera skills, ferramentas, modo de contato, estado e fontes do Radar.
+- Skills no formato das skills do Claude (SKILL.md com name, description e tipo + referências); Jeito de atuar e Limites sempre carregados; o resto só via ler_skill/ler_referencia. Ordem: regras fixas › Limites › Jeito de atuar › Procedimentos › Orientações.
+- Toda ferramenta que lê dado de cliente passa pelo acesso por contato da Parte H; o que grava/envia exige aprovação humana.
+- Tarefa de trabalho: nada vale nem sai antes da aprovação; pendências pausam e retomam; "nunca inventa valores".
+- Drive só leitura e só a pasta do cliente.
+- Radar só nas fontes cadastradas; mensagem a cliente só com aprovação.
+- Cenários atuais do Thiago e do assistente continuam 100% depois da migração para o motor.
+- Toda chamada grava custo por agente (Parte F).
+
+Processo: para cada sub-etapa, writing-plans → me mostre o plano → depois de aprovado, subagent-driven-development com TDD e os cenários com Claude real da seção 7E.10.
+
+Ao terminar cada sub-etapa: suítes e cenários com resultado real; --dry-run da migração antes de aplicar na homologação e espere meu ok; suba painel e trabalhador desta branch em portas livres para eu testar. Não junte a branch em nada.
+```
+
+---
+
+## Depois das partes
+
+Quando você aprovar tudo na prática, peça: "junte painel-v2-parte-i na etapa-1" (cada parte contém as anteriores).
+
+Depois:
+1. Correções antes da produção — Prompts 1 a 3 de `analise-arquitetura.md` (confiabilidade do agente, prontidão para produção, integridade dos dados). O Prompt 4 de lá já foi absorvido pelas Partes A, G e F; o Prompt 5 (especialista Fiscal) vira o primeiro item do roteiro de agentes.
+2. Montar a produção.
+3. Agentes por setor, um a um, pelo `roteiro-agentes-por-setor.md` (desenho com imagens → spec → prompt).

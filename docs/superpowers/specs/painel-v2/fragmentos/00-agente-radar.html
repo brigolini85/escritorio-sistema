@@ -1,0 +1,276 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0}body{font-family:'Plus Jakarta Sans',sans-serif;width:1440px;display:flex;color:#1C1A1B;background:#F1EFEE;font-size:15px}
+.nav{width:64px;background:#262223;display:flex;flex-direction:column;align-items:center;padding-top:14px;min-height:100vh;flex-shrink:0}.nav .lg{width:40px;height:40px;border-radius:50%;background:#7A2335;border:2px solid #C8A97E;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:14px}.nav i{font-size:22px;width:64px;text-align:center;padding:12px 0}.nav .on{background:#7A2335;color:#fff;box-shadow:inset 3px 0 0 #C8A97E}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{background:#fff;border-bottom:1px solid #E4E0DF;padding:13px 24px;display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#6B6466}
+.c{padding:20px 24px 32px;display:flex;flex-direction:column;gap:16px}
+.cd{background:#fff;border:1px solid #E4E0DF;border-radius:8px;padding:18px 20px}
+.k{font-size:13px;font-weight:800;letter-spacing:.04em;color:#7A2335;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;text-transform:uppercase;gap:10px}.k .r{color:#8E8689;font-weight:600;letter-spacing:0;text-transform:none;font-size:13px}
+.btn{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:9px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.bp{background:#7A2335;color:#fff}.bs{background:#fff;color:#262223;border:1px solid #D6D0CF}.bg{background:#262223;color:#fff}.bt{color:#6B6466;padding:9px 6px}
+.bl{color:#7A2335;font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.03em;display:inline-flex;gap:5px;align-items:center;white-space:nowrap}
+.tag{font-size:12px;font-weight:700;padding:3px 9px;border-radius:12px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.own{font-size:12px;font-weight:700;color:#7A2335;background:#F6ECEE;border:1px solid #EAD3D8;padding:3px 9px;border-radius:12px;display:inline-flex;gap:4px;align-items:center;text-transform:none;letter-spacing:0}
+.hdr{display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:start}
+.ico{width:64px;height:64px;border-radius:12px;background:#F6ECEE;color:#7A2335;display:flex;align-items:center;justify-content:center;font-size:34px;border:1px solid #EAD3D8}
+.t{font-size:28px;font-weight:800;line-height:1.15}.t span{color:#7A2335}
+.meta{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center;font-size:14px;color:#4A4547}
+.stats{display:grid;grid-template-columns:repeat(4,auto);border:1px solid #E4E0DF;border-radius:8px}
+.stats div{padding:10px 13px;white-space:nowrap;border-right:1px solid #E4E0DF}.stats div:last-child{border:0}.stats small{display:block;font-size:12px;font-weight:800;color:#6B6466;text-transform:uppercase;letter-spacing:.04em}.stats b{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}.stats em{white-space:nowrap;font-style:normal;font-size:13px;color:#6B6466;display:block}
+.on-st{font-size:13px;font-weight:800;color:#0F5446;display:inline-flex;gap:6px;align-items:center;text-transform:uppercase;letter-spacing:.03em}.dot{width:8px;height:8px;border-radius:50%;background:#5DBB8F;display:inline-block}
+.sw{width:40px;height:22px;border-radius:11px;background:#0F5446;position:relative;flex-shrink:0;display:inline-block}.sw::after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:#fff}
+.sw.no{background:#CFC9C8}.sw.no::after{right:auto;left:3px}
+.mut{color:#6B6466;font-size:13.5px}
+.giro{margin-top:16px;padding:11px 14px;border-radius:6px;background:#EEF4F2;border:1px solid #CFE3DB;display:flex;gap:12px;align-items:center;font-size:14px;color:#0F3F35;margin-bottom:18px}
+.giro i{font-size:19px;color:#0F5446}
+/* layout */
+.grid{display:grid;grid-template-columns:1fr 400px;gap:16px;align-items:start}
+.filt{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.fc{font-size:13px;font-weight:700;padding:6px 12px;border-radius:16px;border:1px solid #DDD8D7;color:#4A4547;background:#fff;display:inline-flex;gap:6px;align-items:center}
+.fc.on{background:#262223;color:#fff;border-color:#262223}
+.fc .n{font-size:11.5px;font-weight:800;background:#EEEBEA;color:#4A4547;border-radius:10px;padding:0 7px}.fc.on .n{background:#4A4547;color:#fff}
+/* novidade */
+.nv{border:1px solid #E4E0DF;border-radius:8px;padding:16px 18px;margin-bottom:12px;border-left:4px solid #E4E0DF}
+.nv.alto{border-left-color:#B23A1E}.nv.medio{border-left-color:#C07A1E}.nv.baixo{border-left-color:#8E8689}
+.nv.done{background:#FAF9F8}
+.nh{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.nt{font-size:17px;font-weight:800;line-height:1.3}
+.nsrc{display:flex;gap:10px;align-items:center;margin-top:6px;font-size:13.5px;color:#6B6466;flex-wrap:wrap}
+.nsrc a{color:#7A2335;font-weight:700;text-decoration:none;display:inline-flex;gap:4px;align-items:center}
+.of{font-size:12px;font-weight:700;color:#0F5446;background:#E3F2EE;border-radius:10px;padding:2px 8px;display:inline-flex;gap:3px;align-items:center}
+.cf{font-size:12px;font-weight:800;color:#7A4A0E;background:#FDF1E0;border:1px solid #F0D7AE;border-radius:10px;padding:2px 8px;display:inline-flex;gap:3px;align-items:center;text-transform:uppercase;letter-spacing:.03em}
+.imp{font-size:12px;font-weight:800;padding:4px 10px;border-radius:5px;display:inline-flex;gap:5px;align-items:center;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;border:1px solid}
+.i-a{color:#B23A1E;background:#FBECE8;border-color:#F0CFC6}.i-m{color:#8A560F;background:#FDF1E0;border-color:#F0D7AE}.i-b{color:#4A4547;background:#F2F0EF;border-color:#DDD8D7}
+.ns{font-size:14.5px;color:#262223;line-height:1.5;margin-top:10px}
+.facts{display:grid;grid-template-columns:auto 1fr auto;gap:10px 22px;margin-top:12px;padding:12px 14px;background:#FAF9F8;border:1px solid #EFECEB;border-radius:6px;font-size:14px;align-items:center}
+.fl{font-size:12px;font-weight:800;color:#6B6466;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px}
+.sets{display:flex;gap:5px;flex-wrap:wrap}
+.st{font-size:11.5px;font-weight:800;padding:3px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em}
+.s-fis{background:#F3F7E8;color:#55691F}.s-pes{background:#F2EDF8;color:#5E4785}.s-con{background:#E6EEF7;color:#2F5D8A}.s-leg{background:#E6F4F5;color:#26696F}.s-fin{background:#FAF5EC;color:#8A6A3A}
+.cli b{font-size:15px}.cli .mut{font-size:13px}
+.vig{display:inline-flex;gap:6px;align-items:center;font-weight:700;white-space:nowrap}
+.nact{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.nact .sp{flex:1}
+.rasc{margin-top:12px;border:1px dashed #D9C3C8;border-radius:6px;padding:12px 14px;background:#FCFAFA;font-size:14px;color:#4A4547;line-height:1.5}
+.rasc .rh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;font-weight:800;color:#7A2335;text-transform:uppercase;letter-spacing:.04em}
+.ok{font-size:13px;font-weight:700;color:#0F5446;display:inline-flex;gap:5px;align-items:center}
+/* direita */
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.sc{font-size:13.5px;font-weight:600;padding:6px 8px 6px 10px;border:1px solid #E4E0DF;border-radius:6px;display:inline-flex;gap:7px;align-items:center;background:#fff}
+.sc i.x{color:#8E8689;font-size:15px}
+.sc .lv{font-size:10.5px;font-weight:800;color:#6B6466;background:#F2F0EF;border-radius:3px;padding:1px 5px;letter-spacing:.03em}
+.add{border-style:dashed;color:#7A2335;font-weight:800;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}
+.info{font-size:13.5px;padding:10px 12px;border-radius:6px;background:#F4F1EC;border:1px solid #E7DFD2;color:#4A4547;display:flex;gap:10px;align-items:flex-start;margin-top:12px;line-height:1.45}
+.info i{color:#A8865A;font-size:18px;margin-top:1px}
+.temas{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:13.5px}
+.temas span{display:flex;gap:7px;align-items:center}.temas i{color:#0F5446;font-size:16px}
+.rl{display:flex;flex-direction:column;gap:11px}
+.rl div{display:grid;grid-template-columns:22px 1fr;gap:8px;font-size:14px;line-height:1.4;color:#262223}
+.rl i{font-size:18px;color:#0F5446}
+.rl .lock{color:#7A2335}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid #F0EDEC}
+.row:last-child{border:0;padding-bottom:0}
+.hist{display:grid;grid-template-columns:100px 1fr auto;gap:8px;font-size:13.5px;padding:8px 0;border-bottom:1px solid #F0EDEC;align-items:center}
+.hist:last-child{border:0}
+</style></head><body>
+<div class="nav"><div class="lg">EC</div><i class="ti ti-layout-dashboard" style="color:#D6AE5C"></i><i class="ti ti-message-circle" style="color:#5DBB8F"></i><i class="ti ti-checklist" style="color:#A6C95A"></i><i class="ti ti-building" style="color:#6E9BC9"></i><i class="ti ti-address-book" style="color:#A98BCB"></i><i class="ti ti-sparkles" style="color:#D6AE5C"></i><i class="ti ti-robot on"></i><i class="ti ti-school" style="color:#E0894A"></i><i class="ti ti-coin" style="color:#C8A97E"></i><i class="ti ti-settings" style="color:#4FB0B8"></i></div>
+<div class="main">
+<div class="top"><span><i class="ti ti-robot" style="color:#7A2335"></i> › Agentes › <b style="color:#1C1A1B">Radar de legislação</b></span><span><i class="ti ti-lock"></i> Só o dono altera fontes, agenda e estado · você: Thiago (dono)</span></div>
+<div class="c">
+
+<!-- cabeçalho -->
+<div class="cd" style="padding-bottom:0">
+<div class="hdr">
+<div class="ico"><i class="ti ti-radar-2"></i></div>
+<div>
+<div class="t">Radar de <span>legislação</span></div>
+<div class="meta">
+<span class="tag" style="background:#F2F0EF;color:#262223"><i class="ti ti-world-search"></i> Busca em fontes oficiais</span>
+<span class="tag" style="background:#E3F2EE;color:#0F5446"><i class="ti ti-bulb"></i> Só sugere, não altera nada</span>
+
+</div>
+<div style="display:flex;gap:18px;align-items:center;margin-top:14px;flex-wrap:nowrap;white-space:nowrap">
+<span style="display:inline-flex;gap:9px;align-items:center"><span style="font-size:12px;font-weight:800;color:#6B6466;text-transform:uppercase;letter-spacing:.04em">Estado</span><span class="sw"></span><span class="on-st"><span class="dot"></span> Ligado</span></span>
+<span style="display:inline-flex;gap:8px;align-items:center;font-size:14px"><span style="font-size:12px;font-weight:800;color:#6B6466;text-transform:uppercase;letter-spacing:.04em">Agenda</span><b><i class="ti ti-clock" style="color:#7A2335"></i> todo dia, 7h</b><span class="bl" style="font-size:12px"><i class="ti ti-pencil"></i> mudar</span></span>
+<span class="own"><i class="ti ti-lock"></i> só o dono</span>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;align-items:flex-end">
+<div class="stats">
+<div><small>Último giro</small><b style="font-size:16px">hoje 07:03</b><em>14 fontes · 3 novidades</em></div>
+<div><small>Próximo giro</small><b style="font-size:16px">amanhã 07:00</b><em>automático</em></div>
+<div><small>Custo do mês</small><b>US$ 1,92</b><em>≈ R$ 10 · 4%</em></div>
+<div><small>No mês</small><b>21</b><em>novidades · 6 demandas</em></div>
+</div>
+<div style="display:flex;gap:8px"><span class="btn bs"><i class="ti ti-history"></i> Giros anteriores</span><span class="btn bp"><i class="ti ti-radar-2"></i> Procurar agora</span></div>
+</div>
+</div>
+<div class="giro"><i class="ti ti-circle-check"></i><span><b>Giro de hoje terminou às 07:03.</b> 14 fontes em 3 min · 3 novidades · 2 repetidas ignoradas · Prefeitura de Conselheiro Lafaiete fora do ar, tenta de novo às 12h.</span><span style="margin-left:auto" class="bl"><i class="ti ti-list-details"></i> ver o que leu</span></div>
+</div>
+
+<div class="grid">
+<!-- NOVIDADES -->
+<div class="cd">
+<div class="k"><span>Novidades</span><span class="r">ordenadas por impacto · mais recentes primeiro</span></div>
+<div class="filt">
+<span class="fc on">Para decidir <span class="n">3</span></span>
+<span class="fc">Viraram demanda <span class="n">6</span></span>
+<span class="fc">Descartadas <span class="n">12</span></span>
+<span style="width:1px;height:22px;background:#E4E0DF;margin:0 4px"></span>
+<span class="fc"><i class="ti ti-filter"></i> Setor: todos</span>
+<span class="fc"><i class="ti ti-gauge"></i> Impacto: todos</span>
+<span class="fc"><i class="ti ti-search"></i> Buscar</span>
+</div>
+
+<!-- 1 -->
+<div class="nv alto">
+<div class="nh">
+<div>
+<div class="nt">Novo leiaute de evento do eSocial para afastamentos e desligamentos</div>
+<div class="nsrc"><span class="of"><i class="ti ti-shield-check"></i> oficial</span><b style="color:#262223">eSocial</b> · publicado 01/10/2026 · achado hoje 07:02 · <a href="#"><i class="ti ti-external-link"></i> abrir na fonte</a></div>
+</div>
+<span class="imp i-a"><i class="ti ti-alert-triangle"></i> Impacto alto</span>
+</div>
+<div class="ns">Saiu nova versão do leiaute do eSocial que muda campos obrigatórios nos eventos de afastamento e desligamento. Folhas enviadas no leiaute antigo depois da data passam a ser recusadas.</div>
+<div class="facts">
+<div><span class="fl">Setores</span><div class="sets"><span class="st s-pes">Pessoal</span><span class="st s-con">Contábil</span></div></div>
+<div class="cli"><span class="fl">Clientes possivelmente afetados</span><b>38</b> <span class="mut">(todos com funcionário registrado)</span> <span class="bl" style="font-size:12px;margin-left:6px">ver lista</span></div>
+<div><span class="fl">Vigência</span><span class="vig"><i class="ti ti-calendar-event" style="color:#B23A1E"></i> vale a partir de 01/01/2027</span></div>
+</div>
+<div class="nact">
+<span class="btn bp"><i class="ti ti-square-plus"></i> Criar demanda · Pessoal</span>
+<span class="btn bs"><i class="ti ti-users"></i> Avisar equipe</span>
+<span class="btn bs"><i class="ti ti-message-2-share"></i> Mandar para clientes afetados</span>
+<span class="sp"></span>
+<span class="btn bt"><i class="ti ti-x"></i> Descartar</span>
+</div>
+</div>
+
+<!-- 2 -->
+<div class="nv medio">
+<div class="nh">
+<div>
+<div class="nt">Mudança no prazo de entrega de obrigação estadual de MG</div>
+<div class="nsrc"><span class="of"><i class="ti ti-shield-check"></i> oficial</span><b style="color:#262223">SEFAZ-MG</b> · publicado 30/09/2026 · achado hoje 07:01 · <a href="#"><i class="ti ti-external-link"></i> abrir na fonte</a></div>
+</div>
+<span class="imp i-m"><i class="ti ti-alert-circle"></i> Impacto médio</span>
+</div>
+<div class="ns">A SEFAZ-MG antecipou em 5 dias o prazo de entrega da declaração mensal de ICMS para contribuintes do regime normal. Quem atrasar paga multa por declaração.</div>
+<div class="facts">
+<div><span class="fl">Setores</span><div class="sets"><span class="st s-fis">Fiscal</span></div></div>
+<div class="cli"><span class="fl">Clientes possivelmente afetados</span><b>23</b> <span class="mut">(regime normal · comércio · MG)</span> <span class="bl" style="font-size:12px;margin-left:6px">ver lista</span></div>
+<div><span class="fl">Vigência</span><span class="vig"><i class="ti ti-calendar-event" style="color:#C07A1E"></i> vale a partir de 01/11/2026</span></div>
+</div>
+<div class="rasc">
+<div class="rh"><span><i class="ti ti-pencil"></i> Rascunho para os 23 clientes · não enviado</span><span class="tag" style="background:#F6ECEE;color:#7A2335;text-transform:none;letter-spacing:0"><i class="ti ti-lock"></i> só sai com aprovação</span></div>
+"Olá! A SEFAZ-MG mudou o prazo da declaração mensal de ICMS: a partir de novembro ela vence 5 dias antes. Já ajustamos o nosso calendário aqui no escritório. Para não apertar, pedimos que as notas do mês cheguem até o dia 3. Qualquer dúvida, é só chamar."
+<div style="display:flex;gap:8px;margin-top:10px"><span class="btn bp"><i class="ti ti-send"></i> Aprovar e enviar</span><span class="btn bs"><i class="ti ti-pencil"></i> Editar</span><span class="btn bs"><i class="ti ti-users"></i> Escolher clientes</span></div>
+</div>
+<div class="nact">
+<span class="btn bp"><i class="ti ti-square-plus"></i> Criar demanda · Fiscal</span>
+<span class="btn bs"><i class="ti ti-users"></i> Avisar equipe</span>
+<span class="sp"></span>
+<span class="btn bt"><i class="ti ti-x"></i> Descartar</span>
+</div>
+</div>
+
+<!-- 3 -->
+<div class="nv baixo">
+<div class="nh">
+<div>
+<div class="nt">Atualização de tabela de CFOP com novos códigos para devolução</div>
+<div class="nsrc"><span class="cf"><i class="ti ti-help-hexagon"></i> confirmar</span><b style="color:#262223">site de notícias</b> · publicado 01/10/2026 · achado hoje 07:03 · <a href="#"><i class="ti ti-external-link"></i> abrir notícia</a></div>
+</div>
+<span class="imp i-b"><i class="ti ti-info-circle"></i> Impacto baixo</span>
+</div>
+<div class="ns">Notícia diz que o CONFAZ vai incluir códigos de CFOP para devolução de mercadoria em consignação. Ainda não achei o ato publicado no CONFAZ — confirme antes de usar.</div>
+<div class="facts">
+<div><span class="fl">Setores</span><div class="sets"><span class="st s-fis">Fiscal</span></div></div>
+<div class="cli"><span class="fl">Clientes possivelmente afetados</span><b>9</b> <span class="mut">(Simples Nacional · comércio · MG)</span> <span class="bl" style="font-size:12px;margin-left:6px">ver lista</span></div>
+<div><span class="fl">Vigência</span><span class="vig" style="color:#6B6466"><i class="ti ti-calendar-question"></i> sem data ainda</span></div>
+</div>
+<div class="nact">
+<span class="btn bs"><i class="ti ti-radar-2"></i> Procurar no CONFAZ</span>
+<span class="btn bs"><i class="ti ti-square-plus"></i> Criar demanda · Fiscal</span>
+<span class="btn bs"><i class="ti ti-users"></i> Avisar equipe</span>
+<span class="sp"></span>
+<span class="btn bt"><i class="ti ti-x"></i> Descartar</span>
+</div>
+</div>
+
+<!-- já decidida -->
+<div class="nv done" style="margin-bottom:0">
+<div class="nh">
+<div>
+<div class="nt" style="font-size:15.5px;color:#4A4547">Alteração no prazo de opção pelo Simples Nacional para empresas em início de atividade</div>
+<div class="nsrc"><span class="of"><i class="ti ti-shield-check"></i> oficial</span>Portal do Simples Nacional · 29/09/2026</div>
+</div>
+<span class="ok"><i class="ti ti-circle-check"></i> Virou demanda #482 · Legalização · por Ana, 29/09</span>
+</div>
+</div>
+</div>
+
+<!-- coluna direita -->
+<div style="display:flex;flex-direction:column;gap:16px">
+<div class="cd">
+<div class="k"><span>Fontes <span style="color:#8E8689;font-weight:600;text-transform:none;letter-spacing:0">· 9 sites · 14 páginas lidas</span></span><span class="own"><i class="ti ti-lock"></i> só o dono</span></div>
+<div class="chips">
+<span class="sc"><span class="lv">FED</span>Receita Federal<i class="ti ti-x x"></i></span>
+<span class="sc"><span class="lv">FED</span>Diário Oficial da União<i class="ti ti-x x"></i></span>
+<span class="sc"><span class="lv">FED</span>Portal do Simples Nacional<i class="ti ti-x x"></i></span>
+<span class="sc"><span class="lv">FED</span>eSocial<i class="ti ti-x x"></i></span>
+<span class="sc"><span class="lv">FED</span>CFC<i class="ti ti-x x"></i></span>
+<span class="sc"><span class="lv">FED</span>CONFAZ<i class="ti ti-x x"></i></span>
+<span class="sc"><span class="lv">FED</span>Planalto (legislação)<i class="ti ti-x x"></i></span>
+<span class="sc"><span class="lv">MG</span>SEFAZ-MG<i class="ti ti-x x"></i></span>
+<span class="sc"><span class="lv">MUN</span>Prefeitura de Conselheiro Lafaiete <i class="ti ti-alert-circle" style="color:#C07A1E" title="fora do ar"></i><i class="ti ti-x x"></i></span>
+<span class="sc add"><i class="ti ti-plus"></i> Adicionar fonte</span>
+</div>
+<div class="info"><i class="ti ti-info-circle"></i><span><b>Só busca nessas fontes.</b> Notícia sem fonte oficial vem marcada <span class="cf" style="font-size:11px">confirmar</span> e o radar tenta achar o ato oficial.</span></div>
+</div>
+
+<div class="cd">
+<div class="k"><span>Assuntos vigiados</span><span class="bl" style="font-size:12px"><i class="ti ti-pencil"></i> editar</span></div>
+<div class="temas">
+<span><i class="ti ti-check"></i> Fiscal e tributos</span>
+<span><i class="ti ti-check"></i> Trabalhista / eSocial</span>
+<span><i class="ti ti-check"></i> Societário</span>
+<span><i class="ti ti-check"></i> Contábil / CFC</span>
+<span><i class="ti ti-check"></i> Simples Nacional</span>
+<span><i class="ti ti-check"></i> Estaduais de MG</span>
+<span style="grid-column:span 2"><i class="ti ti-check"></i> Municipais de Conselheiro Lafaiete (ISS, alvará)</span>
+</div>
+</div>
+
+<div class="cd">
+<div class="k"><span>Regras do agente</span><span class="r">valem sempre</span></div>
+<div class="rl">
+<div><i class="ti ti-lock lock"></i><span><b>Nunca altera nada sozinho</b> — não mexe em cliente, demanda, calendário nem skill.</span></div>
+<div><i class="ti ti-bulb"></i><span>Tudo vira <b>sugestão</b>: uma pessoa decide criar demanda, avisar ou descartar.</span></div>
+<div><i class="ti ti-link"></i><span><b>Cita sempre a fonte</b>, com data e link do ato.</span></div>
+<div><i class="ti ti-help-hexagon" style="color:#C07A1E"></i><span>Marca <b>"confirmar"</b> quando a notícia não vem de fonte oficial.</span></div>
+<div><i class="ti ti-message-2-share" style="color:#7A2335"></i><span>Mensagem para cliente <b>só sai com aprovação</b> de uma pessoa.</span></div>
+</div>
+</div>
+
+<div class="cd">
+<div class="k"><span>Avisos</span><span class="own"><i class="ti ti-lock"></i> só o dono</span></div>
+<div class="row"><span><i class="ti ti-brand-whatsapp" style="color:#5DBB8F"></i> <b>Resumo diário no WhatsApp do dono</b><br><span class="mut">depois do giro das 7h · só se houver novidade</span></span><span class="sw"></span></div>
+<div class="row"><span><i class="ti ti-alert-triangle" style="color:#B23A1E"></i> <b>Impacto alto avisa na hora</b><br><span class="mut">para o dono e o líder do setor</span></span><span class="sw"></span></div>
+<div class="row"><span><i class="ti ti-bell" style="color:#6B6466"></i> <b>Avisar equipe pelo painel</b><br><span class="mut">aparece no Início de cada setor</span></span><span class="sw no"></span></div>
+</div>
+
+<div class="cd">
+<div class="k"><span>Últimos giros</span><span class="bl" style="font-size:12px">ver todos</span></div>
+<div class="hist"><b>hoje 07:03</b><span>14 fontes · 3 novidades</span><span class="mut">US$ 0,08</span></div>
+<div class="hist"><b>01/10 15:40</b><span>Thiago pediu · 1 novidade</span><span class="mut">US$ 0,06</span></div>
+<div class="hist"><b>01/10 07:02</b><span>14 fontes · nada novo</span><span class="mut">US$ 0,05</span></div>
+<div class="hist"><b>30/09 07:04</b><span>14 fontes · 2 novidades</span><span class="mut">US$ 0,07</span></div>
+</div>
+</div>
+</div>
+
+</div></div></body></html>

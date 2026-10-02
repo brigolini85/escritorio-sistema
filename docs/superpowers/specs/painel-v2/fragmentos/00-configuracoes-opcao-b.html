@@ -1,0 +1,155 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0}body{font-family:'Plus Jakarta Sans',sans-serif;width:1440px;display:flex;color:#1C1A1B;background:#F1EFEE;font-size:15px}
+.nav{width:64px;background:#262223;display:flex;flex-direction:column;align-items:center;padding-top:14px;min-height:100vh;flex-shrink:0}.nav .lg{width:40px;height:40px;border-radius:50%;background:#7A2335;border:2px solid #C8A97E;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:14px}.nav i{font-size:22px;width:64px;text-align:center;padding:12px 0}.nav .on{background:#7A2335;color:#fff;box-shadow:inset 3px 0 0 #C8A97E}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{background:#fff;border-bottom:1px solid #E4E0DF;padding:13px 24px;display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#6B6466}
+.op{font-size:12px;font-weight:700;color:#A8865A;border:1px solid #E2D3BD;border-radius:5px;padding:3px 9px;background:#FBF8F3}
+.c{padding:20px 24px 32px;display:flex;flex-direction:column;gap:14px}
+.hd{display:flex;justify-content:space-between;align-items:flex-end}.t{font-size:28px;font-weight:800}.t span{color:#7A2335}.ds{font-size:14px;color:#6B6466;margin-top:4px}
+.srch{display:flex;align-items:center;gap:8px;border:1px solid #D6D0CF;background:#fff;border-radius:6px;padding:9px 12px;width:340px;color:#8E8689;font-size:14px}
+.gl{font-size:13px;font-weight:800;letter-spacing:.05em;color:#7A2335;text-transform:uppercase;margin-top:8px}
+.gr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.bl{background:#fff;border:1px solid #E4E0DF;border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-height:150px}
+.bl .h{display:flex;align-items:center;gap:10px}.bl .ic{width:36px;height:36px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.bl .nm{font-size:16px;font-weight:800}.bl .go{margin-left:auto;color:#BDB6B8;font-size:18px}
+.sm{font-size:14px;color:#4A4547;line-height:1.5;font-variant-numeric:tabular-nums}.sm b{color:#1C1A1B}
+.ft{margin-top:auto;font-size:13px;color:#8E8689;display:flex;align-items:center;gap:6px}
+.bl.sel{border:1.5px solid #7A2335;box-shadow:inset 0 3px 0 #7A2335}
+.nw{font-size:11px;font-weight:800;letter-spacing:.05em;color:#A8865A;border:1px solid #E2D3BD;border-radius:4px;padding:1px 6px;margin-left:6px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.div{display:flex;align-items:center;gap:12px;margin:22px 0 4px;color:#A8865A;font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}.div:before,.div:after{content:"";flex:1;height:1px;background:#D9CDBA}
+.scr{border-top:1px solid #E4E0DF}
+.cd{background:#fff;border:1px solid #E4E0DF;border-radius:8px;display:flex;flex-direction:column}
+.ch{padding:18px 22px 4px;display:flex;gap:12px;align-items:flex-start}.ch .ic{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.k{font-size:13px;font-weight:800;letter-spacing:.04em;color:#7A2335;text-transform:uppercase}.cs{font-size:14px;color:#6B6466;margin-top:3px;line-height:1.45}
+.cb{padding:14px 22px 18px;display:flex;flex-direction:column;gap:14px;flex:1}
+.cf{border-top:1px solid #EEEAE9;padding:12px 22px;display:flex;align-items:center;gap:12px;justify-content:flex-end}
+.l{font-size:12px;font-weight:800;letter-spacing:.05em;color:#4A4547;margin-bottom:5px;text-transform:uppercase}
+.inp{border:1px solid #D6D0CF;border-radius:5px;padding:8px 10px;font-size:15px;background:#fff;display:flex;align-items:center;justify-content:space-between;font-variant-numeric:tabular-nums}
+.inp.ch2{border:1.5px solid #C07A1E;background:#FFFBF4}
+.hl{font-size:13px;color:#6B6466;margin-top:4px;line-height:1.4}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.dy{display:flex;gap:8px}.dy span{border:1px solid #D6D0CF;border-radius:6px;padding:7px 12px;font-size:14px;font-weight:600;color:#6B6466;display:flex;gap:6px;align-items:center}.dy .y{border-color:#7A2335;background:#F6EEF0;color:#7A2335}
+.btn{font-size:13px;font-weight:800;letter-spacing:.05em;border-radius:6px;padding:9px 16px;text-transform:uppercase;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.bp{background:#7A2335;color:#fff}.bs{border:1.5px solid #BDB6B8;color:#4A4547}.bd{background:#EEEAE9;color:#A39C9E}
+.un{display:flex;align-items:center;gap:8px;color:#7A4A0E;background:#FDF1E0;border-radius:6px;padding:7px 12px;font-size:14px;font-weight:600;margin-right:auto}
+.trk{height:10px;background:#EEEBEA;border-radius:5px;overflow:hidden;position:relative}.fill{height:100%;background:#7A2335}.mk{position:absolute;top:0;width:2px;height:10px;background:#C07A1E}
+.tb{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}.tb th{font-size:11.5px;font-weight:800;color:#6B6466;letter-spacing:.04em;text-transform:uppercase;text-align:right;padding:6px 8px;border-bottom:1px solid #E4E0DF}.tb th:first-child,.tb td:first-child{text-align:left}.tb td{text-align:right;padding:8px;border-bottom:1px solid #F1EEED}
+.lk{color:#7A2335;font-weight:700}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chips span{font-size:13px;font-weight:700;padding:6px 11px;border-radius:6px;border:1px solid #D6D0CF;background:#fff;color:#4A4547;display:flex;gap:6px;align-items:center}.chips .on{background:#262223;border-color:#262223;color:#fff}
+</style></head><body>
+<div class="nav"><div class="lg">EC</div><i class="ti ti-layout-dashboard" style="color:#D6AE5C"></i><i class="ti ti-message-circle" style="color:#5DBB8F"></i><i class="ti ti-checklist" style="color:#A6C95A"></i><i class="ti ti-building" style="color:#6E9BC9"></i><i class="ti ti-address-book" style="color:#A98BCB"></i><i class="ti ti-sparkles" style="color:#D6AE5C"></i><i class="ti ti-school" style="color:#E0894A"></i><i class="ti ti-coin" style="color:#C9A35A"></i><i class="ti ti-settings on"></i></div>
+<div class="main">
+
+<!-- TELA 1: central de ajustes -->
+<div class="top"><span><i class="ti ti-settings" style="color:#4FB0B8"></i> › <b style="color:#1C1A1B">Configurações</b></span><span style="display:flex;gap:14px;align-items:center"><span>Só administrador</span><span class="op">Opção B — Central de ajustes</span></span></div>
+<div class="c">
+<div class="hd"><div><div class="t">Central de <span>ajustes</span></div><div class="ds">Cada bloco mostra como está hoje. Clique para abrir e mudar.</div></div><div class="srch"><i class="ti ti-search"></i> Buscar ajuste (ex.: feriado, teto, cargo)</div></div>
+
+<div class="gl">Escritório</div>
+<div class="gr">
+<div class="bl sel"><div class="h"><div class="ic" style="background:#E3F3F4;color:#2E8A91"><i class="ti ti-clock"></i></div><div class="nm">Expediente e IA</div><i class="ti ti-chevron-right go"></i></div>
+<div class="sm"><b>Seg–sex · 08:00–18:00</b><br>Teto US$ 100 · <b>41% usado</b><br>Sonnet 5 / Haiku 4.5 · US$ 1 = R$ 5,55</div>
+<div class="ft"><i class="ti ti-pointer"></i> aberto abaixo</div></div>
+<div class="bl"><div class="h"><div class="ic" style="background:#F3ECEE;color:#7A2335"><i class="ti ti-hourglass"></i></div><div class="nm">Prazos<span class="nw">NOVO</span></div><i class="ti ti-chevron-right go"></i></div>
+<div class="sm"><span style="color:#B23A1E;font-weight:700">Urgente</span> mesmo dia · <span style="color:#C07A1E;font-weight:700">Alta</span> 1<br>Normal 2 · Baixa 5 <span style="color:#6B6466">(dias úteis)</span></div>
+<div class="ft">37 demandas abertas usam estes prazos</div></div>
+<div class="bl"><div class="h"><div class="ic" style="background:#E3F3F4;color:#2E8A91"><i class="ti ti-calendar-off"></i></div><div class="nm">Feriados</div><i class="ti ti-chevron-right go"></i></div>
+<div class="sm"><b>9 cadastrados</b> em 2026<br>Próximo: <b>seg 12/10</b>, N. Sra. Aparecida</div>
+<div class="ft">0 cadastrados para 2027</div></div>
+<div class="bl"><div class="h"><div class="ic" style="background:#FBF3E3;color:#A8865A"><i class="ti ti-login-2"></i></div><div class="nm">Aviso do login<span class="nw">NOVO</span></div><i class="ti ti-chevron-right go"></i></div>
+<div class="sm"><b>Ligado</b> <span style="color:#6B6466">(86/200)</span><br><span style="border-left:3px solid #C8A97E;padding-left:8px;display:inline-block;margin-top:2px">"Fechamento de setembro: notas até 05/10."</span></div>
+<div class="ft">aparece na tela de entrada da equipe</div></div>
+</div>
+
+<div class="gl">Agente e atendimento</div>
+<div class="gr">
+<div class="bl"><div class="h"><div class="ic" style="background:#E6F4EC;color:#2F7D57"><i class="ti ti-message-2"></i></div><div class="nm">Mensagens</div><i class="ti ti-chevron-right go"></i></div>
+<div class="sm"><b>3 automáticas</b> do agente<br>Fora do horário: <b>ligada</b></div>
+<div class="ft">privacidade · fora do horário · IA fora</div></div>
+<div class="bl"><div class="h"><div class="ic" style="background:#E6F4EC;color:#2F7D57"><i class="ti ti-messages"></i></div><div class="nm">Respostas prontas</div><i class="ti ti-chevron-right go"></i></div>
+<div class="sm"><b>23 respostas</b> que o agente usa sozinho<br>Última: "Até quando pago o DAS?"</div>
+<div class="ft">agora com edição</div></div>
+<div class="bl"><div class="h"><div class="ic" style="background:#E6F4EC;color:#2F7D57"><i class="ti ti-stopwatch"></i></div><div class="nm">Limites de espera<span class="nw">NOVO</span></div><i class="ti ti-chevron-right go"></i></div>
+<div class="sm"><span style="color:#0F5446;font-weight:700">● até 5 min</span> · <span style="color:#C07A1E;font-weight:700">● até 15</span> · <span style="color:#B23A1E;font-weight:700">● depois</span><br>Sem responsável: aviso em 30 min</div>
+<div class="ft">cronômetro do Atendimento</div></div>
+<div class="bl"><div class="h"><div class="ic" style="background:#F1ECF7;color:#6E52A0"><i class="ti ti-plug-connected"></i></div><div class="nm">Integrações</div><i class="ti ti-chevron-right go"></i></div>
+<div class="sm"><span style="color:#0F5446;font-weight:700">● WhatsApp</span> sinal há 20 s<br><span style="color:#0F5446;font-weight:700">● Trabalhador</span> sinal há 35 s</div>
+<div class="ft">atualiza a cada minuto</div></div>
+</div>
+
+<div class="gl">Equipe e cadastros</div>
+<div class="gr">
+<div class="bl"><div class="h"><div class="ic" style="background:#E8EFF7;color:#3F6E9E"><i class="ti ti-users"></i></div><div class="nm">Usuários e permissões</div><i class="ti ti-external-link go"></i></div>
+<div class="sm"><b>7 pessoas</b> · 2 administradores<br>1 convite pendente (Bruno)</div>
+<div class="ft">abre a tela própria</div></div>
+<div class="bl"><div class="h"><div class="ic" style="background:#E8EFF7;color:#3F6E9E"><i class="ti ti-sitemap"></i></div><div class="nm">Setores</div><i class="ti ti-chevron-right go"></i></div>
+<div class="sm"><b>8 ativos</b><br>Comercial, Contábil, Direção, Financeiro, Fiscal…</div>
+<div class="ft">o agente usa os assuntos de cada um</div></div>
+<div class="bl"><div class="h"><div class="ic" style="background:#E8EFF7;color:#3F6E9E"><i class="ti ti-briefcase"></i></div><div class="nm">Serviços</div><i class="ti ti-chevron-right go"></i></div>
+<div class="sm"><b>14 serviços</b> do escritório<br><span style="color:#C07A1E;font-weight:700"><i class="ti ti-alert-triangle"></i> 2 sem setor</span></div>
+<div class="ft">Folha, Escrita fiscal, IRPF…</div></div>
+<div class="bl"><div class="h"><div class="ic" style="background:#E8EFF7;color:#3F6E9E"><i class="ti ti-id-badge-2"></i></div><div class="nm">Cargos<span class="nw">NOVO</span></div><i class="ti ti-chevron-right go"></i></div>
+<div class="sm"><b>4 cargos</b><br>Auxiliar, Analista, Coordenador, Sócio</div>
+<div class="ft">lista do cadastro de usuário</div></div>
+</div>
+</div>
+
+<div class="div">Ao clicar em "Expediente e IA"</div>
+
+<!-- TELA 2: seção aberta -->
+<div class="scr">
+<div class="top"><span><i class="ti ti-settings" style="color:#4FB0B8"></i> › Configurações › <b style="color:#1C1A1B">Expediente e IA</b></span><span style="display:flex;gap:14px;align-items:center"><span>Só administrador</span><span class="op">Opção B — Central de ajustes</span></span></div>
+<div class="c">
+<div class="hd"><div><div class="lk" style="font-size:14px;margin-bottom:6px"><i class="ti ti-arrow-left"></i> Central de ajustes</div><div class="t">Expediente e <span>IA</span></div><div class="ds">Cada cartão tem o próprio Salvar. Expediente e teto deixam de salvar juntos.</div></div>
+<div class="chips"><span class="on"><i class="ti ti-clock"></i> Expediente e IA</span><span>Prazos</span><span>Feriados</span><span>Aviso do login</span></div></div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch">
+<div class="cd">
+<div class="ch"><div class="ic" style="background:#E3F3F4;color:#2E8A91"><i class="ti ti-clock"></i></div><div><div class="k">Expediente</div><div class="cs">Horário e dias em que o escritório atende. Feriados contam como fora do expediente.</div></div></div>
+<div class="cb">
+<div class="f2"><div><div class="l">Início</div><div class="inp">08:00 <i class="ti ti-clock" style="color:#8E8689"></i></div></div><div><div class="l">Fim</div><div class="inp">18:00 <i class="ti ti-clock" style="color:#8E8689"></i></div></div></div>
+<div><div class="l">Dias úteis</div><div class="dy"><span>Dom</span><span class="y"><i class="ti ti-check"></i>Seg</span><span class="y"><i class="ti ti-check"></i>Ter</span><span class="y"><i class="ti ti-check"></i>Qua</span><span class="y"><i class="ti ti-check"></i>Qui</span><span class="y"><i class="ti ti-check"></i>Sex</span><span>Sáb</span></div></div>
+<div class="hl"><i class="ti ti-info-circle"></i> Usado pelo agente ("fora do horário") e no cálculo dos prazos das demandas.</div>
+</div>
+<div class="cf"><span style="font-size:14px;color:#8E8689;margin-right:auto">Sem alterações</span><span class="btn bd">Salvar expediente</span></div>
+</div>
+
+<div class="cd">
+<div class="ch"><div class="ic" style="background:#F3ECEE;color:#7A2335"><i class="ti ti-shield-dollar"></i></div><div><div class="k">Teto de IA e alertas</div><div class="cs">No teto do mês, o agente para de responder e as conversas vão para a equipe.</div></div></div>
+<div class="cb">
+<div class="f2"><div><div class="l">Teto mensal (US$)</div><div class="inp ch2"><b>120</b><span style="font-size:12px;color:#7A4A0E;font-weight:700">antes: 100</span></div></div>
+<div><div class="l">Gasto em outubro</div><div style="font-size:15px;font-weight:800;margin:4px 0 6px" class="num">US$ 41,20 <span style="color:#6B6466;font-weight:600;font-size:13px">· 34% do novo teto</span></div><div class="trk"><div class="fill" style="width:34%"></div><div class="mk" style="left:80%"></div></div></div></div>
+<div class="f2"><div><div class="l">Demanda sem responsável: avisar após</div><div class="inp">30 <span style="color:#8E8689;font-size:14px">minutos</span></div></div><div><div class="l">E-mail para alertas</div><div class="inp">thiago@escritorio.com.br</div></div></div>
+<div><div class="l">Seu WhatsApp (avisos e resumo diário)</div><div class="inp" style="width:calc(50% - 7px)">(11) 99876-5432</div></div>
+</div>
+<div class="cf"><span class="un"><i class="ti ti-alert-circle"></i> 1 alteração não salva</span><span class="btn bs">Descartar</span><span class="btn bp"><i class="ti ti-device-floppy"></i> Salvar teto e alertas</span></div>
+</div>
+
+<div class="cd">
+<div class="ch"><div class="ic" style="background:#E6F4EC;color:#2F7D57"><i class="ti ti-cpu"></i></div><div><div class="k">Modelos de IA</div><div class="cs">Qual modelo o agente usa em cada tipo de trabalho. Preço por milhão de tokens, em US$.</div></div></div>
+<div class="cb">
+<div class="f2"><div><div class="l">Conversas com clientes</div><div class="inp">Claude Sonnet 5 <i class="ti ti-chevron-down" style="color:#8E8689"></i></div><div class="hl">modelo_conversa · respostas e decisões</div></div>
+<div><div class="l">Tarefas rápidas</div><div class="inp">Claude Haiku 4.5 <i class="ti ti-chevron-down" style="color:#8E8689"></i></div><div class="hl">modelo_rapido · classificar, resumir</div></div></div>
+<table class="tb"><tr><th>Modelo</th><th>Entrada</th><th>Saída</th><th>Cache leitura</th><th>Cache escrita</th></tr>
+<tr><td><b>Claude Sonnet 5</b></td><td>2,00</td><td>10,00</td><td>0,20</td><td>2,50</td></tr>
+<tr><td style="border:0"><b>Claude Haiku 4.5</b></td><td style="border:0">1,00</td><td style="border:0">5,00</td><td style="border:0">0,10</td><td style="border:0">1,25</td></tr></table>
+</div>
+<div class="cf"><span style="font-size:14px;color:#8E8689;margin-right:auto">Sem alterações</span><span class="btn bd">Salvar modelos</span></div>
+</div>
+
+<div class="cd">
+<div class="ch"><div class="ic" style="background:#FBF3E3;color:#A8865A"><i class="ti ti-currency-dollar"></i></div><div><div class="k">Cotação e custo da transcrição</div><div class="cs">Valores digitados por você. Nada é buscado na internet.</div></div></div>
+<div class="cb">
+<div class="f2"><div><div class="l">Cotação US$ → R$</div><div class="inp">R$ 5,55 <span style="color:#8E8689;font-size:13px">por US$ 1</span></div><div class="hl">Mostra os gastos em reais. Atualizada em 01/10 por Thiago.</div></div>
+<div><div class="l">Transcrição de áudio (por minuto)</div><div class="inp">US$ 0,0020 <span style="color:#8E8689;font-size:13px">Groq</span></div><div class="hl">Entra no teto do mês junto com o resto.</div></div></div>
+<div style="background:#FAF8F7;border:1px dashed #DCD5D3;border-radius:6px;padding:10px 12px;font-size:14px;color:#4A4547">Em outubro: 212 min de áudio = <b>US$ 0,42</b> ≈ <b>R$ 2,33</b>. <span class="lk">Ver Gastos com IA <i class="ti ti-arrow-right"></i></span></div>
+</div>
+<div class="cf"><span style="font-size:14px;color:#8E8689;margin-right:auto">Sem alterações</span><span class="btn bd">Salvar valores</span></div>
+</div>
+</div>
+</div></div>
+</div></body></html>

@@ -1,0 +1,138 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0}body{font-family:'Plus Jakarta Sans',sans-serif;width:1440px;display:flex;color:#1C1A1B;background:#F1EFEE;font-size:14px}
+.nav{width:64px;background:#262223;display:flex;flex-direction:column;align-items:center;padding-top:14px;min-height:100vh;flex-shrink:0}.nav .lg{width:40px;height:40px;border-radius:50%;background:#7A2335;border:2px solid #C8A97E;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:14px}.nav i{font-size:22px;width:64px;text-align:center;padding:12px 0}.nav .on{background:#7A2335;color:#fff;box-shadow:inset 3px 0 0 #C8A97E}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{background:#fff;border-bottom:1px solid #E4E0DF;padding:13px 24px;display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#6B6466}
+.opt{font-size:12px;font-weight:700;color:#A8865A;border:1px solid #E5D6BF;border-radius:5px;padding:3px 9px;background:#FBF8F3}
+.body{display:flex;min-height:calc(100vh - 47px)}
+.c{flex:1;padding:20px 22px 28px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.hd{display:flex;justify-content:space-between;align-items:center}.t{font-size:28px;font-weight:300}.t b{font-weight:800;color:#7A2335}.t small{font-size:14px;color:#6B6466;font-weight:500;margin-left:6px}
+.btn{font-size:12px;font-weight:800;letter-spacing:.06em;border-radius:6px;padding:9px 14px;display:inline-flex;gap:6px;align-items:center;white-space:nowrap;text-transform:uppercase}
+.b1{background:#7A2335;color:#fff}.b2{border:1.5px solid #BDB6B8;color:#4A4547;background:#fff}.b3{background:#262223;color:#fff}.bch{border:1.5px solid #C8A97E;color:#8A6A3E;background:#fff}
+.fl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sr{flex:0 0 330px;border:1.5px solid #7A2335;border-radius:6px;padding:8px 11px;color:#8E8689;background:#fff;display:flex;gap:7px;align-items:center}
+.ch{font-size:13px;font-weight:600;padding:7px 11px;border:1px solid #D6D0CF;border-radius:6px;background:#fff;color:#4A4547;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}.ch b{font-weight:800}.ch.on{background:#262223;color:#fff;border-color:#262223}
+.sep{width:1px;height:24px;background:#D6D0CF}
+.tbl{background:#fff;border:1px solid #E4E0DF;border-radius:6px;overflow:hidden}
+.r{display:grid;grid-template-columns:28px minmax(0,1.2fr) minmax(0,1.25fr) minmax(0,1.45fr) 132px 74px 70px;gap:12px;align-items:center;padding:11px 14px;border-bottom:1px solid #F0EDEC}
+.r.h{background:#FAF9F8;font-size:12px;font-weight:800;letter-spacing:.05em;color:#6B6466;text-transform:uppercase;padding:10px 14px}
+.r.sel{background:#FBF7F8;box-shadow:inset 3px 0 0 #7A2335}
+.av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px}
+.nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tel{font-size:12.5px;color:#6B6466;font-variant-numeric:tabular-nums}
+.emp{font-size:13.5px;color:#7A2335;font-weight:700;line-height:1.45}.emp span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.none{color:#8E8689;font-style:italic;font-weight:500}
+.tg{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:4px;display:inline-flex;gap:4px;align-items:center;white-space:nowrap;margin:2px 4px 2px 0}
+.tn{background:#E3F2EE;color:#0F5446}.tp{background:#F3E6E9;color:#7A2335}.tz{background:#F3F1F0;color:#6B6466}
+.ul{font-size:13px;line-height:1.35}.ul small{display:block;font-size:12px;color:#6B6466}
+.sw{width:34px;height:19px;border-radius:10px;position:relative;display:inline-block;vertical-align:middle}.sw::after{content:'';position:absolute;top:2px;width:15px;height:15px;border-radius:50%;background:#fff}
+.sw.on{background:#0F5446}.sw.on::after{right:2px}.sw.off{background:#C9C2C4}.sw.off::after{left:2px}
+.ag{font-size:11.5px;font-weight:700;display:block;margin-top:3px}
+.ac{display:flex;gap:5px}.ac span{width:30px;height:30px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.ft{display:flex;justify-content:space-between;font-size:13px;color:#6B6466;padding:2px 2px}
+/* painel lateral */
+.side{width:430px;background:#fff;border-left:1px solid #E4E0DF;flex-shrink:0;display:flex;flex-direction:column}
+.sh{padding:16px 20px 14px;border-bottom:1px solid #ECE8E7}
+.sec{padding:14px 20px;border-bottom:1px solid #F0EDEC}
+.lb{font-size:12px;font-weight:800;letter-spacing:.08em;color:#7A2335;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;text-transform:uppercase}.lb span:nth-child(2){color:#8E8689;font-weight:600;letter-spacing:0;text-transform:none;font-size:12.5px}
+.ec{border:1px solid #E4E0DF;border-radius:6px;padding:10px 12px;margin-bottom:8px}
+.ck{display:flex;align-items:center;gap:8px;font-size:13.5px;padding:3px 0}.ck i{font-size:18px}
+.kv{display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0}.kv span:first-child{color:#6B6466}
+.dm{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:6px 0;border-bottom:1px solid #F5F3F2}
+.p{font-size:11.5px;font-weight:800;letter-spacing:.04em}
+.lgpd{margin:16px 20px 20px;border:1.5px dashed #B23A1E;border-radius:6px;padding:14px}
+.lk{color:#7A2335;font-weight:700}
+/* janelas */
+.dl{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:0 22px 28px}
+.cap{font-size:12px;font-weight:800;letter-spacing:.08em;color:#A8865A;text-transform:uppercase;margin:6px 22px 10px}
+.mod{background:#fff;border:1px solid #E4E0DF;border-radius:10px;padding:24px 28px;text-align:center}
+.ci{width:64px;height:64px;border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:30px}
+.mt{font-size:20px;font-weight:300}.mt b{font-weight:800}
+.mx{font-size:14px;color:#4A4547;margin-top:8px;line-height:1.5}
+.pl{font-size:12px;font-weight:800;letter-spacing:.06em;border-radius:18px;padding:10px 20px;display:inline-block}
+.inp{border:1.5px solid #B23A1E;border-radius:6px;padding:9px 12px;text-align:left;font-size:14px;margin-top:12px}
+</style></head><body>
+<div class="nav"><div class="lg">EC</div><i class="ti ti-layout-dashboard" style="color:#D6AE5C"></i><i class="ti ti-message-circle" style="color:#5DBB8F"></i><i class="ti ti-checklist" style="color:#A6C95A"></i><i class="ti ti-building" style="color:#6E9BC9"></i><i class="ti ti-address-book on"></i><i class="ti ti-sparkles" style="color:#D6AE5C"></i><i class="ti ti-school" style="color:#E0894A"></i><i class="ti ti-settings" style="color:#4FB0B8"></i></div>
+<div class="main">
+<div class="top"><span><i class="ti ti-address-book" style="color:#A98BCB"></i> › Cadastros › <b style="color:#1C1A1B">Contatos</b></span><span class="opt">Opção A — Tabela + painel lateral</span></div>
+<div class="body">
+<div class="c">
+<div class="hd"><div class="t">Contatos <b>214</b><small>quem fala pelas empresas no WhatsApp</small></div>
+<div style="display:flex;gap:8px"><span class="btn bch"><i class="ti ti-archive"></i>Arquivados (6)</span><span class="btn b1"><i class="ti ti-user-plus"></i>Novo contato</span></div></div>
+
+<div class="fl"><div class="sr"><i class="ti ti-search"></i> Nome, telefone ou empresa</div>
+<span class="ch on">Todos <b>214</b></span><span class="ch"><i class="ti ti-robot-off" style="color:#9A5B12"></i>Agente desligado <b>9</b></span><span class="ch"><i class="ti ti-building-off"></i>Sem empresa <b>4</b></span></div>
+<div class="fl" style="margin-top:-4px"><span class="ch">Pode pedir nota <b>58</b></span><span class="ch">Muda preço <b>17</b></span><span class="sep"></span><span class="ch"><i class="ti ti-building" style="color:#6E9BC9"></i>Empresa: todas <i class="ti ti-chevron-down"></i></span><span class="ch"><i class="ti ti-clock"></i>Último contato: qualquer data <i class="ti ti-chevron-down"></i></span><span class="ch" style="margin-left:auto;border:0;background:transparent;color:#6B6466"><i class="ti ti-arrows-sort"></i>Ordem: último contato</span></div>
+
+<div class="tbl">
+<div class="r h"><span></span><span>Contato</span><span>Empresas</span><span>Marcações</span><span>Último contato</span><span>Agente</span><span>Ações</span></div>
+
+<div class="r sel"><div class="av" style="background:#EADADE;color:#7A2335">CM</div><div><div class="nm">Carla Mendes</div><div class="tel">(11) 97777-2211</div></div><div class="emp"><span>Rede Bom Preço Ltda</span><span>Mercado Central</span></div><div><span class="tg tn">Pede nota · 1 de 2</span></div><div class="ul">hoje 14:48<small style="color:#9A5B12;font-weight:700">esperando pessoa</small></div><div><span class="sw on"></span><span class="ag" style="color:#0F5446">atende</span></div><div class="ac"><span style="background:#E3F2EE;color:#0F5446"><i class="ti ti-brand-whatsapp"></i></span><span style="background:#F3F1F0;color:#6B6466"><i class="ti ti-archive"></i></span></div></div>
+
+<div class="r"><div class="av" style="background:#E6EEF7;color:#2F5D8A">RN</div><div><div class="nm">Roberto Nunes</div><div class="tel">(11) 98123-4400</div></div><div class="emp"><span>Rede Bom Preço Ltda</span></div><div><span class="tg tn">Pede nota</span><span class="tg tp">Muda preço e cadastra produto</span></div><div class="ul">ontem 16:40<small>pelo agente</small></div><div><span class="sw on"></span><span class="ag" style="color:#0F5446">atende</span></div><div class="ac"><span style="background:#E3F2EE;color:#0F5446"><i class="ti ti-brand-whatsapp"></i></span><span style="background:#F3F1F0;color:#6B6466"><i class="ti ti-archive"></i></span></div></div>
+
+<div class="r"><div class="av" style="background:#FDF1E0;color:#9A5B12">JS</div><div><div class="nm">Jorge Santos</div><div class="tel">(31) 99654-1020</div></div><div class="emp"><span>Padaria Sol ME</span></div><div><span class="tg tn">Pede nota</span><span class="tg tp">Muda preço e cadastra produto</span></div><div class="ul">hoje 10:12<small>com Ana</small></div><div><span class="sw on"></span><span class="ag" style="color:#0F5446">atende</span></div><div class="ac"><span style="background:#E3F2EE;color:#0F5446"><i class="ti ti-brand-whatsapp"></i></span><span style="background:#F3F1F0;color:#6B6466"><i class="ti ti-archive"></i></span></div></div>
+
+<div class="r"><div class="av" style="background:#EEE9F5;color:#5E4685">RL</div><div><div class="nm">Rita Lima</div><div class="tel">(31) 98877-3301</div></div><div class="emp"><span>MEI Lima</span></div><div><span class="tg tn">Pede nota</span></div><div class="ul">hoje 09:40<small>com Bruno</small></div><div><span class="sw on"></span><span class="ag" style="color:#0F5446">atende</span></div><div class="ac"><span style="background:#E3F2EE;color:#0F5446"><i class="ti ti-brand-whatsapp"></i></span><span style="background:#F3F1F0;color:#6B6466"><i class="ti ti-archive"></i></span></div></div>
+
+<div class="r"><div class="av" style="background:#E3F2EE;color:#0F5446">PA</div><div><div class="nm">Paulo Andrade</div><div class="tel">(11) 99310-7788</div></div><div class="emp"><span>Mercado Central</span></div><div><span class="tg tn">Pede nota</span></div><div class="ul">hoje 08:55<small>pelo agente</small></div><div><span class="sw on"></span><span class="ag" style="color:#0F5446">atende</span></div><div class="ac"><span style="background:#E3F2EE;color:#0F5446"><i class="ti ti-brand-whatsapp"></i></span><span style="background:#F3F1F0;color:#6B6466"><i class="ti ti-archive"></i></span></div></div>
+
+<div class="r"><div class="av" style="background:#F3F1F0;color:#8E8689">MA</div><div><div class="nm">Marcos Alves</div><div class="tel">(19) 99102-5566</div></div><div class="emp"><span>Auto Peças MA</span></div><div><span class="tg tz">Só conversa</span></div><div class="ul">ontem 11:02<small>com Cláudia</small></div><div><span class="sw off"></span><span class="ag" style="color:#9A5B12">desligado</span></div><div class="ac"><span style="background:#E3F2EE;color:#0F5446"><i class="ti ti-brand-whatsapp"></i></span><span style="background:#F3F1F0;color:#6B6466"><i class="ti ti-archive"></i></span></div></div>
+
+<div class="r"><div class="av" style="background:#E6EEF7;color:#2F5D8A">LF</div><div><div class="nm">Luiza Faria</div><div class="tel">(21) 97456-0091</div></div><div class="emp"><span>Studio LF</span></div><div><span class="tg tz">Só conversa</span></div><div class="ul">29/09 15:20<small>pelo agente</small></div><div><span class="sw on"></span><span class="ag" style="color:#0F5446">atende</span></div><div class="ac"><span style="background:#E3F2EE;color:#0F5446"><i class="ti ti-brand-whatsapp"></i></span><span style="background:#F3F1F0;color:#6B6466"><i class="ti ti-archive"></i></span></div></div>
+
+<div class="r"><div class="av" style="background:#FDF1E0;color:#9A5B12">FR</div><div><div class="nm">Fernanda Rocha</div><div class="tel">(11) 96620-1180</div></div><div class="emp"><span>Mercado Central</span><span>Padaria Sol ME</span></div><div><span class="tg tz">Só conversa</span></div><div class="ul">28/09 10:05<small>com Thiago</small></div><div><span class="sw on"></span><span class="ag" style="color:#0F5446">atende</span></div><div class="ac"><span style="background:#E3F2EE;color:#0F5446"><i class="ti ti-brand-whatsapp"></i></span><span style="background:#F3F1F0;color:#6B6466"><i class="ti ti-archive"></i></span></div></div>
+
+<div class="r" style="border:0"><div class="av" style="background:#F3F1F0;color:#8E8689">SC</div><div><div class="nm">Sandra Costa</div><div class="tel">(31) 98540-2299</div></div><div class="emp"><span class="none">sem empresa</span></div><div><span class="tg tz">—</span></div><div class="ul">12/09 17:31<small>sem conversa aberta</small></div><div><span class="sw off"></span><span class="ag" style="color:#9A5B12">desligado</span></div><div class="ac"><span style="background:#E3F2EE;color:#0F5446"><i class="ti ti-brand-whatsapp"></i></span><span style="background:#F3F1F0;color:#6B6466"><i class="ti ti-archive"></i></span></div></div>
+</div>
+<div class="ft"><span>214 contatos · mostrando 1–50</span><span><i class="ti ti-chevron-left"></i> 1 de 5 <i class="ti ti-chevron-right"></i></span></div>
+</div>
+
+<div class="side">
+<div class="sh"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="display:flex;gap:12px;align-items:center"><div class="av" style="width:46px;height:46px;font-size:15px;background:#EADADE;color:#7A2335">CM</div><div><div style="font-size:19px;font-weight:800">Carla Mendes</div><div class="tel" style="font-size:13.5px">(11) 97777-2211 · cadastrada em 14/03</div></div></div><i class="ti ti-x" style="font-size:20px;color:#8E8689"></i></div>
+<div style="display:flex;gap:8px;margin-top:14px"><span class="btn b1"><i class="ti ti-brand-whatsapp"></i>Abrir conversa</span><span class="btn b2"><i class="ti ti-pencil"></i>Editar</span></div></div>
+
+<div class="sec"><div class="lb"><span>Agente</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:#0F5446"><i class="ti ti-robot"></i> O agente atende esta pessoa</span><span class="sw on"></span></div>
+<p style="font-size:13px;color:#6B6466;margin-top:6px;line-height:1.45">Desligado, nada é respondido automaticamente: a conversa vai direto para a equipe.</p></div>
+
+<div class="sec"><div class="lb"><span>Empresas (2)</span><span><i class="ti ti-link"></i> vincular empresa</span></div>
+<div class="ec"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span class="lk"><i class="ti ti-building"></i> Rede Bom Preço Ltda</span><i class="ti ti-external-link" style="color:#8E8689"></i></div>
+<div class="ck"><i class="ti ti-checkbox" style="color:#0F5446"></i>Pode pedir nota</div><div class="ck"><i class="ti ti-square" style="color:#BDB6B8"></i>Pode mudar preço e cadastrar produto</div></div>
+<div class="ec" style="margin:0"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span class="lk"><i class="ti ti-building"></i> Mercado Central</span><i class="ti ti-external-link" style="color:#8E8689"></i></div>
+<div class="ck"><i class="ti ti-square" style="color:#BDB6B8"></i>Pode pedir nota</div><div class="ck"><i class="ti ti-square" style="color:#BDB6B8"></i>Pode mudar preço e cadastrar produto</div></div></div>
+
+<div class="sec"><div class="lb"><span>WhatsApp</span><span>47 conversas</span></div>
+<div class="kv"><span>Último contato</span><span><b>hoje 14:48</b></span></div>
+<div class="kv"><span>Conversa agora</span><span style="color:#9A5B12;font-weight:700">esperando pessoa · 18 min</span></div>
+<div class="kv"><span>Resolvidas pelo agente</span><span>71%</span></div></div>
+
+<div class="sec"><div class="lb"><span>Demandas abertas</span><span>2</span></div>
+<div class="dm"><span><b>#1042</b> Nota de venda</span><span class="p" style="color:#B23A1E">● URGENTE · HOJE</span></div>
+<div class="dm" style="border:0"><span><b>#1017</b> Alteração de sócio</span><span class="p" style="color:#6B6466">NORMAL · 03/10</span></div></div>
+
+<div class="sec" style="border:0"><div class="lb"><span>Excluir…</span></div>
+<p style="font-size:13px;color:#4A4547;line-height:1.5">Tem histórico: vai para <b>Arquivados</b>. As conversas e demandas ficam guardadas e o agente deixa de reconhecer o número.</p>
+<span class="btn b2" style="margin-top:10px"><i class="ti ti-archive"></i>Excluir…</span></div>
+
+<div class="lgpd"><div style="font-size:13px;font-weight:800;letter-spacing:.06em;color:#B23A1E"><i class="ti ti-shield-exclamation"></i> APAGAR DADOS (LGPD) · SÓ ADMIN</div>
+<p style="font-size:13px;color:#4A4547;line-height:1.5;margin-top:6px">A pedido do titular. Nome, telefone, mensagens, áudios e arquivos somem de vez, em todas as empresas. Não dá para desfazer.</p>
+<span class="btn" style="margin-top:10px;border:1.5px solid #B23A1E;color:#B23A1E"><i class="ti ti-eraser"></i>Apagar dados…</span></div>
+</div>
+</div>
+
+<div class="cap">Janelas que abrem a partir do painel</div>
+<div class="dl">
+<div class="mod"><div class="ci" style="border:3px solid #C8A97E;color:#A8865A"><i class="ti ti-archive"></i></div>
+<div class="mt">Arquivar <b>Carla Mendes</b>?</div>
+<div class="mx">47 conversas e 3 demandas ficam guardadas.<br>Sai das listas e o agente não reconhece mais o número.</div>
+<div class="mx" style="color:#B23A1E;font-weight:700"><i class="ti ti-alert-circle"></i> 2 demandas ainda abertas (#1042, #1017)</div>
+<div style="display:flex;gap:10px;justify-content:center;margin-top:18px"><span class="pl" style="border:1.5px solid #BDB6B8;color:#4A4547">CANCELAR</span><span class="pl" style="background:#7A2335;color:#fff">SIM, ARQUIVAR</span></div></div>
+<div class="mod"><div class="ci" style="border:3px solid #B23A1E;color:#B23A1E"><i class="ti ti-eraser"></i></div>
+<div class="mt">Apagar os dados de <b>Carla Mendes</b>?</div>
+<div class="mx">Nome, telefone, mensagens, áudios e arquivos somem de vez, nas 2 empresas. Não dá para desfazer.</div>
+<div class="inp"><span style="font-size:12px;font-weight:800;color:#6B6466;letter-spacing:.05em;display:block;margin-bottom:3px">DIGITE O NOME PARA CONFIRMAR</span>Carla Mend<span style="color:#B23A1E">|</span></div>
+<div style="display:flex;gap:10px;justify-content:center;margin-top:16px"><span class="pl" style="border:1.5px solid #BDB6B8;color:#4A4547">CANCELAR</span><span class="pl" style="background:#E9D3CC;color:#fff">APAGAR DE VEZ</span></div></div>
+</div>
+</div></body></html>
