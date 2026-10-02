@@ -109,6 +109,23 @@ describe('consultas do assistente (pedido do dono, 2026-09-29)', () => {
     expect((await usar(e, 'dados_cadastro', { cliente_id: empresaId, unidade_id: cad.brasilEfigenia })).parceiro.cnpj).toBe('11.111.111/0001-91');
   });
 
+  it('empresa arquivada some do assistente, mesmo chamada pelo id (painel v2, parte B)', async () => {
+    const e = await estadoDe(await criarUsuarioTeste({ email: 'dono@teste-consultas.local' }));
+    await db.from('clientes').update({ ativo: false }).eq('id', empresaId);
+    expect((await usar(e, 'buscar_empresas', { texto: 'industria x' })).empresas).toEqual([]);
+    const chamadas: [string, object][] = [
+      ['buscar_parceiros', { cliente_id: empresaId, texto: 'Brasil', tipo: 'cliente' }],
+      ['buscar_produtos', { cliente_id: empresaId, textos: ['costela'] }],
+      ['consultar_preco', { cliente_id: empresaId, unidade_id: cad.brasilEfigenia, produto_id: cad.costela }],
+      ['dados_cadastro', { cliente_id: empresaId }],
+    ];
+    for (const [nome, entrada] of chamadas) {
+      const r = await usar(e, nome, entrada);
+      expect(r._erro, nome).toBe(true);
+      expect(r.erro, nome).toBe('Empresa não encontrada. Use buscar_empresas.');
+    }
+  });
+
   it('resumo de vendas no período, por rede', async () => {
     const e = await estadoDe(await criarUsuarioTeste({ email: 'dono@teste-consultas.local' }));
     const r = await usar(e, 'resumo_vendas', { de: '01/09/2026', ate: '31/12/2026' });

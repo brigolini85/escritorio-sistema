@@ -115,7 +115,8 @@ export function criarRepos(db: Db) {
 
     async ehTelefoneInterno(telefone: string): Promise<boolean> {
       const variantes = variantesTelefone(telefone);
-      const u = checar(await db.from('usuarios').select('id').in('telefone', variantes).limit(1), 'ehTelefoneInterno');
+      // Pessoa arquivada (ativo = false) deixa de ser equipe interna.
+      const u = checar(await db.from('usuarios').select('id').in('telefone', variantes).eq('ativo', true).limit(1), 'ehTelefoneInterno');
       if (u.length > 0) return true;
       const cfg = checar(await db.from('configuracoes').select('telefone_dono').eq('id', 1).single(), 'ehTelefoneInterno');
       return cfg.telefone_dono !== null && variantes.some((v) => variantesTelefone(cfg.telefone_dono!).includes(v));

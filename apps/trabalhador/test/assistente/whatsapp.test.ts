@@ -49,11 +49,12 @@ describe('WhatsApp da equipe e o assistente (pedido do dono, 2026-09-29)', () =>
     expect((await repos.mensagensNaoProcessadas(conversaId)).map((m) => m.conteudo)).toEqual(['quais notas estão abertas?']);
   });
 
-  it('usuário sem a marcação, ou desativado: segue ignorado como telefone interno', async () => {
+  it('usuário sem a marcação segue ignorado como telefone interno; arquivado deixa de ser interno (painel v2, parte B)', async () => {
     const id = await criarUsuarioTeste({ email: 'ana@teste-wpp.local', permissoes: ['assistente_site'], telefone: '5531977776666' });
     expect(await processarConversa(deps(), await mensagemDe('5531977776666', 'oi'), true)).toBe('interno');
-    await db.from('usuarios').update({ permissoes: ['assistente_whatsapp'], ativo: false }).eq('id', id);
-    expect(await processarConversa(deps(), await mensagemDe('5531977776666', 'oi de novo'), true)).toBe('interno');
     expect(fila.enviados).toEqual([]);
+    await db.from('usuarios').update({ permissoes: ['assistente_whatsapp'], ativo: false }).eq('id', id);
+    // Arquivado: o telefone deixa de ser interno e a conversa cai no fluxo normal (contato desconhecido).
+    expect(await processarConversa(deps(), await mensagemDe('5531977776666', 'oi de novo'), true)).not.toBe('interno');
   });
 });

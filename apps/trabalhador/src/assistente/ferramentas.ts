@@ -140,8 +140,9 @@ const linhaItem = (i: { produto: string | null; sku: string | null; un: string |
   `${String(i.quantidade ?? '?').replace('.', ',')} ${i.un ?? 'UN'} ${i.produto ?? ''}${i.sku ? ` (cód. ${i.sku})` : ''}` +
   (i.valor_unitario !== null && i.quantidade !== null ? ` × ${formatarReais(i.valor_unitario)} = ${formatarReais(Math.round(i.quantidade * i.valor_unitario * 100) / 100)}` : ' – sem preço');
 
+// Empresa arquivada (ativo = false) some para o assistente, como já some para o agente.
 async function empresaExiste(d: DepsAssistente, clienteId: string): Promise<boolean> {
-  try { await d.repos.dadosDaEmpresa(clienteId); return true; } catch { return false; }
+  try { return (await d.repos.dadosDaEmpresa(clienteId)).ativo; } catch { return false; }
 }
 
 async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nome: keyof typeof Entradas, entrada: any): Promise<Resultado> {
@@ -207,6 +208,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       return ok({ resultados: await buscarProdutos(d.repos, entrada.cliente_id, entrada.textos) });
 
     case 'consultar_preco': {
+      if (!(await empresaExiste(d, entrada.cliente_id))) return falha('Empresa não encontrada. Use buscar_empresas.');
       const unidade = (await d.repos.unidadesDaEmpresa(entrada.cliente_id, 'cliente')).find((x) => x.id === entrada.unidade_id);
       const produto = (await d.repos.produtosDaEmpresa(entrada.cliente_id)).find((p) => p.id === entrada.produto_id);
       if (!unidade || !produto) return falha('Unidade ou produto não é desta empresa. Use buscar_parceiros e buscar_produtos.');
