@@ -28,7 +28,7 @@ export function DemoConfirmacoes() {
     <div className="flex flex-wrap items-center gap-3">
       <ConfirmDialog
         gatilho={<Button><CircleCheck aria-hidden size={16} strokeWidth={1.75} />Concluir</Button>}
-        titulo="Concluir a demanda #1042?"
+        titulo={<>Concluir a demanda <strong className="font-extrabold">#1042</strong>?</>}
         descricao="A demanda sai da lista de abertas. Dá para reabrir depois."
         confirmar="Concluir"
         enviando="Concluindo…"
@@ -52,7 +52,7 @@ export function DemoConfirmacoes() {
       <ConfirmDialog
         formulario="demo-lgpd"
         gatilho={<Button variant="danger"><Trash2 aria-hidden size={16} strokeWidth={1.75} />Apagar dados (LGPD)</Button>}
-        titulo="Apagar os dados de João Lima?"
+        titulo={<>Apagar os dados de <strong className="font-extrabold">João Lima</strong>?</>}
         descricao="Nome, telefone e conversas deste contato serão apagados. Não dá para desfazer."
         confirmar="Apagar dados"
         digitarParaConfirmar="João Lima"

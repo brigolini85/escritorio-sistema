@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Archive, CircleCheck, CircleHelp, Trash2, TriangleAlert } from 'lucide-react';
+import { Archive, CircleCheck, CircleHelp, Trash2, TriangleAlert, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { APARENCIA_CONFIRMACAO, textoConfere, tipoPadrao, type TipoConfirmacao } from './confirmacao';
 
 // Ícone de cada tipo: o desenho diz o que a ação faz antes de ler o texto.
-const ICONE_CONFIRMACAO = { arquivar: Archive, excluir: Trash2, concluir: CircleCheck, perigo: TriangleAlert, neutro: CircleHelp } as const;
+const ICONE_CONFIRMACAO: Record<TipoConfirmacao, LucideIcon> = { arquivar: Archive, excluir: Trash2, concluir: CircleCheck, perigo: TriangleAlert, neutro: CircleHelp };
 
 type Base = {
   /** Botão que abre a confirmação (ex.: <Button variant="danger">Concluir</Button>). */
@@ -92,7 +92,7 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
     <Dialog open={aberto} onOpenChange={mudarAberto}>
       <DialogTrigger asChild>{gatilho}</DialogTrigger>
       <DialogContent className="max-w-md text-center">
-        <DialogHeader>
+        <DialogHeader className="gap-3 pr-0">
           <div aria-hidden className={cn('mx-auto flex size-20 items-center justify-center rounded-full border-4', ap.anel)}>
             <Icone size={40} strokeWidth={1.5} className={ap.icone} />
           </div>
@@ -103,7 +103,7 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
           <form action={props.acao} className="grid gap-4">
             {props.children}
             {campoDigitar}
-            <DialogFooter className="justify-center">
+            <DialogFooter className="sm:justify-center">
               <DialogClose asChild><Button type="button" variant="outline" className="rounded-pill px-6">Cancelar</Button></DialogClose>
               <BotaoEnviar rotulo={confirmar} enviando={enviando} variante={ap.botao} liberado={liberado} aoTerminar={() => mudarAberto(false)} />
             </DialogFooter>
@@ -111,7 +111,7 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
         ) : (
           <div className="grid gap-4">
             {campoDigitar}
-            <DialogFooter className="justify-center">
+            <DialogFooter className="sm:justify-center">
               <DialogClose asChild><Button type="button" variant="outline" className="rounded-pill px-6">Cancelar</Button></DialogClose>
               <Button type="submit" form={externo} variant={ap.botao} className="rounded-pill px-6" disabled={!liberado}>{confirmar}</Button>
             </DialogFooter>

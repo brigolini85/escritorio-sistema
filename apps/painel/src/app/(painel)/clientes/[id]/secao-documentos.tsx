@@ -57,7 +57,7 @@ export async function SecaoDocumentos({ id, pode, admin }: { id: string; pode: b
                             Excluir
                           </Button>
                         )}
-                        titulo={`Excluir "${d.nome}"?`}
+                        titulo={<>Excluir <strong className="font-extrabold">{d.nome}</strong>?</>}
                         descricao="O arquivo é apagado do armazenamento e o agente deixa de poder enviá-lo. Não dá para desfazer."
                         confirmar="Excluir"
                         enviando="Excluindo…"
