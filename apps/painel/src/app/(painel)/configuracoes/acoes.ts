@@ -1,9 +1,10 @@
 'use server';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { exigirAdmin } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { GeraisForm } from './esquemas';
+import { esquemaAvisoLogin, GeraisForm } from './esquemas';
 
 const recarregar = () => revalidatePath('/configuracoes');
 function checar(r: { error: { message: string } | null }) {
@@ -63,5 +64,13 @@ export async function salvarMensagens(formData: FormData) {
   const chaves = ['aviso_lgpd', 'fora_do_horario', 'ia_indisponivel'];
   const mensagens = Object.fromEntries(chaves.map((k) => [k, String(formData.get(k) ?? '').trim()]));
   checar(await (await supabaseServidor()).from('configuracoes').update({ mensagens }).eq('id', 1));
+  recarregar();
+}
+
+export async function salvarAvisoLogin(formData: FormData) {
+  await exigirAdmin();
+  const dados = esquemaAvisoLogin.safeParse({ aviso_login: String(formData.get('aviso_login') ?? '') });
+  if (!dados.success) redirect('/configuracoes?erro=aviso_login#mensagens');
+  checar(await (await supabaseServidor()).from('configuracoes').update({ aviso_login: dados.data.aviso_login }).eq('id', 1));
   recarregar();
 }

@@ -97,6 +97,8 @@ for (const tema of ['claro', 'escuro'] as const) {
       erros.push(...(await auditar(page, '/entrar', tema)));
       await page.goto('/entrar?erro=credenciais');
       erros.push(...(await auditar(page, '/entrar?erro=credenciais', tema)));
+      await page.goto('/esqueci-senha');
+      erros.push(...(await auditar(page, '/esqueci-senha', tema)));
       await page.goto('/definir-senha?erro=curta');
       erros.push(...(await auditar(page, '/definir-senha?erro=curta', tema)));
       expect(erros, erros.join('\n')).toEqual([]);

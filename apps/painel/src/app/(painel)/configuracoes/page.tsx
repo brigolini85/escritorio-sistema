@@ -20,7 +20,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import { classeCaixa, classeSelect } from '../clientes/estilos';
 import { gastoDoMes } from '../inicio/gasto-do-mes';
 import {
-  adicionarFeriado, removerFeriado, removerResposta, salvarGerais, salvarMensagens,
+  adicionarFeriado, removerFeriado, removerResposta, salvarAvisoLogin, salvarGerais, salvarMensagens,
   salvarResposta, salvarServico, salvarSetor,
 } from './acoes';
 import { CampoEmail, CampoNomeUnico } from './campos-validados';
@@ -72,7 +72,8 @@ function RodapeSalvar({ rotulo = 'Salvar', outro }: { rotulo?: string; outro?: {
   );
 }
 
-export default async function Configuracoes() {
+export default async function Configuracoes({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
+  const { erro } = await searchParams;
   const u = await exigirAdmin();
   const sb = await supabaseServidor();
   const agora = new Date();
@@ -160,6 +161,17 @@ export default async function Configuracoes() {
                 ))}
               </CardContent>
               <RodapeSalvar rotulo="Salvar mensagens" />
+            </Secao>
+          </FormularioAlteravel>
+
+          <FormularioAlteravel action={salvarAvisoLogin}>
+            <Secao id="aviso-login" titulo="Aviso na tela de entrada" descricao="Um recado curto que a equipe lê antes de entrar no painel.">
+              <CardContent>
+                <FormField id="aviso_login" rotulo="Aviso na tela de entrada" ajuda="Até 200 caracteres. Vazio não mostra nada. Nunca coloque dados de clientes." erro={erro === 'aviso_login' ? 'Até 200 caracteres.' : undefined}>
+                  <Textarea name="aviso_login" maxLength={200} rows={2} defaultValue={cfg?.aviso_login ?? ''} />
+                </FormField>
+              </CardContent>
+              <RodapeSalvar rotulo="Salvar aviso" />
             </Secao>
           </FormularioAlteravel>
 

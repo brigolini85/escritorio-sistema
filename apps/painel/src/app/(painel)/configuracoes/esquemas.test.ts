@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GeraisForm } from './esquemas';
+import { esquemaAvisoLogin, GeraisForm } from './esquemas';
 
 describe('GeraisForm', () => {
   it('valida horários, dias úteis e teto', () => {
@@ -12,5 +12,13 @@ describe('GeraisForm', () => {
     const f = new FormData();
     f.set('horario_inicio', '18:00'); f.set('horario_fim', '08:00'); f.set('teto_ia_usd', '80'); f.set('minutos_alerta_fila', '30');
     expect(GeraisForm.safeParse(f).success).toBe(false);
+  });
+});
+
+describe('esquemaAvisoLogin', () => {
+  it('apara, aceita vazio e até 200 caracteres', () => {
+    expect(esquemaAvisoLogin.parse({ aviso_login: '  Oi  ' })).toEqual({ aviso_login: 'Oi' });
+    expect(esquemaAvisoLogin.parse({ aviso_login: '' })).toEqual({ aviso_login: '' });
+    expect(esquemaAvisoLogin.safeParse({ aviso_login: 'x'.repeat(201) }).success).toBe(false);
   });
 });

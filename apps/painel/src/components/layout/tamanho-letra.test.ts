@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classeDoTamanho, cookieDoTamanho, OPCOES_LETRA, tamanhoDoValor } from './tamanho-letra';
+import { classeDoTamanho, cookieDoTamanho, lerCookieLetra, OPCOES_LETRA, precisaSincronizarLetra, tamanhoDoValor } from './tamanho-letra';
 
 describe('tamanho da letra', () => {
   it('valor desconhecido, vazio ou de outro formato vira normal', () => {
@@ -17,5 +17,17 @@ describe('tamanho da letra', () => {
   });
   it('opções na ordem do menu', () => {
     expect(OPCOES_LETRA.map((o) => o.rotulo)).toEqual(['Normal', 'Grande', 'Maior']);
+  });
+  it('lê o tamanho do texto de document.cookie', () => {
+    expect(lerCookieLetra('a=1; tamanho_letra=grande; b=2')).toBe('grande');
+    expect(lerCookieLetra('a=1')).toBeUndefined();
+    expect(lerCookieLetra('')).toBeUndefined();
+  });
+  it('sincroniza quando o cookie difere do perfil (inclusive cookie ausente)', () => {
+    expect(precisaSincronizarLetra('grande', 'grande')).toBe(false);
+    expect(precisaSincronizarLetra(undefined, 'normal')).toBe(false);
+    expect(precisaSincronizarLetra(undefined, 'maior')).toBe(true);
+    expect(precisaSincronizarLetra('normal', 'grande')).toBe(true);
+    expect(precisaSincronizarLetra('lixo', 'grande')).toBe(true);
   });
 });

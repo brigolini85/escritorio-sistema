@@ -19,3 +19,6 @@ export const GeraisForm = z.preprocess((v) => {
   email_alertas: z.string().email().nullable(),
   telefone_dono: telefoneOpcional,
 }).refine((g) => g.horario_fim > g.horario_inicio, { message: 'O fim do expediente precisa ser depois do início', path: ['horario_fim'] }));
+
+/** Recado na tela de entrada: aparado, pode ficar vazio (não mostra nada), até 200 caracteres. */
+export const esquemaAvisoLogin = z.object({ aviso_login: z.string().trim().max(200, 'Até 200 caracteres.') });

@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, Keyboard, LogOut } from 'lucide-react';
-import { createContext, useContext, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { toast } from 'sonner';
 import { sair } from '@/app/entrar/acoes';
 import { OPCOES_TEMA, useEscolhaTema } from '@/components/tema/alternador-tema';
@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { definirTamanhoLetra } from './acoes-perfil';
 import { EVENTO_ABRIR_ATALHOS } from './atalhos';
-import { classeDoTamanho, OPCOES_LETRA, tamanhoDoValor, type TamanhoLetra } from './tamanho-letra';
+import { classeDoTamanho, cookieDoTamanho, lerCookieLetra, OPCOES_LETRA, precisaSincronizarLetra, tamanhoDoValor, type TamanhoLetra } from './tamanho-letra';
 
 function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/).filter(Boolean);
@@ -65,17 +65,29 @@ export function ProvedorMenuUsuario({
   const [escolha, escolher] = useEscolhaTema(tema);
   const [letra, setLetra] = useState(tamanhoLetra);
 
+  // O perfil manda: se o cookie expirou ou o tamanho mudou noutro aparelho, acerta a classe do <html> e o cookie.
+  useEffect(() => {
+    if (!precisaSincronizarLetra(lerCookieLetra(document.cookie), tamanhoLetra)) return;
+    aplicarClasseLetra(tamanhoLetra);
+    document.cookie = cookieDoTamanho(tamanhoLetra);
+  }, [tamanhoLetra]);
+
   async function escolherLetra(valor: string) {
     const novo = tamanhoDoValor(valor);
     const anterior = letra;
     setLetra(novo);
     aplicarClasseLetra(novo);
-    const r = await definirTamanhoLetra(novo);
-    if (!r.ok) {
-      // Não gravou: volta ao tamanho anterior para a tela não mentir.
+    // Não gravou (erro do servidor ou da rede): volta ao tamanho anterior para a tela não mentir.
+    const voltar = (erro: string) => {
       setLetra(anterior);
       aplicarClasseLetra(anterior);
-      toast.error(r.erro);
+      toast.error(erro);
+    };
+    try {
+      const r = await definirTamanhoLetra(novo);
+      if (!r.ok) voltar(r.erro);
+    } catch {
+      voltar('Não deu para guardar o tamanho da letra.');
     }
   }
 
