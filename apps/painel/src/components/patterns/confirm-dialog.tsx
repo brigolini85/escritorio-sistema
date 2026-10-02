@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactElement, type ReactNode, type RefObject } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -19,6 +19,8 @@ type Base = {
   /** Janela controlada por quem chama (ex.: abre depois de consultar o banco). */
   aberto?: boolean;
   aoMudarAberto?: (aberto: boolean) => void;
+  /** Janela controlada não tem gatilho: sem isto o foco não volta ao botão que a abriu ao fechar. */
+  focoAoFechar?: RefObject<HTMLElement | null>;
   titulo: ReactNode;
   descricao?: ReactNode;
   /** Texto do botão que envia; o mesmo verbo da ação ("Concluir", "Apagar dados"). */
@@ -99,7 +101,7 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
   return (
     <Dialog open={aberto} onOpenChange={mudarAberto}>
       {gatilho && <DialogTrigger asChild>{gatilho}</DialogTrigger>}
-      <DialogContent className="max-w-md text-center">
+      <DialogContent className="max-w-md text-center" onCloseAutoFocus={(e) => { const alvo = props.focoAoFechar?.current; if (alvo) { e.preventDefault(); alvo.focus(); } }}>
         <DialogHeader className="gap-3 pr-0">
           <div aria-hidden className={cn('mx-auto flex size-20 items-center justify-center rounded-full border-4', ap.anel)}>
             <Icone size={40} strokeWidth={1.5} className={ap.icone} />

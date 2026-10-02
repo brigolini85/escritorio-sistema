@@ -2,7 +2,7 @@
 
 import { Archive, ArchiveRestore, TriangleAlert } from 'lucide-react';
 import { unstable_rethrow, useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toaster';
 import { AJUDA_EXCLUIR, textosDaJanela, type TextosJanela, type TipoCadastro } from '@/lib/arquivo';
@@ -22,6 +22,7 @@ export function ExcluirCadastro({ tipo, id, nome, variante = 'icone', voltarPara
   const [janela, setJanela] = useState<TextosJanela | null>(null);
   const [aberto, setAberto] = useState(false);
   const [consultando, iniciar] = useTransition();
+  const botaoRef = useRef<HTMLButtonElement>(null);
 
   // Sem "disabled" no botão: desabilitar tira o foco, e a janela precisa devolvê-lo ao botão quando fechar.
   const abrir = () => !consultando && iniciar(async () => {
@@ -53,11 +54,11 @@ export function ExcluirCadastro({ tipo, id, nome, variante = 'icone', voltarPara
   };
 
   const botao = variante === 'icone' ? (
-    <Button type="button" variant="outline" size="icon" onClick={abrir} aria-busy={consultando} aria-label={`Arquivar ou excluir ${nome}`}>
+    <Button ref={botaoRef} type="button" variant="outline" size="icon" onClick={abrir} aria-busy={consultando} aria-label={`Arquivar ou excluir ${nome}`}>
       <Archive aria-hidden size={16} strokeWidth={1.75} />
     </Button>
   ) : (
-    <Button type="button" variant="outline" size="sm" onClick={abrir} aria-busy={consultando}>Excluir…</Button>
+    <Button ref={botaoRef} type="button" variant="outline" size="sm" onClick={abrir} aria-busy={consultando}>Excluir…</Button>
   );
 
   return (
@@ -72,6 +73,7 @@ export function ExcluirCadastro({ tipo, id, nome, variante = 'icone', voltarPara
         <ConfirmDialog
           aberto={aberto}
           aoMudarAberto={setAberto}
+          focoAoFechar={botaoRef}
           tipo={janela.modo}
           titulo={<>{janela.verbo} <strong className="font-extrabold">{nome}</strong>?</>}
           descricao={(

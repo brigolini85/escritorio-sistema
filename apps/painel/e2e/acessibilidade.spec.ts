@@ -114,10 +114,12 @@ for (const tema of ['claro', 'escuro'] as const) {
         '/demandas',
         `/demandas?demanda=${ids.demanda}`,
         '/clientes',
+        '/clientes?ver=arquivados',
         `/clientes/${ids.cliente}`,
         `/clientes/${ids.cliente}?aba=contatos`,
         `/clientes/${ids.cliente}?aba=precos`,
         '/contatos',
+        '/contatos?ver=arquivados',
         `/contatos?contato=${ids.contato}`,
         '/assistente',
         '/treinar-agente',
@@ -125,6 +127,7 @@ for (const tema of ['claro', 'escuro'] as const) {
         `/treinar-agente?orientacao=${ids.orientacao}&aba=historico`,
         '/treinar-agente?orientacao=nova&modelo=cumprimento',
         '/usuarios',
+        '/usuarios?ver=arquivados',
         `/usuarios?usuario=${ids.usuario}`,
         '/configuracoes',
         '/_design',
@@ -187,6 +190,14 @@ for (const tema of ['claro', 'escuro'] as const) {
       await page.getByRole('button', { name: 'Restaurar esta versão' }).click();
       await expect(page.getByRole('dialog', { name: 'Restaurar esta versão?' })).toBeVisible();
       erros.push(...(await auditar(page, 'confirmação de restaurar (Treinar o agente)', tema)));
+
+      // Janela do Excluir… (Parte B): a empresa semeada tem conversa e demanda, então abre no modo arquivar com o aviso.
+      await page.goto(`/clientes/${ids.cliente}`);
+      await page.getByRole('button', { name: 'Excluir…' }).click();
+      await expect(page.getByRole('dialog', { name: /^Arquivar / })).toBeVisible();
+      erros.push(...(await auditar(page, 'janela Excluir…', tema)));
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('button', { name: 'Excluir…' })).toBeFocused();
       expect(erros, erros.join('\n')).toEqual([]);
     });
 
