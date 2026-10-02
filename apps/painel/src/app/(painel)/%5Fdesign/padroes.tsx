@@ -24,7 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { lerOrdem, lerPagina, ordenarLinhas, paginar, valorParam, type ParamsBusca } from '@/lib/tabela-url';
-import { DemoConfirmacoes, DemoTabela, type DemandaExemplo } from './demos-padroes';
+import { DemoConfirmacoes, DemoTabela, DemoTiposConfirmacao, type DemandaExemplo } from './demos-padroes';
 
 // Seção "Padrões de domínio" do /_design (fase 3): cada padrão de components/patterns com dados de exemplo.
 
@@ -136,6 +136,9 @@ export function Padroes({ params }: { params: ParamsBusca }) {
           {(Object.keys(STATUS_CONVERSA) as StatusConversa[]).map((s) => <StatusBadge key={s} tipo="conversa" status={s} />)}
           {(Object.keys(TIPO_ORIENTACAO) as TipoOrientacaoSelo[]).map((s) => <StatusBadge key={s} tipo="orientacao" status={s} />)}
         </Exemplo>
+        <Exemplo titulo="Status de demanda (texto colorido + ponto)">
+          {(Object.keys(STATUS_DEMANDA) as StatusDemanda[]).map((s) => <StatusBadge key={s} tipo="demanda" status={s} />)}
+        </Exemplo>
         <Exemplo titulo="HealthSignal" className="flex flex-col items-start gap-2">
           <HealthSignal rotulo="WhatsApp (Z-API)" ultimoSinal={ha(40)} detalhe="Conectado ao número (31) 3222-1100" />
           <HealthSignal rotulo="Fila (pg-boss)" ultimoSinal={ha(4 * 60)} />
@@ -187,6 +190,9 @@ export function Padroes({ params }: { params: ParamsBusca }) {
       <div className="grid gap-4 lg:grid-cols-2">
         <Exemplo titulo="ConfirmDialog">
           <DemoConfirmacoes />
+        </Exemplo>
+        <Exemplo titulo="Confirmações: os 5 tipos">
+          <DemoTiposConfirmacao />
         </Exemplo>
         <Exemplo titulo="BlingExportButton" className="flex flex-col items-start gap-3">
           <BlingExportButton href="#csv-bling-exemplo" />

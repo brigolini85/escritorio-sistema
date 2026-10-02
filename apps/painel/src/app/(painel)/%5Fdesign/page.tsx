@@ -28,7 +28,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { PageHeader } from '@/components/layout/page-header';
 import { DemoAvisos } from './demos';
+import { MenuExemplo } from './menu-exemplo';
 import { Padroes } from './padroes';
 
 // Catálogo vivo do design system: todos os tokens e primitivos. Só em desenvolvimento (D6).
@@ -36,7 +38,7 @@ import { Padroes } from './padroes';
 export const metadata = { title: 'Design system | Painel do Escritório' };
 
 const CORES: { grupo: string; tokens: [string, string][] }[] = [
-  { grupo: 'Marca', tokens: [['--brand-base', 'a cor da marca (a única linha a editar)'], ['--brand', 'ações primárias, links, foco'], ['--brand-foreground', 'texto sobre a marca'], ['--brand-soft', 'item selecionado']] },
+  { grupo: 'Marca (vinho)', tokens: [['--brand-base', 'a cor da marca (a única linha a editar)'], ['--brand', 'ações primárias, links, foco'], ['--brand-foreground', 'texto sobre a marca'], ['--brand-soft', 'item selecionado']] },
   {
     grupo: 'Superfícies',
     tokens: [
@@ -50,6 +52,24 @@ const CORES: { grupo: string; tokens: [string, string][] }[] = [
     tokens: ['success', 'warning', 'danger', 'info'].flatMap((s): [string, string][] => [[`--${s}`, 'forte'], [`--${s}-soft`, 'fundo suave']]),
   },
   {
+    grupo: 'Menu (grafite)',
+    tokens: [
+      ['--sidebar-bg', 'fundo do menu'], ['--sidebar-bg-raised', 'submenu e atalhos'], ['--sidebar-text', 'texto dos itens'],
+      ['--sidebar-border', 'divisórias do menu'], ['--sidebar-active', 'item ativo (vinho nos dois temas)'], ['--sidebar-active-foreground', 'texto do item ativo'],
+    ],
+  },
+  {
+    grupo: 'Champanhe e grafite',
+    tokens: [
+      ['--accent-champagne', 'enfeite: fio do item ativo, aro do logo'], ['--accent-champagne-text', 'champanhe como texto'],
+      ['--graphite', 'botão Entrar, FILTRAR, excluir de vez'], ['--graphite-foreground', 'texto sobre o grafite'], ['--warning-decor', 'faixas e pontos de atenção (nunca texto)'],
+    ],
+  },
+  {
+    grupo: 'Cores dos módulos (ícones do menu)',
+    tokens: ['inicio', 'atendimento', 'demandas', 'clientes', 'contatos', 'assistente', 'treinar', 'configuracoes'].map((m): [string, string] => [`--modulo-${m}`, '']),
+  },
+  {
     grupo: 'Domínio',
     tokens: [
       ['--agent-active', 'agente respondendo'], ['--agent-active-soft', ''], ['--agent-paused', 'agente pausado'], ['--agent-paused-soft', ''],
@@ -60,6 +80,8 @@ const CORES: { grupo: string; tokens: [string, string][] }[] = [
 ];
 
 const TIPOGRAFIA: [string, string, string][] = [
+  ['text-display', '64px', 'Número grande'],
+  ['text-3xl', '32px', 'Destaque'],
   ['text-2xl', '24px', 'Título de página'],
   ['text-xl', '20px', 'Título de seção'],
   ['text-lg', '16px', 'Título de card'],
@@ -145,9 +167,11 @@ export default async function PaginaDesign({ searchParams }: { searchParams: Pro
         </div>
       </Secao>
 
-      <Secao titulo="Tipografia" descricao="Plus Jakarta Sans. Escala fechada; corpo em 14px. Números com o utilitário tabular.">
+      <Secao titulo="Tipografia" descricao="Plus Jakarta Sans. Escala fechada em rem, base 14 (os px valem em 1366px; a letra cresce com a tela). Números com o utilitário tabular.">
         <Card>
           <CardContent className="space-y-3">
+            <PageHeader secao="Cadastros" titulo="Clientes" contagem={124} descricao="Título de página: texto leve e a contagem em vinho extranegrito." className="mb-0" />
+            <Separator />
             {TIPOGRAFIA.map(([classe, px, uso]) => (
               <div key={classe} className="flex items-baseline gap-4">
                 <span className="w-36 shrink-0 font-mono text-xs text-subtle">{classe} · {px}</span>
@@ -163,6 +187,12 @@ export default async function PaginaDesign({ searchParams }: { searchParams: Pro
             </div>
           </CardContent>
         </Card>
+      </Secao>
+
+      <Secao titulo="Menu" descricao="Recorte do menu lateral real (Sidebar) com itens fixos: Configurações ativa, fio champanhe e submenu aberto.">
+        <div id="menu" className="h-160 w-sidebar overflow-hidden rounded-lg border border-border bg-sidebar text-sidebar-foreground">
+          <MenuExemplo />
+        </div>
       </Secao>
 
       <Secao titulo="Forma e profundidade">

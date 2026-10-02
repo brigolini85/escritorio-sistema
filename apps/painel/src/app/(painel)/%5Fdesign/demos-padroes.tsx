@@ -1,8 +1,9 @@
 'use client';
 
-import { CircleCheck, FileSpreadsheet, Ellipsis, Trash2 } from 'lucide-react';
+import { Archive, CircleCheck, CircleHelp, FileSpreadsheet, Ellipsis, Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
+import type { TipoConfirmacao } from '@/components/patterns/confirmacao';
 import { BarraSelecao, CamposSelecionados, DataTable, type ColunaTabela } from '@/components/patterns/data-table';
 import { DocumentText } from '@/components/patterns/document-text';
 import { FilterBar } from '@/components/patterns/filter-bar';
@@ -58,6 +59,33 @@ export function DemoConfirmacoes() {
         digitarParaConfirmar="João Lima"
         tipo="excluir"
       />
+    </div>
+  );
+}
+
+// Os 5 tipos do ConfirmDialog lado a lado: cada um tem anel, ícone e botão próprios.
+const TIPOS: { tipo: TipoConfirmacao; rotulo: string; Icone: typeof Archive; titulo: string; descricao: string; confirmar: string }[] = [
+  { tipo: 'arquivar', rotulo: 'Arquivar', Icone: Archive, titulo: 'Arquivar o cliente Padaria Pão Quente?', descricao: 'Ele sai das listas, mas o histórico fica guardado.', confirmar: 'Arquivar' },
+  { tipo: 'excluir', rotulo: 'Excluir', Icone: Trash2, titulo: 'Excluir a resposta pronta "Bom dia"?', descricao: 'A resposta some de vez. Não dá para desfazer.', confirmar: 'Excluir' },
+  { tipo: 'concluir', rotulo: 'Concluir', Icone: CircleCheck, titulo: 'Concluir a demanda #1042?', descricao: 'A demanda sai da lista de abertas.', confirmar: 'Concluir' },
+  { tipo: 'perigo', rotulo: 'Perigo', Icone: TriangleAlert, titulo: 'Pausar o agente em todas as conversas?', descricao: 'Ninguém será atendido pelo agente até você religar.', confirmar: 'Pausar' },
+  { tipo: 'neutro', rotulo: 'Neutro', Icone: CircleHelp, titulo: 'Enviar o lembrete agora?', descricao: 'O cliente recebe a mensagem pelo WhatsApp.', confirmar: 'Enviar' },
+];
+
+export function DemoTiposConfirmacao() {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      {TIPOS.map(({ tipo, rotulo, Icone, titulo, descricao, confirmar }) => (
+        <ConfirmDialog
+          key={tipo}
+          tipo={tipo}
+          gatilho={<Button variant="outline"><Icone aria-hidden size={16} strokeWidth={1.75} />{rotulo}</Button>}
+          titulo={titulo}
+          descricao={descricao}
+          confirmar={confirmar}
+          acao={async () => { toast.success(`Confirmação do tipo "${tipo}" (exemplo).`); }}
+        />
+      ))}
     </div>
   );
 }

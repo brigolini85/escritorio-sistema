@@ -46,6 +46,15 @@ export function StatusBadge(
     : TIPO_ORIENTACAO[props.status];
   if (!a) return null;
   const { Icone } = a;
+  // Status de demanda: texto colorido com ponto, sem fundo (spec 4.2). A cor sempre vem com o texto.
+  if (props.tipo === 'demanda') {
+    return (
+      <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-bold', a.cor, props.className)}>
+        <span aria-hidden className="size-2 shrink-0 rounded-full bg-current" />
+        {a.rotulo}
+      </span>
+    );
+  }
   return (
     <Badge variant={a.variant} className={props.className}>
       <Icone aria-hidden strokeWidth={1.75} />
