@@ -40,7 +40,7 @@ export async function salvarUsuario(id: string, formData: FormData) {
     await telefoneLivre(d.telefone, id);
     // Sessão do administrador (o RLS escrita_admin permite): a auditoria registra quem mudou, em vez de ficar sem usuário.
     const sb = await supabaseServidor();
-    checar(await sb.from('usuarios').update({ nome: d.nome, papel: d.papel, telefone: d.telefone, permissoes: d.permissoes, ativo: formData.get('ativo') === 'on' }).eq('id', id));
+    checar(await sb.from('usuarios').update({ nome: d.nome, papel: d.papel, telefone: d.telefone, permissoes: d.permissoes }).eq('id', id));
     checar(await sb.from('usuario_setores').delete().eq('usuario_id', id));
     if (d.setores.length) checar(await sb.from('usuario_setores').insert(d.setores.map((setor_id) => ({ usuario_id: id, setor_id }))));
   });

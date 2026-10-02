@@ -31,7 +31,7 @@ const PERMISSOES_DE_EDICAO = new Set(['editar_clientes', 'editar_precos', 'emiti
 
 /**
  * Formulário da pessoa (editar no painel lateral ou convidar na janela). Os mesmos campos de antes:
- * nome, email, telefone, papel, setor (vários), permissao (várias) e, ao editar, ativo. Switch e Checkbox
+ * nome, email, telefone, papel, setor (vários), permissao (várias). Switch e Checkbox
  * (Radix) enviam name=value quando marcados, como as caixas nativas enviavam.
  * O aviso de WhatsApp sem telefone aparece na hora, mas não impede o envio: quem decide é o servidor
  * ("Informe o telefone para usar o assistente pelo WhatsApp").
@@ -152,16 +152,6 @@ export function FormularioUsuario({
             })}
           </ul>
         </fieldset>
-
-        {editando && (
-          <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
-            <div>
-              <Label htmlFor={`${id}-ativo`} className={cn('cursor-pointer text-base', ROTULO_DE_OPCAO)}>Ativo</Label>
-              <p id={`${id}-ativo-descricao`} className="text-sm text-muted">Desligado, a pessoa não entra mais no painel.</p>
-            </div>
-            <Switch id={`${id}-ativo`} name="ativo" defaultChecked={usuario?.ativo} {...inicialRadix(usuario?.ativo)} aria-describedby={`${id}-ativo-descricao`} className="mt-0.5" />
-          </div>
-        )}
       </div>
       <div className="flex items-center justify-end gap-3 border-t border-border p-4">
         <IndicadorAlteracoes />

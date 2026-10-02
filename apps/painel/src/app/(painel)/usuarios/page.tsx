@@ -2,8 +2,10 @@ import { variantesTelefone } from '@escritorio/core';
 import { CircleAlert, SearchX, TriangleAlert, UsersRound } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { DataTable, type ColunaTabela } from '@/components/patterns/data-table';
+import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
 import { DocumentText } from '@/components/patterns/document-text';
 import { EmptyState } from '@/components/patterns/empty-state';
+import { AvisoArquivado, LinkArquivados, TelaArquivados } from '@/components/patterns/lista-arquivados';
 import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
 import { Badge } from '@/components/ui/badge';
 import { SheetBody, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -24,7 +26,7 @@ const SELO_EDICAO = [
   { valor: 'emitir_notas', rotulo: 'Notas e CSV do Bling' },
 ] as const;
 
-type Linha = DadosUsuario & { id: string; contatoDoTelefone: string | null };
+type Linha = DadosUsuario & { id: string; contatoDoTelefone: string | null; arquivadoEm: string | null; arquivadoPor: string | null };
 
 /** "Administrador · desativado · assistente no site · assistente no WhatsApp": o resumo de sempre, depois do nome. */
 function resumo(u: Linha): string {
@@ -77,8 +79,11 @@ function EsqueletoUsuario() {
  * do convite (convidarUsuario). Os erros das duas ações voltam em ?erro=.
  */
 export default async function Usuarios({ searchParams }: { searchParams: Promise<ParamsBusca> }) {
-  await exigirAdmin();
+  const eu = await exigirAdmin();
   const params = await searchParams;
+  if (valorParam(params, 'ver') === 'arquivados') {
+    return <TelaArquivados tipo="usuario" titulo="Usuários arquivados" voltar={{ rotulo: 'Usuários e permissões', href: '/usuarios' }} pode />;
+  }
   const erro = valorParam(params, 'erro');
   const pedido = valorParam(params, 'usuario');
   const usuarioAberto = pedido && UUID.test(pedido) ? pedido : null;
@@ -101,7 +106,11 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
     id: u.id, nome: u.nome, email: u.email, telefone: u.telefone, papel: u.papel, ativo: u.ativo, permissoes: u.permissoes,
     setores: u.usuario_setores.map((x) => x.setor_id),
     contatoDoTelefone: u.permissoes.includes('assistente_whatsapp') ? contatoDoTelefone(u.telefone) : null,
+    arquivadoEm: u.arquivado_em, arquivadoPor: u.arquivado_por,
   }));
+  // A lista toda segue com todas as pessoas (o convite recusa e-mail repetido); a tabela mostra só quem está ativo.
+  const ativos = linhas.filter((l) => l.ativo);
+  const arquivados = linhas.length - ativos.length;
   const aberto = usuarioAberto ? linhas.find((l) => l.id === usuarioAberto) ?? null : null;
   // Abrir outra pessoa tira o ?erro= da tentativa anterior (o aviso era de outra pessoa ou já foi lido na página).
   const hrefUsuario = (id: string | null) => `/usuarios${hrefComParams(params, id ? { usuario: id, erro: null } : { usuario: null })}`;
@@ -162,19 +171,26 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
     <section>
       <PageHeader
         titulo="Usuários e permissões"
-        contagem={linhas.length}
+        contagem={ativos.length}
         descricao="O administrador pode tudo no painel. As marcações do assistente valem para todos, inclusive o administrador."
-        acoes={<ConviteUsuario acao={convidarUsuario} setores={opcoesSetor} emails={linhas.map((l) => l.email.toLowerCase())} />}
+        acoes={(
+          <>
+            <LinkArquivados href="/usuarios?ver=arquivados" total={arquivados} />
+            <ConviteUsuario acao={convidarUsuario} setores={opcoesSetor} emails={linhas.map((l) => l.email.toLowerCase())} />
+          </>
+        )}
       />
       {erro && <div className="mb-4"><AvisoErro erro={erro} /></div>}
       <DataTable
         rotulo="Usuários"
-        linhas={linhas}
+        linhas={ativos}
         colunas={colunas}
         chave={(u) => u.id}
         params={params}
         ordem={ordem}
         hrefLinha={(u) => hrefUsuario(u.id)}
+        // Ninguém arquiva nem exclui o próprio acesso.
+        acoesLinha={(u) => (u.id === eu.id ? null : <ExcluirCadastro tipo="usuario" id={u.id} nome={u.nome} />)}
         linhaAtiva={usuarioAberto}
         erro={erroLista ? 'Não consegui carregar as pessoas agora.' : undefined}
         vazio={<EmptyState icone={UsersRound} titulo="Nenhuma pessoa cadastrada." descricao="Convide a equipe pelo botão Convidar pessoa." />}
@@ -188,23 +204,33 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
               <SheetDescription className="flex flex-wrap items-center gap-2">
                 <span>{aberto.email}</span>
                 <Badge variant={aberto.papel === 'admin' ? 'brand' : 'neutral'}>{PAPEL[aberto.papel]}</Badge>
-                {!aberto.ativo && <Badge variant="outline">Desativado</Badge>}
               </SheetDescription>
             </SheetHeader>
-            <FormularioUsuario
-              // Voltou do servidor com dados novos (salvou): o formulário recomeça com eles.
-              key={JSON.stringify(aberto)}
-              acao={salvarUsuario.bind(null, aberto.id)}
-              usuario={aberto}
-              setores={opcoesSetor}
-              enviar="Salvar usuário"
-              aviso={(erro || aberto.contatoDoTelefone) && (
-                <>
-                  {erro && <AvisoErro erro={erro} />}
-                  {aberto.contatoDoTelefone && <AvisoContato contato={aberto.contatoDoTelefone} />}
-                </>
-              )}
-            />
+            {aberto.ativo ? (
+              <>
+                <FormularioUsuario
+                  // Voltou do servidor com dados novos (salvou): o formulário recomeça com eles.
+                  key={JSON.stringify(aberto)}
+                  acao={salvarUsuario.bind(null, aberto.id)}
+                  usuario={aberto}
+                  setores={opcoesSetor}
+                  enviar="Salvar usuário"
+                  aviso={(erro || aberto.contatoDoTelefone) && (
+                    <>
+                      {erro && <AvisoErro erro={erro} />}
+                      {aberto.contatoDoTelefone && <AvisoContato contato={aberto.contatoDoTelefone} />}
+                    </>
+                  )}
+                />
+                {aberto.id !== eu.id && (
+                  <div className="px-4 pb-4"><ExcluirCadastro tipo="usuario" id={aberto.id} nome={aberto.nome} variante="area" voltarPara="/usuarios" /></div>
+                )}
+              </>
+            ) : (
+              <SheetBody className="py-4">
+                <AvisoArquivado tipo="usuario" id={aberto.id} nome={aberto.nome} arquivadoEm={aberto.arquivadoEm} arquivadoPor={linhas.find((l) => l.id === aberto.arquivadoPor)?.nome ?? null} pode />
+              </SheetBody>
+            )}
           </>
         ) : (
           <>

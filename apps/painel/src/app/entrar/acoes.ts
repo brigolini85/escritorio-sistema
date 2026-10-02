@@ -11,9 +11,14 @@ export async function entrar(formData: FormData) {
     password: String(formData.get('senha') ?? ''),
   });
   if (error) redirect('/entrar?erro=credenciais');
+  // Pessoa arquivada (ou sem cadastro no painel) não entra: a RLS nem deixa ler a própria linha, então perfil vem vazio.
+  const { data: perfil } = await sb.from('usuarios').select('tamanho_letra, ativo').eq('id', data.user.id).maybeSingle();
+  if (!perfil?.ativo) {
+    await sb.auth.signOut();
+    redirect('/entrar?erro=inativo');
+  }
   // O tamanho da letra segue a pessoa, mesmo noutro computador.
-  const { data: perfil } = await sb.from('usuarios').select('tamanho_letra').eq('id', data.user.id).maybeSingle();
-  (await cookies()).set(COOKIE_LETRA, tamanhoDoValor(perfil?.tamanho_letra), OPCOES_COOKIE_LETRA);
+  (await cookies()).set(COOKIE_LETRA, tamanhoDoValor(perfil.tamanho_letra), OPCOES_COOKIE_LETRA);
   redirect('/inicio');
 }
 
