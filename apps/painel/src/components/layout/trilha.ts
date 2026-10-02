@@ -8,6 +8,8 @@ const SECOES: Secao[] = [
   { prefixo: '/atendimento', trilha: [{ rotulo: 'Atendimento' }], detalhe: 'Conversa' },
   { prefixo: '/demandas', trilha: [{ rotulo: 'Demandas' }] },
   { prefixo: '/clientes', trilha: [{ rotulo: 'Cadastros' }, { rotulo: 'Clientes' }], detalhe: 'Empresa' },
+  // Rota fixa mais longa que /clientes/[id]: sem esta linha, /clientes/novo viraria "Empresa".
+  { prefixo: '/clientes/novo', trilha: [{ rotulo: 'Cadastros' }, { rotulo: 'Clientes', href: '/clientes' }, { rotulo: 'Novo cliente' }] },
   { prefixo: '/contatos', trilha: [{ rotulo: 'Cadastros' }, { rotulo: 'Contatos' }] },
   { prefixo: '/assistente', trilha: [{ rotulo: 'Assistente' }] },
   { prefixo: '/treinar-agente', trilha: [{ rotulo: 'Treinar o agente' }] },

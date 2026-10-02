@@ -9,6 +9,7 @@ describe('trilha da barra do topo (ícone › Seção › Tela)', () => {
     ['/demandas', [{ rotulo: 'Demandas' }]],
     ['/clientes', [{ rotulo: 'Cadastros' }, { rotulo: 'Clientes' }]],
     ['/clientes/123', [{ rotulo: 'Cadastros' }, { rotulo: 'Clientes', href: '/clientes' }, { rotulo: 'Empresa' }]],
+    ['/clientes/novo', [{ rotulo: 'Cadastros' }, { rotulo: 'Clientes', href: '/clientes' }, { rotulo: 'Novo cliente' }]],
     ['/contatos', [{ rotulo: 'Cadastros' }, { rotulo: 'Contatos' }]],
     ['/assistente', [{ rotulo: 'Assistente' }]],
     ['/treinar-agente', [{ rotulo: 'Treinar o agente' }]],
@@ -20,5 +21,9 @@ describe('trilha da barra do topo (ícone › Seção › Tela)', () => {
   });
   it('rota desconhecida devolve trilha vazia (só o ícone de Início)', () => {
     expect(trilhaDaRota('/qualquer')).toEqual([]);
+  });
+  it('prefixo parecido não casa (colisão de prefixos)', () => {
+    expect(trilhaDaRota('/clientesX')).toEqual([]);
+    expect(trilhaDaRota('/usuarios-x')).toEqual([]);
   });
 });
