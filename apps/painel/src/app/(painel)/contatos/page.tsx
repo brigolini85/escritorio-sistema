@@ -10,6 +10,7 @@ import { LinkArquivados, TelaArquivados } from '@/components/patterns/lista-arqu
 import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
 import { SwitchAgenteContato } from '@/components/patterns/switch-agente-contato';
 import { Button, variantesBotao } from '@/components/ui/button';
+import { FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { contarArquivados } from '@/lib/arquivados';
@@ -175,7 +176,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
             <CardTitle>Cadastrar contato</CardTitle>
             <CardDescription>Com ou sem empresa. Para ligar a uma empresa, abra a empresa em Clientes → aba Contatos → &quot;Vincular contato já cadastrado&quot;.</CardDescription>
           </CardHeader>
-          <form action={cadastrarContato}>
+          <FormCadastroContato action={cadastrarContato}>
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Input name="nome" required placeholder="Nome" aria-label="Nome do contato" autoComplete="off" className="sm:w-56" />
               <Input name="telefone" required placeholder="Telefone (com DDD)" aria-label="Telefone (com DDD)" inputMode="tel" autoComplete="off" className="sm:w-56" />
@@ -185,7 +186,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
               </label>
               <Button type="submit" size="sm" className="sm:ml-auto">Cadastrar contato</Button>
             </CardContent>
-          </form>
+          </FormCadastroContato>
         </Card>
       )}
 

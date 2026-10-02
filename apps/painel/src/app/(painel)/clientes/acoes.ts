@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { comAvisoNaUrl } from '@/lib/avisos';
-import { cadastrarContatoPeloTelefone } from '@/lib/cadastro-contato';
+import { cadastrarContatoPeloTelefone, lerManter } from '@/lib/cadastro-contato';
 import { enfileirarRemocaoArquivos } from '@/lib/fila';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { exigirAdmin, obterUsuario, temPermissao } from '@/lib/sessao';
@@ -53,8 +53,8 @@ export async function adicionarContato(clienteId: string, formData: FormData) {
 async function adicionarContatoSemAviso(clienteId: string, formData: FormData) {
   const sb = await exigirEdicao();
   const c = ContatoForm.parse(campos(formData));
-  // Telefone de contato arquivado traz o contato de volta só com o vínculo desta empresa (os antigos saem).
-  const { id: contatoId, aviso } = await cadastrarContatoPeloTelefone(sb, { nome: c.nome, telefone: c.telefone, clienteId });
+  // Telefone de contato arquivado traz o contato de volta com esta empresa e as de antes escolhidas na pergunta.
+  const { id: contatoId, aviso } = await cadastrarContatoPeloTelefone(sb, { nome: c.nome, telefone: c.telefone, clienteId, manter: lerManter(formData) });
   const { error: e2 } = await sb.from('contato_clientes').upsert({
     contato_id: contatoId, cliente_id: clienteId, pode_pedir_nota: c.pode_pedir_nota, pode_atualizar_preco: c.pode_atualizar_preco,
   });

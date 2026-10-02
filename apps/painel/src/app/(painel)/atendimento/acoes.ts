@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { comAvisoNaUrl } from '@/lib/avisos';
-import { cadastrarContatoPeloTelefone } from '@/lib/cadastro-contato';
+import { cadastrarContatoPeloTelefone, lerManter } from '@/lib/cadastro-contato';
 import { enfileirarEnvio } from '@/lib/fila';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -85,9 +85,9 @@ export async function cadastrarContatoDaConversa(conversaId: string, formData: F
   const clienteId = String(formData.get('cliente_id') ?? '') || null;
   const { data: conversa, error: e1 } = await sb.from('conversas').select('telefone').eq('id', conversaId).single();
   if (e1) throw new Error(e1.message);
-  // Telefone de contato arquivado traz o contato de volta só com a empresa escolhida aqui (os vínculos antigos saem).
+  // Telefone de contato arquivado traz o contato de volta com a empresa escolhida aqui e as de antes marcadas na pergunta.
   const { id: contatoId, aviso } = await cadastrarContatoPeloTelefone(sb, {
-    nome, telefone: conversa.telefone, clienteId, agentePausado: formData.get('agente_atende') !== 'on',
+    nome, telefone: conversa.telefone, clienteId, agentePausado: formData.get('agente_atende') !== 'on', manter: lerManter(formData),
   });
   if (clienteId) {
     const { error } = await sb.from('contato_clientes').upsert({ contato_id: contatoId, cliente_id: clienteId, pode_pedir_nota: formData.get('pode_pedir_nota') === 'on' });

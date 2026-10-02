@@ -10,6 +10,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato } from '../../atendimento/acoes';
 import { adicionarContato, anonimizarContato, removerContato, vincularContatoExistente } from '../acoes';
 import { classeCaixa, classeSelect } from '../estilos';
+import { FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
 import { LinhaContato } from './linha-contato';
 
 /**
@@ -77,7 +78,7 @@ export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPai
               <CardTitle>Adicionar contato</CardTitle>
               <CardDescription>Cadastra o número e já liga à empresa.</CardDescription>
             </CardHeader>
-            <form action={adicionarContato.bind(null, id)}>
+            <FormCadastroContato action={adicionarContato.bind(null, id)} clienteId={id}>
               <CardContent className="flex flex-col gap-3">
                 <FormField id="contato-nome" rotulo="Nome"><Input name="nome" required autoComplete="off" /></FormField>
                 <FormField id="contato-telefone" rotulo="Telefone"><Input name="telefone" required inputMode="tel" placeholder="(31) 99999-0000" autoComplete="off" /></FormField>
@@ -85,7 +86,7 @@ export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPai
                 <label className="flex items-center gap-2 text-base text-foreground"><input type="checkbox" name="pode_atualizar_preco" className={classeCaixa} />Pode mudar preço e cadastrar produto</label>
               </CardContent>
               <div className="flex justify-end border-t border-border px-4 py-3"><Button type="submit" size="sm">Adicionar contato</Button></div>
-            </form>
+            </FormCadastroContato>
           </Card>
 
           <Card>

@@ -40,9 +40,10 @@ type Base = {
  * - `acao` + `children`: o <form action={acao}> fica dentro da janela, com os campos (hidden) passados em children;
  * - `formulario="id"`: o formulário continua na página (com todos os campos) e o botão da janela é o submit dele
  *   (atributo form=), então nada muda no que é enviado.
+ *   Com `children` (ex.: caixas de seleção com form="id"), os campos da janela vão junto com o formulário de fora.
  * O campo "digite para confirmar" não tem name: não vai junto com o formulário.
  */
-export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void | Promise<void>; children?: ReactNode; formulario?: never } | { formulario: string; acao?: never; children?: never })) {
+export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void | Promise<void>; children?: ReactNode; formulario?: never } | { formulario: string; acao?: never; children?: ReactNode })) {
   const { gatilho, titulo, descricao, confirmar, enviando, variante = 'danger', digitarParaConfirmar } = props;
   const tipo = props.tipo ?? tipoPadrao(variante);
   const ap = APARENCIA_CONFIRMACAO[tipo];
@@ -120,6 +121,7 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
           </form>
         ) : (
           <div className="grid gap-4">
+            {props.children}
             {campoDigitar}
             <DialogFooter className="items-center justify-center sm:justify-center">
               <DialogClose asChild><Button type="button" variant="outline" className="rounded-pill px-6">Cancelar</Button></DialogClose>
