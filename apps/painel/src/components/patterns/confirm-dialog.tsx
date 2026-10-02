@@ -103,7 +103,7 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
           <form action={props.acao} className="grid gap-4">
             {props.children}
             {campoDigitar}
-            <DialogFooter className="sm:justify-center">
+            <DialogFooter className="items-center justify-center sm:justify-center">
               <DialogClose asChild><Button type="button" variant="outline" className="rounded-pill px-6">Cancelar</Button></DialogClose>
               <BotaoEnviar rotulo={confirmar} enviando={enviando} variante={ap.botao} liberado={liberado} aoTerminar={() => mudarAberto(false)} />
             </DialogFooter>
@@ -111,7 +111,7 @@ export function ConfirmDialog(props: Base & ({ acao: (dados: FormData) => void |
         ) : (
           <div className="grid gap-4">
             {campoDigitar}
-            <DialogFooter className="sm:justify-center">
+            <DialogFooter className="items-center justify-center sm:justify-center">
               <DialogClose asChild><Button type="button" variant="outline" className="rounded-pill px-6">Cancelar</Button></DialogClose>
               <Button type="submit" form={externo} variant={ap.botao} className="rounded-pill px-6" disabled={!liberado}>{confirmar}</Button>
             </DialogFooter>
