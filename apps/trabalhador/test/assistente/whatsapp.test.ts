@@ -55,6 +55,6 @@ describe('WhatsApp da equipe e o assistente (pedido do dono, 2026-09-29)', () =>
     expect(fila.enviados).toEqual([]);
     await db.from('usuarios').update({ permissoes: ['assistente_whatsapp'], ativo: false }).eq('id', id);
     // Arquivado: o telefone deixa de ser interno e a conversa cai no fluxo normal (contato desconhecido).
-    expect(await processarConversa(deps(), await mensagemDe('5531977776666', 'oi de novo'), true)).not.toBe('interno');
+    expect(await processarConversa(deps(), await mensagemDe('5531977776666', 'oi de novo'), true)).toBe('escalado');
   });
 });
