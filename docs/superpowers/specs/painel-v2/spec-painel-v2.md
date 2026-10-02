@@ -29,6 +29,7 @@ Quatro partes independentes, cada uma com plano, branch e testes próprios, nest
 | C | Gestão de demandas | A maior; depende do visual e dos padrões de A |
 | D | Usuários e permissões por nível + horário de acesso | Mexe nas regras de visibilidade (RLS), com testes de regressão |
 | E | Atendimento (seção 7A) | Desenhada depois; usa o visual de A e a Nova demanda de C |
+| F | Gastos com IA (seção 7B) | Depois da E, porque mede também o "Sugerir resposta" |
 
 Imagens de referência das telas: pasta `imagens/` ao lado deste arquivo (00 login · 01 menu e clientes/arquivar · 02 excluir de vez · 03 demandas tabela · 04 quadro e nova demanda · 05 painel lateral da demanda · 06 cadastro de usuário). Elas mostram estilo e organização; medidas e textos finais seguem este spec.
 
@@ -284,6 +285,38 @@ Imagem: `imagens/00-atendimento.png` (fonte `fragmentos/00-atendimento.html`). A
 ### 7A.3 Verificação da Parte E
 
 pgTAP: `conversa_leituras` só da própria pessoa; trocar empresa recusa empresa não vinculada; espera/motivo preenchidos e limpos. Trabalhador: motivo gravado em cada caminho de passagem; sugestão usa só ferramentas de leitura e não envia nada (teste que falha se chamar `responder` ou ferramenta que grava). Playwright: grupos e ordenação por espera, cronômetro, não lidas zerando ao abrir, "por quê?", trocar empresa, sugerir → editar → enviar, abrir demanda a partir da conversa, atalhos J/K/A/N continuam.
+
+## 7B. Parte F — Gastos com IA
+
+Imagem: `imagens/00-gastos-ia.png` (fonte `fragmentos/00-gastos-ia.html`; números de exemplo). Aprovada pelo dono em 02/10. Pedido do dono: "todas as funcionalidades que gastam numa tela, desde o agente até o sugerir resposta, e saber o usuário que mais está gastando" + "ver os gastos de conversas de cada cliente".
+
+### 7B.1 Problema de hoje
+
+`uso_ia` guarda só `conversa_id, modelo, tokens, custo_usd, criado_em`: **não registra a funcionalidade nem a pessoa**, então não dá para separar agente / assistente / testar o agente nem ranquear a equipe. A transcrição de áudio (Groq, `apps/trabalhador/src/midia/transcritor.ts`) **não é registrada**.
+
+### 7B.2 Banco e trabalhador
+
+- `uso_ia` ganha: `funcionalidade` (enum: `agente_clientes`, `assistente_site`, `assistente_whatsapp`, `sugerir_resposta`, `testar_agente`, `transcricao_audio`, `especialista_setor`, `nao_identificado`), `usuario_id` (quem acionou; nulo para o agente), `cliente_id`, `setor_id`, `provedor` (`anthropic` / `groq`), `segundos_audio`. Registros antigos recebem `nao_identificado` (ou `agente_clientes` quando têm `conversa_id`, que é como o agente grava hoje — confirmar no código antes).
+- Todo ponto que chama IA passa a gravar funcionalidade e pessoa: agente (`processar-conversa`), assistente (site e WhatsApp), sugerir resposta (Parte E), simular/testar o agente (`agente/simular.ts`), transcrição (`midia/transcritor.ts`, custo por minuto do provedor, valor em `configuracoes`).
+- O **teto mensal** passa a somar todas as funcionalidades, inclusive transcrição.
+- `configuracoes.cotacao_usd_brl` (editável pelo admin) para mostrar R$; nada busca cotação na internet.
+- Funções de leitura só para admin (SECURITY DEFINER com `eh_admin`): `gastos_resumo(de, ate)`, `gastos_por_funcionalidade`, `gastos_por_dia`, `gastos_por_pessoa`, `gastos_por_cliente`, `gastos_atendimentos_do_cliente(cliente, de, ate)`, `gastos_chamadas(filtro)` (detalhe linha a linha) e exportação CSV.
+- **"Conversa" nesta tela = atendimento**: as mensagens de um telefone num mesmo dia (a tabela `conversas` é uma por telefone, para sempre). Resultado do atendimento: *resolvido pelo agente* se naquele dia nenhuma pessoa assumiu nem respondeu; senão *passou para pessoa*. O link "abrir" leva à conversa posicionada naquela data.
+- Índices em `uso_ia (criado_em)`, `(funcionalidade, criado_em)`, `(usuario_id, criado_em)`, `(cliente_id, criado_em)`.
+
+### 7B.3 Tela (`/gastos-ia`, menu do admin, ícone de moeda)
+
+- Filtros: Hoje · 7 dias · Este mês (padrão) · Mês passado · Período; **Exportar** CSV.
+- Cartões (faixa colorida no topo, números em negrito): **Total do mês × teto** (barra, marca de aviso em 80%, R$ pela cotação, **previsão de fechamento** = gasto ÷ dias corridos × dias do mês), **Chamadas à IA**, **Custo por atendimento**, **Áudios transcritos** (minutos e custo).
+- **Por funcionalidade:** ícone, nome, barra, custo, %, chamadas. "Especialista por setor" só aparece quando existir.
+- **Por dia:** barras do período, hoje em vinho, e **alerta automático do dia mais caro** com a combinação funcionalidade + pessoa que mais pesou.
+- **Quem mais gasta na equipe:** ranking por pessoa (só ações de pessoas), barra empilhada "onde gastou" por funcionalidade com legenda, chamadas, custo, %. Clique abre o detalhe linha a linha da pessoa.
+- **Gastos por cliente:** busca, ordenado por custo; colunas atendimentos, custo, custo por atendimento, % resolvidos pelo agente; ao abrir a empresa, lista de atendimentos (data, contato, mensagens, resultado, custo, abrir).
+- Tipografia desta tela segue o pedido do dono: títulos 800, números grandes em 800 (não 300), rótulos e tabelas de 13–15px.
+
+### 7B.4 Verificação da Parte F
+
+Trabalhador: cada caminho grava a funcionalidade certa e a pessoa certa (teste por caminho); transcrição grava segundos e custo; teto soma tudo. pgTAP: funções só para admin; agrupamento por atendimento (mesmo telefone em dois dias = dois atendimentos); resultado "passou para pessoa" quando houve assumir/resposta humana; migração dos registros antigos. Playwright: filtros de período, ranking, abrir pessoa, abrir cliente e seus atendimentos, exportar CSV, atendente sem acesso à tela.
 
 ## 8. Riscos e cuidados
 

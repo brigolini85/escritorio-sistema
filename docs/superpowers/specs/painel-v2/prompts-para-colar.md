@@ -119,6 +119,28 @@ Ao terminar: todas as suítes com resultado real; --dry-run da migração antes 
 
 ---
 
+## Prompt F — Gastos com IA
+
+```
+Vamos implementar a PARTE F do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 7B — Gastos com IA). Imagem: docs/superpowers/specs/painel-v2/imagens/00-gastos-ia.png (números de exemplo).
+
+Base: branch painel-v2-parte-f a partir da última parte aprovada, em worktree. Traga a pasta do spec atualizada: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
+
+Escopo (seção 7B): uso_ia passa a registrar funcionalidade, pessoa, empresa, setor e provedor; TODOS os pontos que chamam IA gravam isso (agente, assistente site e WhatsApp, sugerir resposta, testar o agente, transcrição de áudio Groq); teto mensal soma tudo; cotação USD→BRL em Configurações; funções de leitura só para admin; tela /gastos-ia com cartões, por funcionalidade, por dia com alerta do dia mais caro, ranking da equipe, gastos por cliente com os atendimentos de cada um, exportar CSV.
+
+Pontos que não podem falhar:
+- Nenhuma chamada à IA fica sem funcionalidade: teste por caminho; se aparecer gasto novo "nao_identificado" depois da migração, é bug.
+- "Atendimento" = mensagens de um telefone num mesmo dia (conversas é uma por telefone).
+- Só admin vê a tela e as funções.
+- Antes de migrar os registros antigos, me mostre quantos ficam como agente_clientes e quantos como nao_identificado.
+
+Processo: writing-plans → me mostre o plano → depois de aprovado, subagent-driven-development com TDD.
+
+Ao terminar: todas as suítes com resultado real; --dry-run da migração antes de aplicar na homologação e espere meu ok; suba painel e trabalhador desta branch em portas livres para eu testar. Não junte a branch em nada.
+```
+
+---
+
 ## Depois das partes
 
 Quando você aprovar tudo na prática, peça: "junte a última parte na etapa-1" (cada parte contém as anteriores). Depois seguimos com as outras telas (Contatos, Assistente, Configurações, Treinar o agente) no mesmo processo: desenho com imagens aqui → spec → prompt.
