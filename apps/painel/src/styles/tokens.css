@@ -62,6 +62,8 @@
   --sidebar-bg-raised: hsl(345 4% 18%); /* submenu e atalhos sobre o menu */
   --sidebar-text: hsl(348 9% 89%); /* texto dos itens do menu */
   --sidebar-border: hsl(348 5% 22%); /* divisórias dentro do menu */
+  --sidebar-active: hsl(348 55% 31%); /* item ativo e monograma do menu: vinho fixo, o menu é grafite nos dois temas */
+  --sidebar-active-foreground: hsl(0 0% 100%); /* texto e ícone sobre --sidebar-active */
   --accent-champagne: hsl(35 40% 64%); /* fio do item ativo, aro do logo, faixas do login (enfeite) */
   --accent-champagne-text: hsl(35 38% 37%); /* champanhe como texto: subtítulos e prazo sugerido; luminosidade 39 para 37 p/ AA (4.38 em --background antes) */
   --graphite: hsl(345 6% 14%); /* botão Entrar, FILTRAR, excluir de vez */
@@ -141,6 +143,8 @@
   --sidebar-bg-raised: hsl(345 4% 18%);
   --sidebar-text: hsl(348 9% 89%);
   --sidebar-border: hsl(348 5% 22%);
+  --sidebar-active: hsl(348 55% 31%);
+  --sidebar-active-foreground: hsl(0 0% 100%);
   --accent-champagne: hsl(35 40% 64%);
   --accent-champagne-text: hsl(35 45% 70%);
   --graphite: hsl(345 4% 85%);
@@ -205,6 +209,8 @@
     --sidebar-bg-raised: hsl(345 4% 18%);
     --sidebar-text: hsl(348 9% 89%);
     --sidebar-border: hsl(348 5% 22%);
+    --sidebar-active: hsl(348 55% 31%);
+    --sidebar-active-foreground: hsl(0 0% 100%);
     --accent-champagne: hsl(35 40% 64%);
     --accent-champagne-text: hsl(35 45% 70%);
     --graphite: hsl(345 4% 85%);

@@ -67,14 +67,14 @@ function classeItem(atual: boolean, recolhido: boolean): string {
     FOCO,
     recolhido ? 'justify-center px-0' : 'px-5',
     atual
-      ? 'bg-brand font-medium text-brand-foreground before:absolute before:inset-y-0 before:left-0 before:w-0.75 before:bg-champagne'
+      ? 'bg-sidebar-active font-medium text-sidebar-active-foreground before:absolute before:inset-y-0 before:left-0 before:w-0.75 before:bg-champagne'
       : 'text-sidebar-foreground hover:bg-sidebar-raised',
   );
 }
 
 function IconeItem({ href, atual }: { href: string; atual: boolean }) {
   const Icone = ICONES[href] ?? LayoutGrid;
-  return <Icone aria-hidden size={18} strokeWidth={1.75} className={cn('shrink-0', atual ? 'text-brand-foreground' : COR_MODULO[href])} />;
+  return <Icone aria-hidden size={18} strokeWidth={1.75} className={cn('shrink-0', atual ? 'text-sidebar-active-foreground' : COR_MODULO[href])} />;
 }
 
 function ComDica({ recolhido, dica, children }: { recolhido: boolean; dica: string; children: ReactNode }) {
@@ -112,37 +112,35 @@ function ItemComFilhos({
           onClick={() => setAberto((a) => !a)}
           aria-expanded={aberto}
           aria-controls={idLista}
-          aria-label={`${item.rotulo}: abrir submenu`}
           className={cn(classeItem(atual, false), 'cursor-pointer')}
         >
           <IconeItem href={item.href} atual={atual} />
           <span className="flex-1 truncate text-left">{item.rotulo}</span>
           <ChevronDown aria-hidden size={16} strokeWidth={1.75} className={cn('shrink-0 transition-transform duration-150', aberto && 'rotate-180')} />
         </button>
-        {aberto && (
-          <ul id={idLista}>
-            {filhos.map((f) => {
-              // Só a rota exata conta: os filhos com âncora (#setores…) são trechos da mesma tela.
-              const aqui = !f.href.includes('#') && pathname === f.href;
-              return (
-                <li key={f.href} className="border-t border-sidebar-border">
-                  <Link
-                    href={f.href}
-                    onClick={onNavegar}
-                    aria-current={aqui ? 'page' : undefined}
-                    className={cn(
-                      'flex h-11 items-center pl-12 pr-5 text-base text-sidebar-foreground transition-colors duration-150 ease-out hover:bg-sidebar-raised',
-                      FOCO,
-                      aqui && 'font-medium',
-                    )}
-                  >
-                    {f.rotulo}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {/* Fica no DOM (hidden quando fechado) para o aria-controls sempre apontar para algo que existe. */}
+        <ul id={idLista} hidden={!aberto}>
+          {filhos.map((f) => {
+            // Só a rota exata conta: os filhos com âncora (#setores…) são trechos da mesma tela.
+            const aqui = !f.href.includes('#') && pathname === f.href;
+            return (
+              <li key={f.href} className="border-t border-sidebar-border">
+                <Link
+                  href={f.href}
+                  onClick={onNavegar}
+                  aria-current={aqui ? 'page' : undefined}
+                  className={cn(
+                    'flex h-11 items-center pl-12 pr-5 text-base text-sidebar-foreground transition-colors duration-150 ease-out hover:bg-sidebar-raised',
+                    FOCO,
+                    aqui && 'font-medium',
+                  )}
+                >
+                  {f.rotulo}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </>
     );
   }
@@ -202,7 +200,7 @@ export function Sidebar({
           aria-hidden
           title={NOME_ESCRITORIO}
           className={cn(
-            'inline-flex shrink-0 items-center justify-center rounded-full bg-brand font-extrabold text-brand-foreground ring-champagne',
+            'inline-flex shrink-0 items-center justify-center rounded-full bg-sidebar-active font-extrabold text-sidebar-active-foreground ring-champagne',
             recolhido ? 'size-10 text-base ring-2' : 'size-20 text-2xl ring-4',
           )}
         >

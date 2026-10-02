@@ -20,7 +20,8 @@ export default async function LayoutPainel({ children }: { children: ReactNode }
     contarConversasAguardando(sb),
     contarDemandasAbertas(sb),
     lerAgentePausado(sb), // null para quem não é administrador (RLS): o indicador não aparece
-    lerSinaisVida(sb), // idem: o atalho do WhatsApp fica sem ponto para quem não é administrador
+    // A RLS só filtra linhas (atendente lê lista vazia = "sem sinal" falso): o estado do WhatsApp só é lido para o administrador.
+    u.papel === 'admin' ? lerSinaisVida(sb) : Promise.resolve(null),
   ]);
 
   return (

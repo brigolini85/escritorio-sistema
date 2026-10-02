@@ -58,6 +58,8 @@
   --color-sidebar-raised: var(--sidebar-bg-raised);
   --color-sidebar-foreground: var(--sidebar-text);
   --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
   --color-champagne: var(--accent-champagne);
   --color-champagne-text: var(--accent-champagne-text);
   --color-grafite: var(--graphite);

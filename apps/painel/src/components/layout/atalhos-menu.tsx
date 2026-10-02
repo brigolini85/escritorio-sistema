@@ -21,6 +21,8 @@ const COR_PONTO: Record<SituacaoSinal, string> = {
   sem_sinal: 'bg-danger',
 };
 
+// A dica repete o aria-label; cada gatilho zera o aria-describedby do Radix (props do filho vencem no Slot)
+// para o leitor de tela não ouvir "Início, Início".
 function Dica({ rotulo, children }: { rotulo: string; children: ReactElement }) {
   return (
     <Tooltip>
@@ -36,7 +38,7 @@ export function AtalhosMenu({ recolhido = false, whatsapp }: { recolhido?: boole
   return (
     <div className={cn('flex items-center justify-center gap-2', recolhido && 'flex-col')}>
       <Dica rotulo="Início">
-        <Link href="/inicio" aria-label="Início" className={cn(QUADRADO, 'border-modulo-inicio')}>
+        <Link href="/inicio" aria-label="Início" aria-describedby={undefined} className={cn(QUADRADO, 'border-modulo-inicio')}>
           <House aria-hidden size={18} strokeWidth={1.75} />
         </Link>
       </Dica>
@@ -47,7 +49,7 @@ export function AtalhosMenu({ recolhido = false, whatsapp }: { recolhido?: boole
           side="right"
           gatilho={
             <TooltipTrigger asChild>
-              <button type="button" aria-label="Meu perfil" className={cn(QUADRADO, 'border-modulo-clientes')}>
+              <button type="button" aria-label="Meu perfil" aria-describedby={undefined} className={cn(QUADRADO, 'border-modulo-clientes')}>
                 <UserRound aria-hidden size={18} strokeWidth={1.75} />
               </button>
             </TooltipTrigger>
@@ -58,7 +60,7 @@ export function AtalhosMenu({ recolhido = false, whatsapp }: { recolhido?: boole
 
       {whatsapp ? (
         <Dica rotulo={rotuloZap}>
-          <Link href="/configuracoes#integracoes" aria-label={rotuloZap} className={cn(QUADRADO, 'border-modulo-atendimento')}>
+          <Link href="/configuracoes#integracoes" aria-label={rotuloZap} aria-describedby={undefined} className={cn(QUADRADO, 'border-modulo-atendimento')}>
             <MessageCircle aria-hidden size={18} strokeWidth={1.75} />
             <span aria-hidden className={cn('absolute -right-1 -top-1 size-2 rounded-full ring-2 ring-sidebar', COR_PONTO[whatsapp])} />
           </Link>
@@ -77,7 +79,7 @@ export function AtalhosMenu({ recolhido = false, whatsapp }: { recolhido?: boole
 
       <form action={sair} className="contents">
         <Dica rotulo="Sair">
-          <button type="submit" aria-label="Sair" className={cn(QUADRADO, 'border-danger')}>
+          <button type="submit" aria-label="Sair" aria-describedby={undefined} className={cn(QUADRADO, 'border-danger')}>
             <Power aria-hidden size={18} strokeWidth={1.75} />
           </button>
         </Dica>

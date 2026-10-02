@@ -142,7 +142,7 @@ const OBRIGATORIOS = [
   ...['success', 'warning', 'danger', 'info'].flatMap((s) => [`--${s}`, `--${s}-foreground`, `--${s}-soft`]),
   '--agent-active', '--agent-paused', '--human-owned', '--assistant', '--internal-note',
   '--radius-sm', '--radius-md', '--radius-lg', '--shadow-sm', '--shadow-md', '--font-sans', '--font-mono',
-  '--sidebar-bg', '--sidebar-bg-raised', '--sidebar-text', '--sidebar-border', '--accent-champagne', '--accent-champagne-text',
+  '--sidebar-bg', '--sidebar-bg-raised', '--sidebar-text', '--sidebar-border', '--sidebar-active', '--sidebar-active-foreground', '--accent-champagne', '--accent-champagne-text',
   '--graphite', '--graphite-foreground', '--warning-decor',
   ...['inicio', 'atendimento', 'demandas', 'clientes', 'contatos', 'assistente', 'treinar', 'configuracoes'].map((m) => `--modulo-${m}`),
 ];
@@ -177,6 +177,7 @@ const PARES: [string, string, number][] = [
   // Menu grafite (spec 4.3): texto do menu, item ativo branco sobre vinho, ícones coloridos (3:1, não são texto).
   ['--sidebar-text', '--sidebar-bg', 4.5],
   ['--sidebar-text', '--sidebar-bg-raised', 4.5],
+  ['--sidebar-active-foreground', '--sidebar-active', 4.5],
   ['--brand-foreground', '--brand', 4.5],
   ...['inicio', 'atendimento', 'demandas', 'clientes', 'contatos', 'assistente', 'treinar', 'configuracoes']
     .map((m): [string, string, number] => [`--modulo-${m}`, '--sidebar-bg', 3]),

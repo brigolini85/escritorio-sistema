@@ -13,7 +13,8 @@ import { trilhaDaRota } from './trilha';
 function Trilha() {
   const passos = trilhaDaRota(usePathname());
   return (
-    <nav aria-label="Trilha" className="min-w-0 flex-1">
+    // Abaixo de sm a trilha some: o título da página já diz onde se está e a busca precisa do espaço.
+    <nav aria-label="Trilha" className="hidden min-w-0 flex-1 sm:block">
       <ol className="flex min-w-0 items-center gap-1.5 text-base">
         <li className="shrink-0">
           <Link
@@ -64,7 +65,7 @@ export function Topbar({
         <Menu aria-hidden size={20} strokeWidth={1.75} />
       </button>
       <Trilha />
-      <div className="w-44 shrink-0 md:w-72">
+      <div className="min-w-0 flex-1 sm:w-44 sm:flex-none md:w-72">
         <BuscaGlobal />
       </div>
       {estadoAgente && <AgentStateIndicator estado={estadoAgente} />}

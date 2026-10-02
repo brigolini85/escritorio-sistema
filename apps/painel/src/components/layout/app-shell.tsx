@@ -85,7 +85,7 @@ export function AppShell({
         >
           <Sidebar itens={itens} contadores={aoVivo.contadores} whatsapp={whatsapp} recolhido={recolhido} onAlternar={alternar} />
         </aside>
-  
+
         <Sheet open={gaveta} onOpenChange={setGaveta}>
           {/* Gaveta também grafite; o X de fechar (último botão da gaveta) ganha a cor do texto do menu para não sumir. */}
           <SheetContent
@@ -97,7 +97,7 @@ export function AppShell({
             <Sidebar itens={itens} contadores={aoVivo.contadores} whatsapp={whatsapp} onNavegar={() => setGaveta(false)} />
           </SheetContent>
         </Sheet>
-  
+
         <div className="flex min-w-0 flex-1 flex-col">
           <header ref={cabecalho} className="sticky top-0 z-40">
             <FaixaAmbiente rotulo={ambiente} />
