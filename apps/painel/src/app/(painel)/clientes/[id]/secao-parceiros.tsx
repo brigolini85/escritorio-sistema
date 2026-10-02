@@ -1,14 +1,16 @@
 import { ChevronRight, Store, Truck } from 'lucide-react';
 import { DocumentText } from '@/components/patterns/document-text';
 import { EmptyState } from '@/components/patterns/empty-state';
-import { Badge } from '@/components/ui/badge';
+import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
+import { ArquivadosRecolhidos } from '@/components/patterns/lista-arquivados';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { lerArquivados } from '@/lib/arquivados';
 import { enderecoPorExtenso } from '@/lib/resumo-pedido';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { salvarGrupo, salvarUnidade } from '../cadastros-acoes';
-import { classeCaixa, classeCampoLinha } from '../estilos';
+import { classeCampoLinha } from '../estilos';
 
 /**
  * Clientes (redes/grupos) ou fornecedores da empresa, cada um com as unidades (CNPJ, endereço, CEP, telefone).
@@ -17,8 +19,11 @@ import { classeCaixa, classeCampoLinha } from '../estilos';
 export async function SecaoParceiros({ id, tipo, pode }: { id: string; tipo: 'cliente' | 'fornecedor'; pode: boolean }) {
   const sb = await supabaseServidor();
   const { data: grupos } = await sb.from('parceiros_grupos')
-    .select('id, nome, palavras_chave, ativo, parceiros_unidades(id, nome_unidade, razao_social, cnpj, inscricao_estadual, endereco, numero, complemento, cep, telefone, bairro, cidade, uf, palavras_chave, ativo)')
-    .eq('cliente_id', id).eq('tipo', tipo).order('nome');
+    .select('id, nome, palavras_chave, parceiros_unidades(id, nome_unidade, razao_social, cnpj, inscricao_estadual, endereco, numero, complemento, cep, telefone, bairro, cidade, uf, palavras_chave)')
+    // Arquivados saem da lista; a unidade arquivada sai da rede.
+    .eq('cliente_id', id).eq('tipo', tipo).eq('ativo', true).eq('parceiros_unidades.ativo', true).order('nome');
+  const { linhas: redesArquivadas } = await lerArquivados(sb, 'rede', { clienteId: id, tipoParceiro: tipo });
+  const { linhas: unidadesArquivadas } = await lerArquivados(sb, 'unidade', { clienteId: id, tipoParceiro: tipo });
   const nomeGrupo = tipo === 'cliente' ? 'rede/cliente' : 'fornecedor';
   type Unidade = NonNullable<typeof grupos>[number]['parceiros_unidades'][number];
 
@@ -58,15 +63,14 @@ export async function SecaoParceiros({ id, tipo, pode }: { id: string; tipo: 'cl
         </Card>
       )}
       {(grupos ?? []).map((g) => (
-        <Card key={g.id} className={g.ativo ? undefined : 'opacity-70'}>
+        <Card key={g.id}>
           <form action={salvarGrupo.bind(null, id, tipo, g.id)} className="flex flex-wrap items-center gap-2 border-b border-border p-4">
             <fieldset disabled={!pode} className="contents">
               <Input name="nome" defaultValue={g.nome} required className="h-9 w-full font-semibold sm:w-64" aria-label={`Nome de ${g.nome}`} />
               <Input name="palavras_chave" defaultValue={g.palavras_chave.join(', ')} placeholder="Palavras-chave da rede" className="h-9 min-w-48 flex-1" aria-label={`Palavras-chave de ${g.nome}`} />
-              <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" name="ativo" defaultChecked={g.ativo} className={classeCaixa} /> Ativo</label>
-              {!g.ativo && <Badge variant="neutral">Inativo</Badge>}
               {pode && <Button type="submit" variant="outline" size="sm">Salvar</Button>}
             </fieldset>
+            {pode && <ExcluirCadastro tipo="rede" id={g.id} nome={g.nome} />}
           </form>
           <div className="flex flex-col gap-2 p-4">
             {g.parceiros_unidades.length === 0 && <p className="text-sm text-muted">Nenhuma unidade cadastrada.</p>}
@@ -80,7 +84,7 @@ export async function SecaoParceiros({ id, tipo, pode }: { id: string; tipo: 'cl
                         <ChevronRight aria-hidden size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-muted transition-transform duration-150 ease-out group-open:rotate-90" />
                         <span className="flex min-w-0 flex-col gap-0.5">
                           <span className="text-base text-foreground">
-                            {un.nome_unidade}{un.bairro ? ` · ${un.bairro}` : ''}{un.cidade ? ` · ${un.cidade}` : ''}{un.cnpj ? ` · CNPJ ${un.cnpj}` : ''}{un.ativo ? '' : ' · inativa'}
+                            {un.nome_unidade}{un.bairro ? ` · ${un.bairro}` : ''}{un.cidade ? ` · ${un.cidade}` : ''}{un.cnpj ? ` · CNPJ ${un.cnpj}` : ''}
                           </span>
                           <span className="flex flex-wrap gap-x-3 text-sm text-muted">
                             {/* Endereço por extenso, com o CEP (o mesmo texto do pedido de nota). */}
@@ -92,7 +96,7 @@ export async function SecaoParceiros({ id, tipo, pode }: { id: string; tipo: 'cl
                       <form action={salvarUnidade.bind(null, id, g.id, un.id)} className="flex flex-col gap-3 border-t border-border p-3">
                         {camposUnidade(un)}
                         <div className="flex items-center justify-between gap-2">
-                          <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" name="ativo" defaultChecked={un.ativo} disabled={!pode} className={classeCaixa} /> Ativa</label>
+                          {pode && <ExcluirCadastro tipo="unidade" id={un.id} nome={un.nome_unidade} />}
                           {pode && <Button type="submit" size="sm">Salvar unidade</Button>}
                         </div>
                       </form>
@@ -120,6 +124,8 @@ export async function SecaoParceiros({ id, tipo, pode }: { id: string; tipo: 'cl
           </form>
         </Card>
       )}
+      <ArquivadosRecolhidos rotulo={tipo === 'cliente' ? 'Redes arquivadas' : 'Fornecedores arquivados'} tipo="rede" linhas={redesArquivadas} pode={pode} />
+      <ArquivadosRecolhidos rotulo="Unidades arquivadas" tipo="unidade" linhas={unidadesArquivadas} pode={pode} />
     </div>
   );
 }

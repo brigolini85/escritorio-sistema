@@ -9,13 +9,19 @@ describe('listaDeTexto', () => {
 });
 
 describe('esquemas', () => {
+  it('os formulários não decidem mais o arquivo: sem a caixa Ativo, salvar não arquiva (painel v2, parte B)', () => {
+    expect(GrupoForm.parse({ nome: 'Rede', palavras_chave: '' })).not.toHaveProperty('ativo');
+    expect(UnidadeForm.parse({ nome_unidade: 'Matriz' })).not.toHaveProperty('ativo');
+    expect(ProdutoForm.parse({ codigo: '12', descricao: 'Costela' })).not.toHaveProperty('ativo');
+    expect(ProdutoForm.parse({ codigo: '12', descricao: 'Costela', ativo: 'on' })).not.toHaveProperty('ativo');
+  });
   it('rede com palavras-chave', () => {
     expect(GrupoForm.parse({ nome: ' Supermercado Brasil ', palavras_chave: 'brasil, sb', ativo: 'on' }))
-      .toEqual({ nome: 'Supermercado Brasil', palavras_chave: ['brasil', 'sb'], ativo: true });
+      .toEqual({ nome: 'Supermercado Brasil', palavras_chave: ['brasil', 'sb'] });
   });
   it('unidade: CNPJ opcional, mas válido se informado; UF em maiúsculas', () => {
     expect(UnidadeForm.parse({ nome_unidade: 'Santa Efigênia', cnpj: '11.222.333/0001-81', uf: 'mg', palavras_chave: 'efigenia' }))
-      .toMatchObject({ nome_unidade: 'Santa Efigênia', cnpj: '11222333000181', uf: 'MG', palavras_chave: ['efigenia'], ativo: false });
+      .toMatchObject({ nome_unidade: 'Santa Efigênia', cnpj: '11222333000181', uf: 'MG', palavras_chave: ['efigenia'] });
     expect(UnidadeForm.parse({ nome_unidade: 'Matriz', cnpj: '' }).cnpj).toBeNull();
     expect(UnidadeForm.safeParse({ nome_unidade: 'X', cnpj: '11222333000182' }).success).toBe(false);
   });

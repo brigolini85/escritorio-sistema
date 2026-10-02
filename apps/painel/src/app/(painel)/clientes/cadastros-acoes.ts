@@ -12,7 +12,7 @@ async function exigirEdicao() {
 }
 const campos = (f: FormData) => Object.fromEntries(f.entries());
 function checar(r: { error: { message: string } | null }) {
-  if (r.error) throw new Error(r.error.message.includes('duplicate') ? 'Já existe um cadastro igual (nome, CNPJ ou código repetido).' : r.error.message);
+  if (r.error) throw new Error(r.error.message.includes('duplicate') ? 'Já existe um cadastro igual (nome, CNPJ ou código repetido). Confira também os arquivados.' : r.error.message);
 }
 
 const aba = (clienteId: string, nome: string) => `/clientes/${clienteId}?aba=${nome}`;
@@ -20,7 +20,7 @@ const aba = (clienteId: string, nome: string) => `/clientes/${clienteId}?aba=${n
 export async function salvarGrupo(clienteId: string, tipo: 'cliente' | 'fornecedor', grupoId: string | null, formData: FormData) {
   await comAvisoDeErro(aba(clienteId, tipo === 'cliente' ? 'clientes' : 'fornecedores'), async () => {
     const { sb } = await exigirEdicao();
-    const dados = GrupoForm.parse({ ativo: grupoId ? undefined : 'on', ...campos(formData) });
+    const dados = GrupoForm.parse(campos(formData));
     checar(grupoId
       ? await sb.from('parceiros_grupos').update(dados).eq('id', grupoId).eq('cliente_id', clienteId)
       : await sb.from('parceiros_grupos').insert({ ...dados, cliente_id: clienteId, tipo }));
@@ -33,7 +33,7 @@ export async function salvarUnidade(clienteId: string, grupoId: string, unidadeI
   const { data: grupo } = await sb0.from('parceiros_grupos').select('tipo').eq('id', grupoId).maybeSingle();
   await comAvisoDeErro(aba(clienteId, grupo?.tipo === 'fornecedor' ? 'fornecedores' : 'clientes'), async () => {
     const { sb } = await exigirEdicao();
-    const dados = UnidadeForm.parse({ ativo: unidadeId ? undefined : 'on', ...campos(formData) });
+    const dados = UnidadeForm.parse(campos(formData));
     checar(unidadeId
       ? await sb.from('parceiros_unidades').update(dados).eq('id', unidadeId).eq('cliente_id', clienteId)
       : await sb.from('parceiros_unidades').insert({ ...dados, cliente_id: clienteId, grupo_id: grupoId }));
@@ -44,7 +44,7 @@ export async function salvarUnidade(clienteId: string, grupoId: string, unidadeI
 export async function salvarProduto(clienteId: string, produtoId: string | null, formData: FormData) {
   await comAvisoDeErro(aba(clienteId, 'produtos'), async () => {
     const { sb } = await exigirEdicao();
-    const dados = ProdutoForm.parse({ ativo: produtoId ? undefined : 'on', ...campos(formData) });
+    const dados = ProdutoForm.parse(campos(formData));
     checar(produtoId
       ? await sb.from('produtos').update(dados).eq('id', produtoId).eq('cliente_id', clienteId)
       : await sb.from('produtos').insert({ ...dados, cliente_id: clienteId }));

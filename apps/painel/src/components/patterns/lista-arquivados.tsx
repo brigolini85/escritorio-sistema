@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/layout/page-header';
 import { variantesBotao } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/cn';
 import { descreverArquivamento, type TipoCadastro } from '@/lib/arquivo';
 import { lerArquivados, type LinhaArquivada } from '@/lib/arquivados';
 import { formatarData } from '@/lib/formatos';
@@ -83,5 +84,19 @@ export function AvisoArquivado({ tipo, id, nome, arquivadoEm, arquivadoPor, pode
       <span className="flex-1">{descreverArquivamento(arquivadoEm, arquivadoPor)} Não aparece nas listas nem para o agente.</span>
       {pode && <BotaoRestaurar tipo={tipo} id={id} nome={nome} />}
     </div>
+  );
+}
+
+/** "Arquivados (n)" dentro de uma aba da ficha: recolhido, abre a lista com Restaurar. */
+export function ArquivadosRecolhidos({ rotulo, tipo, linhas, pode }: { rotulo: string; tipo: TipoCadastro; linhas: LinhaArquivada[]; pode: boolean }) {
+  if (linhas.length === 0) return null;
+  return (
+    <details className="group">
+      <summary className={cn(variantesBotao({ variant: 'outline', size: 'sm' }), 'w-fit list-none [&::-webkit-details-marker]:hidden')}>
+        <Archive aria-hidden size={16} strokeWidth={1.75} />
+        Arquivados ({linhas.length})
+      </summary>
+      <div className="mt-2"><ListaArquivados rotulo={rotulo} tipo={tipo} linhas={linhas} pode={pode} vazio="Nada arquivado." /></div>
+    </details>
   );
 }

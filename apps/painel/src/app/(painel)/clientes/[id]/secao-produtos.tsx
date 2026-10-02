@@ -1,13 +1,15 @@
 import { Package } from 'lucide-react';
 import { EmptyState } from '@/components/patterns/empty-state';
-import { Badge } from '@/components/ui/badge';
+import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
+import { ArquivadosRecolhidos } from '@/components/patterns/lista-arquivados';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { lerArquivados } from '@/lib/arquivados';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { salvarProduto } from '../cadastros-acoes';
-import { classeCaixa, classeCampoLinha } from '../estilos';
+import { classeCampoLinha } from '../estilos';
 
 // Linha em colunas de largura fixa (código, unidade, situação) e flexível (descrição, apelidos); empilha no celular.
 const linha = 'flex flex-col gap-2 sm:flex-row sm:items-center';
@@ -19,7 +21,8 @@ const col = { codigo: 'sm:w-20 sm:shrink-0', descricao: 'sm:min-w-0 sm:flex-1', 
  */
 export async function SecaoProdutos({ id, pode }: { id: string; pode: boolean }) {
   const sb = await supabaseServidor();
-  const { data: produtos } = await sb.from('produtos').select('*').eq('cliente_id', id).order('descricao');
+  const { data: produtos } = await sb.from('produtos').select('*').eq('cliente_id', id).eq('ativo', true).order('descricao');
+  const { linhas: arquivados } = await lerArquivados(sb, 'produto', { clienteId: id });
   const lista = produtos ?? [];
 
   if (!pode) {
@@ -31,7 +34,7 @@ export async function SecaoProdutos({ id, pode }: { id: string; pode: boolean })
           <Table aria-label="Produtos">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Código</TableHead><TableHead>Descrição</TableHead><TableHead>Unidade</TableHead><TableHead>Apelidos</TableHead><TableHead>Situação</TableHead>
+                <TableHead>Código</TableHead><TableHead>Descrição</TableHead><TableHead>Unidade</TableHead><TableHead>Apelidos</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -41,12 +44,12 @@ export async function SecaoProdutos({ id, pode }: { id: string; pode: boolean })
                   <TableCell className="font-medium">{p.descricao}</TableCell>
                   <TableCell>{p.unidade}</TableCell>
                   <TableCell className="text-muted">{p.apelidos.join(', ') || '—'}</TableCell>
-                  <TableCell>{p.ativo ? <Badge variant="success">Ativo</Badge> : <Badge variant="neutral">Inativo</Badge>}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         )}
+        <div className="px-4 pb-4"><ArquivadosRecolhidos rotulo="Produtos arquivados" tipo="produto" linhas={arquivados} pode={pode} /></div>
       </Card>
     );
   }
@@ -56,16 +59,16 @@ export async function SecaoProdutos({ id, pode }: { id: string; pode: boolean })
       <div className="flex flex-col gap-2 p-4">
         <div aria-hidden className={`${linha} hidden border-b border-border pb-2 text-sm font-medium text-muted sm:flex`}>
           <span className={col.codigo}>Código</span><span className={col.descricao}>Descrição</span><span className={col.unidade}>Unidade</span>
-          <span className={col.apelidos}>Apelidos (o agente reconhece)</span><span className={col.situacao}>Situação</span><span className={col.acao} />
+          <span className={col.apelidos}>Apelidos (o agente reconhece)</span><span className={col.situacao}><span className="sr-only">Excluir…</span></span><span className={col.acao} />
         </div>
         {lista.length === 0 && <p className="py-2 text-sm text-muted">Nenhum produto cadastrado. Adicione o primeiro abaixo.</p>}
         {lista.map((p) => (
-          <form key={p.id} action={salvarProduto.bind(null, id, p.id)} className={`${linha} ${p.ativo ? '' : 'opacity-70'}`}>
+          <form key={p.id} action={salvarProduto.bind(null, id, p.id)} className={linha}>
             <Input name="codigo" defaultValue={p.codigo} className={`${classeCampoLinha} ${col.codigo} tabular`} aria-label={`Código de ${p.codigo}`} />
             <Input name="descricao" defaultValue={p.descricao} className={`${classeCampoLinha} ${col.descricao}`} aria-label={`Descrição de ${p.codigo}`} />
             <Input name="unidade" defaultValue={p.unidade} className={`${classeCampoLinha} ${col.unidade}`} aria-label={`Unidade de ${p.codigo}`} />
             <Input name="apelidos" defaultValue={p.apelidos.join(', ')} className={`${classeCampoLinha} ${col.apelidos}`} aria-label={`Apelidos de ${p.codigo}`} />
-            <label className={`flex items-center gap-2 text-sm text-foreground ${col.situacao}`}><input type="checkbox" name="ativo" defaultChecked={p.ativo} className={classeCaixa} /> Ativo</label>
+            <span className={col.situacao}><ExcluirCadastro tipo="produto" id={p.id} nome={p.descricao} /></span>
             <span className={col.acao}><Button type="submit" variant="outline" size="sm">Salvar</Button></span>
           </form>
         ))}
@@ -77,6 +80,7 @@ export async function SecaoProdutos({ id, pode }: { id: string; pode: boolean })
           <span className="sm:w-38 sm:shrink-0"><Button type="submit" size="sm" className="w-full">Adicionar produto</Button></span>
         </form>
       </div>
+      <div className="px-4 pb-4"><ArquivadosRecolhidos rotulo="Produtos arquivados" tipo="produto" linhas={arquivados} pode={pode} /></div>
     </Card>
   );
 }

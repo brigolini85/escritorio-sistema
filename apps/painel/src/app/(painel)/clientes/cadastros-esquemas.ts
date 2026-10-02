@@ -7,13 +7,11 @@ export function listaDeTexto(v: unknown): string[] {
 }
 
 const lista = z.preprocess(listaDeTexto, z.array(z.string()));
-const caixa = z.preprocess((v) => v === 'on' || v === true, z.boolean());
 const opcional = z.preprocess((v) => (v === '' || v === null || v === undefined ? null : String(v).trim()), z.string().nullable());
 
 export const GrupoForm = z.object({
   nome: z.string().trim().min(2, 'Informe o nome'),
   palavras_chave: lista,
-  ativo: caixa,
 });
 
 export const UnidadeForm = z.object({
@@ -32,7 +30,6 @@ export const UnidadeForm = z.object({
   cidade: opcional,
   uf: z.preprocess((v) => (v ? String(v).trim().toUpperCase() : null), z.string().length(2).nullable()),
   palavras_chave: lista,
-  ativo: caixa,
 });
 
 export const ProdutoForm = z.object({
@@ -40,7 +37,6 @@ export const ProdutoForm = z.object({
   descricao: z.string().trim().min(2, 'Informe a descrição'),
   unidade: z.preprocess((v) => String(v ?? 'UN').trim().toUpperCase() || 'UN', z.string().max(10)),
   apelidos: lista,
-  ativo: caixa,
 });
 
 /** "9,50" e "1.234,56" (padrão brasileiro) ou "9.50": com vírgula, o ponto é milhar; sem vírgula, o ponto é decimal. */
