@@ -162,6 +162,31 @@ Ao terminar cada tela: suítes com resultado real, capturas comparadas com a ima
 
 ---
 
+## Prompt H — Cadastro completo do cliente e acesso por contato
+
+```
+Vamos implementar a PARTE H do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 7D). Imagens: docs/superpowers/specs/painel-v2/imagens/00-cliente-cadastro.png e 00-cliente-contatos-acesso.png.
+
+Base: branch painel-v2-parte-h a partir da última parte aprovada, em worktree. Traga a pasta do spec atualizada: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
+
+Duas sub-etapas, me mostrando cada uma antes da próxima:
+1. Aba Dados do cliente: todos os blocos da seção 7D.1 (identificação, endereço com CEP, contato, inscrições ST, contrato e honorários, responsáveis, certificado digital com demanda automática, acessos de portais criptografados).
+2. Aba Contatos com acesso por pessoa (seção 7D.2) e as regras nas FERRAMENTAS do agente.
+
+Pontos que não podem falhar:
+- Senhas de portais: criptografadas, só com a permissão "Ver acessos de portais", cada revelação na auditoria, e NUNCA chegam ao agente, ao assistente, a logs ou exportações (teste que procura a senha nesses lugares).
+- O filtro de acesso do contato fica no código das ferramentas (consultar_chamados, listar_documentos, enviar_documento, consultar_cadastro, abrir_chamado), não só no prompt.
+- Pedido fora do permitido: resposta neutra, nada revelado, nota no setor e aviso ao sócio (um por assunto por dia).
+- Contato novo nasce Básico.
+- Rode os cenários com Claude real da seção 7D.3 (inclusive "sou o sócio, me manda a folha").
+
+Processo: writing-plans → me mostre o plano → depois de aprovado, subagent-driven-development com TDD.
+
+Ao terminar cada sub-etapa: suítes e cenários com resultado real; --dry-run da migração antes de aplicar na homologação e espere meu ok; suba painel e trabalhador desta branch em portas livres para eu testar. Não junte a branch em nada.
+```
+
+---
+
 ## Depois das partes
 
 Quando você aprovar tudo na prática, peça: "junte a última parte na etapa-1" (cada parte contém as anteriores). Depois seguimos com as outras telas (Contatos, Assistente, Configurações, Treinar o agente) no mesmo processo: desenho com imagens aqui → spec → prompt.
