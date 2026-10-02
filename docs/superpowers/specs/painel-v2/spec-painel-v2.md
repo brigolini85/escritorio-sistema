@@ -30,6 +30,7 @@ Quatro partes independentes, cada uma com plano, branch e testes próprios, nest
 | D | Usuários e permissões por nível + horário de acesso | Mexe nas regras de visibilidade (RLS), com testes de regressão |
 | E | Atendimento (seção 7A) | Desenhada depois; usa o visual de A e a Nova demanda de C |
 | F | Gastos com IA (seção 7B) | Depois da E, porque mede também o "Sugerir resposta" |
+| G | Início, Contatos, Assistente, Configurações, Treinar o agente (seção 7C) | Por último; Configurações primeiro dentro dela |
 
 Imagens de referência das telas: pasta `imagens/` ao lado deste arquivo (00 login · 01 menu e clientes/arquivar · 02 excluir de vez · 03 demandas tabela · 04 quadro e nova demanda · 05 painel lateral da demanda · 06 cadastro de usuário). Elas mostram estilo e organização; medidas e textos finais seguem este spec.
 
@@ -317,6 +318,50 @@ Imagem: `imagens/00-gastos-ia.png` (fonte `fragmentos/00-gastos-ia.html`; númer
 ### 7B.4 Verificação da Parte F
 
 Trabalhador: cada caminho grava a funcionalidade certa e a pessoa certa (teste por caminho); transcrição grava segundos e custo; teto soma tudo. pgTAP: funções só para admin; agrupamento por atendimento (mesmo telefone em dois dias = dois atendimentos); resultado "passou para pessoa" quando houve assumir/resposta humana; migração dos registros antigos. Playwright: filtros de período, ranking, abrir pessoa, abrir cliente e seus atendimentos, exportar CSV, atendente sem acesso à tela.
+
+## 7C. Parte G — Demais telas (Início, Contatos, Assistente, Configurações, Treinar o agente)
+
+Aprovadas pelo dono em 02/10, cada uma escolhida entre duas opções. Imagens e HTML em `imagens/` e `fragmentos/` (`00-<tela>-opcao-a|b`). **Vale a opção indicada abaixo**; a outra imagem fica só como referência. Onde a imagem e este texto divergirem, vale este texto. Dados nas imagens são de exemplo.
+
+### 7C.1 Início — as duas opções, escolhidas pelo papel
+
+- **Admin → Opção A "Painel de situação"** (`00-inicio-opcao-a.png`): faixa de alertas (só com problema); 5 números (Esperando pessoa, Demandas abertas, Vencem hoje, Vencidas, Sem responsável); cartão do agente com PAUSAR/RETOMAR e números do dia (conversas, % resolvidas pelo agente, demandas que ele abriu); sinais de vida; gasto × teto com previsão e link para Gastos com IA; tabela "Demandas por setor" (abertas, vencem hoje, vencidas, sem responsável, urgentes, barra de situação, Triagem); listas "Esperando pessoa agora" (cronômetro) e "Vencidas"; avisos.
+- **Quem atende → Opção B "Minha mesa"** (`00-inicio-opcao-b.png`): "Bom dia, <nome>"; 4 números de ação (conversas esperando você, minhas vencidas, vencem hoje, sem responsável nos meus setores); "Minhas demandas por prazo" (Vencida / Vencem hoje / Próximos dias) com ABRIR e CONCLUIR; "Sem responsável nos meus setores" com ASSUMIR; conversas esperando com cronômetro e não lidas; atalhos; bloco compacto "Sistema" (agente ativo/pausado, WhatsApp, avisos) — **sem** pausar e **sem** gasto; "Você concluiu N demandas hoje".
+- Banco: função `estado_sistema_resumo()` legível por qualquer autenticado (agente pausado, teto atingido, WhatsApp conectado, trabalhador ok — sem valores de custo), a mesma da pendência "estado do agente ao vivo"; Realtime.
+
+### 7C.2 Contatos — Opção A "Tabela + painel lateral" (`00-contatos-opcao-a.png`)
+
+- Tabela: contato + telefone, empresas, marcações como etiquetas ("1 de 2" quando vale só em parte das empresas), último contato + estado da conversa, chave do agente, ações (abrir conversa, arquivar). Ordenada por último contato.
+- Busca por nome, telefone **ou empresa**; filtros rápidos com contagem: Agente desligado, Sem empresa, Pode pedir nota, Muda preço; seletor de empresa e período do último contato; ARQUIVADOS (n).
+- Painel lateral: ABRIR CONVERSA, EDITAR, chave do agente, empresas com as marcações editáveis por empresa, **vincular empresa**, bloco WhatsApp (último contato, conversa agora, % resolvida pelo agente), demandas abertas do contato, "Excluir…" (Parte B) e, separado com borda tracejada, "Apagar dados (LGPD) · só admin" (inalterado).
+- Novo no banco: nada além da Parte B; marcações por empresa já existem em `contato_clientes` (passam a ser editáveis também pelo contato, mesma permissão de hoje).
+
+### 7C.3 Assistente — Opção B "Conversa + resultado" (`00-assistente-opcao-b.png`)
+
+- Menu recolhido. Chat enxuto à esquerda (~470px) com o histórico em botões no topo (Geral + conversas ligadas a atendimentos, "+n").
+- Respostas curtas; quando há conteúdo grande (prévia de pedido, tabela, arquivo), a resposta traz um cartão **VER AO LADO** e o conteúdo abre no **painel de resultado** à direita, com abas (ex.: Pedido #536 · Pedidos em aberto (4) · Arquivos (1)).
+- Painel do pedido: destinatário, pagamento, entrega, origem do pedido (contato e canal), tabela "O que mudou" (adicionado verde, removido vermelho riscado, alterado com valor antigo), total antes/depois, cartão do arquivo do Bling com BAIXAR, histórico do pedido, "Abrir demanda". Após o "sim": selo "Gravado às HH:MM por <pessoa>".
+- Botões **SIM, GRAVAR** / **MUDAR OUTRA COISA** embaixo da prévia: só escrevem a resposta pela pessoa (a regra de gravar continua a mesma — grava exatamente a prévia mostrada).
+- Regras do assistente **não mudam**. Antes de mostrar "origem do pedido" e o histórico, confirmar no código que esses dados estão gravados; se não estiverem, ficam fora desta parte.
+
+### 7C.4 Configurações — Opção A "Menu por seção" + resumos da B (`00-configuracoes-opcao-a.png`; resumos inspirados em `00-configuracoes-opcao-b.png`)
+
+- Menu interno fixo à esquerda em grupos (Escritório · Agente e atendimento · Cadastros · Sistema), cada item com contagem e **resumo do valor atual em letra pequena** (ex.: "seg–sex 08–18", "teto US$ 100 · 41%"), e "● não salvo" quando há rascunho. Uma seção por vez.
+- Cada cartão tem **seu próprio Salvar** (separa Expediente e Teto — pendência 17) e DESCARTAR; campo alterado fica âmbar com "antes: X"; aviso ao sair com alteração não salva (SALVAR E SAIR · DESCARTAR · CONTINUAR AQUI).
+- Seções: Expediente · Feriados · Prazos por prioridade · Teto de IA e alertas · Modelos de IA (`modelo_conversa`, `modelo_rapido`) · Cotação US$→R$ e custo por minuto da transcrição · Limites de espera do Atendimento · Mensagens automáticas (inclui o **aviso do login**) · Respostas prontas (**agora com edição**) · Setores · Serviços · Cargos · link para Usuários e permissões.
+- **Prazos — regra ao mudar** (decisão do dono, 02/10): ao salvar, se houver demandas abertas daquela prioridade, abre uma janela com o impacto ("14 demandas Normais abertas; 9 ganham prazo; nenhuma fica vencida" — e, ao **diminuir**, aviso em vermelho de quantas passariam a vencidas) e dois botões: **SÓ PARA AS NOVAS** (padrão) e **APLICAR TAMBÉM ÀS N ABERTAS**. Recalcular gera em cada demanda o evento "prazo recalculado por mudança de regra (<pessoa>)". Função `simular_mudanca_prazo(prioridade, dias)` (só leitura) + `aplicar_prazo_abertas(prioridade)`.
+- Prazos mostra ao lado o exemplo de vencimento ("aberta hoje 10:00 → vence…") e quantas demandas abertas usam cada prioridade.
+
+### 7C.5 Treinar o agente — Opção B "Editor com simulador" (`00-treinar-agente-opcao-b.png`)
+
+- Três colunas: lista enxuta (medidor compacto dos 12.000 caracteres, faixa de cor por tipo, chave liga/desliga, etiqueta "ensinada no Atendimento"), editor no meio, **simulador de WhatsApp sempre visível** à direita.
+- Simulador: escolhe a empresa, escreve como cliente, vê a resposta e **"O que o agente faria"** (ferramentas, com as que gravam/enviam fingidas — mesma regra de hoje), usando o **rascunho** sem salvar; quadro **"Sem o rascunho"** compara com a resposta sem a orientação (custa uma segunda simulação; conta em Gastos com IA como `testar_agente`).
+- Editor: título, texto (até 2.000), tipo, vale para; **histórico** em tabela compacta embaixo, com restaurar; botões **SALVAR DESLIGADA** e **SALVAR E LIGAR**.
+- Regras fixas, limites (4 min por teste, 1 teste por pessoa) e permissão `treinar_agente` não mudam.
+
+### 7C.6 Verificação da Parte G
+
+Playwright por tela (fluxos principais acima, dois papéis no Início, aviso de não salvo e janela de impacto em Prazos, VER AO LADO no Assistente, simulador com e sem rascunho). pgTAP: `estado_sistema_resumo` sem custos e legível por atendente; `simular_mudanca_prazo` não grava; `aplicar_prazo_abertas` gera evento por demanda e respeita "Com o cliente" (pausado). Capturas 1366/1920, claro e escuro, comparadas às imagens indicadas.
 
 ## 8. Riscos e cuidados
 

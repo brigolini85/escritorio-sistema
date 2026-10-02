@@ -141,6 +141,27 @@ Ao terminar: todas as suítes com resultado real; --dry-run da migração antes 
 
 ---
 
+## Prompt G — Demais telas (Início, Contatos, Assistente, Configurações, Treinar o agente)
+
+```
+Vamos implementar a PARTE G do spec docs/superpowers/specs/painel-v2/spec-painel-v2.md (seção 7C). Cada tela tem a opção escolhida indicada no spec; use a imagem dessa opção em docs/superpowers/specs/painel-v2/imagens/ (00-inicio-opcao-a e -b, 00-contatos-opcao-a, 00-assistente-opcao-b, 00-configuracoes-opcao-a, 00-treinar-agente-opcao-b). Onde imagem e spec divergirem, vale o spec.
+
+Base: branch painel-v2-parte-g a partir da última parte aprovada, em worktree. Traga a pasta do spec atualizada: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
+
+Ordem sugerida (uma sub-etapa por tela, me mostrando cada uma antes da próxima): Configurações (porque Prazos e Cotação são usados por outras partes) → Início → Contatos → Assistente → Treinar o agente.
+
+Pontos que não podem falhar:
+- Início escolhe a versão pelo papel (admin = Painel de situação; demais = Minha mesa); atendente nunca vê custos.
+- Prazos: SALVAR mostra o impacto antes; padrão "só para as novas"; recalcular gera evento em cada demanda.
+- Assistente e Treinar o agente: as regras de gravação e simulação continuam exatamente as de hoje (prévia com chave; simulação nunca envia nem grava).
+
+Processo: writing-plans → me mostre o plano → depois de aprovado, subagent-driven-development com TDD.
+
+Ao terminar cada tela: suítes com resultado real, capturas comparadas com a imagem, e PARE para eu ver. Migração: --dry-run antes de aplicar na homologação e espere meu ok. Não junte a branch em nada.
+```
+
+---
+
 ## Depois das partes
 
 Quando você aprovar tudo na prática, peça: "junte a última parte na etapa-1" (cada parte contém as anteriores). Depois seguimos com as outras telas (Contatos, Assistente, Configurações, Treinar o agente) no mesmo processo: desenho com imagens aqui → spec → prompt.

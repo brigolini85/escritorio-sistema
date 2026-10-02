@@ -1,0 +1,136 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0}body{font-family:'Plus Jakarta Sans',sans-serif;width:1440px;display:flex;color:#1C1A1B;background:#F1EFEE;font-size:15px}
+.nav{width:64px;background:#262223;display:flex;flex-direction:column;align-items:center;padding-top:14px;min-height:100vh;flex-shrink:0}.nav .lg{width:40px;height:40px;border-radius:50%;background:#7A2335;border:2px solid #C8A97E;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:14px}.nav i{font-size:22px;width:64px;text-align:center;padding:12px 0}.nav .on{background:#7A2335;color:#fff;box-shadow:inset 3px 0 0 #C8A97E}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{background:#fff;border-bottom:1px solid #E4E0DF;padding:13px 24px;display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#6B6466}
+.op{font-size:12px;font-weight:700;color:#A8865A;border:1px solid #E8DCC8;border-radius:12px;padding:3px 10px;background:#FBF8F3}
+.c{padding:20px 24px 28px;display:flex;flex-direction:column;gap:16px}
+.hd{display:flex;justify-content:space-between;align-items:flex-end;gap:20px}.t{font-size:28px;font-weight:800}.t span{color:#7A2335}.t small{font-size:15px;font-weight:500;color:#6B6466;margin-left:6px}
+.desc{font-size:14px;color:#4A4547;margin-top:4px;max-width:720px}
+.btn{font-size:13px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:9px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.bp{background:#7A2335;color:#fff}.bs{border:1px solid #D6D0CF;background:#fff;color:#262223}.bg{background:#262223;color:#fff}
+.cd{background:#fff;border:1px solid #E4E0DF;border-radius:8px}
+.k{font-size:12px;font-weight:800;letter-spacing:.05em;color:#7A2335;text-transform:uppercase}
+.tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.tj{background:#F6ECE4;color:#9A4F17}.tr{background:#EADADE;color:#7A2335}.ts{background:#E6EEF7;color:#2F5D8A}
+/* medidor */
+.med{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;padding:14px 20px}
+.trk{height:12px;background:#EEEBEA;border-radius:6px;overflow:hidden;position:relative}.fill{height:100%;background:#C07A1E}.mk{position:absolute;top:0;width:2px;height:12px;background:#262223}
+.big{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}.big small{font-size:14px;color:#6B6466;font-weight:600}
+/* layout */
+.grid{display:grid;grid-template-columns:420px 1fr;gap:16px;align-items:start}
+.flt{padding:12px 14px;border-bottom:1px solid #E4E0DF;display:flex;flex-direction:column;gap:10px}
+.srch{border:1px solid #D6D0CF;border-radius:6px;padding:8px 10px;font-size:14px;color:#8E8689;display:flex;gap:8px;align-items:center}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chips span{font-size:12.5px;font-weight:700;padding:5px 10px;border:1px solid #D6D0CF;border-radius:6px;color:#4A4547;background:#fff}.chips .on{background:#262223;color:#fff;border-color:#262223}
+.grp{font-size:12px;font-weight:800;letter-spacing:.05em;color:#6B6466;text-transform:uppercase;padding:10px 14px 6px;background:#FAF9F8;border-bottom:1px solid #EFECEB;display:flex;justify-content:space-between}
+.it{display:grid;grid-template-columns:1fr 38px;gap:10px;padding:11px 14px;border-bottom:1px solid #F0EDEC;align-items:center}
+.it b{font-size:14.5px;font-weight:700;display:block}.it .m{font-size:12.5px;color:#6B6466;margin-top:3px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.it.on{background:#FBF7F8;box-shadow:inset 3px 0 0 #7A2335}
+.sw{width:36px;height:20px;border-radius:10px;background:#D6D0CF;position:relative}.sw:after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff}
+.sw.l{background:#0F5446}.sw.l:after{left:18px}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+/* editor */
+.tabs{display:flex;gap:4px;border-bottom:1px solid #E4E0DF;padding:0 20px}.tabs span{font-size:13px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:14px 12px;color:#6B6466}.tabs .on{color:#7A2335;box-shadow:inset 0 -3px 0 #7A2335}
+.ed{display:grid;grid-template-columns:1fr 300px}
+.fm{padding:18px 22px;display:flex;flex-direction:column;gap:16px;border-right:1px solid #E4E0DF}
+.lb{font-size:12px;font-weight:800;letter-spacing:.05em;color:#7A2335;text-transform:uppercase;margin-bottom:7px;display:flex;justify-content:space-between}.lb span{color:#8E8689;letter-spacing:0;text-transform:none;font-weight:600}
+.in{border:1px solid #D6D0CF;border-radius:6px;padding:10px 12px;font-size:15px}
+.ta{border:1px solid #7A2335;border-radius:6px;padding:12px 14px;font-size:14.5px;line-height:1.6;color:#262223;min-height:200px;box-shadow:0 0 0 3px #F3E6E9}
+.opc{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.opc div{border:1px solid #D6D0CF;border-radius:6px;padding:10px 12px;font-size:13px;color:#6B6466;line-height:1.4}.opc div b{display:flex;gap:6px;align-items:center;font-size:14px;color:#1C1A1B;margin-bottom:2px}
+.opc .on{border-color:#7A2335;background:#FBF4F5}
+.rd{width:14px;height:14px;border-radius:50%;border:2px solid #B5ADAF;display:inline-block}.on .rd{border:4px solid #7A2335}
+.sel{border:1px solid #D6D0CF;border-radius:6px;padding:9px 12px;font-size:14px;display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.ft{display:flex;justify-content:space-between;align-items:center;padding-top:4px}
+.hs{padding:16px 16px}
+.v{position:relative;padding:0 0 14px 20px;border-left:2px solid #E4E0DF;margin-left:6px}.v:last-child{border-color:transparent}
+.v:before{content:'';position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #C8A97E}
+.v.cur:before{background:#7A2335;border-color:#7A2335}
+.v b{font-size:14px;display:block}.v p{font-size:12.5px;color:#6B6466;margin-top:2px}
+.v .r{font-size:12px;font-weight:800;color:#7A2335;text-transform:uppercase;letter-spacing:.03em;margin-top:6px;display:inline-flex;gap:4px;align-items:center}
+.fx{background:#F7F5F4;border:1px solid #E4E0DF;border-radius:8px;padding:14px 16px;font-size:13.5px;color:#4A4547;line-height:1.55}
+.fx ul{padding-left:18px;margin-top:6px}
+.diff{background:#FBF8F3;border:1px dashed #C8A97E;border-radius:6px;padding:8px 10px;font-size:12.5px;color:#4A4547;margin-top:6px;line-height:1.5}
+.diff ins{background:#E3F2EE;text-decoration:none;color:#0F5446}.diff del{color:#B23A1E}
+.new{font-size:10.5px;font-weight:800;color:#A8865A;border:1px solid #E8DCC8;border-radius:8px;padding:1px 6px;letter-spacing:.04em;text-transform:uppercase;margin-left:6px;vertical-align:middle}
+</style></head><body>
+<div class="nav"><div class="lg">EC</div><i class="ti ti-layout-dashboard" style="color:#D6AE5C"></i><i class="ti ti-message-circle" style="color:#5DBB8F"></i><i class="ti ti-checklist" style="color:#A6C95A"></i><i class="ti ti-building" style="color:#6E9BC9"></i><i class="ti ti-address-book" style="color:#A98BCB"></i><i class="ti ti-sparkles" style="color:#D6AE5C"></i><i class="ti ti-school on"></i><i class="ti ti-coin" style="color:#C9A35A"></i><i class="ti ti-settings" style="color:#4FB0B8"></i></div>
+<div class="main">
+<div class="top"><span><i class="ti ti-school" style="color:#E0894A"></i> › Agente › <b style="color:#1C1A1B">Treinar o agente</b></span><span style="display:flex;gap:14px;align-items:center"><span><span class="dot" style="background:#5DBB8F"></span> Agente ativo</span><span class="op">Opção A — Lista e editor</span></span></div>
+<div class="c">
+<div class="hd"><div><div class="t">Treinar o <span>agente</span><small>14 orientações · 6 ligadas</small></div><div class="desc">Orientações que o agente de clientes segue no WhatsApp. O que você liga vale a partir da próxima mensagem; as regras fixas continuam valendo.</div></div>
+<div style="display:flex;gap:8px"><span class="btn bs"><i class="ti ti-player-play"></i> Testar o agente</span><span class="btn bp"><i class="ti ti-plus"></i> Nova orientação</span></div></div>
+
+<div class="cd med" style="border-top:4px solid #E0894A">
+<div><div class="k">Espaço das orientações ligadas</div><div class="big" style="margin-top:4px">9.940 <small>de 12.000 caracteres · 83%</small></div></div>
+<div><div class="trk"><div class="fill" style="width:83%"></div><div class="mk" style="left:80%"></div></div><div style="display:flex;justify-content:space-between;font-size:12px;color:#8E8689;margin-top:5px"><span>0</span><span style="margin-left:72%">aviso 80%</span><span>12.000</span></div></div>
+<div style="font-size:13.5px;color:#7A4A0E;background:#FDF1E0;border-radius:6px;padding:9px 12px;max-width:380px;display:flex;gap:8px;line-height:1.4"><i class="ti ti-alert-triangle" style="font-size:18px"></i><span><b>Perto do limite.</b> Conta feita com a empresa de mais texto (Rede Bom Preço Ltda). Junte ou encurte orientações parecidas.</span></div>
+</div>
+
+<div class="grid">
+<div class="cd">
+<div class="flt"><div class="srch"><i class="ti ti-search"></i> Buscar por título, texto ou empresa</div>
+<div class="chips"><span class="on">Todos os tipos</span><span>Jeito de atender</span><span>Regra</span><span>Situação</span></div>
+<div class="chips"><span class="on">Ligadas e desligadas</span><span>Ligadas</span><span>Desligadas</span><span><i class="ti ti-building"></i> Vale para</span></div></div>
+
+<div class="grp"><span>Jeito de atender</span><span>3 de 5 ligadas</span></div>
+<div class="it on"><div><b>Responder como gente</b><div class="m"><span>Todos os clientes</span><span>editada há 12 min por Thiago</span></div></div><div class="sw l"></div></div>
+<div class="it"><div><b>Postura e escuta</b><div class="m"><span>Todos os clientes</span><span>30/09 por Thiago</span></div></div><div class="sw l"></div></div>
+<div class="it"><div><b>Perguntar bem</b><div class="m"><span>Todos os clientes</span><span>30/09 por Thiago</span></div></div><div class="sw l"></div></div>
+<div class="it"><div><b>Ritmo da conversa</b><div class="m"><span>Todos os clientes</span><span>30/09</span></div></div><div class="sw"></div></div>
+<div class="it"><div><b>Fechar com o cliente</b><div class="m"><span>Todos os clientes</span><span>30/09</span></div></div><div class="sw"></div></div>
+
+<div class="grp"><span>Regra do escritório</span><span>2 de 5 ligadas</span></div>
+<div class="it"><div><b>Dados do escritório</b><div class="m"><span>Todos os clientes</span><span style="color:#C07A1E;font-weight:700">6 campos a preencher</span></div></div><div class="sw"></div></div>
+<div class="it"><div><b>Setores e casos de fronteira</b><div class="m"><span>Todos os clientes</span><span>30/09</span></div></div><div class="sw l"></div></div>
+<div class="it"><div><b>Prazo da folha da Padaria</b><div class="m"><span><i class="ti ti-building" style="color:#6E9BC9"></i> Padaria Sol ME</span><span>01/10 por Cláudia</span></div></div><div class="sw l"></div></div>
+<div class="it"><div><b>O que coletar em cada pedido</b><div class="m"><span>Todos os clientes</span><span>30/09</span></div></div><div class="sw"></div></div>
+<div class="it"><div><b>Prioridade e resumo interno</b><div class="m"><span>Todos os clientes</span><span>30/09</span></div></div><div class="sw"></div></div>
+
+<div class="grp"><span>Situação específica</span><span>1 de 4 ligadas</span></div>
+<div class="it"><div><b>Nota com unidade fora do cadastro</b><div class="m"><span><i class="ti ti-building" style="color:#6E9BC9"></i> Rede Bom Preço Ltda</span><span class="tag" style="background:#E3F2EE;color:#0F5446"><i class="ti ti-message-circle"></i> ensinada no Atendimento</span></div></div><div class="sw"></div></div>
+<div class="it"><div><b>Situações delicadas</b><div class="m"><span>Todos os clientes</span><span>30/09</span></div></div><div class="sw"></div></div>
+<div class="it"><div><b>Guia do DAS atrasada</b><div class="m"><span>Setor Fiscal</span><span>28/09 por Ana</span></div></div><div class="sw l"></div></div>
+<div class="it" style="border:0"><div><b>Holerite pedido por funcionário</b><div class="m"><span>Setor Pessoal</span><span>27/09 por Bruno</span></div></div><div class="sw"></div></div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:16px">
+<div class="cd">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 22px 0"><div><div class="k">Jeito de atender</div><div style="font-size:21px;font-weight:800;margin-top:3px">Responder como gente</div></div>
+<div style="display:flex;gap:10px;align-items:center;font-size:14px;font-weight:700;color:#0F5446"><div class="sw l"></div> Ligada</div></div>
+<div class="tabs" style="margin-top:8px"><span class="on">Orientação</span><span>Testar esta orientação</span></div>
+<div class="ed">
+<div class="fm">
+<div><div class="lb">Título <span>21 / 120</span></div><div class="in">Responder como gente</div></div>
+<div><div class="lb">Tipo</div><div class="opc">
+<div class="on"><b><span class="rd"></span>Jeito de atender</b>Tom, cumprimento, tamanho das respostas.</div>
+<div><b><span class="rd"></span>Regra do escritório</b>Prazos, horários e combinados que valem sempre.</div>
+<div><b><span class="rd"></span>Situação específica</b>O que fazer quando o cliente pede algo específico.</div></div></div>
+<div><div class="lb">Vale para</div><div class="opc">
+<div class="on"><b><span class="rd"></span>Todos os clientes</b>Entra em toda conversa.</div>
+<div><b><span class="rd"></span>Uma empresa</b>Só nas conversas dela.</div>
+<div><b><span class="rd"></span>Um setor</b>Clientes atendidos pelo setor.</div></div></div>
+<div><div class="lb">O que o agente deve fazer <span>612 / 2.000</span></div>
+<div class="ta">Escreva como uma pessoa do escritório escreveria no WhatsApp: frases curtas, sem jargão e sem texto de robô. Comece pelo nome do cliente quando souber.<br><br>Uma ideia por mensagem. Se a resposta tiver mais de 4 linhas, divida em duas mensagens ou pergunte se ele quer o detalhe.<br><br>Não repita o que o cliente acabou de dizer. Quando não souber, diga que vai confirmar com a equipe e quando ele terá retorno; nunca prometa prazo que não está nas regras do escritório.</div></div>
+<div class="ft"><span style="font-size:13px;color:#6B6466;white-space:nowrap"><i class="ti ti-point-filled" style="color:#C07A1E"></i> Não salvo</span>
+<div style="display:flex;gap:8px"><span class="btn bs">Descartar</span><span class="btn bs"><i class="ti ti-player-play"></i> Testar rascunho</span><span class="btn bp"><i class="ti ti-device-floppy"></i> Salvar</span></div></div>
+</div>
+<div class="hs"><div class="k" style="display:flex;justify-content:space-between;margin-bottom:14px"><span>Histórico</span><span style="color:#8E8689;letter-spacing:0;text-transform:none;font-weight:600">5 versões</span></div>
+<div class="v cur"><b>Editada · versão atual</b><p>Thiago · hoje 10:48</p></div>
+<div class="v"><b>Ligada</b><p>Thiago · 01/10 17:20</p></div>
+<div class="v"><b>Editada</b><p>Ana · 01/10 16:05</p>
+<div class="diff">… frases curtas<del>, educadas e completas</del><ins>, sem jargão e sem texto de robô</ins>. <span class="new">novo</span></div>
+<span class="r"><i class="ti ti-arrow-back-up"></i> Restaurar</span></div>
+<div class="v"><b>Editada</b><p>Thiago · 30/09 19:12</p><span class="r"><i class="ti ti-arrow-back-up"></i> Restaurar</span></div>
+<div class="v"><b>Criada desligada</b><p>skill do dono · 30/09 18:40</p><span class="r"><i class="ti ti-arrow-back-up"></i> Restaurar</span></div>
+<p style="font-size:12.5px;color:#8E8689;line-height:1.45;margin-top:4px">Restaurar volta título, tipo, texto e para quem vale. Não liga nem desliga.</p>
+</div>
+</div></div>
+
+<div class="fx"><div class="k" style="margin-bottom:2px"><i class="ti ti-lock"></i> Regras fixas — sempre vencem as orientações</div>
+<ul><li>Sem emoji · resumo conferido antes de pedir a nota · não inventar valores, prazos ou dados</li><li>Assunto sensível vai para a Direção · sigilo entre clientes e sobre a equipe</li></ul></div>
+</div>
+</div>
+</div></div></body></html>

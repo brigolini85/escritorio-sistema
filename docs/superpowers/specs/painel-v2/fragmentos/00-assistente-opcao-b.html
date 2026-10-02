@@ -1,0 +1,124 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0}body{font-family:'Plus Jakarta Sans',sans-serif;width:1440px;display:flex;color:#1C1A1B;background:#F1EFEE;font-size:15px}
+.nav{width:64px;background:#262223;display:flex;flex-direction:column;align-items:center;padding-top:14px;min-height:100vh;flex-shrink:0}.nav .lg{width:40px;height:40px;border-radius:50%;background:#7A2335;border:2px solid #C8A97E;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:14px}.nav i{font-size:22px;width:64px;text-align:center;padding:12px 0}.nav .on{background:#7A2335;color:#fff;box-shadow:inset 3px 0 0 #C8A97E}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{background:#fff;border-bottom:1px solid #E4E0DF;padding:12px 22px;display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#6B6466}
+.op{font-size:12px;font-weight:800;letter-spacing:.04em;color:#A8865A;border:1px solid #E6D9C4;background:#FBF7F0;border-radius:5px;padding:4px 10px}
+.row{display:flex;flex:1}
+.chat{width:470px;background:#fff;border-right:1px solid #E4E0DF;display:flex;flex-direction:column;flex-shrink:0}
+.chh{padding:14px 18px 12px;border-bottom:1px solid #ECE8E7}
+.t{font-size:24px;font-weight:300}.t b{font-weight:800;color:#7A2335}
+.sw{display:flex;gap:6px;margin-top:10px;align-items:center}
+.sw span{font-size:13px;font-weight:700;padding:6px 11px;border:1px solid #D6D0CF;border-radius:6px;color:#4A4547;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.sw .on{background:#262223;color:#fff;border-color:#262223}
+.msgs{flex:1;padding:16px 18px;display:flex;flex-direction:column;gap:12px;background:#FAF9F8}
+.dia{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;color:#8E8689}.dia:before,.dia:after{content:"";flex:1;height:1px;background:#E4E0DF}
+.eu{align-self:flex-end;max-width:82%;background:#F3ECEE;border:1px solid #E7D3D8;border-radius:10px;border-bottom-right-radius:3px;padding:9px 13px;line-height:1.5;font-size:14.5px}
+.who{font-size:11.5px;font-weight:800;letter-spacing:.05em;margin-bottom:3px;display:flex;justify-content:space-between;gap:14px}.who em{font-style:normal;color:#8E8689;font-weight:500;letter-spacing:0}
+.as{align-self:flex-start;max-width:92%;background:#fff;border:1px solid #E4E0DF;border-radius:10px;border-bottom-left-radius:3px;padding:10px 13px;line-height:1.5;font-size:14.5px}
+.as .who span:first-child{color:#A8865A}
+.ref{display:flex;align-items:center;gap:10px;margin-top:8px;border:1px solid #E4E0DF;border-left:3px solid #C07A1E;border-radius:6px;padding:8px 10px;font-size:13.5px;background:#FFFCF7}
+.ref.ok{border-left-color:#0F5446;background:#F6FBF9}
+.ref .go{margin-left:auto;font-size:12px;font-weight:800;color:#7A2335;white-space:nowrap}
+.feito{font-weight:800;color:#0F5446}
+.cmp{padding:12px 18px 16px;border-top:1px solid #E4E0DF;background:#fff}
+.sug{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}.sug span{font-size:12.5px;font-weight:600;color:#4A4547;background:#fff;border:1px solid #D6D0CF;border-radius:16px;padding:4px 11px}
+.box{border:1.5px solid #7A2335;border-radius:8px;padding:10px 12px}
+.box .ph{color:#8E8689;min-height:24px}
+.box .tb{display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:12px;color:#8E8689}
+.btn{font-size:12.5px;font-weight:800;letter-spacing:.06em;border-radius:6px;padding:9px 15px;display:inline-flex;gap:7px;align-items:center;text-transform:uppercase;white-space:nowrap}
+.pri{background:#7A2335;color:#fff}.sec{border:1.5px solid #BDB6B8;color:#4A4547;background:#fff}
+.res{flex:1;display:flex;flex-direction:column;min-width:0;padding:18px 22px 24px;gap:14px}
+.tabs{display:flex;gap:0;border-bottom:1px solid #E4E0DF}
+.tabs span{padding:10px 16px;font-size:13px;font-weight:800;letter-spacing:.04em;color:#6B6466;display:inline-flex;gap:7px;align-items:center}
+.tabs .on{color:#7A2335;box-shadow:inset 0 -2px 0 #7A2335}
+.tabs .c{font-size:11px;background:#EEEBEA;color:#4A4547;border-radius:9px;padding:1px 7px}
+.cd{background:#fff;border:1px solid #E4E0DF;border-radius:8px}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px;border-bottom:1px solid #ECE8E7}
+.lbs{font-size:12.5px;font-weight:800;letter-spacing:.08em;color:#7A2335}
+.h2{font-size:26px;font-weight:300;margin-top:2px}.h2 b{font-weight:800}
+.tag{font-size:12.5px;font-weight:800;padding:4px 10px;border-radius:5px;display:inline-flex;gap:6px;align-items:center}
+.kvs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #ECE8E7}
+.kvs>div{padding:12px 20px;border-right:1px solid #F0EDEC}.kvs>div:last-child{border:0}
+.kvs small{display:block;font-size:12px;font-weight:800;letter-spacing:.05em;color:#6B6466;margin-bottom:3px}
+.kvs b{font-size:14.5px}
+.sec2{padding:14px 20px 6px;display:flex;justify-content:space-between;align-items:center}
+.leg{display:flex;gap:14px;font-size:12.5px;color:#6B6466}.leg span{display:inline-flex;gap:5px;align-items:center}
+.ln{display:grid;grid-template-columns:28px 70px 1fr 150px 110px 150px;gap:12px;padding:11px 20px;font-size:15px;align-items:center;border-bottom:1px solid #F3F1F0;font-variant-numeric:tabular-nums}
+.ln.th{font-size:12px;font-weight:800;color:#6B6466;letter-spacing:.05em;padding-top:8px;padding-bottom:8px;background:#FAF9F8;border-top:1px solid #F0EDEC}
+.r{text-align:right}
+.alt{background:#FDF4E6}.alt .mk{color:#C07A1E}
+.old{display:block;color:#8E8689;font-size:12.5px;line-height:1.3}.old del{color:#B23A1E}
+.tot{display:grid;grid-template-columns:1fr 150px;gap:12px;padding:12px 20px;align-items:center;font-variant-numeric:tabular-nums}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.k2{font-size:12.5px;font-weight:800;letter-spacing:.08em;color:#7A2335;margin-bottom:10px;display:flex;justify-content:space-between}
+.k2 span:last-child{color:#8E8689;letter-spacing:0;font-weight:600}
+.arq{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #F3F1F0}
+.arq .fi{width:38px;height:38px;border-radius:7px;background:#F3F9F7;border:1px solid #CFE6DF;color:#0F5446;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.tl{display:grid;grid-template-columns:48px 14px 1fr;gap:10px;font-size:13.5px;padding:6px 0;align-items:start}
+.tl .h{color:#8E8689;font-variant-numeric:tabular-nums}.tl .d{width:10px;height:10px;border-radius:50%;margin-top:5px}
+</style></head><body>
+<div class="nav"><div class="lg">EC</div><i class="ti ti-layout-dashboard" style="color:#D6AE5C"></i><i class="ti ti-message-circle" style="color:#5DBB8F"></i><i class="ti ti-checklist" style="color:#A6C95A"></i><i class="ti ti-building" style="color:#6E9BC9"></i><i class="ti ti-address-book" style="color:#A98BCB"></i><i class="ti ti-sparkles on"></i><i class="ti ti-school" style="color:#E0894A"></i><i class="ti ti-settings" style="color:#4FB0B8"></i></div>
+<div class="main">
+<div class="top"><span><i class="ti ti-sparkles" style="color:#D6AE5C"></i> › Assistente › <b style="color:#1C1A1B">Geral</b></span>
+<span style="display:flex;gap:16px;align-items:center"><span><i class="ti ti-search"></i> Buscar <span style="font-size:12px;border:1px solid #E4E0DF;border-radius:4px;padding:1px 5px">Ctrl K</span></span><span style="color:#0F5446;font-weight:700"><i class="ti ti-point-filled"></i>Agente ativo</span><span style="color:#1C1A1B;font-weight:700">Ana · Fiscal <i class="ti ti-chevron-down"></i></span><span class="op">Opção B — Conversa + resultado</span></span></div>
+
+<div class="row">
+<div class="chat">
+<div class="chh"><div class="t">Assistente · <b>Geral</b></div>
+<div class="sw"><span class="on"><i class="ti ti-sparkles"></i>Geral</span><span><i class="ti ti-message-circle"></i>Carla Mendes</span><span><i class="ti ti-message-circle"></i>Jorge Santos</span><span><i class="ti ti-history"></i>+3 <i class="ti ti-chevron-down"></i></span></div></div>
+
+<div class="msgs">
+<div class="dia">Hoje</div>
+<div class="eu"><div class="who"><span style="color:#7A2335">ANA</span><em>15:32</em></div>quais pedidos de nota estão em aberto?</div>
+<div class="as"><div class="who"><span><i class="ti ti-sparkles"></i> ASSISTENTE</span><em>15:32</em></div>São <b>4 pedidos</b> em aberto nos seus setores, R$ 2.118,40 no total.
+<div class="ref ok" style="border-left-color:#6E9BC9;background:#F5F8FC"><i class="ti ti-table" style="color:#2F5D8A"></i>Tabela · 4 pedidos de nota<span class="go">VER AO LADO <i class="ti ti-arrow-right"></i></span></div></div>
+
+<div class="eu"><div class="who"><span style="color:#7A2335">ANA</span><em>15:40</em></div>o pedido 536 era 15 PAC, corrige e me manda o CSV</div>
+<div class="as"><div class="who"><span><i class="ti ti-sparkles"></i> ASSISTENTE</span><em>15:40</em></div>Prévia do <b>#536</b>: Pão de queijo de 10 para 15 PAC, total R$ 296,60 → R$ 389,10. <b>Nada foi gravado.</b> Responda <b>sim</b> para gravar; o CSV sai em seguida.
+<div class="ref"><i class="ti ti-git-compare" style="color:#C07A1E"></i>Prévia #536 · 1 alteração<span class="go">VER AO LADO <i class="ti ti-arrow-right"></i></span></div></div>
+
+<div class="eu"><div class="who"><span style="color:#7A2335">ANA</span><em>15:41</em></div>sim</div>
+<div class="as"><div class="who"><span><i class="ti ti-sparkles"></i> ASSISTENTE</span><em>15:41</em></div><span class="feito">Feito:</span> pedido <b>#536</b> gravado com 15 PAC de Pão de queijo. Total <b>R$ 389,10</b>. CSV do Bling pronto.
+<div class="ref ok"><i class="ti ti-file-spreadsheet" style="color:#0F5446"></i>bling-pedidos-536.csv<span class="go" style="color:#0F5446"><i class="ti ti-download"></i> BAIXAR</span></div></div>
+</div>
+
+<div class="cmp">
+<div class="sug"><span>Quanto vendemos neste mês?</span><span>Demandas aguardando o cliente</span><span>CSV dos pedidos abertos</span></div>
+<div class="box"><div class="ph">Pergunte ao assistente</div><div class="tb"><span>Enter envia · Shift+Enter quebra a linha</span><span class="btn pri" style="padding:8px 14px">Enviar <i class="ti ti-send"></i></span></div></div>
+</div>
+</div>
+
+<div class="res">
+<div class="tabs"><span class="on"><i class="ti ti-receipt"></i>PEDIDO #536</span><span><i class="ti ti-table"></i>PEDIDOS EM ABERTO <span class="c">4</span></span><span><i class="ti ti-file-spreadsheet"></i>ARQUIVOS <span class="c">1</span></span><span style="margin-left:auto;font-weight:600;letter-spacing:0;color:#8E8689;font-size:13px">resultados desta conversa</span></div>
+
+<div class="cd">
+<div class="hd"><div><div class="lbs">NOTA DE VENDA · SETOR FISCAL</div><div class="h2">Pedido <b style="color:#7A2335">#536</b> · <b>Padaria Sol ME</b></div></div>
+<div style="display:flex;gap:8px;align-items:center"><span class="tag" style="background:#E3F2EE;color:#0F5446"><i class="ti ti-circle-check"></i>Gravado às 15:41 por Ana</span><span class="btn sec" style="padding:7px 12px"><i class="ti ti-external-link"></i>Abrir demanda</span></div></div>
+<div class="kvs"><div><small>DESTINATÁRIO</small><b>Rede Bom Preço</b><div style="font-size:13px;color:#6B6466">Unidade Centro</div></div><div><small>PAGAMENTO</small><b>Boleto 28 dias</b></div><div><small>ENTREGA</small><b>03/10</b><div style="font-size:13px;color:#6B6466">endereço do cadastro</div></div><div><small>PEDIDO VEIO DE</small><b>Carla Mendes</b><div style="font-size:13px;color:#6B6466">WhatsApp · 01/10</div></div></div>
+<div class="sec2"><span class="lbs">O QUE MUDOU</span><span class="leg"><span><i class="ti ti-plus" style="color:#0F5446"></i>adicionado</span><span><i class="ti ti-minus" style="color:#B23A1E"></i><s>removido</s></span><span><i class="ti ti-pencil" style="color:#C07A1E"></i>alterado</span></span></div>
+<div class="ln th"><span></span><span>CÓD.</span><span>PRODUTO</span><span>QTD</span><span class="r">PREÇO</span><span class="r">SUBTOTAL</span></div>
+<div class="ln alt"><i class="ti ti-pencil mk"></i><span>12</span><span>Pão de queijo congelado 1kg</span><span><b>15 PAC</b><span class="old">antes: <del>10 PAC</del></span></span><span class="r">R$ 18,50</span><span class="r"><b>R$ 277,50</b><span class="old">antes: <del>R$ 185,00</del></span></span></div>
+<div class="ln"><span></span><span>31</span><span>Bolo de fubá 400g</span><span>6 UN</span><span class="r">R$ 14,00</span><span class="r">R$ 84,00</span></div>
+<div class="ln" style="border:0"><span></span><span>44</span><span>Biscoito de polvilho 200g</span><span>4 PAC</span><span class="r">R$ 6,90</span><span class="r">R$ 27,60</span></div>
+<div class="tot alt" style="border-top:1px solid #F0DEC2;border-radius:0 0 8px 8px"><span class="r" style="color:#6B6466">Total do pedido</span><span class="r"><b style="font-size:20px">R$ 389,10</b><span class="old">antes: <del>R$ 296,60</del></span></span></div>
+</div>
+
+<div class="two">
+<div class="cd" style="padding:16px 20px"><div class="k2"><span>ARQUIVO PARA O BLING</span><span>pronto</span></div>
+<div class="arq" style="border:0"><div class="fi"><i class="ti ti-file-spreadsheet"></i></div><div style="flex:1;min-width:0"><div style="font-weight:800">bling-pedidos-536.csv</div><div style="font-size:13px;color:#6B6466">1 pedido · 3 itens · gerado 15:41</div></div></div>
+<div style="display:flex;gap:8px;margin-top:6px"><span class="btn pri"><i class="ti ti-download"></i>Baixar CSV Bling</span><span class="btn sec"><i class="ti ti-files"></i>Juntar com os abertos</span></div>
+</div>
+<div class="cd" style="padding:16px 20px"><div class="k2"><span>HISTÓRICO DO PEDIDO</span><span>4 eventos</span></div>
+<div class="tl"><span class="h">01/10</span><span class="d" style="background:#5DBB8F"></span><span>Agente abriu o pedido pelo WhatsApp de Carla (10 PAC)</span></div>
+<div class="tl"><span class="h">15:40</span><span class="d" style="background:#C07A1E"></span><span>Prévia mostrada a Ana: 10 → 15 PAC</span></div>
+<div class="tl"><span class="h">15:41</span><span class="d" style="background:#7A2335"></span><span><b>Ana respondeu “sim”</b> · pedido gravado</span></div>
+<div class="tl"><span class="h">15:41</span><span class="d" style="background:#0F5446"></span><span>CSV do Bling gerado</span></div>
+</div>
+</div>
+</div>
+</div></div>
+</body></html>
