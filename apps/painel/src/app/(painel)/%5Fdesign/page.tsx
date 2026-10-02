@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ROTULO_DE_OPCAO } from '@/components/ui/rotulo-de-opcao';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -235,14 +236,14 @@ export default async function PaginaDesign({ searchParams }: { searchParams: Pro
             </div>
             <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="d-obs">Observação</Label><Textarea id="d-obs" placeholder="Escreva uma nota interna" /></div>
             <div className="flex flex-col gap-3">
-              <Label className="normal-case font-medium text-foreground tracking-normal"><Checkbox defaultChecked />Pode pedir nota</Label>
-              <Label className="normal-case font-medium text-foreground tracking-normal"><Checkbox />Pode mudar preço e cadastrar produto</Label>
-              <Label className="normal-case font-medium text-foreground tracking-normal"><Checkbox disabled />Desabilitado</Label>
+              <Label className={ROTULO_DE_OPCAO}><Checkbox defaultChecked />Pode pedir nota</Label>
+              <Label className={ROTULO_DE_OPCAO}><Checkbox />Pode mudar preço e cadastrar produto</Label>
+              <Label className={ROTULO_DE_OPCAO}><Checkbox disabled />Desabilitado</Label>
             </div>
             <div className="flex flex-col gap-3">
-              <Label className="normal-case font-medium text-foreground tracking-normal"><Switch defaultChecked />O agente atende este contato</Label>
-              <Label className="normal-case font-medium text-foreground tracking-normal"><Switch />Usar o assistente pelo WhatsApp</Label>
-              <Label className="normal-case font-medium text-foreground tracking-normal"><Switch disabled />Desabilitado</Label>
+              <Label className={ROTULO_DE_OPCAO}><Switch defaultChecked />O agente atende este contato</Label>
+              <Label className={ROTULO_DE_OPCAO}><Switch />Usar o assistente pelo WhatsApp</Label>
+              <Label className={ROTULO_DE_OPCAO}><Switch disabled />Desabilitado</Label>
             </div>
           </CardContent>
         </Card>

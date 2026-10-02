@@ -8,6 +8,7 @@ import { BotaoSalvar, FormularioAlteravel, IndicadorAlteracoes, inicialRadix } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ROTULO_DE_OPCAO } from '@/components/ui/rotulo-de-opcao';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/toaster';
 import { Textarea } from '@/components/ui/textarea';
@@ -184,7 +185,7 @@ export function FormularioOrientacao({
 
         <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
           <div>
-            <Label htmlFor={`${id}-ativo`} className="cursor-pointer text-base normal-case font-medium text-foreground tracking-normal">Ligada</Label>
+            <Label htmlFor={`${id}-ativo`} className={cn('cursor-pointer text-base', ROTULO_DE_OPCAO)}>Ligada</Label>
             <p id={`${id}-ativo-descricao`} className="text-sm text-muted">Ligada, o agente segue a orientação a partir da próxima mensagem. Desligada, ela fica guardada sem valer.</p>
           </div>
           <Switch id={`${id}-ativo`} name="ativo" defaultChecked={orientacao?.ativo ?? false} {...inicialRadix(orientacao?.ativo ?? false)} aria-describedby={`${id}-ativo-descricao`} className="mt-0.5" />

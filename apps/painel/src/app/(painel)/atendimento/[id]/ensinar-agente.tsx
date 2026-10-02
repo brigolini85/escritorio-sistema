@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ROTULO_DE_OPCAO } from '@/components/ui/rotulo-de-opcao';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/cn';
@@ -164,7 +165,7 @@ function ConteudoEnsinar({ situacaoInicial, empresa }: { situacaoInicial: string
 
       <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
         <div>
-          <Label htmlFor={`${id}-ativo`} className="cursor-pointer text-base normal-case font-medium text-foreground tracking-normal">Ligada</Label>
+          <Label htmlFor={`${id}-ativo`} className={cn('cursor-pointer text-base', ROTULO_DE_OPCAO)}>Ligada</Label>
           <p id={`${id}-ativo-descricao`} className="text-sm text-muted">Desligada, ela fica guardada até alguém revisar e ligar em Treinar o agente.</p>
         </div>
         <Switch id={`${id}-ativo`} name="ativo" defaultChecked={false} aria-describedby={`${id}-ativo-descricao`} className="mt-0.5" />
