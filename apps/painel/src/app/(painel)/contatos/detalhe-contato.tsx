@@ -7,14 +7,12 @@ import { EmptyState } from '@/components/patterns/empty-state';
 import { SwitchAgenteContato } from '@/components/patterns/switch-agente-contato';
 import { Badge } from '@/components/ui/badge';
 import { SheetBody, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { NOME_ANONIMIZADO } from '@/lib/arquivo';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato } from '../atendimento/acoes';
 import { anonimizarContato } from '../clientes/acoes';
 import { MarcacoesContato, nomeEmpresa, type Vinculo } from './marcacoes';
-
-/** Nome que o banco põe no contato depois de apagar os dados (anonimizar_contato). */
-const NOME_ANONIMIZADO = 'Contato removido';
 
 function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
