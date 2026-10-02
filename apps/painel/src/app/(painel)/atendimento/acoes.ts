@@ -1,5 +1,8 @@
 'use server';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { comAvisoNaUrl } from '@/lib/avisos';
+import { cadastrarContatoPeloTelefone } from '@/lib/cadastro-contato';
 import { enfileirarEnvio } from '@/lib/fila';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -82,17 +85,17 @@ export async function cadastrarContatoDaConversa(conversaId: string, formData: F
   const clienteId = String(formData.get('cliente_id') ?? '') || null;
   const { data: conversa, error: e1 } = await sb.from('conversas').select('telefone').eq('id', conversaId).single();
   if (e1) throw new Error(e1.message);
-  const { data: contato, error: e2 } = await sb.from('contatos')
-    // Cadastrar de novo um telefone arquivado traz o contato de volta (o gatilho limpa o arquivo).
-    .upsert({ nome, telefone: conversa.telefone, ativo: true, agente_pausado: formData.get('agente_atende') !== 'on' }, { onConflict: 'telefone' })
-    .select('id').single();
-  if (e2) throw new Error(e2.message);
+  // Telefone de contato arquivado traz o contato de volta só com a empresa escolhida aqui (os vínculos antigos saem).
+  const { id: contatoId, aviso } = await cadastrarContatoPeloTelefone(sb, {
+    nome, telefone: conversa.telefone, clienteId, agentePausado: formData.get('agente_atende') !== 'on',
+  });
   if (clienteId) {
-    const { error } = await sb.from('contato_clientes').upsert({ contato_id: contato.id, cliente_id: clienteId, pode_pedir_nota: formData.get('pode_pedir_nota') === 'on' });
+    const { error } = await sb.from('contato_clientes').upsert({ contato_id: contatoId, cliente_id: clienteId, pode_pedir_nota: formData.get('pode_pedir_nota') === 'on' });
     if (error) throw new Error(error.message);
   }
-  await rpc('vincular_contato_conversa', { p_conversa: conversaId, p_contato: contato.id });
+  await rpc('vincular_contato_conversa', { p_conversa: conversaId, p_contato: contatoId });
   revalidatePath(`/atendimento/${conversaId}`);
+  if (aviso) redirect(comAvisoNaUrl(`/atendimento/${conversaId}`, aviso));
 }
 
 /** Liga ou desliga o agente só para este contato (desligado: nada automático, vira triagem). */

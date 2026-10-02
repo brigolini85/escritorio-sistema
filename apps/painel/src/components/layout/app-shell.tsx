@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { EstadoAgente } from '@/components/patterns/agent-state-indicator';
 import type { EscolhaTema } from '@/components/tema/tema';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/cn';
 import type { SituacaoSinal } from '@/lib/sinal-vida';
 import { useAoVivo } from './ao-vivo';
 import { AtalhosTeclado } from './atalhos-teclado';
+import { AvisoDaUrl } from './aviso-da-url';
 import { FaixaAmbiente } from './faixa-ambiente';
 import { cookieDoMenu } from './preferencias';
 import type { TamanhoLetra } from './tamanho-letra';
@@ -106,6 +107,7 @@ export function AppShell({
           <main id="conteudo" tabIndex={-1} className="flex-1 p-6 focus-visible:outline-none">{children}</main>
         </div>
         <Toaster />
+        <Suspense fallback={null}><AvisoDaUrl /></Suspense>
         <AtalhosTeclado />
       </div>
     </ProvedorMenuUsuario>

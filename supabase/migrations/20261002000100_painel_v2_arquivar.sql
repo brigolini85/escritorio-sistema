@@ -174,9 +174,39 @@ begin
   values (auth.uid(), 'excluir_definitivo', v_tabela, p_id::text, jsonb_build_object('antes', v_linha));
 end $$;
 
+-- Cadastrar contato pelo telefone (aba Contatos, ficha da empresa, conversa). Telefone de contato arquivado traz o
+-- contato de volta SEM os vínculos antigos: as permissões em outras empresas não voltam caladas (revisão final).
+-- O vínculo da própria ação é criado depois pela tela; aqui só se conta quantos de outras empresas saíram.
+create function public.cadastrar_contato(p_nome text, p_telefone text, p_cliente uuid default null,
+  p_agente_pausado boolean default null) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare v_id uuid; v_ativo boolean; v_removidos int := 0;
+begin
+  if not public.tem_permissao('editar_clientes') then raise exception 'Você não tem permissão para cadastrar contatos.'; end if;
+  loop
+    -- Trava a linha: outro cadastro do mesmo telefone espera, e só um deles reativa e limpa os vínculos.
+    select id, ativo into v_id, v_ativo from public.contatos where telefone = p_telefone for update;
+    exit when found;
+    insert into public.contatos (nome, telefone, agente_pausado) values (p_nome, p_telefone, coalesce(p_agente_pausado, false))
+      on conflict (telefone) do nothing returning id into v_id;
+    if v_id is not null then
+      return jsonb_build_object('id', v_id, 'reativado', false, 'vinculos_removidos', 0);
+    end if;
+  end loop;
+  update public.contatos set nome = p_nome, ativo = true, agente_pausado = coalesce(p_agente_pausado, agente_pausado)
+    where id = v_id;
+  if not v_ativo then
+    with apagados as (delete from public.contato_clientes where contato_id = v_id returning cliente_id)
+    select count(*) filter (where cliente_id is distinct from p_cliente) into v_removidos from apagados;
+  end if;
+  return jsonb_build_object('id', v_id, 'reativado', not v_ativo, 'vinculos_removidos', v_removidos);
+end $$;
+
 revoke all on function public.uso_do_cadastro(text, uuid), public.arquivar_cadastro(text, uuid),
-  public.restaurar_cadastro(text, uuid), public.excluir_cadastro_definitivo(text, uuid) from public, anon, authenticated;
+  public.restaurar_cadastro(text, uuid), public.excluir_cadastro_definitivo(text, uuid),
+  public.cadastrar_contato(text, text, uuid, boolean) from public, anon, authenticated;
 grant execute on function public.uso_do_cadastro(text, uuid), public.arquivar_cadastro(text, uuid),
-  public.restaurar_cadastro(text, uuid), public.excluir_cadastro_definitivo(text, uuid) to authenticated;
+  public.restaurar_cadastro(text, uuid), public.excluir_cadastro_definitivo(text, uuid),
+  public.cadastrar_contato(text, text, uuid, boolean) to authenticated;
 revoke all on function public.tabela_do_cadastro(text), public.exigir_arquivar(text), public.marcar_arquivamento()
   from public, anon, authenticated;

@@ -1,7 +1,7 @@
 -- supabase/tests/15_painel_v2_arquivar.test.sql
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(53);
+select plan(60);
 
 -- Pessoas: admin, Bia (editar_clientes), Ana (sem permissão), Inativa (tinha editar_clientes), Zeca (responsável por demanda aberta), Novo (nunca usou).
 insert into auth.users (id, email) values
@@ -193,6 +193,34 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 select is(public.eh_usuario_ativo() or public.tem_permissao('editar_clientes'), false, 'arquivado não é usuário ativo');
 select is((select count(*) from public.clientes)::int, 0, 'arquivado não lê cadastros');
 reset role;
+
+-- 50 a 56. Cadastrar de novo o telefone de um contato arquivado: volta sem os vínculos antigos (revisão final, I2).
+insert into public.clientes (id, razao_social, cnpj) values ('15000000-0000-0000-0000-000000000003', 'Indústria W', '15150000000303');
+insert into public.contatos (id, nome, telefone, ativo) values ('15200000-0000-0000-0000-000000000004', 'Zé Antigo', '5531999991504', false);
+insert into public.contato_clientes (contato_id, cliente_id, pode_pedir_nota, pode_atualizar_preco) values
+  ('15200000-0000-0000-0000-000000000004', '15000000-0000-0000-0000-000000000001', true, true),
+  ('15200000-0000-0000-0000-000000000004', '15000000-0000-0000-0000-000000000003', false, true);
+select ok(not has_function_privilege('anon', 'public.cadastrar_contato(text, text, uuid, boolean)', 'execute'), 'visitante não cadastra contato');
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000015a3","role":"authenticated"}', true);
+select throws_ok($$ select public.cadastrar_contato('Zé', '5531999991504') $$,
+  'P0001', 'Você não tem permissão para cadastrar contatos.', 'sem editar_clientes não cadastra contato');
+-- Bia é editora, não administradora: mesmo assim os vínculos antigos saem.
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000015a2","role":"authenticated"}', true);
+select is(public.cadastrar_contato('Zé Voltou', '5531999991504', '15000000-0000-0000-0000-000000000003') - 'id',
+  '{"reativado":true,"vinculos_removidos":1}'::jsonb, 'arquivado volta; conta só os vínculos de outras empresas');
+select is(public.cadastrar_contato('Contato Usado', '5531999991501', '15000000-0000-0000-0000-000000000003') - 'id',
+  '{"reativado":false,"vinculos_removidos":0}'::jsonb, 'contato ativo: nada sai');
+select lives_ok($$ select public.cadastrar_contato('Contato Novo 2', '5531999991505', null, true) $$, 'telefone novo cadastra');
+reset role;
+select ok((select ativo and nome = 'Zé Voltou' and arquivado_em is null
+    and not exists (select 1 from public.contato_clientes where contato_id = c.id)
+  from public.contatos c where id = '15200000-0000-0000-0000-000000000004'),
+  'o reativado volta sem nenhum vínculo antigo (o da ação é criado depois, sem as permissões velhas)');
+select ok((select count(*) = 1 from public.contato_clientes where contato_id = '15200000-0000-0000-0000-000000000001')
+  and (select ativo and agente_pausado from public.contatos where telefone = '5531999991505'),
+  'ativo continua com os vínculos; o novo grava o agente desligado');
 
 select * from finish();
 rollback;

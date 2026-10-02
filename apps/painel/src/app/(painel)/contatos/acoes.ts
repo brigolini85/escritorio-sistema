@@ -1,6 +1,9 @@
 'use server';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { normalizarTelefone } from '@escritorio/core';
+import { comAvisoNaUrl } from '@/lib/avisos';
+import { cadastrarContatoPeloTelefone } from '@/lib/cadastro-contato';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
@@ -13,9 +16,8 @@ export async function cadastrarContato(formData: FormData) {
   if (nome.length < 2) throw new Error('Informe o nome do contato.');
   if (!telefone) throw new Error('Telefone inválido. Use DDD + número, ex.: (31) 99999-0000.');
   const sb = await supabaseServidor();
-  const { error } = await sb.from('contatos')
-    // Cadastrar de novo um telefone arquivado traz o contato de volta (o gatilho limpa o arquivo).
-    .upsert({ nome, telefone, ativo: true, agente_pausado: formData.get('agente_atende') !== 'on' }, { onConflict: 'telefone' });
-  if (error) throw new Error(error.message);
+  // Telefone de contato arquivado traz o contato de volta sem empresas (os vínculos antigos saem).
+  const { aviso } = await cadastrarContatoPeloTelefone(sb, { nome, telefone, agentePausado: formData.get('agente_atende') !== 'on' });
   revalidatePath('/contatos');
+  if (aviso) redirect(comAvisoNaUrl('/contatos', aviso));
 }

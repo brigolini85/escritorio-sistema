@@ -804,6 +804,9 @@ isOneToOne: false
 "aviso_login":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"cadastrar_contato":
+{ Args: { "p_agente_pausado"?: boolean,"p_cliente"?: string,"p_nome": string,"p_telefone": string }; Returns: Json
+                           },
 "cadastrar_produto_agente":
 { Args: { "p_apelidos": (string)[],"p_cliente": string,"p_codigo": string,"p_contato": string,"p_descricao": string,"p_unidade": string }; Returns: string
                            },
