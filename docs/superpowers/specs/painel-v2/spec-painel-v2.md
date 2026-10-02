@@ -1,26 +1,35 @@
-# Painel v2 — identidade própria, cadastros com arquivo e gestão de demandas
+# Painel v2 — o painel inteiro com identidade própria
 
-Data: 01/10/2026 · Autor: dono do escritório (decisões) + Claude (desenho)
-Base: branch `treinar-agente` juntada à `etapa-1` (pré-requisito — o painel redesenhado e o Treinar o agente estão nela).
+Data: 01–02/10/2026 · Autor: dono do escritório (decisões) + Claude (desenho)
+Base: branch `treinar-agente` (pré-requisito — o painel redesenhado e o Treinar o agente estão nela; a Parte A parte dela).
+**Este arquivo é a fonte da verdade.** Tudo o que foi decidido nas conversas de 01 e 02/10 está aqui; se algo não está aqui, não foi decidido. Prompts de implementação: `prompts-para-colar.md`. Ideias futuras (agentes por setor): `roteiro-agentes-por-setor.md`. Análise de arquitetura e correções antes da produção: `analise-arquitetura.md`.
 
 ## 1. Objetivo
 
-1. **Identidade própria.** O painel hoje tem a "cara padrão" de sistema gerado por IA (azul do shadcn, Inter, cinza frio, rótulo pequeno sobre título, etiquetas arredondadas, janelas centralizadas genéricas). Ele deve parecer um produto do escritório: grafite, vinho e champanhe, com navegação inspirada no Acessórias (sistema que a equipe já usa e aprova), **sem copiá-lo**.
-2. **Cadastros com exclusão.** Hoje não dá para excluir nem inativar clientes e contatos pela tela. Passa a existir um único "Excluir…" que **arquiva** o que tem histórico e **apaga de vez** só o que nunca foi usado.
-3. **Gestão de demandas.** Hoje o painel lateral da demanda não tem nenhuma ação (tudo exige ir ao Atendimento), não há prioridade, prazo, busca, criação manual, edição nem visão em quadro. A tela vira uma "gestão das demandas" completa.
+1. **Identidade própria (A).** O painel hoje tem a "cara padrão" de sistema gerado por IA (azul do shadcn, Inter, cinza frio, rótulo pequeno sobre título, etiquetas arredondadas, janelas centralizadas genéricas). Ele deve parecer um produto do escritório: grafite, vinho e champanhe, com navegação inspirada no Acessórias (sistema que a equipe já usa e aprova), **sem copiá-lo**; letra que cresce em tela grande.
+2. **Cadastros com exclusão (B).** Hoje não dá para excluir nem inativar clientes e contatos pela tela. Passa a existir um único "Excluir…" que **arquiva** o que tem histórico e **apaga de vez** só o que nunca foi usado.
+3. **Gestão de demandas (C).** Hoje o painel lateral da demanda não tem nenhuma ação, não há prioridade, prazo, busca, criação manual, edição nem quadro. A tela vira uma "gestão das demandas" completa.
+4. **Usuários com permissões por nível e horário de acesso (D).**
+5. **Atendimento (E)** que mostra quem precisa de quem, o contexto do cliente, responde mais rápido e explica o que o agente fez.
+6. **Gastos com IA (F):** tudo o que gasta, por funcionalidade, por pessoa e por cliente.
+7. **Demais telas (G):** Início por papel, Contatos, Assistente, Configurações, Treinar o agente.
+8. **Cadastro completo do cliente e acesso por contato (H):** o que cada pessoa da empresa pode tratar com o escritório e com o agente.
 
-**Critério de sucesso:** a equipe resolve qualquer demanda sem sair da tela Demandas; nenhum cadastro com histórico é perdido; quem vê o painel não reconhece o "visual padrão de IA".
+**Critério de sucesso:** a equipe resolve qualquer demanda sem sair da tela Demandas; nenhum cadastro com histórico é perdido; o agente nunca revela a um contato o que ele não pode saber; o dono sabe quanto cada coisa custa; quem vê o painel não reconhece o "visual padrão de IA".
 
 ## 2. Fora do escopo
 
 - Regras do agente, prompt, assistente, Bling (só recebem o que for necessário abaixo).
-- Avaliação do cliente na demanda e "não lidas primeiro" (exigem rastrear leitura) — fase futura.
+- Avaliação do cliente na demanda e "não lidas primeiro" na tela Demandas (exigem rastrear leitura) — fase futura. (No Atendimento, as não lidas entram na Parte E.)
 - Visão de calendário de prazos — fase futura.
 - Trocar o nome "Demandas" por "Solicitações" (decidido manter "Demandas").
+- Logo do **cliente** no cadastro (decidido não ter).
+- Agentes especialistas e agentes ativos por setor — roteiro separado (`roteiro-agentes-por-setor.md`); a Parte H já deixa a base de acesso pronta para eles.
+- As correções de confiabilidade e de prontidão para produção da análise de arquitetura (Prompts 1 a 5 de `analise-arquitetura.md`) seguem em paralelo; não estão dentro destas partes.
 
 ## 3. Ordem de entrega
 
-Quatro partes independentes, cada uma com plano, branch e testes próprios, nesta ordem:
+Oito partes, cada uma com plano, branch e testes próprios, nesta ordem (cada branch parte da anterior):
 
 | Parte | O quê | Por que nesta ordem |
 |---|---|---|
@@ -33,7 +42,28 @@ Quatro partes independentes, cada uma com plano, branch e testes próprios, nest
 | G | Início, Contatos, Assistente, Configurações, Treinar o agente (seção 7C) | Configurações primeiro dentro dela |
 | H | Cadastro completo do cliente e acesso por contato (seção 7D) | Por último; antes da produção, porque protege o que o agente revela |
 
-Imagens de referência das telas: pasta `imagens/` ao lado deste arquivo (00 login · 01 menu e clientes/arquivar · 02 excluir de vez · 03 demandas tabela · 04 quadro e nova demanda · 05 painel lateral da demanda · 06 cadastro de usuário). Elas mostram estilo e organização; medidas e textos finais seguem este spec.
+Imagens de referência das telas: pasta `imagens/` ao lado deste arquivo. Elas mostram estilo e organização; medidas e textos finais seguem este spec. Dados nas imagens são de exemplo.
+
+| Parte | Imagens que valem |
+|---|---|
+| A | `00-login`, `00-login-tela-grande`, `01-menu-e-clientes-arquivar` (menu), `02-excluir-de-vez` (janela) |
+| B | `01-menu-e-clientes-arquivar`, `02-excluir-de-vez` |
+| C | `03-demandas-tabela`, `04-demandas-quadro-e-nova`, `05-demanda-painel-lateral` |
+| D | `06-usuario-cadastro` |
+| E | `00-atendimento` |
+| F | `00-gastos-ia` |
+| G | `00-inicio-opcao-a` (admin) e `00-inicio-opcao-b` (quem atende), `00-contatos-opcao-a`, `00-assistente-opcao-b`, `00-configuracoes-opcao-a` (+ resumos de `-opcao-b`), `00-treinar-agente-opcao-b` |
+| H | `00-cliente-cadastro`, `00-cliente-contatos-acesso` |
+
+As outras opções (`00-contatos-opcao-b`, `00-assistente-opcao-a`, `00-treinar-agente-opcao-a`) ficam só como referência — **não implementar**.
+
+### 3.1 Decisões gerais (valem para todas as partes)
+
+- Termos da tela: Demanda (nunca "chamado"/"ticket"), Atendimento, Conversa, Empresa, Contato, Setor, Pedido de nota, CSV do Bling, Assumir, Devolver ao agente, Nota interna, Concluir.
+- Fonte Plus Jakarta Sans; letra 14/15/16px conforme a largura da tela + preferência por pessoa (seção 4.2).
+- Toda IA nova grava custo com funcionalidade e pessoa (Parte F); toda informação sobre cliente que o agente usa passa pelo filtro de acesso do contato (Parte H).
+- Mudança no banco: migração incremental, testes pgTAP, `--dry-run` antes de aplicar na homologação e aprovação do dono.
+- Nenhuma branch é juntada à `etapa-1` sem pedido do dono.
 
 ---
 
@@ -55,7 +85,7 @@ Mudança só em `apps/painel` (tokens, casca, padrões, telas de login). Nenhuma
 | `--warning` | `#C07A1E` | prioridade alta, atenção |
 | `--success` | `#0F5446` | concluído no prazo, agente ativo |
 
-- **Cores de ícone por módulo** (paleta própria, sóbria, não a do Acessórias): Início `#D6AE5C`, Atendimento `#5DBB8F`, Demandas `#A6C95A`, Clientes `#6E9BC9`, Contatos `#A98BCB`, Assistente `#D6AE5C`, Treinar o agente `#E0894A`, Configurações `#4FB0B8`. Item ativo: ícone e texto brancos.
+- **Cores de ícone por módulo** (paleta própria, sóbria, não a do Acessórias): Início `#D6AE5C`, Atendimento `#5DBB8F`, Demandas `#A6C95A`, Clientes `#6E9BC9`, Contatos `#A98BCB`, Assistente `#D6AE5C`, Treinar o agente `#E0894A`, Configurações `#4FB0B8`, Gastos com IA (só admin, ícone de moeda) `#C8A97E`. Item ativo: ícone e texto brancos.
 - Tema escuro mantido: mesmas variáveis com valores escuros; menu continua grafite.
 - `tokens.test.ts` passa a conferir contraste AA das cores novas, incluindo texto do menu sobre grafite e branco sobre vinho.
 
@@ -85,7 +115,9 @@ Menu lateral no **padrão de navegação do Acessórias, com assinatura própria
 | Rodapé | "Recolher" com ícone (não o « em círculo do Acessórias); estado lembrado |
 
 - Barra superior: trilha de navegação (ícone › Seção › **Tela**) à esquerda; busca global Ctrl+K, estado do agente e menu da pessoa à direita.
-- Configurações vira item com submenu: Usuários e permissões, Setores, Expediente e IA, Mensagens, Respostas prontas, Feriados, Prazos (novo, Parte C).
+- Ordem do menu: Início · Atendimento · Demandas · Clientes · Contatos · Assistente · Treinar o agente · (só admin) Gastos com IA · Configurações.
+- Configurações vira item com submenu (seções da Parte G, 7C.4): Expediente, Feriados, Prazos, Teto e IA, Mensagens (inclui o aviso do login), Respostas prontas, Setores, Serviços, Cargos, Usuários e permissões.
+- Nas telas de três colunas (Atendimento, Assistente, Treinar o agente, Gastos com IA) o menu abre **recolhido** (só ícones); nas demais, como a pessoa deixou.
 
 ### 4.4 Login (`app/login`)
 
@@ -100,6 +132,8 @@ Modelo **"Faixa vinho"** (imagens: `imagens/00-login.png` e `imagens/00-login-te
 ### 4.5 Janelas de confirmação (`patterns/confirm-dialog`)
 
 Centralizadas sobre a tela escurecida, com **ícone grande circular** colorido pelo tipo (arquivar: champanhe; excluir: grafite; concluir: verde), pergunta com o nome em negrito, uma frase curta de consequência, e botões pílula em caixa alta ("CANCELAR" contorno / ação cheia).
+
+**Avisos rápidos (toasts):** toda gravação do painel confirma com um aviso curto ("Demanda transferida", "Cliente arquivado") ou mostra o erro sem perder o que foi digitado (pendência 21 do redesign). Usa o componente de toast que já existe.
 
 ### 4.6 Tom dos textos
 
@@ -226,6 +260,8 @@ Inspirada na tela "Cadastro de usuário e suas permissões" do Acessórias, sem 
 | Treinar o agente | Sem acesso · Sim |
 | Alterar prazos de demandas | Não · Sim |
 | Configurações | Sem acesso · Sim |
+| Acessos de portais (Parte H) | Sem acesso · Ver (revelar e copiar senhas, sempre com auditoria) |
+| Gastos com IA (Parte F) | Só administrador (não é permissão configurável) |
 
 - **Horário de acesso ao painel**: Seg a sex, Sábado, Domingo — cada um Permitido/Bloqueado com hora de início e fim (padrão: seg–sex 08–18, sábado e domingo bloqueados para não-admin). Admin nunca é bloqueado.
 - **Situação**: Usuário ativo? (liga com o arquivar da Parte B), Observações.
@@ -305,6 +341,7 @@ Imagem: `imagens/00-gastos-ia.png` (fonte `fragmentos/00-gastos-ia.html`; númer
 - Funções de leitura só para admin (SECURITY DEFINER com `eh_admin`): `gastos_resumo(de, ate)`, `gastos_por_funcionalidade`, `gastos_por_dia`, `gastos_por_pessoa`, `gastos_por_cliente`, `gastos_atendimentos_do_cliente(cliente, de, ate)`, `gastos_chamadas(filtro)` (detalhe linha a linha) e exportação CSV.
 - **"Conversa" nesta tela = atendimento**: as mensagens de um telefone num mesmo dia (a tabela `conversas` é uma por telefone, para sempre). Resultado do atendimento: *resolvido pelo agente* se naquele dia nenhuma pessoa assumiu nem respondeu; senão *passou para pessoa*. O link "abrir" leva à conversa posicionada naquela data.
 - Índices em `uso_ia (criado_em)`, `(funcionalidade, criado_em)`, `(usuario_id, criado_em)`, `(cliente_id, criado_em)`.
+- **Cache de prompt da Anthropic:** verificar se as chamadas já usam; se não, marcar com `cache_control` o bloco estável (regras fixas + definições de ferramentas + orientações) no agente, no assistente, no sugerir resposta e no testar o agente; registrar em `uso_ia` os tokens de cache (`tokens_cache_leitura` / `tokens_cache_escrita`, colunas que já existem) e calcular o custo corretamente. A tela mostra a economia do mês no cartão do total.
 
 ### 7B.3 Tela (`/gastos-ia`, menu do admin, ícone de moeda)
 
@@ -336,6 +373,7 @@ Aprovadas pelo dono em 02/10, cada uma escolhida entre duas opções. Imagens e 
 - Busca por nome, telefone **ou empresa**; filtros rápidos com contagem: Agente desligado, Sem empresa, Pode pedir nota, Muda preço; seletor de empresa e período do último contato; ARQUIVADOS (n).
 - Painel lateral: ABRIR CONVERSA, EDITAR, chave do agente, empresas com as marcações editáveis por empresa, **vincular empresa**, bloco WhatsApp (último contato, conversa agora, % resolvida pelo agente), demandas abertas do contato, "Excluir…" (Parte B) e, separado com borda tracejada, "Apagar dados (LGPD) · só admin" (inalterado).
 - Novo no banco: nada além da Parte B; marcações por empresa já existem em `contato_clientes` (passam a ser editáveis também pelo contato, mesma permissão de hoje).
+- Quando a Parte H entrar, esta tela ganha a coluna **Perfil** e, no painel lateral, o mesmo bloco de acesso da ficha do cliente (setores que pode tratar, "pode ser procurado", permissões especiais, documentos e avisos, prévia do agente) — editado em um lugar só (mesmos dados de `contato_clientes`), aparecendo nos dois.
 
 ### 7C.3 Assistente — Opção B "Conversa + resultado" (`00-assistente-opcao-b.png`)
 
@@ -421,6 +459,17 @@ pgTAP: senha de portal nunca legível sem permissão; `revelar_acesso` grava aud
 
 ## 9. Pendências do dono
 
-- Enviar o **logo** do escritório (SVG ou PNG com fundo transparente).
-- Texto inicial do **aviso do login**.
-- Confirmar, depois da Parte A, as capturas claro/escuro.
+Antes de começar:
+- Enviar o **logo** do escritório (SVG ou PNG com fundo transparente). Sem ele entra o monograma "EC" provisório.
+- Nome do escritório como deve aparecer no login e no menu.
+
+Durante (o sistema vai perguntar ou o dono preenche pela tela depois):
+- Texto do **aviso do login** (Configurações › Mensagens).
+- **Cotação US$→R$** e **custo por minuto da transcrição** (Configurações › Teto e IA) — sem eles, Gastos com IA mostra só US$ e a transcrição fica sem custo.
+- Lista de **cargos** (Auxiliar, Analista, Coordenador, Sócio… — editável).
+- Conferir os **prazos por prioridade** (já definidos: urgente mesmo dia, alta 1, normal 2, baixa 5 dias úteis) e os **limites de espera** do Atendimento (verde ≤ 5 min, âmbar ≤ 15).
+- Marcar quem são os **sócios** de cada empresa e quem recebe os alertas de acesso (Parte H).
+- Aprovar cada parte vendo na prática (capturas claro/escuro e o painel na porta indicada) antes da próxima.
+
+Antes da produção:
+- Partes A–H aprovadas e juntadas, e as correções da análise de arquitetura (confiabilidade do agente, monitor externo, backup, trava de envio fora da produção, integridade de preço/pedido).

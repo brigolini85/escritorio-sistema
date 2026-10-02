@@ -4,12 +4,50 @@ Pasta: `docs/superpowers/specs/painel-v2/`
 
 | Arquivo | O que é |
 |---|---|
-| `spec-painel-v2.md` | O spec aprovado (fonte da verdade) |
-| `imagens/` | As telas aprovadas (00 login · 01 menu e arquivar · 02 excluir de vez · 03 demandas tabela · 04 quadro e nova demanda · 05 painel lateral · 06 cadastro de usuário) |
-| `fragmentos/` + `gerar-imagens.cjs` | O HTML de cada imagem, para refazer se precisar |
-| este arquivo | Os prompts, um por parte |
+| `spec-painel-v2.md` | O spec aprovado (fonte da verdade) — Partes A a H |
+| `imagens/` | As telas aprovadas; a tabela da seção 3 do spec diz qual imagem vale para cada parte |
+| `fragmentos/` + `gerar-imagens.cjs` + `fragmentos/shot-full.cjs` | O HTML de cada imagem, para refazer se precisar |
+| `roteiro-agentes-por-setor.md` | Ideias aprovadas para os agentes por setor (desenhar depois) |
+| `analise-arquitetura.md` | Análise do sistema e os 5 prompts de correção antes da produção |
+| este arquivo | Os prompts: um texto único (recomendado) e um por parte |
 
-**Como usar:** abra o Claude Code na pasta do projeto (`C:\Users\Thiago\Desktop\PROJETO\AGENTESDEIA`) numa **conversa nova** e cole **um prompt por vez**. Espere terminar, veja na prática, aprove, e só então cole o próximo. Cada parte fica numa branch própria e nada é juntado à `etapa-1` sem você dizer.
+---
+
+## TEXTO ÚNICO — cole este numa conversa nova (faz A → H na ordem, parando em cada parte)
+
+```
+Quero implantar o Painel v2, na ordem, uma parte de cada vez.
+
+Tudo está na pasta docs/superpowers/specs/painel-v2/ (branch etapa-1):
+- spec-painel-v2.md → o spec aprovado, fonte da verdade (Partes A a H; a seção 3 diz qual imagem vale para cada parte e traz as decisões gerais)
+- imagens/ → as telas aprovadas (estilo e organização; medidas e textos seguem o spec)
+- prompts-para-colar.md → as instruções detalhadas de cada parte (Prompts A a H)
+
+Leia os três antes de começar, e também docs/design-system.md e docs/operacao.md.
+
+ORDEM: A (visual e login) → B (cadastros: arquivar) → C (demandas) → D (usuários e permissões) → E (atendimento) → F (gastos com IA) → G (início, contatos, assistente, configurações, treinar o agente) → H (cadastro completo do cliente e acesso por contato).
+Se alguma parte já estiver feita (existe a branch painel-v2-parte-X aprovada), me diga e continue da próxima.
+
+REGRAS PARA TODAS AS PARTES:
+- Cada parte numa worktree e branch próprias (painel-v2-parte-a a partir de treinar-agente; cada parte seguinte a partir da anterior). Traga a pasta do spec com: git checkout etapa-1 -- docs/superpowers/specs/painel-v2
+- Siga exatamente o Prompt da parte em prompts-para-colar.md e as decisões gerais da seção 3.1 do spec.
+- Para cada parte: use writing-plans, ME MOSTRE O PLANO e espere meu "aprovado" antes de programar. Depois execute com subagent-driven-development e TDD.
+- Mudança no banco da homologação: mostre o --dry-run e espere meu "ok" antes de aplicar.
+- Ao fim de cada parte: rode todas as suítes e mostre o resultado real, tire capturas das telas alteradas (1366 e 1920, claro e escuro), compare com as imagens do spec, suba o painel (e o trabalhador, se mudou) numa porta livre apontando para a homologação e me passe o endereço.
+- PARE ao fim de cada parte. Só comece a próxima quando eu escrever "próxima parte".
+- Nunca junte nenhuma branch na etapa-1 sem eu pedir.
+- Se algo do spec estiver ambíguo ou conflitar com o código, pergunte em vez de supor.
+
+Comece pela Parte A.
+```
+
+**Se a conversa que já está rodando A–D continuar aberta**, quando a D terminar e você aprovar, cole lá só isto:
+
+```
+Agora as Partes E, F, G e H, nessa ordem, com as mesmas regras de antes (plano primeiro, --dry-run antes do banco, parar no fim de cada parte). Traga a pasta do spec atualizada com git checkout etapa-1 -- docs/superpowers/specs/painel-v2, releia o spec (ele mudou: seção 3 e Partes E–H) e siga os Prompts E, F, G e H de docs/superpowers/specs/painel-v2/prompts-para-colar.md. Comece pela E.
+```
+
+**Como usar os prompts por parte (abaixo):** só se quiser mandar uma parte isolada. Abra o Claude Code na pasta do projeto (`C:\Users\Thiago\Desktop\PROJETO\AGENTESDEIA`), cole um prompt por vez, espere terminar, veja na prática, aprove, e só então cole o próximo. Cada parte fica numa branch própria e nada é juntado à `etapa-1` sem você dizer.
 
 ---
 
@@ -189,4 +227,9 @@ Ao terminar cada sub-etapa: suítes e cenários com resultado real; --dry-run da
 
 ## Depois das partes
 
-Quando você aprovar tudo na prática, peça: "junte a última parte na etapa-1" (cada parte contém as anteriores). Depois seguimos com as outras telas (Contatos, Assistente, Configurações, Treinar o agente) no mesmo processo: desenho com imagens aqui → spec → prompt.
+Quando você aprovar tudo na prática, peça: "junte painel-v2-parte-h na etapa-1" (cada parte contém as anteriores).
+
+Depois:
+1. Correções antes da produção — Prompts 1 a 3 de `analise-arquitetura.md` (confiabilidade do agente, prontidão para produção, integridade dos dados). O Prompt 4 de lá já foi absorvido pelas Partes A, G e F; o Prompt 5 (especialista Fiscal) vira o primeiro item do roteiro de agentes.
+2. Montar a produção.
+3. Agentes por setor, um a um, pelo `roteiro-agentes-por-setor.md` (desenho com imagens → spec → prompt).
