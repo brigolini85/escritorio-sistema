@@ -336,7 +336,9 @@ export function criarRepos(db: Db) {
     },
 
     async responsaveisDoCliente(clienteId: string): Promise<{ setorId: string; usuarioId: string }[]> {
-      const linhas = checar(await db.from('cliente_responsaveis').select('setor_id, usuario_id').eq('cliente_id', clienteId), 'responsaveisDoCliente');
+      // Pessoa arquivada não recebe demanda nova: sem responsável, o setor recebe e o alerta "sem responsável" avisa.
+      const linhas = checar(await db.from('cliente_responsaveis').select('setor_id, usuario_id, usuarios!inner(ativo)')
+        .eq('cliente_id', clienteId).eq('usuarios.ativo', true), 'responsaveisDoCliente');
       return linhas.map((l) => ({ setorId: l.setor_id, usuarioId: l.usuario_id }));
     },
 

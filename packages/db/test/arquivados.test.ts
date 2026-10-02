@@ -85,4 +85,23 @@ describe('arquivado some do agente e do assistente', () => {
     await marcar('usuarios', id, true);
     expect(await repos.ehTelefoneInterno('5531999991603')).toBe(true);
   });
+
+  it('pessoa arquivada deixa de receber as novas demandas da empresa; restaurar devolve', async () => {
+    const { data: x } = await db.from('clientes').insert({ razao_social: 'Indústria R', cnpj: '16160000000404' }).select().single();
+    const { data: fiscal } = await db.from('setores').select('id').eq('nome', 'Fiscal').single();
+    const { data: pessoal } = await db.from('setores').select('id').eq('nome', 'Pessoal').single();
+    const dani = await criarUsuario(db, 'dani@arquivados.local');
+    const edu = await criarUsuario(db, 'edu@arquivados.local');
+    await db.from('cliente_responsaveis').insert([
+      { cliente_id: x!.id, setor_id: fiscal!.id, usuario_id: dani },
+      { cliente_id: x!.id, setor_id: pessoal!.id, usuario_id: edu },
+    ]);
+    expect(await repos.responsaveisDoCliente(x!.id)).toHaveLength(2);
+
+    await marcar('usuarios', dani, false);
+    // A demanda do setor da pessoa arquivada fica sem responsável (e cai no alerta), em vez de ir para quem não entra mais.
+    expect(await repos.responsaveisDoCliente(x!.id)).toEqual([{ setorId: pessoal!.id, usuarioId: edu }]);
+    await marcar('usuarios', dani, true);
+    expect(await repos.responsaveisDoCliente(x!.id)).toHaveLength(2);
+  });
 });
