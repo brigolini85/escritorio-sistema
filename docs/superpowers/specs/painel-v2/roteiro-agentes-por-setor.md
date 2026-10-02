@@ -1,7 +1,8 @@
 # Roteiro — agentes por setor (ideias aprovadas pelo dono em 02/10)
-n> **Atualização 02/10:** os agentes por departamento entraram no spec como **Parte I** (seção 7E de `spec-painel-v2.md`), com os 7 agentes escolhidos pelo dono: Atendimento (Thiago), Fiscal, Departamento Pessoal, Contábil, Comercial, Legalização e Radar de legislação. Este roteiro fica como histórico das ideias; o que vale é a Parte I.
 
-Ainda **não** é spec: é a lista para desenharmos um a um depois do Painel v2. Cada agente vira um desenho com imagens → spec → prompt, como as telas.
+> **Atualização 02/10:** os agentes por departamento entraram no spec como **Parte I** (seção 7E de `spec-painel-v2.md`), com os 7 agentes escolhidos pelo dono: Atendimento (Thiago), Fiscal, Departamento Pessoal, Contábil, Comercial, Legalização e Radar de legislação. Este roteiro fica como histórico das ideias; o que vale é a Parte I.
+
+Ideias de 02/10 que deram origem à Parte I. O que ainda não está na Parte I (campanhas ativas grandes, Financeiro, IRPF, Direção) segue aqui para depois.
 
 ## Organização
 
