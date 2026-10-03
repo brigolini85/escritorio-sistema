@@ -1,7 +1,7 @@
 -- Parte E, Task 2: espera e motivo da passagem (spec 7A.2), marcos, concluir e a caixa nova.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(41);
 
 insert into auth.users (id, email) values
   ('e3000000-0000-0000-0000-00000000000a', 'admin@espera.local'),
@@ -79,10 +79,42 @@ select throws_ok($$ select public.concluir_conversa('e5000000-0000-0000-0000-000
 select set_config('request.jwt.claims', '{"sub":"e3000000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
 select lives_ok($$ select public.concluir_conversa('e5000000-0000-0000-0000-000000000001') $$, 'Ana conclui');
 select ok((select estado = 'agente' and atendente_id is null and concluida_em is not null from public.conversas where id = 'e5000000-0000-0000-0000-000000000001'), 'concluída volta ao agente com data');
+select is((select cliente_apos_concluir from public.caixa_entrada where id = 'e5000000-0000-0000-0000-000000000001'), false, 'concluída sem mensagem nova do cliente');
+reset role;
+insert into public.mensagens (conversa_id, direcao, autor, conteudo, criado_em, processada_em) values
+  ('e5000000-0000-0000-0000-000000000001', 'entrada', 'cliente', 'mais uma coisa', now() + interval '1 second', now());
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"e3000000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
+select is((select cliente_apos_concluir from public.caixa_entrada where id = 'e5000000-0000-0000-0000-000000000001'), true,
+  'cliente escreveu depois de concluir: retomada (não volta para Concluídas hoje)');
 
 -- ===== Escritas diretas e função do trabalhador =====
 select throws_ok($$ insert into public.conversa_eventos (conversa_id, tipo) values ('e5000000-0000-0000-0000-000000000001', 'assumida') $$, '42501', null, 'equipe não grava marco direto');
 select throws_ok($$ select public.marcar_aguardando_pessoa('e5000000-0000-0000-0000-000000000002', 'x') $$, '42501', null, 'equipe não marca passagem');
+
+-- ===== Assumida pelo celular (estado humano, sem pessoa): "esperando você" só com o cliente esperando =====
+reset role;
+update public.conversas set estado = 'humano', atendente_id = null where id = 'e5000000-0000-0000-0000-000000000002';
+insert into public.mensagens (conversa_id, direcao, autor, conteudo, criado_em, processada_em) values
+  ('e5000000-0000-0000-0000-000000000002', 'entrada', 'cliente', 'bom dia', now() - interval '10 minutes', now()),
+  ('e5000000-0000-0000-0000-000000000002', 'saida', 'atendente', 'bom dia, já vejo', now() - interval '9 minutes', null);
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"e3000000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
+select is((select esperando_voce from public.caixa_entrada where id = 'e5000000-0000-0000-0000-000000000002'), false,
+  'assumida pelo celular com a equipe por último não está esperando você');
+select is((select esperando_pessoa from public.caixa_entrada where id = 'e5000000-0000-0000-0000-000000000002'), true,
+  'mas continua no grupo Esperando pessoa (P1)');
+reset role;
+insert into public.mensagens (conversa_id, direcao, autor, conteudo, criado_em, processada_em) values
+  ('e5000000-0000-0000-0000-000000000002', 'entrada', 'cliente', 'e aí?', now() - interval '2 minutes', now());
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"e3000000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
+select is((select esperando_voce from public.caixa_entrada where id = 'e5000000-0000-0000-0000-000000000002'), true,
+  'cliente escreveu e ninguém respondeu: esperando você (Ana)');
+select set_config('request.jwt.claims', '{"sub":"e3000000-0000-0000-0000-00000000000c","role":"authenticated"}', true);
+select is((select esperando_voce from public.caixa_entrada where id = 'e5000000-0000-0000-0000-000000000002'), true,
+  'sem pessoa: também para Caio');
+select set_config('request.jwt.claims', '{"sub":"e3000000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
 
 -- ===== Limites de espera e o horário =====
 select is(public.limites_espera(), '{"verde": 5, "ambar": 15}'::jsonb, 'limites padrão');

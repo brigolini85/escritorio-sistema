@@ -148,13 +148,18 @@ select c.id,
     c.concluida_em,
     esp.desde as espera_desde,
     (c.aguardando_pessoa_desde is not null or c.estado = 'humano') as esperando_pessoa,
-    ((c.aguardando_pessoa_desde is not null or c.estado = 'humano') and (c.atendente_id is null or c.atendente_id = auth.uid())) as esperando_voce,
+    -- Selo do menu, aviso e "N esperando você": só espera em aberto (passagem ou cliente sem resposta), sem ninguém ou comigo.
+    -- Assumida pelo celular (sem pessoa) com a equipe falando por último não conta para ninguém.
+    (esp.desde is not null and (c.atendente_id is null or c.atendente_id = auth.uid())) as esperando_voce,
     (select count(*) from public.mensagens m
       where m.conversa_id = c.id and m.autor = 'cliente'
         and m.criado_em > coalesce(lei.lida_ate, sai.em, '-infinity'::timestamptz))::integer as nao_lidas,
     coalesce(ct.agente_pausado, false) as contato_pausado,
     coalesce(cl.agente_pausado, false) as empresa_pausada,
-    exists (select 1 from public.mensagens m where m.conversa_id = c.id and m.direcao = 'entrada' and m.processada_em is null) as agente_respondendo
+    exists (select 1 from public.mensagens m where m.conversa_id = c.id and m.direcao = 'entrada' and m.processada_em is null) as agente_respondendo,
+    -- Retomada: o cliente escreveu depois de concluir; não volta para "Concluídas hoje" (decisão 10).
+    (c.concluida_em is not null and exists (select 1 from public.mensagens m
+      where m.conversa_id = c.id and m.autor = 'cliente' and m.criado_em > c.concluida_em)) as cliente_apos_concluir
 from public.conversas c
 left join public.contatos ct on ct.id = c.contato_id
 left join public.clientes cl on cl.id = c.cliente_em_foco

@@ -21,6 +21,9 @@ create table public.sugestoes_resposta (
 -- Uma sugestão em andamento por pessoa (spec 7A.2).
 create unique index sugestoes_uma_pendente on public.sugestoes_resposta (usuario_id) where status = 'pendente';
 create index sugestoes_criado_idx on public.sugestoes_resposta (criado_em);
+-- Chaves estrangeiras: apagar a conversa (cascade, LGPD) e a pessoa (uso_ia: set null) não varre a tabela inteira.
+create index sugestoes_conversa_idx on public.sugestoes_resposta (conversa_id);
+create index uso_ia_usuario_idx on public.uso_ia (usuario_id);
 alter table public.sugestoes_resposta enable row level security;
 create policy propria on public.sugestoes_resposta for select to authenticated
   using (usuario_id = auth.uid() and public.pode_ver_conversa(conversa_id));
