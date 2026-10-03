@@ -69,10 +69,11 @@ test('salvar a pessoa sem a chave Ativo não a desativa', async ({ page }) => {
   await criarUsuarioTeste({ email: 'admin@teste.com', senha: SENHA, nome: 'Admin Arquivo', papel: 'admin' });
   const bia = await criarUsuarioTeste({ email: 'bia@teste.com', senha: SENHA, nome: 'Bia Arquivo', papel: 'atendente' });
   await entrar(page, 'admin@teste.com', SENHA);
-  await page.goto(`/usuarios?usuario=${bia}`);
+  await page.goto(`/usuarios/${bia}`);
+  await expect(page.getByRole('form', { name: 'Cadastro de Bia Arquivo' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('switch', { name: 'Ativo' })).toHaveCount(0);
-  await page.getByPlaceholder('Nome').fill('Bia Arquivo Souza');
-  await page.getByRole('button', { name: 'Salvar usuário' }).click();
+  await page.getByLabel('Nome', { exact: true }).fill('Bia Arquivo Souza');
+  await page.getByRole('button', { name: 'Salvar' }).click();
   await expect.poll(async () => (await db.from('usuarios').select('nome, ativo').eq('id', bia).single()).data)
     .toEqual({ nome: 'Bia Arquivo Souza', ativo: true });
 });
@@ -85,8 +86,8 @@ test('lápis de editar em cada linha; na própria linha tem lápis e não tem ar
   await expect(linha(page, 'Admin Arquivo').getByRole('link', { name: 'Editar Admin Arquivo' })).toBeVisible();
   await expect(linha(page, 'Admin Arquivo').getByRole('button', { name: /Arquivar ou excluir/ })).toHaveCount(0);
   await linha(page, 'Bia Arquivo').getByRole('link', { name: 'Editar Bia Arquivo' }).click();
-  await expect(page).toHaveURL(new RegExp(`usuario=${bia}`));
-  await expect(page.getByRole('dialog').getByPlaceholder('Nome')).toHaveValue('Bia Arquivo');
+  await expect(page).toHaveURL(new RegExp(`/usuarios/${bia}$`));
+  await expect(page.getByLabel('Nome', { exact: true })).toHaveValue('Bia Arquivo', { timeout: 30_000 });
 });
 
 test('Demandas: pessoa arquivada só aparece no filtro quando já está nele, como "(arquivado)"', async ({ page }) => {

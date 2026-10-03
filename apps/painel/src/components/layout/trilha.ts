@@ -14,7 +14,9 @@ const SECOES: Secao[] = [
   { prefixo: '/assistente', trilha: [{ rotulo: 'Assistente' }] },
   { prefixo: '/treinar-agente', trilha: [{ rotulo: 'Treinar o agente' }] },
   { prefixo: '/configuracoes', trilha: [{ rotulo: 'Configurações' }] },
-  { prefixo: '/usuarios', trilha: [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões' }] },
+  { prefixo: '/usuarios', trilha: [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões' }], detalhe: 'Pessoa' },
+  // Rota fixa mais longa que /usuarios/[id]: sem esta linha, /usuarios/novo viraria "Pessoa".
+  { prefixo: '/usuarios/novo', trilha: [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões', href: '/usuarios' }, { rotulo: 'Nova pessoa' }] },
   { prefixo: '/_design', trilha: [{ rotulo: 'Catálogo do design' }] },
 ].sort((a, b) => b.prefixo.length - a.prefixo.length);
 

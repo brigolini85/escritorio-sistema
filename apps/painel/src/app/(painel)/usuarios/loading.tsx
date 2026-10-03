@@ -5,8 +5,8 @@ import { DataTableCarregando } from '@/components/patterns/data-table';
 export default function CarregandoUsuarios() {
   return (
     <section>
-      <PageHeader titulo="Usuários" />
-      <DataTableCarregando rotulo="Carregando usuários" colunas={['Pessoa', 'E-mail', 'Setores', 'Telefone', 'Pode editar']} />
+      <PageHeader titulo="Usuários e permissões" />
+      <DataTableCarregando rotulo="Carregando usuários" colunas={['Nome / Cargo', 'Setores', 'Nível de Demandas', 'Último acesso', 'Situação']} />
     </section>
   );
 }

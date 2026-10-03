@@ -48,26 +48,22 @@ test('administrador convida pessoa na aba Usuários e vê aviso ao faltar telefo
   await entrar(page, 'admin@teste.com', 'senha-forte-123');
   await page.getByRole('button', { name: 'Configurações: abrir submenu' }).click();
   await page.getByRole('menuitem', { name: 'Usuários e permissões' }).click();
-  const preencher = async () => {
-    // O convite fica numa janela; ela fecha quando o envio dá certo.
-    await page.getByRole('button', { name: 'Convidar pessoa' }).click();
-    await page.getByPlaceholder('Nome').last().fill('Nova Pessoa');
-    await page.getByPlaceholder('E-mail').last().fill('nova@teste.com');
-    await page.getByLabel('Usar o assistente pelo WhatsApp (pelo telefone acima)').last().check();
-  };
-  await preencher();
-  await page.getByRole('button', { name: 'Enviar convite' }).click();
-  // Sobra 6 da Parte B: a janela fica aberta, com o erro no campo telefone e o que foi digitado.
-  const janela = page.getByRole('dialog', { name: 'Convidar pessoa' });
-  await expect(janela.getByText('Informe o telefone para usar o assistente pelo WhatsApp')).toBeVisible();
-  await expect(janela.getByPlaceholder('E-mail')).toHaveValue('nova@teste.com');
-  await janela.getByPlaceholder('Telefone com DDD (para o assistente pelo WhatsApp)').fill('(31) 95555-0001');
-  await janela.getByRole('button', { name: 'Enviar convite' }).click();
-  await expect(page.getByText('Convite enviado para nova@teste.com.')).toBeVisible();
-  await expect(janela).toHaveCount(0);
-  await expect(page.getByText('Nova Pessoa · Atendente · assistente no WhatsApp')).toBeVisible();
+  await page.getByRole('link', { name: 'Nova pessoa' }).click();
+  const ficha = page.getByRole('form', { name: 'Nova pessoa' });
+  await ficha.getByLabel('Nome', { exact: true }).fill('Nova Pessoa');
+  await ficha.getByLabel('E-mail de acesso').fill('nova@teste.com');
+  await ficha.getByLabel('Assistente').selectOption('site_whatsapp');
+  await ficha.getByRole('button', { name: 'Salvar' }).click();
+  // Erro no campo, com tudo o que foi digitado (spec 7.1).
+  await expect(ficha.getByText('Informe o telefone para usar o assistente pelo WhatsApp')).toBeVisible({ timeout: 30_000 });
+  await expect(ficha.getByLabel('E-mail de acesso')).toHaveValue('nova@teste.com');
+  await ficha.getByLabel('Telefone (WhatsApp)').fill('(31) 95555-0001');
+  await ficha.getByRole('button', { name: 'Salvar' }).click();
+  await expect(page.getByText('Convite enviado para nova@teste.com.')).toBeVisible({ timeout: 30_000 });
+  await page.waitForURL(/\/usuarios\/[0-9a-f-]{36}$/);
   const { data } = await db.from('usuarios').select('permissoes, telefone').eq('email', 'nova@teste.com').single();
-  expect(data).toEqual({ permissoes: ['assistente_whatsapp'], telefone: '5531955550001' });
+  // "Site e WhatsApp" aparece na cópia antiga como as duas marcações.
+  expect(data).toEqual({ permissoes: ['assistente_site', 'assistente_whatsapp'], telefone: '5531955550001' });
   const { data: depois } = await db.auth.admin.listUsers();
   await db.auth.admin.deleteUser(depois.users.find((u) => u.email === 'nova@teste.com')!.id);
 });

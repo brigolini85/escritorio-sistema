@@ -129,7 +129,8 @@ for (const tema of ['claro', 'escuro'] as const) {
         '/treinar-agente?orientacao=nova&modelo=cumprimento',
         '/usuarios',
         '/usuarios?ver=arquivados',
-        `/usuarios?usuario=${ids.usuario}`,
+        `/usuarios/${ids.usuario}`,
+        '/usuarios/novo',
         '/configuracoes',
         '/_design',
       ];

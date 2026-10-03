@@ -1,15 +1,12 @@
 'use server';
-import { revalidatePath } from 'next/cache';
 import { variantesTelefone } from '@escritorio/core';
-import { mensagemDeErro } from '@/lib/erro-formulario';
+import { revalidatePath } from 'next/cache';
 import { exigirAdmin } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { errosDoFormulario, UsuarioForm, type EstadoUsuario } from './esquemas';
+import { errosDoBanco, lerFicha, paraBanco, PESSOA_SEM_ACESSO, type EstadoUsuario } from './esquemas';
 
-function checar(r: { error: { message: string } | null }) {
-  if (r.error) throw new Error(r.error.message);
-}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Um telefone é de uma pessoa só: senão o WhatsApp não sabe de quem é a mensagem. Se o dono está nos arquivados,
@@ -28,42 +25,57 @@ async function conflitoDeTelefone(telefone: string | null, idAtual: string | nul
   };
 }
 
+/** Nova pessoa: convite por e-mail e a ficha gravada pela sessão do administrador (a auditoria registra quem cadastrou). */
 export async function convidarUsuario(formData: FormData): Promise<EstadoUsuario> {
   await exigirAdmin();
-  const lido = UsuarioForm.safeParse(formData);
-  if (!lido.success) return { ok: false, erros: errosDoFormulario(lido.error.issues) };
-  const d = lido.data;
-  const conflito = await conflitoDeTelefone(d.telefone, null);
+  const lido = lerFicha(formData);
+  if (!lido.ok) return { ok: false, erros: lido.erros };
+  const conflito = await conflitoDeTelefone(lido.dados.telefone, null);
   if (conflito) return conflito;
-  try {
-    const servico = supabaseServico();
-    const { data, error } = await servico.auth.admin.inviteUserByEmail(d.email, { redirectTo: `${process.env.PAINEL_URL}/auth/confirm` });
-    if (error) throw new Error(`Não foi possível convidar: ${error.message}`);
-    checar(await servico.from('usuarios').insert({ id: data.user.id, nome: d.nome, email: d.email, papel: d.papel, telefone: d.telefone, permissoes: d.permissoes }));
-    if (d.setores.length) checar(await servico.from('usuario_setores').insert(d.setores.map((setor_id) => ({ usuario_id: data.user.id, setor_id }))));
-  } catch (e) {
-    return { ok: false, erros: { geral: mensagemDeErro(e) } };
+  const servico = supabaseServico();
+  const { data, error } = await servico.auth.admin.inviteUserByEmail(lido.dados.email, { redirectTo: `${process.env.PAINEL_URL}/auth/confirm` });
+  if (error) return { ok: false, erros: errosDoBanco(error.message) };
+  const { error: erroFicha } = await (await supabaseServidor()).rpc('salvar_usuario', { p_id: data.user.id, p_dados: paraBanco(lido.dados) as never });
+  if (erroFicha) {
+    // Sem a ficha, o login do convite não serve e prenderia o e-mail num convite novo.
+    await servico.auth.admin.deleteUser(data.user.id);
+    return { ok: false, erros: errosDoBanco(erroFicha.message) };
   }
   revalidatePath('/usuarios');
-  return { ok: true };
+  return { ok: true, id: data.user.id };
 }
 
 export async function salvarUsuario(id: string, formData: FormData): Promise<EstadoUsuario> {
   await exigirAdmin();
-  const lido = UsuarioForm.safeParse(formData);
-  if (!lido.success) return { ok: false, erros: errosDoFormulario(lido.error.issues) };
-  const d = lido.data;
-  const conflito = await conflitoDeTelefone(d.telefone, id);
+  // O id vem do navegador (bind): fora do formato, o banco devolveria um erro cru.
+  if (!UUID.test(id)) return { ok: false, erros: { geral: PESSOA_SEM_ACESSO } };
+  const lido = lerFicha(formData);
+  if (!lido.ok) return { ok: false, erros: lido.erros };
+  const conflito = await conflitoDeTelefone(lido.dados.telefone, id);
   if (conflito) return conflito;
-  try {
-    // Sessão do administrador (o RLS escrita_admin permite): a auditoria registra quem mudou, em vez de ficar sem usuário.
-    const sb = await supabaseServidor();
-    checar(await sb.from('usuarios').update({ nome: d.nome, papel: d.papel, telefone: d.telefone, permissoes: d.permissoes }).eq('id', id));
-    checar(await sb.from('usuario_setores').delete().eq('usuario_id', id));
-    if (d.setores.length) checar(await sb.from('usuario_setores').insert(d.setores.map((setor_id) => ({ usuario_id: id, setor_id }))));
-  } catch (e) {
-    return { ok: false, erros: { geral: mensagemDeErro(e) } };
-  }
+  // Sessão do administrador: a auditoria registra quem mudou.
+  const { error } = await (await supabaseServidor()).rpc('salvar_usuario', { p_id: id, p_dados: paraBanco(lido.dados) as never });
+  if (error) return { ok: false, erros: errosDoBanco(error.message) };
   revalidatePath('/usuarios');
-  return { ok: true };
+  revalidatePath(`/usuarios/${id}`);
+  return { ok: true, id };
+}
+
+export type ResultadoConvite = { ok: true; mensagem: string } | { ok: false; erro: string };
+
+/** "reenviar convite": quem nunca entrou recebe o convite de novo; quem já entrou, um link para criar a senha. */
+export async function reenviarConvite(id: string): Promise<ResultadoConvite> {
+  await exigirAdmin();
+  const servico = supabaseServico();
+  const { data, error } = await servico.auth.admin.getUserById(id);
+  const email = data?.user?.email;
+  if (error || !email) return { ok: false, erro: 'Não encontrei o acesso desta pessoa.' };
+  const destino = `${process.env.PAINEL_URL}/auth/confirm`;
+  if (!data.user.last_sign_in_at) {
+    const convite = await servico.auth.admin.inviteUserByEmail(email, { redirectTo: destino });
+    if (!convite.error) return { ok: true, mensagem: `Convite reenviado para ${email}.` };
+  }
+  const { error: erroLink } = await servico.auth.resetPasswordForEmail(email, { redirectTo: destino });
+  if (erroLink) return { ok: false, erro: 'Não consegui enviar o e-mail agora. Tente de novo em alguns minutos.' };
+  return { ok: true, mensagem: `Enviamos para ${email} um link para criar a senha.` };
 }

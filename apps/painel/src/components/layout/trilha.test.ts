@@ -26,4 +26,12 @@ describe('trilha da barra do topo (ícone › Seção › Tela)', () => {
     expect(trilhaDaRota('/clientesX')).toEqual([]);
     expect(trilhaDaRota('/usuarios-x')).toEqual([]);
   });
+  it('ficha da pessoa: Configurações › Usuários e permissões › Pessoa (o nome vem no título da página)', () => {
+    expect(trilhaDaRota('/usuarios/novo')).toEqual([
+      { rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões', href: '/usuarios' }, { rotulo: 'Nova pessoa' },
+    ]);
+    expect(trilhaDaRota('/usuarios/11111111-1111-4111-8111-111111111111')).toEqual([
+      { rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões', href: '/usuarios' }, { rotulo: 'Pessoa' },
+    ]);
+  });
 });

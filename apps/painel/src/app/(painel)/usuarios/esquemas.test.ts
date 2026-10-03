@@ -1,50 +1,72 @@
 import { describe, expect, it } from 'vitest';
-import { errosDoFormulario, UsuarioForm } from './esquemas';
+import { errosDoBanco, lerFicha, paraBanco } from './esquemas';
 
-const form = (campos: Record<string, string | string[]>) => {
+const SETOR = '11111111-1111-4111-8111-111111111111';
+function form(campos: Record<string, string | string[]>) {
   const f = new FormData();
-  for (const [k, v] of Object.entries(campos)) for (const x of [v].flat()) f.append(k, x);
+  for (const [k, v] of Object.entries(campos)) for (const x of Array.isArray(v) ? v : [v]) f.append(k, x);
   return f;
-};
+}
+const BASE = { nome: 'Ana Paula Souza', email: 'Ana@Escritorio.com.br ', cargo: 'Analista', papel: 'atendente', telefone: '(11) 98888-1234',
+  setor: [SETOR], observacoes: 'Férias de 10 a 24/11', horario_restrito: 'sim', horario_semana: 'permitido', horario_semana_de: '08:00',
+  horario_semana_ate: '18:00', horario_sabado: 'bloqueado', horario_domingo: 'bloqueado' };
 
-describe('UsuarioForm (aba Usuários, pedido do dono, 2026-09-29)', () => {
-  it('aceita convite com setores, permissões e as marcações do assistente', () => {
-    expect(UsuarioForm.parse(form({ nome: 'Ana', email: 'ANA@escritorio.com', papel: 'atendente', telefone: '(31) 98888-7777',
-      setor: 'S1', permissao: ['editar_clientes', 'assistente_site', 'assistente_whatsapp'] })))
-      .toEqual({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', telefone: '5531988887777', setores: ['S1'],
-        permissoes: ['editar_clientes', 'assistente_site', 'assistente_whatsapp'] });
+describe('lerFicha (Parte D)', () => {
+  it('lê a ficha inteira, com níveis e horário', () => {
+    const r = lerFicha(form({ ...BASE, nivel_demandas: 'meu_setor', nivel_clientes: 'editar', nivel_assistente: 'site_whatsapp' }));
+    expect(r).toEqual({ ok: true, dados: {
+      nome: 'Ana Paula Souza', email: 'ana@escritorio.com.br', cargo: 'Analista', papel: 'atendente', telefone: '5511988881234',
+      setores: [SETOR], observacoes: 'Férias de 10 a 24/11', niveis: { demandas: 'meu_setor', clientes: 'editar', assistente: 'site_whatsapp' },
+      horario: { semana: { de: '08:00', ate: '18:00' }, sabado: null, domingo: null },
+    } });
   });
-  it('assistente pelo WhatsApp exige telefone', () => {
-    const r = UsuarioForm.safeParse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', permissao: 'assistente_whatsapp' }));
-    expect(r.success).toBe(false);
-    expect(JSON.stringify(r.error?.issues)).toContain('Informe o telefone para usar o assistente pelo WhatsApp');
-  });
-  it('telefone preenchido que não é telefone: "Telefone inválido"; vazio fica sem telefone (revisão final, K1)', () => {
-    const r = UsuarioForm.safeParse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', telefone: '12345' }));
-    expect(r.success).toBe(false);
-    expect(r.error?.issues.map((i) => i.message)).toEqual(['Telefone inválido']);
-    expect(UsuarioForm.parse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', telefone: '' })).telefone).toBeNull();
-    expect(UsuarioForm.parse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', telefone: '   ' })).telefone).toBeNull();
-  });
-  it('aceita a permissão Treinar o agente (2026-09-30)', () => {
-    expect(UsuarioForm.parse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', permissao: 'treinar_agente' })).permissoes)
-      .toEqual(['treinar_agente']);
-  });
-  it('recusa permissão desconhecida', () => {
-    expect(UsuarioForm.safeParse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', permissao: 'apagar_tudo' })).success).toBe(false);
-  });
-});
 
-describe('errosDoFormulario', () => {
-  it('cada mensagem vai para o seu campo; o que não é campo vai para geral', () => {
-    expect(errosDoFormulario([
-      { path: ['telefone'], message: 'Telefone inválido' },
-      { path: ['nome'], message: 'Informe o nome' },
-      { path: ['permissoes', 0], message: 'Permissão desconhecida' },
-    ])).toEqual({ telefone: 'Telefone inválido', nome: 'Informe o nome', geral: 'Permissão desconhecida' });
+  it('administrador: níveis escondidos e horário ficam de fora (não são apagados)', () => {
+    const r = lerFicha(form({ nome: 'Dono', email: 'dono@escritorio.com.br', papel: 'admin', nivel_assistente: 'site' }));
+    expect(r.ok && r.dados.niveis).toEqual({ assistente: 'site' });
+    expect(r.ok && r.dados.horario).toBeUndefined();
+    expect(r.ok && paraBanco(r.dados)).not.toHaveProperty('horario_acesso');
   });
-  it('não repete a mesma mensagem no mesmo campo', () => {
-    expect(errosDoFormulario([{ path: ['email'], message: 'E-mail inválido' }, { path: ['email'], message: 'E-mail inválido' }]))
-      .toEqual({ email: 'E-mail inválido' });
+
+  it('sem restrição de horário vai como null', () => {
+    const r = lerFicha(form({ ...BASE, horario_restrito: 'nao' }));
+    expect(r.ok && paraBanco(r.dados).horario_acesso).toBeNull();
+  });
+
+  it('erros por campo, todos de uma vez, sem perder nada', () => {
+    expect(lerFicha(form({ ...BASE, nome: 'A', telefone: '123', horario_semana_de: '18:00', horario_semana_ate: '08:00' }))).toEqual({
+      ok: false, erros: { nome: 'Informe o nome', telefone: 'Telefone inválido', horario: 'Seg a sex: o fim precisa ser depois do início.' },
+    });
+    expect(lerFicha(form({ ...BASE, telefone: '', nivel_assistente: 'site_whatsapp' })))
+      .toEqual({ ok: false, erros: { telefone: 'Informe o telefone para usar o assistente pelo WhatsApp' } });
+    expect(lerFicha(form({ ...BASE, nivel_demandas: 'tudo' }))).toEqual({ ok: false, erros: { niveis: 'Nível desconhecido.' } });
+  });
+
+  it('mensagem do banco vai para o campo certo', () => {
+    expect(errosDoBanco('Você não pode tirar o seu próprio acesso de administrador.')).toEqual({ papel: 'Você não pode tirar o seu próprio acesso de administrador.' });
+    expect(errosDoBanco('Informe o telefone para usar o assistente pelo WhatsApp.')).toEqual({ telefone: 'Informe o telefone para usar o assistente pelo WhatsApp' });
+    expect(errosDoBanco('A user with this email address has already been registered')).toEqual({ email: 'Já existe uma pessoa com este e-mail.' });
+    expect(errosDoBanco('Horário de acesso inválido.')).toEqual({ horario: 'Horário de acesso inválido.' });
+  });
+
+  // Sobras da Task 5: nenhum erro cru de salvar_usuario chega à tela.
+  it('e-mail repetido (23505) vai para o campo e-mail', () => {
+    expect(errosDoBanco('duplicate key value violates unique constraint "usuarios_email_key"')).toEqual({ email: 'Já existe uma pessoa com este e-mail.' });
+  });
+  it('nível, nome e setor recusados pelo banco vão para o campo', () => {
+    expect(errosDoBanco('Nível inválido em demandas.')).toEqual({ niveis: 'Nível desconhecido.' });
+    expect(errosDoBanco('Informe o nome.')).toEqual({ nome: 'Informe o nome' });
+  });
+  it('erro técnico (formato, pessoa sem login) vira aviso geral legível', () => {
+    expect(errosDoBanco('invalid input syntax for type uuid: "x"')).toEqual({ geral: 'Não consegui salvar: a ficha veio num formato inesperado. Recarregue a página e tente de novo.' });
+    expect(errosDoBanco('cannot call jsonb_each_text on a non-object')).toEqual({ geral: 'Não consegui salvar: a ficha veio num formato inesperado. Recarregue a página e tente de novo.' });
+    expect(errosDoBanco('insert or update on table "usuarios" violates foreign key constraint "usuarios_id_fkey"'))
+      .toEqual({ geral: 'Não encontrei o acesso desta pessoa. Volte à lista e abra a ficha de novo.' });
+  });
+  it('setor fora do formato fica no campo Setores, e a ficha manda sempre setores e níveis (vazios também)', () => {
+    expect(lerFicha(form({ ...BASE, setor: ['x'] }))).toEqual({ ok: false, erros: { setores: 'Setor desconhecido' } });
+    const r = lerFicha(form({ ...BASE, setor: [] }));
+    // setores ausente LIMPARIA os setores no banco; níveis sempre como objeto.
+    expect(r.ok && paraBanco(r.dados)).toMatchObject({ setores: [], niveis: {} });
   });
 });

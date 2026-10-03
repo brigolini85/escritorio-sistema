@@ -92,7 +92,7 @@ function SemPermissao() {
         <EmptyState
           icone={LockKeyhole}
           titulo="Você não tem acesso a esta tela."
-          descricao={'Quem libera é o administrador: na tela Usuários, ele marca "Treinar o agente" no seu cadastro.'}
+          descricao={'Quem libera é o administrador: na tela Usuários, ele escolhe "Sim" em "Treinar o agente" no seu cadastro.'}
           acao={<Link href="/inicio" className={variantesBotao({ variant: 'outline', size: 'sm' })}>Voltar para o Início</Link>}
         />
       </Card>

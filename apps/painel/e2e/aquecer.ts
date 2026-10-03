@@ -9,7 +9,7 @@ const EMAIL = 'aquecer@teste.com';
 const SENHA = 'senha-forte-123';
 const ROTAS = [
   '/inicio', '/atendimento', '/demandas', '/demandas?nova=1', '/demandas?vencidas=1', '/demandas?prazo=hoje',
-  '/clientes', '/contatos', '/usuarios', '/configuracoes', '/treinar-agente', '/assistente',
+  '/clientes', '/contatos', '/usuarios', '/usuarios/novo', '/configuracoes', '/treinar-agente', '/assistente',
 ];
 
 const texto = (e: unknown) => (e instanceof Error ? e.message : String(e));

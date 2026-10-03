@@ -68,22 +68,22 @@ test('Usuários: telefone inválido avisa; salvar mantém setor inativo, registr
 
   await entrar(page, 'admin-usuarios@e2e.local', senha);
   await page.goto('/usuarios');
-  await page.getByText('Bia Revisão · Atendente').click();
-  // Clicar na linha abre o painel lateral (?usuario=) com o formulário da pessoa.
-  const form = page.getByRole('dialog').locator('form');
-  await expect(form.getByLabel('Setor Inativo E2E (inativo)')).toBeChecked();
+  await page.getByRole('row').filter({ hasText: 'Bia Revisão' }).getByRole('link', { name: 'Editar Bia Revisão' }).click();
+  // O lápis abre a ficha da pessoa em página inteira (Parte D).
+  const form = page.getByRole('form', { name: 'Cadastro de Bia Revisão' });
+  await expect(form.getByLabel('Setor Inativo E2E (inativo)')).toBeChecked({ timeout: 30_000 });
 
-  await form.getByPlaceholder('Telefone com DDD (para o assistente pelo WhatsApp)').fill('12345');
-  await form.getByRole('button', { name: 'Salvar usuário' }).click();
-  // Sobra 6 da Parte B: o erro fica no campo, o painel continua aberto e o que foi digitado não se perde.
+  await form.getByLabel('Telefone (WhatsApp)').fill('12345');
+  await form.getByRole('button', { name: 'Salvar' }).click();
+  // Sobra 6 da Parte B: o erro fica no campo, a ficha continua aberta e o que foi digitado não se perde.
   await expect(form.getByText('Telefone inválido')).toBeVisible();
-  await expect(form.getByPlaceholder('Telefone com DDD (para o assistente pelo WhatsApp)')).toHaveValue('12345');
+  await expect(form.getByLabel('Telefone (WhatsApp)')).toHaveValue('12345');
   await expect(page).not.toHaveURL(/erro=/);
 
-  await form.getByPlaceholder('Nome').fill('Bia Revisão Souza');
-  await form.getByPlaceholder('Telefone com DDD (para o assistente pelo WhatsApp)').fill('');
-  await form.getByRole('button', { name: 'Salvar usuário' }).click();
-  await expect(page.getByText('Bia Revisão Souza · Atendente')).toBeVisible();
+  await form.getByLabel('Nome', { exact: true }).fill('Bia Revisão Souza');
+  await form.getByLabel('Telefone (WhatsApp)').fill('');
+  await form.getByRole('button', { name: 'Salvar' }).click();
+  await expect(page.getByRole('heading', { name: 'Bia Revisão Souza' })).toBeVisible();
   await expect(page.getByText('Telefone inválido')).toHaveCount(0);
   await expect(page).not.toHaveURL(/erro=/);
 

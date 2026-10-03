@@ -133,17 +133,17 @@ test('atendente sem a marcação não vê o menu e a tela explica quem libera; m
   await expect(page.getByRole('link', { name: 'Treinar o agente' })).toHaveCount(0);
   await page.goto('/treinar-agente');
   await expect(page.getByText('Você não tem acesso a esta tela.')).toBeVisible();
-  await expect(page.getByText('Quem libera é o administrador: na tela Usuários, ele marca "Treinar o agente" no seu cadastro.')).toBeVisible();
+  await expect(page.getByText('Quem libera é o administrador: na tela Usuários, ele escolhe "Sim" em "Treinar o agente" no seu cadastro.')).toBeVisible();
   await expect(page.getByRole('table')).toHaveCount(0);
 
-  // O administrador marca "Treinar o agente" na tela Usuários.
+  // O administrador escolhe "Sim" em "Treinar o agente" na ficha da pessoa.
   await page.context().clearCookies();
   await entrar(page, EMAIL_ADMIN, senha);
-  await page.goto(`/usuarios?usuario=${semId}`);
-  const form = painel(page).locator('form');
-  await expect(form.getByText('Escreve e liga as orientações que o agente segue no atendimento.')).toBeVisible();
-  await form.getByRole('switch', { name: 'Treinar o agente' }).click();
-  await form.getByRole('button', { name: 'Salvar usuário' }).click();
+  await page.goto(`/usuarios/${semId}`);
+  const form = page.getByRole('form', { name: 'Cadastro de Bia Sem Treino' });
+  await expect(form.getByText('Escreve e liga as orientações que o agente segue.')).toBeVisible({ timeout: 30_000 });
+  await form.getByLabel('Treinar o agente').selectOption('sim');
+  await form.getByRole('button', { name: 'Salvar' }).click();
   await expect.poll(async () => (await db.from('usuarios').select('permissoes').eq('id', semId).single()).data?.permissoes).toEqual(['treinar_agente']);
 
   // Marcada, a atendente vê o item e cria uma orientação (o banco grava com a sessão dela).
