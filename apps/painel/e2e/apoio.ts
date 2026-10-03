@@ -1,7 +1,8 @@
 import type { Page } from '@playwright/test';
-import { criarClienteServico } from '@escritorio/db';
+import { clienteServicoLocal } from './trava-local';
 
-export const db = criarClienteServico(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+// Só com o Supabase local (trava-local): este cliente cria e apaga pessoas.
+export const db = clienteServicoLocal();
 
 export async function criarUsuarioTeste(p: { email: string; senha: string; nome: string; papel: 'admin' | 'atendente'; setores?: string[]; permissoes?: string[] }): Promise<string> {
   const { data: lista } = await db.auth.admin.listUsers();
