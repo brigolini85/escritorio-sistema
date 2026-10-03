@@ -150,3 +150,48 @@ test('exportar mais de 1000 chamadas: o arquivo traz todas (páginas de 1000 do 
     await db.from('uso_ia').delete().eq('modelo', 'e2e-gastos').lt('criado_em', '2022-01-01');
   }
 });
+
+test('teclado: Tab chega ao "Ver em tabela", à pessoa e à empresa; Enter abre e fecha; Esc fecha o painel e devolve o foco', async ({ page }) => {
+  await entrar(page, dados.admin.email, dados.admin.senha);
+  await page.goto('/gastos-ia');
+  await expect(page.getByTestId('gastos-chamadas')).toBeVisible();
+
+  // "Ver em tabela": Enter abre; a caixa que rola entra na ordem do Tab (com nome) e fechada não é parada do Tab.
+  const verTabela = page.getByText('Ver em tabela');
+  const caixa = page.getByRole('region', { name: 'Tabela do gasto por dia' });
+  await expect(caixa).toHaveCount(0);
+  await verTabela.focus();
+  await page.keyboard.press('Enter');
+  await expect(caixa).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(caixa).toBeFocused();
+  await verTabela.focus();
+  await page.keyboard.press('Enter');
+  await expect(caixa).toHaveCount(0);
+
+  // Pessoa do ranking: Tab alcança o link; Enter abre o painel; Esc fecha e o foco volta ao link.
+  const ranking = page.getByRole('region', { name: 'Quem mais gasta na equipe' });
+  const pessoa = ranking.getByRole('link', { name: /Ana Gastos/ });
+  await pessoa.focus();
+  await expect(pessoa).toBeFocused();
+  await page.keyboard.press('Enter');
+  const painel = page.getByRole('dialog', { name: /Ana Gastos/ });
+  await expect(painel).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(painel).toBeHidden();
+  await expect(page).not.toHaveURL(/pessoa=/);
+  await expect(pessoa).toBeFocused();
+
+  // Empresa: Enter abre e Enter fecha (aria-expanded), com o foco ficando no botão.
+  const clientes = page.getByRole('region', { name: 'Gastos por cliente' });
+  const empresa = clientes.getByRole('button', { name: /Rede Bom Preço Gastos/ });
+  await empresa.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/empresa=/);
+  await expect(clientes.getByRole('button', { name: /Rede Bom Preço Gastos/ })).toHaveAttribute('aria-expanded', 'true');
+  await expect(clientes.getByRole('table', { name: /Atendimentos de Rede Bom Preço Gastos/ })).toBeVisible();
+  await clientes.getByRole('button', { name: /Rede Bom Preço Gastos/ }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page).not.toHaveURL(/empresa=/);
+  await expect(clientes.getByRole('button', { name: /Rede Bom Preço Gastos/ })).toHaveAttribute('aria-expanded', 'false');
+});

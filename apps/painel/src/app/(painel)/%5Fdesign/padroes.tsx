@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { LIMITES_PADRAO } from '@/lib/atendimento';
+import { INFO_FUNCIONALIDADE } from '@/lib/gastos';
 import { lerOrdem, lerPagina, ordenarLinhas, paginar, valorParam, type ParamsBusca } from '@/lib/tabela-url';
 import { CronometroEspera } from '../atendimento/cronometro-espera';
 import { MarcoConversa } from '../atendimento/[id]/itens-historico';
@@ -85,6 +86,11 @@ function demandas(agora: number): DemandaExemplo[] {
     };
   });
 }
+
+const CORES_GASTO: [keyof typeof INFO_FUNCIONALIDADE, string][] = [
+  ['agente_clientes', '--gasto-agente'], ['assistente_site', '--gasto-assistente-site'], ['sugerir_resposta', '--gasto-sugerir'], ['testar_agente', '--gasto-testar'],
+  ['assistente_whatsapp', '--gasto-assistente-whatsapp'], ['transcricao_audio', '--gasto-transcricao'], ['especialista_setor', '--gasto-especialista'], ['nao_identificado', '--gasto-nao-identificado'],
+];
 
 function Secao({ titulo, descricao, children }: { titulo: string; descricao?: string; children: ReactNode }) {
   return (
@@ -320,6 +326,33 @@ export function Padroes({ params }: { params: ParamsBusca }) {
         <CronometroEspera desde={ha(10 * 60)} limites={LIMITES_PADRAO} />
         <CronometroEspera desde={ha(20 * 60)} limites={LIMITES_PADRAO} />
         <MarcoConversa texto="Demanda #1042 aberta no Fiscal · urgente" criadoEm={ha(60)} />
+      </Exemplo>
+
+      <Exemplo titulo="Gastos com IA (Parte F): uma cor por funcionalidade (--gasto-*) e barra empilhada com legenda" className="grid gap-4">
+        <ul aria-label="Cores das funcionalidades" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {CORES_GASTO.map(([f, token]) => (
+            <li key={token} className="flex items-center gap-2 text-sm">
+              <span aria-hidden className="size-4 shrink-0 rounded-sm border border-border" style={{ background: `var(${token})` }} />
+              <span>{INFO_FUNCIONALIDADE[f].rotulo}</span>
+              <code className="text-xs text-subtle">{token}</code>
+            </li>
+          ))}
+        </ul>
+        <div>
+          <div role="img" aria-label="Exemplo: Assistente (site) US$ 2,00, Sugerir resposta US$ 1,00, Testar o agente US$ 1,00" className="flex h-3 gap-0.5">
+            <div className="h-full min-w-0.5 rounded-sm bg-gasto-assistente-site" style={{ width: '50%' }} />
+            <div className="h-full min-w-0.5 rounded-sm bg-gasto-sugerir" style={{ width: '25%' }} />
+            <div className="h-full min-w-0.5 rounded-sm bg-gasto-testar" style={{ width: '25%' }} />
+          </div>
+          <ul aria-label="Legenda das cores" className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+            {(['assistente_site', 'sugerir_resposta', 'testar_agente'] as const).map((f) => (
+              <li key={f} className="flex items-center gap-1.5">
+                <span aria-hidden className={`size-2.5 rounded-sm ${INFO_FUNCIONALIDADE[f].cor}`} />
+                {INFO_FUNCIONALIDADE[f].rotulo}
+              </li>
+            ))}
+          </ul>
+        </div>
       </Exemplo>
     </Secao>
   );

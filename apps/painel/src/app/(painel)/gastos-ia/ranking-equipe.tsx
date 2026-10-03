@@ -4,7 +4,7 @@ import type { FuncionalidadeIa } from '@escritorio/core';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { cn } from '@/lib/cn';
 import { formatarNumero, formatarUSD, NBSP } from '@/lib/formatos';
-import { INFO_FUNCIONALIDADE, ORDEM_EMPILHADO, iniciais, montarRanking, type LinhaPessoa } from '@/lib/gastos';
+import { INFO_FUNCIONALIDADE, ORDEM_EMPILHADO, iniciais, lerPessoaAberta, montarRanking, type LinhaPessoa } from '@/lib/gastos';
 import { hrefComParams, type ParamsBusca } from '@/lib/tabela-url';
 
 export type LinhaPessoaBanco = { usuario_id: string; nome: string; funcionalidade: string; custo_usd: number | string; chamadas: number | string };
@@ -15,6 +15,7 @@ const usd = (v: number) => formatarUSD(v).replace(NBSP, ' ');
 
 /** Quem mais gasta na equipe (spec 7B.3, P16): só ações de pessoas; barra empilhada com legenda sempre visível. */
 export function RankingEquipe({ linhas, params }: { linhas: LinhaPessoaBanco[]; params: ParamsBusca }) {
+  const aberta = lerPessoaAberta(params.pessoa);
   const ranking = montarRanking(linhas.map((l): LinhaPessoa => ({ ...l, custo_usd: Number(l.custo_usd) || 0, chamadas: Number(l.chamadas) || 0 })));
 
   return (
@@ -44,7 +45,7 @@ export function RankingEquipe({ linhas, params }: { linhas: LinhaPessoaBanco[]; 
                   <tr key={p.usuarioId}>
                     <td className="tabular py-3 pr-3 text-muted">{n + 1}</td>
                     <td className="py-3 pr-3">
-                      <Link href={`/gastos-ia${hrefComParams(params, { pessoa: p.usuarioId })}`} scroll={false} className="flex items-center gap-2 font-semibold text-foreground underline-offset-4 hover:text-brand hover:underline">
+                      <Link href={`/gastos-ia${hrefComParams(params, { pessoa: p.usuarioId })}`} scroll={false} data-foco-painel="pessoa" aria-current={p.usuarioId === aberta ? 'true' : undefined} className="flex items-center gap-2 font-semibold text-foreground underline-offset-4 hover:text-brand hover:underline">
                         <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-bold text-brand">{iniciais(p.nome)}</span>
                         {p.nome}
                       </Link>

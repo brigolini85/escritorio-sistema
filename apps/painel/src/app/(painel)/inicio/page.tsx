@@ -259,7 +259,7 @@ function GastoIa({ gasto, teto, fracao, nivel, parcial }: { gasto: number; teto:
       </div>
       <p className={cn('mt-auto pt-2 text-xs', nivel === 'atingido' ? 'text-danger' : nivel === 'perto' ? 'text-warning' : 'text-muted')}>
         {pct}% do teto de {formatarUSD(teto)}{parcial && ' · valor parcial (mês com uso demais para somar aqui; o real é maior)'}
-        {' · '}<Link href="/gastos-ia" className="text-brand underline-offset-4 hover:underline">Ver gastos</Link>
+        {' · '}<Link href="/gastos-ia" className="text-brand underline underline-offset-4">Ver gastos</Link>
       </p>
     </Card>
   );

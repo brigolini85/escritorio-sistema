@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
+import { limparGastos, semearGastos } from './apoio-gastos';
 
 // Auditoria automática de acessibilidade (axe, WCAG 2.0/2.1 A e AA) em todas as telas, no tema claro e no escuro.
 // Falha só com violações sérias ou críticas; as moderadas/menores aparecem no log para a próxima revisão.
@@ -257,6 +258,29 @@ for (const tema of ['claro', 'escuro'] as const) {
       await expect(janela.getByRole('alert')).toBeVisible({ timeout: 10_000 });
       erros.push(...(await auditar(page, 'Testar o agente (erro)', tema)));
       expect(erros, erros.join('\n')).toEqual([]);
+    });
+
+    test(`Gastos com IA (tela, tabela do dia, painel da pessoa e empresa aberta) sem violações graves (${tema})`, async ({ page }) => {
+      const dados = await semearGastos();
+      try {
+        await entrar(page, dados.admin.email, dados.admin.senha);
+        const erros: string[] = [];
+        await page.goto('/gastos-ia');
+        await expect(page.getByTestId('gastos-chamadas')).toBeVisible();
+        erros.push(...(await auditar(page, '/gastos-ia', tema)));
+        await page.getByText('Ver em tabela').click();
+        await expect(page.getByRole('table', { name: 'Gasto por dia' })).toBeVisible();
+        erros.push(...(await auditar(page, '/gastos-ia (Ver em tabela aberto)', tema)));
+        await page.goto(`/gastos-ia?pessoa=${dados.ana.id}`);
+        await expect(page.getByRole('dialog', { name: /Ana Gastos/ })).toBeVisible();
+        erros.push(...(await auditar(page, '/gastos-ia?pessoa= (painel lateral)', tema)));
+        await page.goto(`/gastos-ia?empresa=${dados.rede}`);
+        await expect(page.getByRole('table', { name: /Atendimentos de/ })).toBeVisible();
+        erros.push(...(await auditar(page, '/gastos-ia?empresa= (atendimentos)', tema)));
+        expect(erros, erros.join('\n')).toEqual([]);
+      } finally {
+        await limparGastos();
+      }
     });
 
     test(`Treinar o agente sem orientações (exemplos) sem violações graves (${tema})`, async ({ page }) => {

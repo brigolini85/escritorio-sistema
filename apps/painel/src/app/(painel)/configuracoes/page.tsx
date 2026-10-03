@@ -146,7 +146,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
                     ajuda={
                       <>
                         {teto && `Gasto neste mês: ${formatarUSD(teto.gasto)} (${Math.round(teto.fracao * 100)}% do teto)${gasto?.parcial ? ', valor parcial' : ''}. `}
-                        <Link href="/gastos-ia" className="text-brand underline-offset-4 hover:underline">Ver gastos com IA</Link>
+                        <Link href="/gastos-ia" className="text-brand underline underline-offset-4">Ver gastos com IA</Link>
                       </>
                     }
                   >

@@ -3,7 +3,7 @@ import { Bot, Building2, ChevronDown, ChevronUp, ExternalLink, Search, UserRound
 import { EmptyState } from '@/components/patterns/empty-state';
 import { cn } from '@/lib/cn';
 import { formatarData, formatarDataHora, formatarNumero, formatarUSD } from '@/lib/formatos';
-import { percentual } from '@/lib/gastos';
+import { formatarUsdFino, percentual } from '@/lib/gastos';
 import { hrefComParams, type ParamsBusca } from '@/lib/tabela-url';
 
 export type LinhaCliente = { cliente_id: string | null; nome: string; atendimentos: number | string; custo_usd: number | string; resolvidos: number | string };
@@ -48,7 +48,7 @@ function Atendimentos({ id, empresa, linhas }: { id: string; empresa: string; li
               <td className="py-2 pr-3 text-foreground">{a.contato}</td>
               <td className="tabular py-2 pr-3 text-right text-muted">{formatarNumero(Number(a.mensagens) || 0, 0)}</td>
               <td className="py-2 pr-3"><Resultado valor={a.resultado} /></td>
-              <td className={cn('tabular whitespace-nowrap py-2 pr-3 text-right', n === 0 && 'font-extrabold')}>{formatarUSD(Number(a.custo_usd) || 0)}</td>
+              <td className="tabular whitespace-nowrap py-2 pr-3 text-right">{formatarUsdFino(Number(a.custo_usd) || 0)}</td>
               <td className="whitespace-nowrap py-2 pr-3">
                 {a.conversa_id ? (
                   <Link href={`/atendimento/${a.conversa_id}?data=${a.dia}`} className="inline-flex items-center gap-1 font-bold text-brand underline-offset-4 hover:underline">

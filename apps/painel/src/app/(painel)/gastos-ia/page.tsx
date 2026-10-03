@@ -16,7 +16,7 @@ import { RankingEquipe } from './ranking-equipe';
 import { DetalhePessoa, EsqueletoPessoa } from './detalhe-pessoa';
 import { GastosPorCliente } from './gastos-por-cliente';
 
-const LINK = 'text-brand underline-offset-4 hover:underline';
+const LINK = 'text-brand underline underline-offset-4';
 
 /** Gastos com IA (spec 7B.3): só o administrador (spec 7; o banco recusa os outros). */
 export default async function GastosIa({ searchParams }: { searchParams: Promise<ParamsBusca> }) {

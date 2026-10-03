@@ -21,7 +21,7 @@ export function lerResumo(bruto: unknown): Resumo {
   };
 }
 
-const LINK_CONFIG = 'text-brand underline-offset-4 hover:underline';
+const LINK_CONFIG = 'text-brand underline underline-offset-4';
 
 function Cartao({ id, faixa, titulo, extra, children }: { id: string; faixa: string; titulo: string; extra?: ReactNode; children: ReactNode }) {
   return (

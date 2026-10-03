@@ -69,6 +69,8 @@ O painel não tem zoom: o tamanho da letra sobe sozinho com a tela, e a pessoa a
 - Ícones do `lucide-react`: 16px em linhas e botões, 18px no menu lateral e nos atalhos, traço 1.75, `aria-hidden` quando há texto ao lado.
 - Animações de até 150ms, e o `prefers-reduced-motion` desliga todas (`globals.css`).
 
+**Gráficos** (Gastos com IA): uma cor por funcionalidade, nos tokens `--gasto-*` (paleta conferida pelo validador da skill dataviz no claro e no escuro); a cor segue a funcionalidade, nunca a posição. Barra de dado só com `style={{ width|height: '<n>%' }}`; o gráfico é `aria-hidden` e sempre há uma tabela equivalente ("Ver em tabela") ou uma legenda visível com o texto. Texto nunca na cor da série. Números grandes em `font-extrabold`.
+
 ## Quando usar ui/, patterns/ ou layout/
 
 - **`ui/`**: peças genéricas, sem regra de negócio, que serviriam em qualquer produto: botão, campo, janela, tabela, selo. Vêm do shadcn/ui (Radix) e são ajustadas aos tokens. Mude aqui só o que deve mudar em todo lugar.
@@ -122,6 +124,8 @@ Use sempre estes termos, em português do Brasil:
 
 - **Atendimento:** "Esperando pessoa", "Com o agente", "Concluídas hoje", "esperando você", "agente passou: <motivo>", "pediu para falar com pessoa", "com <nome>", "respondendo", "resolvido pelo agente", "agente pausado para esta empresa / este contato", "Ver decisão", "por quê?", "Decisão do agente", "Sugestão do assistente (editável)", "Usar sugestão", "Abrir demanda", "trocar empresa", "Concluir atendimento".
 - **Pessoa** (usuário da equipe): "Nova pessoa", "Cadastro de <nome>". **Nível** (de uma permissão): "Só as minhas", "Do meu setor", "Todas", "Só ver", "Ver e editar", "Editar e arquivar", "Corrigir e gerar", "Site e WhatsApp". **Horário de acesso**: "Permitido", "Bloqueado", "Fora do seu horário de acesso".
+
+- **Gastos com IA:** "Gastos com IA", "Total do mês × teto", "Previsão até o fim do mês", "Chamadas à IA", "Custo por atendimento", "Áudios transcritos", "Por funcionalidade", "Por dia", "Quem mais gasta na equipe", "Onde gastou", "Gastos por cliente", "Atendimentos", "Resolvidos pelo agente", "passou para pessoa", "resolvido pelo agente", "Não identificado", "Exportar". **Atendimento** nesta tela = as mensagens de um telefone num mesmo dia.
 
 Os dois robôs têm nomes e cores diferentes:
 

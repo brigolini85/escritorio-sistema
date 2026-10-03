@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/cn';
 import { formatarNumero, formatarUSD } from '@/lib/formatos';
 import { textoDiaMaisCaro } from '@/lib/gastos';
+import { TabelaRecolhivel } from './tabela-recolhivel';
 
 export type LinhaDia = { dia: string; custo_usd: number | string; chamadas: number | string };
 export type DiaMaisCaro = { dia: string; custo_dia: number | string; dias_com_gasto: number | string; funcionalidade: string; pessoa: string | null; chamadas: number | string };
@@ -71,11 +72,7 @@ export function PorDia({ dias, hoje, diaMaisCaro }: { dias: LinhaDia[]; hoje: st
         </div>
       </div>
 
-      {/* A tabela fica fora do <details>: recolhida, só some da vista (sr-only) e o leitor de tela continua lendo, já que o gráfico é aria-hidden. */}
-      <details className="peer mt-3 text-sm">
-        <summary className="w-max cursor-pointer text-brand underline-offset-4 hover:underline">Ver em tabela</summary>
-      </details>
-      <div className="sr-only text-sm peer-open:not-sr-only peer-open:mt-2 peer-open:block peer-open:max-h-64 peer-open:overflow-y-auto">
+      <TabelaRecolhivel rotulo="Tabela do gasto por dia">
         <table aria-label="Gasto por dia" className="w-full">
           <thead>
             <tr className="text-left text-xs font-bold uppercase tracking-wide text-muted">
@@ -94,7 +91,7 @@ export function PorDia({ dias, hoje, diaMaisCaro }: { dias: LinhaDia[]; hoje: st
             ))}
           </tbody>
         </table>
-      </div>
+      </TabelaRecolhivel>
 
       {alerta && (
         <p data-testid="gastos-alerta-dia" role="note" className="mt-3 flex items-start gap-2 rounded-md bg-warning-soft px-3 py-2 text-sm text-foreground">

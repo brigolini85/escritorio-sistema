@@ -182,6 +182,19 @@ De segunda a sábado, às 18h, você recebe o **resumo do dia** no WhatsApp e no
 - Em **"Com o cliente"** o prazo para de correr; quando a demanda volta, o prazo anda o tempo que ficou parado.
 - Demanda vencida avisa o responsável (sem responsável, o setor) na lista de avisos do Início.
 
+### Gastos com IA (só o administrador)
+
+Menu **Gastos com IA** (moeda). Mostra tudo o que gasta com IA: o agente com os clientes, o assistente (site e WhatsApp), Sugerir resposta, Testar o agente e a transcrição de áudio.
+
+- **Período:** Hoje, 7 dias, Este mês (padrão), Mês passado ou Período (até 366 dias). **Exportar** baixa o CSV linha a linha do período (abre no Excel).
+- **Total do mês × teto:** a barra tem a marca de 80% (quando chega o aviso) e a previsão de fechamento (gasto até hoje ÷ dias corridos × dias do mês). Embaixo, quanto o cache de prompt economizou.
+- **Custo por atendimento:** atendimento é a conversa de um telefone num mesmo dia.
+- **Quem mais gasta na equipe:** só o que as pessoas pediram (assistente, sugestão, testes). Clique no nome para ver cada chamada.
+- **Gastos por cliente:** clique na empresa para ver os atendimentos (resolvido pelo agente ou passou para pessoa) e **abrir** a conversa naquele dia.
+- **Em reais:** preencha a cotação em Configurações › Teto de IA (manual; nada busca na internet). Lá também fica o **custo por minuto da transcrição** (veja no painel da Groq); sem ele, os áudios aparecem sem custo.
+- **"Não identificado":** gastos de antes desta versão sem como saber de onde vieram, ou gravados por um trabalhador desatualizado. Se aparecer número novo depois da troca do trabalhador, avise: é erro.
+- O **teto mensal** soma tudo, inclusive a transcrição. Ao chegar no teto, o agente para; a transcrição continua (a equipe precisa do texto).
+
 ## 4. Pedir mudanças ao Claude
 
 1. Abra o Claude Code no VS Code e descreva em português o que quer mudar (por exemplo: "quero que o agente também responda sobre o prazo do IR").

@@ -97,7 +97,8 @@ export function PainelLateralUrl({
         onCloseAutoFocus={(e) => {
           // Aberto pela URL, não há gatilho: o foco volta para a linha (ainda marcada como atual).
           e.preventDefault();
-          document.querySelector<HTMLElement>('tr[aria-current="true"]')?.focus();
+          // Telas sem DataTable (ranking de Gastos com IA) marcam o link com data-foco-painel=<param> e aria-current.
+          (document.querySelector<HTMLElement>('tr[aria-current="true"]') ?? document.querySelector<HTMLElement>(`[data-foco-painel="${param}"][aria-current="true"]`))?.focus();
         }}
       >
         {carregando || !children ? esqueleto : children}
