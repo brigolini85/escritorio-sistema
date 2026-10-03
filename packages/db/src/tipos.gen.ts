@@ -565,6 +565,19 @@ isOneToOne: false
       referencedColumns: ["id","cliente_id"]
     }
                   ]
+                },"permissao_niveis": {
+                  Row: {
+                    "modulo": string,"nivel": string,"ordem": number
+                  }
+                  Insert: {
+                    "modulo": string,"nivel": string,"ordem": number
+                  }
+                  Update: {
+                    "modulo"?: string,"nivel"?: string,"ordem"?: number
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"precos": {
                   Row: {
                     "alterado_por": string | null,"alterado_por_contato": string | null,"cliente_id": string,"criado_em": string,"grupo_id": string,"id": string,"origem": string,"produto_id": string,"valor": number,"vigente_ate": string | null,"vigente_desde": string
@@ -741,6 +754,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"usuario_permissoes": {
+                  Row: {
+                    "modulo": string,"nivel": string,"usuario_id": string
+                  }
+                  Insert: {
+                    "modulo": string,"nivel": string,"usuario_id": string
+                  }
+                  Update: {
+                    "modulo"?: string,"nivel"?: string,"usuario_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "usuario_permissoes_modulo_nivel_fkey"
+      columns: ["modulo","nivel"]
+isOneToOne: false
+      referencedRelation: "permissao_niveis"
+      referencedColumns: ["modulo","nivel"]
+    },{
+      foreignKeyName: "usuario_permissoes_usuario_id_fkey"
+      columns: ["usuario_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"usuario_setores": {
                   Row: {
                     "setor_id": string,"usuario_id": string
@@ -768,13 +806,13 @@ isOneToOne: false
                   ]
                 },"usuarios": {
                   Row: {
-                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"criado_em": string,"email": string,"id": string,"nome": string,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null,"visao_demandas": string
+                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cargo": string | null,"criado_em": string,"email": string,"id": string,"nome": string,"observacoes": string | null,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null,"ultimo_acesso_em": string | null,"visao_demandas": string
                   }
                   Insert: {
-                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"email": string,"id": string,"nome": string,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"visao_demandas"?: string
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email": string,"id": string,"nome": string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"visao_demandas"?: string
                   }
                   Update: {
-                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"email"?: string,"id"?: string,"nome"?: string,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"visao_demandas"?: string
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email"?: string,"id"?: string,"nome"?: string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"visao_demandas"?: string
                   }
                   Relationships: [
                     {
@@ -953,6 +991,9 @@ isOneToOne: false
 "eh_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"eh_admin_de":
+{ Args: { "p_usuario": string }; Returns: boolean
+                           },
 "eh_dia_util":
 { Args: { "p_dia": string }; Returns: boolean
                            },
@@ -974,8 +1015,26 @@ isOneToOne: false
 "meus_setores":
 { Args: Record<PropertyKey, never>; Returns: string[]
                            },
+"niveis_com_padrao":
+{ Args: { "p_parcial": Json }; Returns: Json
+                           },
+"niveis_da_permissao_legada":
+{ Args: { "p": (string)[],"p_atual": Json }; Returns: Json
+                           },
+"niveis_do_usuario":
+{ Args: { "p_usuario": string }; Returns: Json
+                           },
+"nivel_de":
+{ Args: { "p_modulo": string,"p_usuario": string }; Returns: string
+                           },
+"nivel_padrao":
+{ Args: { "p_modulo": string }; Returns: string
+                           },
 "nota_interna":
 { Args: { "p_chamado": string,"p_texto": string }; Returns: undefined
+                           },
+"permissoes_dos_niveis":
+{ Args: { "n": Json }; Returns: (string)[]
                            },
 "pode_ser_responsavel":
 { Args: { "p_setor": string,"p_usuario": string }; Returns: boolean
@@ -1013,8 +1072,16 @@ isOneToOne: false
 "tabela_do_cadastro":
 { Args: { "p_tipo": string }; Returns: string
                            },
+"tem_nivel":
+{ Args: { "p_minimo": string,"p_modulo": string }; Returns: boolean
+                           },
+"tem_nivel_de":
+{ Args: { "p_minimo": string,"p_modulo": string,"p_usuario": string }; Returns: boolean
+                           },
 "tem_permissao":
 { Args: { "p": string }; Returns: boolean
+                           } |
+{ Args: { "p_minimo": string,"p_modulo": string }; Returns: boolean
                            },
 "tempo_util_entre":
 { Args: { "p_ate": string,"p_de": string }; Returns: string
@@ -1027,6 +1094,9 @@ isOneToOne: false
                            },
 "uso_do_cadastro":
 { Args: { "p_id": string,"p_tipo": string }; Returns: Json
+                           },
+"usuario_liberado":
+{ Args: { "p_usuario": string }; Returns: boolean
                            },
 "vincular_contato_conversa":
 { Args: { "p_contato": string,"p_conversa": string }; Returns: undefined
