@@ -101,7 +101,11 @@ export function ExcluirCadastro({ tipo, id, nome, variante = 'icone', voltarPara
  * Restaurar não é destrutivo: volta na hora, sem janela. A exceção é a unidade de rede arquivada: o banco devolve a
  * pergunta, porque sem a rede a unidade voltaria invisível (sobra 3 da Parte B).
  */
-export function BotaoRestaurar({ tipo, id, nome }: { tipo: TipoCadastro; id: string; nome: string }) {
+export function BotaoRestaurar({ tipo, id, nome, aoRestaurar }: {
+  tipo: TipoCadastro; id: string; nome: string;
+  /** Depois de restaurar (ex.: limpar o erro do formulário que ofereceu o caminho). */
+  aoRestaurar?: () => void;
+}) {
   const router = useRouter();
   const [enviando, iniciar] = useTransition();
   const [rede, setRede] = useState<RedeArquivada | null>(null);
@@ -116,6 +120,7 @@ export function BotaoRestaurar({ tipo, id, nome }: { tipo: TipoCadastro; id: str
         return;
       }
       toast.success(`Restaurado: ${nome}.`);
+      aoRestaurar?.();
       router.refresh();
     } catch (e) {
       unstable_rethrow(e);
@@ -130,6 +135,7 @@ export function BotaoRestaurar({ tipo, id, nome }: { tipo: TipoCadastro; id: str
       const r = await restaurarCadastro(tipo, id, { comRede: true });
       if (!r.ok) { toast.error('redeArquivada' in r ? FALHA : r.erro); return; }
       toast.success(`Restaurados: ${rede.nome} e ${nome}.`);
+      aoRestaurar?.();
       router.refresh();
     } catch (e) {
       unstable_rethrow(e);

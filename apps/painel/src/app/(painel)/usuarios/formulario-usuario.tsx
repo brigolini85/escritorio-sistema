@@ -3,6 +3,7 @@
 import { CircleAlert, TriangleAlert } from 'lucide-react';
 import { unstable_rethrow } from 'next/navigation';
 import { useId, useState, useTransition, type FormEvent, type ReactNode } from 'react';
+import { BotaoRestaurar } from '@/components/patterns/excluir-cadastro';
 import { FormField } from '@/components/patterns/form-field';
 import { BotaoSalvar, FormularioAlteravel, IndicadorAlteracoes, inicialRadix } from '@/components/patterns/formulario-alteravel';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -123,6 +124,17 @@ export function FormularioUsuario({
               onChange={(e) => setTelefone(e.target.value)}
             />
           </FormField>
+          {estado && !estado.ok && estado.telefoneDeArquivado && (
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <BotaoRestaurar
+                tipo="usuario"
+                id={estado.telefoneDeArquivado.id}
+                nome={estado.telefoneDeArquivado.nome}
+                // Restaurada a pessoa, o aviso de "nos arquivados" não vale mais.
+                aoRestaurar={() => setEstado(null)}
+              />
+            </div>
+          )}
           <FormField id={`${id}-papel`} rotulo="Papel" erro={erros.papel}>
             <select name="papel" defaultValue={usuario?.papel ?? 'atendente'} onChange={(e) => setPapel(e.target.value as 'admin' | 'atendente')} className={classeSelect}>
               <option value="atendente">Atendente</option>

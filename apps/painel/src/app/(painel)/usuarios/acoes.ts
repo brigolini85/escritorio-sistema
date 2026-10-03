@@ -11,12 +11,21 @@ function checar(r: { error: { message: string } | null }) {
   if (r.error) throw new Error(r.error.message);
 }
 
-/** Um telefone é de uma pessoa só: senão o WhatsApp não sabe de quem é a mensagem. */
+/**
+ * Um telefone é de uma pessoa só: senão o WhatsApp não sabe de quem é a mensagem. Se o dono está nos arquivados,
+ * a tela diz isso e oferece restaurar (sobra 4 da Parte B), em vez de um "já é de…" sem saída.
+ */
 async function conflitoDeTelefone(telefone: string | null, idAtual: string | null): Promise<EstadoUsuario | null> {
   if (!telefone) return null;
-  const { data } = await supabaseServico().from('usuarios').select('id, nome').in('telefone', variantesTelefone(telefone));
+  const { data } = await supabaseServico().from('usuarios').select('id, nome, ativo').in('telefone', variantesTelefone(telefone));
   const outro = (data ?? []).find((u) => u.id !== idAtual);
-  return outro ? { ok: false, erros: { telefone: `Este telefone já é de ${outro.nome}.` } } : null;
+  if (!outro) return null;
+  if (outro.ativo) return { ok: false, erros: { telefone: `Este telefone já é de ${outro.nome}.` } };
+  return {
+    ok: false,
+    erros: { telefone: `Este telefone é de ${outro.nome}, que está nos arquivados. Restaure ${outro.nome} ou use outro telefone.` },
+    telefoneDeArquivado: { id: outro.id, nome: outro.nome },
+  };
 }
 
 export async function convidarUsuario(formData: FormData): Promise<EstadoUsuario> {

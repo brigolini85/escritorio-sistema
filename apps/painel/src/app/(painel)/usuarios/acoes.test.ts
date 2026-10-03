@@ -61,6 +61,15 @@ describe('salvarUsuario', () => {
       .toEqual({ ok: false, erros: { telefone: 'Este telefone já é de Zé.' } });
     expect(falso.atualizacoes).toEqual([]);
   });
+  it('telefone de pessoa arquivada: diz isso e oferece restaurar', async () => {
+    falso.donos = [{ id: 'ze', nome: 'Zé', ativo: false }];
+    expect(await salvarUsuario(BIA, formulario({ telefone: '(31) 99999-1801' }))).toEqual({
+      ok: false,
+      erros: { telefone: 'Este telefone é de Zé, que está nos arquivados. Restaure Zé ou use outro telefone.' },
+      telefoneDeArquivado: { id: 'ze', nome: 'Zé' },
+    });
+    expect(falso.atualizacoes).toEqual([]);
+  });
   it('o próprio telefone não conflita', async () => {
     falso.donos = [{ id: BIA, nome: 'Bia Souza', ativo: true }];
     expect(await salvarUsuario(BIA, formulario({ telefone: '(31) 99999-1801' }))).toEqual({ ok: true });
