@@ -12,6 +12,7 @@ export async function limparBanco(): Promise<void> {
     public.contatos, public.cliente_responsaveis, public.cliente_servicos, public.clientes,
     public.respostas_prontas, public.feriados cascade`);
   await c.query("delete from auth.users where email like '%.local'");
-  await c.query(`update public.configuracoes set agente_pausado = false, alerta_ia_80_mes = null, teto_ia_usd = 50, telefone_dono = null`);
+  await c.query(`update public.configuracoes set agente_pausado = false, alerta_ia_80_mes = null, teto_ia_usd = 50, telefone_dono = null,
+    espera_verde_min = 5, espera_ambar_min = 15`);
   await c.end();
 }

@@ -8,3 +8,4 @@ export * from './documentos';
 export * from './busca';
 export * from './bling';
 export * from './permissoes';
+export * from './passagem';

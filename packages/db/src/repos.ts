@@ -1,4 +1,4 @@
-import { lerNiveis, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo } from '@escritorio/core';
+import { lerNiveis, type FuncionalidadeIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo } from '@escritorio/core';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { Db } from './cliente';
 import type { Database, Json } from './tipos.gen';
@@ -7,6 +7,7 @@ type Linha<T extends keyof Database['public']['Tables']> = Database['public']['T
 export type Conversa = Linha<'conversas'>;
 export type Mensagem = Linha<'mensagens'>;
 export type Chamado = Linha<'chamados'>;
+export type SugestaoResposta = Linha<'sugestoes_resposta'>;
 type TipoMensagem = Database['public']['Enums']['tipo_mensagem'];
 export type Prioridade = Database['public']['Enums']['prioridade_demanda'];
 
@@ -160,6 +161,11 @@ export function criarRepos(db: Db) {
       checar(await db.from('conversas').update({ ...patch, atualizado_em: new Date().toISOString() }).eq('id', id), 'atualizarConversa');
     },
 
+    /** O agente passou para uma pessoa (spec 7A.2): guarda a primeira espera e o motivo; conversa assumida não marca. */
+    async marcarAguardandoPessoa(conversaId: string, motivo: string): Promise<boolean> {
+      return Boolean(checar(await db.rpc('marcar_aguardando_pessoa', { p_conversa: conversaId, p_motivo: motivo }), 'marcarAguardandoPessoa'));
+    },
+
     async inserirMensagemEntrada(m: NovaMensagemEntrada): Promise<{ id: string; duplicada: boolean }> {
       const r = await db.from('mensagens').upsert({
         conversa_id: m.conversaId, cliente_id: m.clienteId, direcao: 'entrada', autor: 'cliente', tipo: m.tipo,
@@ -194,9 +200,14 @@ export function criarRepos(db: Db) {
       return linhas.reverse();
     },
 
-    async criarSaidaPendente(m: { conversaId: string; clienteId: string | null; autor: 'agente' | 'sistema'; conteudo: string }): Promise<string> {
+    async criarSaidaPendente(m: {
+      conversaId: string; clienteId: string | null; autor: 'agente' | 'sistema'; conteudo: string;
+      /** Execução do agente que mandou (o "por quê?" do painel); documento que a IA enviou (link auditado). */
+      turnoAgente?: string | null; documentoId?: string | null;
+    }): Promise<string> {
       const r = await db.from('mensagens').insert({ conversa_id: m.conversaId, cliente_id: m.clienteId, direcao: 'saida',
-        autor: m.autor, tipo: 'texto', conteudo: m.conteudo, status_envio: 'pendente' }).select('id').single();
+        autor: m.autor, tipo: 'texto', conteudo: m.conteudo, status_envio: 'pendente',
+        turno_agente: m.turnoAgente ?? null, documento_id: m.documentoId ?? null }).select('id').single();
       return checar(r, 'criarSaidaPendente').id;
     },
 
@@ -292,9 +303,9 @@ export function criarRepos(db: Db) {
       return linhas.map(({ setores, ...c }) => ({ ...c, setor_nome: setores?.nome ?? null }));
     },
 
-    async registrarDecisao(d: { conversaId: string | null; clienteId: string | null; etapa: string; entrada: unknown; saida: unknown; justificativa?: string }): Promise<void> {
+    async registrarDecisao(d: { conversaId: string | null; clienteId: string | null; etapa: string; entrada: unknown; saida: unknown; justificativa?: string; turno?: string | null }): Promise<void> {
       checar(await db.from('decisoes_agente').insert({ conversa_id: d.conversaId, cliente_id: d.clienteId, etapa: d.etapa,
-        entrada: d.entrada as never, saida: d.saida as never, justificativa: d.justificativa ?? null }), 'registrarDecisao');
+        entrada: d.entrada as never, saida: d.saida as never, justificativa: d.justificativa ?? null, turno: d.turno ?? null }), 'registrarDecisao');
     },
 
     /** Chaves dos resumos de nota enviados ao cliente nesta conversa desde `desde` (a demanda só abre para um pedido conferido). */
@@ -309,10 +320,12 @@ export function criarRepos(db: Db) {
     },
 
     async registrarUsoIa(u: { conversaId: string | null; modelo: string; tokensEntrada: number; tokensSaida: number;
-      tokensCacheLeitura: number; tokensCacheEscrita: number; custoUsd: number }): Promise<void> {
+      tokensCacheLeitura: number; tokensCacheEscrita: number; custoUsd: number;
+      /** Parte E: só a sugestão preenche; a Parte F completa os outros caminhos (P13). */
+      funcionalidade?: FuncionalidadeIa | null; usuarioId?: string | null }): Promise<void> {
       checar(await db.from('uso_ia').insert({ conversa_id: u.conversaId, modelo: u.modelo, tokens_entrada: u.tokensEntrada,
         tokens_saida: u.tokensSaida, tokens_cache_leitura: u.tokensCacheLeitura, tokens_cache_escrita: u.tokensCacheEscrita,
-        custo_usd: u.custoUsd }), 'registrarUsoIa');
+        custo_usd: u.custoUsd, funcionalidade: u.funcionalidade ?? null, usuario_id: u.usuarioId ?? null }), 'registrarUsoIa');
     },
 
     async custoIaDoMes(mes: string): Promise<number> {
@@ -538,6 +551,19 @@ export function criarRepos(db: Db) {
 
     async marcarPerguntasRespondidas(ids: string[]): Promise<void> {
       if (ids.length) checar(await db.from('assistente_mensagens').update({ processada_em: new Date().toISOString() }).in('id', ids), 'marcarPerguntasRespondidas');
+    },
+
+    async obterSugestao(id: string): Promise<SugestaoResposta | null> {
+      return checar(await db.from('sugestoes_resposta').select('*').eq('id', id).maybeSingle(), 'obterSugestao');
+    },
+
+    /** Só sai de "pendente": uma nova tentativa da fila, ou um pedido que já expirou no painel, não sobrescreve. */
+    async concluirSugestao(id: string, r: { status: 'pronta'; texto: string } | { status: 'falhou'; erro: string }): Promise<boolean> {
+      const linhas = checar(await db.from('sugestoes_resposta').update({
+        status: r.status, texto: r.status === 'pronta' ? r.texto : null, erro: r.status === 'falhou' ? r.erro : null,
+        concluida_em: new Date().toISOString(),
+      }).eq('id', id).eq('status', 'pendente').select('id'), 'concluirSugestao');
+      return linhas.length > 0;
     },
 
     async chamadosRecentes(f: { status?: string; abertas?: boolean; de?: string; ate?: string; clienteIds?: string[]; soNotas?: boolean; comPedido?: boolean; setorId?: string | null; visivelPara?: { usuarioId: string; setorIds: string[] } | null; limite?: number }): Promise<ChamadoResumo[]> {
