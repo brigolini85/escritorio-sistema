@@ -8,11 +8,12 @@ import { lerConfig } from './config';
 import { criarEmail } from './email';
 import { LimitadorEnvio, enviarMensagemDoPainel, verificarEnviadaPorMim } from './envio';
 import { processarAssistente } from './assistente/processar';
-import { FILAS, criarBoss, filaDe, type JobAssistente, type JobSimulacao } from './fila';
+import { FILAS, criarBoss, filaDe, type JobAssistente, type JobSimulacao, type JobSugestao } from './fila';
 import { criarArmazenamento } from './midia/armazenamento';
 import { criarTranscritor } from './midia/transcritor';
 import { processarConversa } from './processar-conversa';
 import { limparRetencao } from './retencao';
+import { processarSugestao } from './sugestao/processar';
 import { criarServidor } from './servidor';
 import { alertasPeriodicos, batimento, resumoDiario } from './tarefas';
 
@@ -53,6 +54,12 @@ async function principal() {
   for (let i = 0; i < 2; i++) {
     await boss.work<JobSimulacao>(FILAS.simularAgente, { includeMetadata: true }, async ([job]) => {
       await processarSimulacao(deps, job!.data.simulacaoId, job!.retryCount >= job!.retryLimit);
+    });
+  }
+  // Sugerir resposta (Atendimento): só leitura; nada é enviado nem gravado na conversa.
+  for (let i = 0; i < 2; i++) {
+    await boss.work<JobSugestao>(FILAS.sugerirResposta, { includeMetadata: true }, async ([job]) => {
+      await processarSugestao({ repos, ia: deps.ia, canal }, job!.data.sugestaoId, job!.retryCount >= job!.retryLimit);
     });
   }
   await boss.work<{ mensagemId: string }>(FILAS.enviarMensagem, { includeMetadata: true }, async ([job]) => {

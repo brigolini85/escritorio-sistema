@@ -12,6 +12,8 @@ export const FILAS = {
   assistente: 'assistente',
   /** Treinar o agente: o painel grava a simulação (criar_simulacao) e enfileira { simulacaoId } com este nome. */
   simularAgente: 'simular_agente',
+  /** Sugerir resposta (Atendimento): o painel grava o pedido (pedir_sugestao_resposta) e enfileira { sugestaoId }. */
+  sugerirResposta: 'sugerir_resposta',
 } as const;
 
 export interface Fila {
@@ -35,6 +37,8 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   // Mesma configuração em apps/painel/src/lib/fila.ts (o painel enfileira os testes). "stately" + singletonKey = id do teste:
   // o mesmo teste enfileirado duas vezes não roda em paralelo (nem paga a IA duas vezes).
   await boss.createQueue(FILAS.simularAgente, { name: FILAS.simularAgente, policy: 'stately', retryLimit: 2, retryDelay: 15, retryBackoff: true });
+  // Mesma configuração em apps/painel/src/lib/fila.ts; singletonKey = id da sugestão (o painel enfileira).
+  await boss.createQueue(FILAS.sugerirResposta, { name: FILAS.sugerirResposta, policy: 'stately', retryLimit: 1, retryDelay: 5 });
   await boss.createQueue(FILAS.enviarMensagem, { name: FILAS.enviarMensagem, retryLimit: 5, retryDelay: 10, retryBackoff: true });
   await boss.createQueue(FILAS.removerArquivos, { name: FILAS.removerArquivos, retryLimit: 10, retryDelay: 60, retryBackoff: true });
   for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao]) {
@@ -64,3 +68,6 @@ export function filaDe(boss: PgBoss): Fila {
     },
   };
 }
+
+/** Job da fila `sugerir_resposta`: o id da linha em `sugestoes_resposta` (status pendente). */
+export type JobSugestao = { sugestaoId: string };

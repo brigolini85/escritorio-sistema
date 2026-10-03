@@ -16,7 +16,7 @@ export type ContextoAssistente = {
 export const contextoDoAssistente = (ctx: Pick<ContextoAssistente, 'canal' | 'conversaId'>) => `${ctx.canal}:${ctx.conversaId ?? '-'}`;
 
 /** Igual a pode_ver_conversa_de do banco (o trabalhador usa a chave de serviço, então a regra é repetida aqui). */
-async function podeVerConversa(repos: Repos, u: UsuarioAssistente, conversaId: string): Promise<boolean> {
+export async function podeVerConversa(repos: Repos, u: UsuarioAssistente, conversaId: string): Promise<boolean> {
   const [c, demandas] = await Promise.all([repos.obterConversa(conversaId), repos.chamadosDaConversaParaVisibilidade(conversaId)]);
   // Só "Todas as conversas" precisa saber se é o WhatsApp de um colega com o assistente (fica de fora, como no banco).
   const interna = u.papel !== 'admin' && u.niveis.atendimento === 'todas' && (await repos.usuarioDoAssistente(c.telefone)) !== null;

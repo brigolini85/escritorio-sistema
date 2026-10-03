@@ -31,7 +31,7 @@ export function novoEstado(ctx: ContextoAssistente): EstadoAssistente {
 }
 
 /** `registro` é o que fica em decisoes_agente quando difere do que o modelo recebe. */
-type Resultado = { resultado: string; erro: boolean; registro?: object };
+export type Resultado = { resultado: string; erro: boolean; registro?: object };
 export const ok = (dados: object): Resultado => ({ resultado: JSON.stringify(dados), erro: false });
 export const falha = (mensagem: string): Resultado => ({ resultado: JSON.stringify({ erro: mensagem }), erro: true });
 export const objeto = (properties: Record<string, object>, required: string[]) =>
@@ -269,7 +269,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
         return descreverPedido(atual.pedido_venda, x ? `${x.rede} / ${x.unidade}` : atual.pedido_venda.texto_destinatario);
       };
       if (entrada.confirmado) {
-        // A confirmação grava a prévia mostrada antes do "sim", e só ela (campos a mais já foram recusados em executarFerramentaAssistente).
+        // A confirmação grava a prévia mostrada antes do "sim", e só ela (campos a mais já foram recusados em executarConsultaAssistente).
         const desde = new Date(Date.now() - 24 * 3600 * 1000);
         const ultima = await d.repos.ultimaPreviaDoAssistente(u.id, entrada.numero, desde);
         if (!ultima) return falha(`Não achei a prévia deste pedido. ${DE_NOVO}`);
@@ -411,23 +411,26 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
   }
 }
 
-export async function executarFerramentaAssistente(d: DepsAssistente, estado: EstadoAssistente, nome: string, entrada: unknown): Promise<Resultado> {
-  let r: Resultado;
+/** Valida e executa uma ferramenta do assistente, sem registrar decisão (a sugestão usa só esta parte, só para leituras). */
+export async function executarConsultaAssistente(d: DepsAssistente, estado: EstadoAssistente, nome: string, entrada: unknown): Promise<Resultado> {
   const bruta = (entrada ?? {}) as Record<string, unknown>;
-  if (!Object.hasOwn(Entradas, nome)) r = falha(`Ferramenta desconhecida: ${nome}`);
+  if (!Object.hasOwn(Entradas, nome)) return falha(`Ferramenta desconhecida: ${nome}`);
   // A confirmação grava a última prévia, e só ela: campos a mais seriam ignorados sem a pessoa ver; recusa em vez de descartar.
-  else if (nome === 'alterar_pedido_venda' && bruta.confirmado === true && Object.keys(bruta).some((k) => k !== 'numero' && k !== 'confirmado')) {
-    r = falha('Para mudar mais alguma coisa, faça uma nova prévia.');
-  } else {
-    const v = Entradas[nome as keyof typeof Entradas].safeParse(entrada);
-    if (!v.success) r = falha(`Entrada inválida: ${v.error.issues.map((i) => i.message).join('; ')}`);
-    else {
-      try { r = await executarValidada(d, estado, nome as keyof typeof Entradas, v.data); } catch (e) {
-        console.error('[assistente] ferramenta', nome, e);
-        r = falha('Não consegui consultar agora; tente de novo.');
-      }
-    }
+  if (nome === 'alterar_pedido_venda' && bruta.confirmado === true && Object.keys(bruta).some((k) => k !== 'numero' && k !== 'confirmado')) {
+    return falha('Para mudar mais alguma coisa, faça uma nova prévia.');
   }
+  const v = Entradas[nome as keyof typeof Entradas].safeParse(entrada);
+  if (!v.success) return falha(`Entrada inválida: ${v.error.issues.map((i) => i.message).join('; ')}`);
+  try {
+    return await executarValidada(d, estado, nome as keyof typeof Entradas, v.data);
+  } catch (e) {
+    console.error('[assistente] ferramenta', nome, e);
+    return falha('Não consegui consultar agora; tente de novo.');
+  }
+}
+
+export async function executarFerramentaAssistente(d: DepsAssistente, estado: EstadoAssistente, nome: string, entrada: unknown): Promise<Resultado> {
+  const r = await executarConsultaAssistente(d, estado, nome, entrada);
   // `usuario` em todo registro: a confirmação procura a última chamada desta pessoa para o pedido.
   const saida = { ...(r.registro ?? JSON.parse(r.resultado)), usuario: estado.ctx.usuario.id };
   await d.repos.registrarDecisao({ conversaId: null, clienteId: null, etapa: `assistente:${nome}`, entrada, saida });

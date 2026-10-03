@@ -20,7 +20,7 @@ describe('limparRetencao', () => {
     await db.from('decisoes_agente').insert({ conversa_id: conversa.id, etapa: 'responder', criado_em: antigo });
 
     const r = await limparRetencao(db, midia, new Date('2026-09-28T12:00:00Z'));
-    expect(r).toEqual({ mensagens: 1, arquivos: 1, decisoes: 1, assistente: 0, simulacoes: 0 });
+    expect(r).toEqual({ mensagens: 1, arquivos: 1, decisoes: 1, assistente: 0, simulacoes: 0, sugestoes: 0 });
     expect((await db.from('mensagens').select('conteudo')).data).toEqual([{ conteudo: 'recente' }]);
     await expect(midia.ler(salvo.path)).rejects.toThrow();
   });
@@ -41,5 +41,18 @@ describe('limparRetencao', () => {
     const r = await limparRetencao(db, criarArmazenamento(db), new Date('2026-09-30T12:00:00Z'));
     expect(r.simulacoes).toBe(1);
     expect((await db.from('simulacoes_agente').select('mensagem')).data).toEqual([{ mensagem: 'recente' }]);
+  });
+
+  it('sugestões de resposta ficam só 1 dia', async () => {
+    const usuario = await criarUsuarioTeste({ email: 'ret@sugestao.local' });
+    const conversa = await repos.obterOuCriarConversa('5531966665555', null);
+    // Inserções separadas: num insert em lote, a chave ausente (criado_em) vira null em vez do padrão.
+    const velha = await db.from('sugestoes_resposta').insert(
+      { usuario_id: usuario, conversa_id: conversa.id, status: 'pronta', texto: 'velha', criado_em: new Date(Date.now() - 2 * 86_400_000).toISOString() });
+    const nova = await db.from('sugestoes_resposta').insert({ usuario_id: usuario, conversa_id: conversa.id, status: 'falhou', erro: 'nova' });
+    expect([velha.error, nova.error]).toEqual([null, null]);
+    const r = await limparRetencao(db, criarArmazenamento(db));
+    expect(r.sugestoes).toBe(1);
+    expect((await db.from('sugestoes_resposta').select('erro')).data).toEqual([{ erro: 'nova' }]);
   });
 });

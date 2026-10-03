@@ -5,7 +5,7 @@ const LOTE = 500;
 
 /**
  * Conversas, anexos e decisões do agente e as conversas com o assistente interno ficam guardados por 1 ano (spec, seção 9);
- * os testes do agente (simulacoes_agente), 30 dias.
+ * os testes do agente (simulacoes_agente), 30 dias; as sugestões de resposta, 1 dia.
  */
 export async function limparRetencao(db: Db, midia: ArmazenamentoMidia, agora = new Date()) {
   const limite = new Date(agora);
@@ -32,5 +32,10 @@ export async function limparRetencao(db: Db, midia: ArmazenamentoMidia, agora = 
   const limiteSimulacoes = new Date(agora.getTime() - 30 * 24 * 60 * 60_000).toISOString();
   const { data: simulacoes, error: e5 } = await db.from('simulacoes_agente').delete().lt('criado_em', limiteSimulacoes).select('id');
   if (e5) throw new Error(e5.message);
-  return { mensagens, arquivos, decisoes: decisoes?.length ?? 0, assistente: assistente?.length ?? 0, simulacoes: simulacoes?.length ?? 0 };
+  // Sugestões de resposta (Atendimento) ficam só 1 dia (P11): são rascunhos de quem pediu.
+  const limiteSugestoes = new Date(agora.getTime() - 24 * 60 * 60_000).toISOString();
+  const { data: sugestoes, error: e6 } = await db.from('sugestoes_resposta').delete().lt('criado_em', limiteSugestoes).select('id');
+  if (e6) throw new Error(e6.message);
+  return { mensagens, arquivos, decisoes: decisoes?.length ?? 0, assistente: assistente?.length ?? 0, simulacoes: simulacoes?.length ?? 0,
+    sugestoes: sugestoes?.length ?? 0 };
 }

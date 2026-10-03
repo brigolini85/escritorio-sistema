@@ -134,6 +134,38 @@ describe('motivo da passagem em cada caminho (spec 7A.2)', () => {
     await processarConversa(deps(new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi!' } }), fim()])), conversa.id, false);
     expect((await conversaAtual(conversa.id)).aguardando_pessoa_desde).toBeNull();
   });
+
+  it('falha ao marcar a espera dentro das ferramentas só é registrada: não abre "Falha no agente" a mais', async () => {
+    // Banco instável só em marcarAguardandoPessoa: o resto do repositório funciona.
+    const instavel = new Proxy(repos, {
+      get(alvo, nome) {
+        if (nome === 'marcarAguardandoPessoa') return async () => { throw new Error('banco instável'); };
+        const v = (alvo as unknown as Record<string | symbol, unknown>)[nome];
+        return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(alvo) : v;
+      },
+    });
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { conversa } = await contatoComEmpresas(['Indústria X']);
+      await receber(conversa.id, 'quero falar com uma pessoa');
+      const d1 = { ...deps(new IaRoteirizada([usarFerramentas({ nome: 'passar_para_pessoa', entrada: { motivo: 'folha' } }),
+        usarFerramentas({ nome: 'responder', entrada: { texto: 'Já chamei alguém da equipe.' } }), fim()])), repos: instavel };
+      await processarConversa(d1, conversa.id, true);
+      expect((await repos.chamadosAbertosDaConversa(conversa.id)).map((x) => x.titulo)).toEqual(['Cliente pediu para falar com uma pessoa']);
+      expect(canal.enviados.map((e) => e.texto)).toEqual(['Já chamei alguém da equipe.']);
+
+      await db.from('conversas').update({ tentativas_nao_entendido: 1 }).eq('id', conversa.id);
+      await receber(conversa.id, 'qwepo');
+      const d2 = { ...deps(new IaRoteirizada([usarFerramentas({ nome: 'sinalizar_nao_entendido', entrada: {} }),
+        usarFerramentas({ nome: 'responder', entrada: { texto: 'Alguém da equipe vai continuar.' } }), fim()])), repos: instavel };
+      await processarConversa(d2, conversa.id, true);
+      expect((await repos.chamadosAbertosDaConversa(conversa.id)).map((x) => x.titulo).sort())
+        .toEqual(['Cliente pediu para falar com uma pessoa', 'Mensagem não compreendida pelo agente']);
+      expect(erro).toHaveBeenCalledWith('[passagem] não marcada', conversa.id, expect.any(Error));
+    } finally {
+      erro.mockRestore();
+    }
+  });
 });
 
 describe('turno e documento (o "por quê?" e o link do painel)', () => {

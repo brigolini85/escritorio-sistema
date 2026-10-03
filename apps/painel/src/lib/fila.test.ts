@@ -17,7 +17,7 @@ vi.mock('pg-boss', () => ({
   },
 }));
 
-import { enfileirarEnvio, enfileirarSimulacao } from './fila';
+import { enfileirarEnvio, enfileirarSimulacao, enfileirarSugestao } from './fila';
 
 describe('fila do painel (revisão final, E4)', () => {
   it('se a conexão falhar, a próxima chamada tenta de novo em vez de repetir o erro', async () => {
@@ -35,5 +35,11 @@ describe('fila do painel (revisão final, E4)', () => {
     await enfileirarSimulacao('sim-1');
     expect(falso.filas.get('simular_agente')).toEqual({ name: 'simular_agente', policy: 'stately', retryLimit: 2, retryDelay: 15, retryBackoff: true });
     expect(falso.send).toHaveBeenLastCalledWith('simular_agente', { simulacaoId: 'sim-1' }, { singletonKey: 'sim-1' });
+  });
+
+  it('sugerir resposta: fila sugerir_resposta igual à do trabalhador e chave única pelo id da sugestão', async () => {
+    await enfileirarSugestao('sug-1');
+    expect(falso.filas.get('sugerir_resposta')).toEqual({ name: 'sugerir_resposta', policy: 'stately', retryLimit: 1, retryDelay: 5 });
+    expect(falso.send).toHaveBeenLastCalledWith('sugerir_resposta', { sugestaoId: 'sug-1' }, { singletonKey: 'sug-1' });
   });
 });

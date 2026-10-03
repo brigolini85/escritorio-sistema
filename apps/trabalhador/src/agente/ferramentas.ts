@@ -294,6 +294,11 @@ export async function prepararPedido(d: DepsAgente, clienteId: string, entrada: 
   return { destino, itens };
 }
 
+/** Como o marcarPassagem de processar-conversa: falha ao marcar a espera só é registrada (não vira uma "Falha no agente" a mais). */
+async function marcarEspera(d: DepsAgente, conversaId: string, motivo: string): Promise<void> {
+  await d.repos.marcarAguardandoPessoa(conversaId, motivo).catch((e) => console.error('[passagem] não marcada', conversaId, e));
+}
+
 async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: keyof typeof Entradas, entrada: any): Promise<Resultado> {
   const { ctx } = estado;
   switch (nome) {
@@ -358,7 +363,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
           titulo: 'Mensagem não compreendida pelo agente', resumo: 'O agente não entendeu o pedido duas vezes seguidas.',
           foraDoContrato: false, origem: 'agente',
         });
-        await d.repos.marcarAguardandoPessoa(ctx.conversa.id, MOTIVOS_PASSAGEM.naoEntendeu);
+        await marcarEspera(d, ctx.conversa.id, MOTIVOS_PASSAGEM.naoEntendeu);
         await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: 0 });
         return ok({ instrucao: AVISOS.instrucaoEquipeContinua });
       }
@@ -374,7 +379,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
           titulo: 'Cliente pediu para falar com uma pessoa', resumo: entrada.motivo, foraDoContrato: false, origem: 'agente',
         });
       }
-      await d.repos.marcarAguardandoPessoa(ctx.conversa.id, MOTIVOS_PASSAGEM.pedidoCliente);
+      await marcarEspera(d, ctx.conversa.id, MOTIVOS_PASSAGEM.pedidoCliente);
       return ok({ instrucao: AVISOS.instrucaoPessoaChamada });
     }
 
