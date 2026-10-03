@@ -63,6 +63,21 @@ describe('lerFicha (Parte D)', () => {
     expect(errosDoBanco('insert or update on table "usuarios" violates foreign key constraint "usuarios_id_fkey"'))
       .toEqual({ geral: 'Não encontrei o acesso desta pessoa. Volte à lista e abra a ficha de novo.' });
   });
+  // Revisão das Tasks 10–12: só as recusas conhecidas do banco aparecem como vieram; o resto vira texto fixo.
+  it('recusas conhecidas do banco passam; texto desconhecido vira a falha genérica', () => {
+    expect(errosDoBanco('Setor não encontrado.')).toEqual({ geral: 'Setor não encontrado.' });
+    expect(errosDoBanco('Esta pessoa está arquivada. Restaure antes de mudar.')).toEqual({ geral: 'Esta pessoa está arquivada. Restaure antes de mudar.' });
+    expect(errosDoBanco('permission denied for table usuarios')).toEqual({ geral: 'Não consegui salvar agora. Tente de novo.' });
+    expect(errosDoBanco('Database error saving new user')).toEqual({ geral: 'Não consegui salvar agora. Tente de novo.' });
+  });
+  it('erro do convite: e-mail repetido no campo; o resto, texto fixo do convite', () => {
+    expect(errosDoBanco('A user with this email address has already been registered', 'convite')).toEqual({ email: 'Já existe uma pessoa com este e-mail.' });
+    expect(errosDoBanco('Email rate limit exceeded', 'convite')).toEqual({ geral: 'Não consegui enviar o convite agora. Tente de novo em alguns minutos.' });
+    expect(errosDoBanco('Error sending invite email', 'convite')).toEqual({ geral: 'Não consegui enviar o convite agora. Tente de novo em alguns minutos.' });
+  });
+  it('horário restrito com todos os dias bloqueados é recusado (a pessoa ficaria sem entrar)', () => {
+    expect(lerFicha(form({ ...BASE, horario_semana: 'bloqueado' }))).toEqual({ ok: false, erros: { horario: 'Escolha ao menos um dia com horário.' } });
+  });
   it('setor fora do formato fica no campo Setores, e a ficha manda sempre setores e níveis (vazios também)', () => {
     expect(lerFicha(form({ ...BASE, setor: ['x'] }))).toEqual({ ok: false, erros: { setores: 'Setor desconhecido' } });
     const r = lerFicha(form({ ...BASE, setor: [] }));

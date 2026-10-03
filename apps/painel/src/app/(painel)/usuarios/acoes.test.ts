@@ -9,6 +9,8 @@ const falso = vi.hoisted(() => ({
   convites: [] as string[],
   links: [] as string[],
   jaEntrou: false,
+  erroConvite: null as { message: string } | null,
+  erroApagar: null as { message: string } | null,
 }));
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -23,8 +25,11 @@ vi.mock('@/lib/supabase/servico', () => ({
     from: () => ({ select: () => ({ in: async () => ({ data: falso.donos }) }) }),
     auth: {
       admin: {
-        inviteUserByEmail: async (email: string) => { falso.convites.push(email); return { data: { user: { id: 'nova' } }, error: null }; },
-        deleteUser: async (id: string) => { falso.apagados.push(id); return { error: null }; },
+        inviteUserByEmail: async (email: string) => {
+          falso.convites.push(email);
+          return falso.erroConvite ? { data: { user: null }, error: falso.erroConvite } : { data: { user: { id: 'nova' } }, error: null };
+        },
+        deleteUser: async (id: string) => { falso.apagados.push(id); return { error: falso.erroApagar }; },
         getUserById: async () => ({ data: { user: { email: 'bia@escritorio.com', last_sign_in_at: falso.jaEntrou ? '2026-10-01T10:00:00Z' : null } }, error: null }),
       },
       resetPasswordForEmail: async (email: string) => { falso.links.push(email); return { error: null }; },
@@ -44,7 +49,8 @@ function form(campos: Record<string, string | string[]>) {
 }
 
 beforeEach(() => {
-  Object.assign(falso, { rpcs: [], erroRpc: null, donos: [], apagados: [], convites: [], links: [], jaEntrou: false });
+  Object.assign(falso, { rpcs: [], erroRpc: null, donos: [], apagados: [], convites: [], links: [], jaEntrou: false, erroConvite: null, erroApagar: null });
+  vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 describe('salvarUsuario', () => {
@@ -87,12 +93,29 @@ describe('convidarUsuario', () => {
     expect(await convidarUsuario(form({}))).toEqual({ ok: false, erros: { geral: 'Setor não encontrado.' } });
     expect(falso.apagados).toEqual(['nova']);
   });
+  it('erro do convite em inglês não chega à tela: texto fixo e registro do original', async () => {
+    falso.erroConvite = { message: 'Email rate limit exceeded' };
+    expect(await convidarUsuario(form({}))).toEqual({ ok: false, erros: { geral: 'Não consegui enviar o convite agora. Tente de novo em alguns minutos.' } });
+    expect(falso.rpcs).toEqual([]);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[usuarios]'), 'Email rate limit exceeded');
+  });
+  it('login do convite que não apaga fica registrado', async () => {
+    falso.erroRpc = { message: 'Setor não encontrado.' };
+    falso.erroApagar = { message: 'User not found' };
+    await convidarUsuario(form({}));
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('apagar o login'), 'nova', 'User not found');
+  });
 });
 
 describe('reenviarConvite', () => {
   it('quem nunca entrou recebe o convite de novo', async () => {
     expect(await reenviarConvite(BIA)).toEqual({ ok: true, mensagem: 'Convite reenviado para bia@escritorio.com.' });
     expect(falso.convites).toEqual(['bia@escritorio.com']);
+  });
+  it('convite recusado: registra o erro e manda o link para criar a senha', async () => {
+    falso.erroConvite = { message: 'Email rate limit exceeded' };
+    expect(await reenviarConvite(BIA)).toEqual({ ok: true, mensagem: 'Enviamos para bia@escritorio.com um link para criar a senha.' });
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[usuarios]'), 'Email rate limit exceeded');
   });
   it('quem já entrou recebe o link para criar a senha', async () => {
     falso.jaEntrou = true;

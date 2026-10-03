@@ -1,7 +1,6 @@
 import { MODULOS, NIVEIS, normalizarTelefone, type Modulo, type Niveis } from '@escritorio/core';
 import { z } from 'zod';
 import { lerHorarioAcesso, type HorarioAcesso } from '@/lib/horario-acesso';
-import { mensagemDoBanco } from '@/lib/mensagem-banco';
 
 /** Erro de cada campo da ficha. Erro ao salvar mantém tudo o que foi digitado (spec 7.1). */
 export type CampoUsuario = 'nome' | 'email' | 'cargo' | 'telefone' | 'papel' | 'setores' | 'niveis' | 'horario' | 'observacoes' | 'geral';
@@ -67,8 +66,10 @@ export function lerFicha(f: FormData): { ok: true; dados: DadosFicha } | { ok: f
   let horario: HorarioAcesso | null | undefined;
   if (f.get('papel') !== 'admin') {
     const h = lerHorarioAcesso(f);
-    if (h.ok) horario = h.valor;
-    else erros.horario = h.erro;
+    if (!h.ok) erros.horario = h.erro;
+    // Restrito sem nenhum dia liberado trancaria a pessoa para fora sem querer.
+    else if (h.valor && !h.valor.semana && !h.valor.sabado && !h.valor.domingo) erros.horario = 'Escolha ao menos um dia com horário.';
+    else horario = h.valor;
   }
   if (niveis.assistente === 'site_whatsapp' && base.success && base.data.telefone === null) {
     erros.telefone = 'Informe o telefone para usar o assistente pelo WhatsApp';
@@ -86,20 +87,37 @@ export function paraBanco(d: DadosFicha): Record<string, unknown> {
   };
 }
 
-/** Recusa do banco (ou do convite) no campo certo; o resto vai para o aviso geral da ficha. */
-export function errosDoBanco(mensagem: string): ErrosUsuario {
+export const FALHA_AO_SALVAR = 'Não consegui salvar agora. Tente de novo.';
+export const FALHA_NO_CONVITE = 'Não consegui enviar o convite agora. Tente de novo em alguns minutos.';
+/** Recusas de salvar_usuario e das travas de acesso que já falam com a pessoa: estas aparecem como vieram. */
+const RECUSAS_DO_BANCO = new Set([
+  'Só o administrador muda pessoas.', 'Escolha se é administrador.', 'Setor não encontrado.', 'Informe o e-mail.',
+  'Esta pessoa está arquivada. Restaure antes de mudar.', 'Acesso desativado.', 'Fora do seu horário de acesso.',
+]);
+
+/**
+ * Recusa do banco (ou do convite) no campo certo. Texto desconhecido (inglês do Auth, Postgres, RLS) não vai para a
+ * tela: a pessoa vê um aviso fixo e o original fica no log do servidor.
+ */
+export function errosDoBanco(mensagem: string, origem: 'ficha' | 'convite' = 'ficha'): ErrosUsuario {
+  if (mensagem.includes('already been registered') || mensagem.includes('usuarios_email_key')) return { email: 'Já existe uma pessoa com este e-mail.' };
+  if (origem === 'convite') {
+    console.error('[usuarios] convite recusado', mensagem);
+    return { geral: FALHA_NO_CONVITE };
+  }
   if (mensagem.includes('telefone para usar o assistente')) return { telefone: 'Informe o telefone para usar o assistente pelo WhatsApp' };
   if (mensagem.includes('próprio acesso de administrador')) return { papel: 'Você não pode tirar o seu próprio acesso de administrador.' };
   if (mensagem.includes('Horário de acesso inválido')) return { horario: 'Horário de acesso inválido.' };
-  if (mensagem.includes('already been registered') || mensagem.includes('usuarios_email_key')) return { email: 'Já existe uma pessoa com este e-mail.' };
   if (mensagem.includes('Informe o nome')) return { nome: 'Informe o nome' };
   if (mensagem.startsWith('Nível inválido')) return { niveis: 'Nível desconhecido.' };
+  if (RECUSAS_DO_BANCO.has(mensagem)) return { geral: mensagem };
+  console.error('[usuarios] recusa do banco', mensagem);
   // A ficha não manda estes (lerFicha confere antes); se chegarem, a pessoa vê o que fazer, não o erro do Postgres.
   if (mensagem.includes('violates foreign key constraint')) return { geral: PESSOA_SEM_ACESSO };
   if (mensagem.includes('invalid input syntax') || mensagem.includes('non-object') || mensagem.includes('cannot call')) {
     return { geral: 'Não consegui salvar: a ficha veio num formato inesperado. Recarregue a página e tente de novo.' };
   }
-  return { geral: mensagemDoBanco(mensagem) };
+  return { geral: FALHA_AO_SALVAR };
 }
 
 export const PESSOA_SEM_ACESSO = 'Não encontrei o acesso desta pessoa. Volte à lista e abra a ficha de novo.';

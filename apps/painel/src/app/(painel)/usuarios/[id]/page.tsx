@@ -20,12 +20,11 @@ export default async function PaginaPessoa({ params }: { params: Promise<{ id: s
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const sb = await supabaseServidor();
-  const [{ data: u }, { data: setores }, { data: cargos }, { data: contatos }] = await Promise.all([
+  const [{ data: u }, { data: setores }, { data: cargos }] = await Promise.all([
     sb.from('usuarios').select('*, usuario_setores(setor_id), usuario_permissoes(modulo, nivel)').eq('id', id).maybeSingle(),
     // Todos os setores, inclusive os inativos: senão salvar a pessoa apagaria a ligação dela com um setor desativado.
     sb.from('setores').select('id, nome, ativo').order('nome'),
     sb.from('usuarios').select('cargo').not('cargo', 'is', null),
-    sb.from('contatos').select('nome, telefone'),
   ]);
   if (!u) notFound();
   const migalhas = [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões', href: '/usuarios' }, { rotulo: u.nome }];
@@ -46,8 +45,9 @@ export default async function PaginaPessoa({ params }: { params: Promise<{ id: s
     id: u.id, nome: u.nome, email: u.email, telefone: u.telefone, cargo: u.cargo, papel: u.papel,
     setores: u.usuario_setores.map((s) => s.setor_id), niveis, horario: lerHorarioDoBanco(u.horario_acesso), observacoes: u.observacoes,
   };
+  // Só o contato com o mesmo número (em qualquer formato), em vez de carregar todos os contatos.
   const contato = niveis.assistente === 'site_whatsapp' && u.telefone
-    ? (contatos ?? []).find((c) => variantesTelefone(u.telefone!).includes(c.telefone))?.nome ?? null
+    ? (await sb.from('contatos').select('nome').in('telefone', variantesTelefone(u.telefone)).limit(1)).data?.[0]?.nome ?? null
     : null;
 
   return (

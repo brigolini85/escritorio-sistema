@@ -34,11 +34,12 @@ export async function convidarUsuario(formData: FormData): Promise<EstadoUsuario
   if (conflito) return conflito;
   const servico = supabaseServico();
   const { data, error } = await servico.auth.admin.inviteUserByEmail(lido.dados.email, { redirectTo: `${process.env.PAINEL_URL}/auth/confirm` });
-  if (error) return { ok: false, erros: errosDoBanco(error.message) };
+  if (error) return { ok: false, erros: errosDoBanco(error.message, 'convite') };
   const { error: erroFicha } = await (await supabaseServidor()).rpc('salvar_usuario', { p_id: data.user.id, p_dados: paraBanco(lido.dados) as never });
   if (erroFicha) {
     // Sem a ficha, o login do convite não serve e prenderia o e-mail num convite novo.
-    await servico.auth.admin.deleteUser(data.user.id);
+    const apagado = await servico.auth.admin.deleteUser(data.user.id);
+    if (apagado.error) console.error('[usuarios] não consegui apagar o login do convite recusado', data.user.id, apagado.error.message);
     return { ok: false, erros: errosDoBanco(erroFicha.message) };
   }
   revalidatePath('/usuarios');
@@ -74,6 +75,7 @@ export async function reenviarConvite(id: string): Promise<ResultadoConvite> {
   if (!data.user.last_sign_in_at) {
     const convite = await servico.auth.admin.inviteUserByEmail(email, { redirectTo: destino });
     if (!convite.error) return { ok: true, mensagem: `Convite reenviado para ${email}.` };
+    console.error('[usuarios] convite não reenviado; mando o link de senha', convite.error.message);
   }
   const { error: erroLink } = await servico.auth.resetPasswordForEmail(email, { redirectTo: destino });
   if (erroLink) return { ok: false, erro: 'Não consegui enviar o e-mail agora. Tente de novo em alguns minutos.' };

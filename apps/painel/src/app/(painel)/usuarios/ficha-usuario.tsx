@@ -74,6 +74,9 @@ export function FichaUsuario({ usuario, eu, setores, cargos, acao, aviso, situac
   const [enviando, iniciar] = useTransition();
   const erros = estado && !estado.ok ? estado.erros : {};
   const admin = papel === 'admin';
+  // Erro de níveis e de horário ligado aos próprios campos (leitor de tela anuncia junto com o campo).
+  const erroNiveis = erros.niveis ? `${id}-niveis-erro` : undefined;
+  const erroHorario = erros.horario ? { 'aria-invalid': true, 'aria-describedby': `${id}-restrito-erro` } : {};
 
   const enviar = (e: FormEvent<HTMLFormElement>) => {
     // Envio pela própria tela: o React não limpa os campos, então o erro aparece no campo com tudo o que foi digitado.
@@ -156,17 +159,17 @@ export function FichaUsuario({ usuario, eu, setores, cargos, acao, aviso, situac
           )}
         </div>
 
-        <section aria-labelledby={`${id}-permissoes`} className="flex flex-col gap-4">
+        <section aria-labelledby={`${id}-permissoes`} aria-describedby={erroNiveis} className="flex flex-col gap-4">
           <div className="flex items-baseline justify-between gap-4 border-b border-border pb-2">
             <h2 id={`${id}-permissoes`} className="text-base font-semibold text-foreground">Permissões</h2>
             <span className="text-sm text-muted">{admin ? 'administrador: acesso total' : 'cada módulo tem níveis'}</span>
           </div>
-          {erros.niveis && <p role="alert" className="text-sm text-danger">{erros.niveis}</p>}
+          {erros.niveis && <p id={erroNiveis} role="alert" className="text-sm text-danger">{erros.niveis}</p>}
           <div className="grid gap-4 md:grid-cols-3">
             {MODULOS_DA_TELA.map((m) => {
               const campo = (
                 <FormField id={`${id}-nivel-${m}`} rotulo={ROTULO_MODULO[m]} ajuda={AJUDA_MODULO[m]}>
-                  <select name={`nivel_${m}`} defaultValue={niveis[m]} className={classeSelect}>
+                  <select name={`nivel_${m}`} defaultValue={niveis[m]} aria-describedby={erroNiveis} className={classeSelect}>
                     {NIVEIS[m].map((n) => <option key={n} value={n}>{rotuloNivel(m, n as never)}</option>)}
                   </select>
                 </FormField>
@@ -197,7 +200,7 @@ export function FichaUsuario({ usuario, eu, setores, cargos, acao, aviso, situac
                   return (
                     <div key={chave} className="flex flex-wrap items-center gap-3">
                       <span id={`${id}-dia-${chave}`} className="w-24 font-medium text-foreground">{rotulo}</span>
-                      <select name={`horario_${chave}`} aria-labelledby={`${id}-dia-${chave}`} defaultValue={dias[chave] ? 'permitido' : 'bloqueado'}
+                      <select name={`horario_${chave}`} aria-labelledby={`${id}-dia-${chave}`} {...erroHorario} defaultValue={dias[chave] ? 'permitido' : 'bloqueado'}
                         onChange={(e) => setDias((d) => ({ ...d, [chave]: e.target.value === 'permitido' }))}
                         className={cn(classeSelect, 'w-40', dias[chave] ? 'text-success' : 'text-danger')}>
                         <option value="permitido">● Permitido</option>
@@ -205,9 +208,9 @@ export function FichaUsuario({ usuario, eu, setores, cargos, acao, aviso, situac
                       </select>
                       <fieldset disabled={!dias[chave]} className={cn('flex items-center gap-2', !dias[chave] && 'hidden')}>
                         <legend className="sr-only">{rotulo}: horário</legend>
-                        <Input type="time" name={`horario_${chave}_de`} defaultValue={faixa.de} aria-label={`${rotulo}: das`} className="tabular w-32" />
+                        <Input type="time" name={`horario_${chave}_de`} defaultValue={faixa.de} aria-label={`${rotulo}: das`} {...erroHorario} className="tabular w-32" />
                         <span className="text-muted">às</span>
-                        <Input type="time" name={`horario_${chave}_ate`} defaultValue={faixa.ate} aria-label={`${rotulo}: até`} className="tabular w-32" />
+                        <Input type="time" name={`horario_${chave}_ate`} defaultValue={faixa.ate} aria-label={`${rotulo}: até`} {...erroHorario} className="tabular w-32" />
                       </fieldset>
                     </div>
                   );

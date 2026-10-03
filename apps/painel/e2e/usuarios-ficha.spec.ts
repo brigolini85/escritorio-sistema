@@ -83,3 +83,18 @@ test('na própria ficha o "Administrador?" fica travado; o link antigo ?usuario=
   await expect(page.getByLabel('Administrador?')).toBeDisabled({ timeout: 30_000 });
   await expect(page.getByText('Você não pode tirar o seu próprio acesso de administrador.')).toBeVisible();
 });
+
+test('horário restrito sem nenhum dia liberado: erro no horário, ligado aos campos, nada gravado', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'admin-ficha@e2e.local', senha: SENHA, nome: 'Admin Ficha', papel: 'admin' });
+  const bia = await criarUsuarioTeste({ email: 'bia-ficha@e2e.local', senha: SENHA, nome: 'Bia Ficha', papel: 'atendente' });
+  await entrar(page, 'admin-ficha@e2e.local', SENHA);
+  await page.goto(`/usuarios/${bia}`);
+  const ficha = page.getByRole('form', { name: 'Cadastro de Bia Ficha' });
+  await ficha.getByLabel('Restringir o horário?').selectOption('sim', { timeout: 30_000 });
+  await ficha.getByLabel('Seg a sex', { exact: true }).selectOption('bloqueado');
+  await ficha.getByRole('button', { name: 'Salvar' }).click();
+  await expect(ficha.getByText('Escolha ao menos um dia com horário.')).toBeVisible({ timeout: 30_000 });
+  await expect(ficha.getByLabel('Restringir o horário?')).toHaveAttribute('aria-invalid', 'true');
+  await expect(ficha.getByLabel('Seg a sex', { exact: true })).toHaveAttribute('aria-invalid', 'true');
+  expect((await db.from('usuarios').select('horario_acesso').eq('id', bia).single()).data!.horario_acesso).toBeNull();
+});
