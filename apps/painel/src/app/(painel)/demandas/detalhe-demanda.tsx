@@ -18,7 +18,9 @@ import { BotaoAssumir, BotoesDemanda, CamposDemanda, EditarDescricao, EditarTitu
 import { abertaPor } from './colunas-demandas';
 
 export type DemandaAberta = {
-  id: string; numero: number; titulo: string; descricao: string; status: StatusDemanda; prioridade: Prioridade;
+  id: string; numero: number; titulo: string; descricao: string;
+  /** "Pedidos de nota: Sem acesso" (P11): a descrição do pedido ficou no servidor (descricao vem vazia). */
+  descricaoOculta?: boolean; status: StatusDemanda; prioridade: Prioridade;
   prazo: string | null; pausadoDesde: string | null; concluidaEm: string | null; criadoEm: string; origem: string; criadoPorNome: string | null;
   conversaId: string | null; foraDoContrato: boolean; pedidoVenda: unknown;
   setorId: string | null; setor: string | null; responsavelId: string | null; responsavelNome: string | null; contatoId: string | null;
@@ -36,8 +38,8 @@ function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
 }
 
 /** Painel lateral da demanda (spec 6.3, imagem 05): tudo se resolve aqui, sem sair da tela. */
-export function DetalheDemanda({ demanda: d, comprador, podeCsv, pessoas, setores, contatos, agora }: {
-  demanda: DemandaAberta | null; comprador: CompradorCadastrado | null; podeCsv: boolean;
+export function DetalheDemanda({ demanda: d, comprador, podeCsv, verPedidos, podePrazo, pessoas, setores, contatos, agora }: {
+  demanda: DemandaAberta | null; comprador: CompradorCadastrado | null; podeCsv: boolean; verPedidos: boolean; podePrazo: boolean;
   pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; contatos: { id: string; nome: string }[]; agora: Date;
 }) {
   if (!d) {
@@ -68,21 +70,21 @@ export function DetalheDemanda({ demanda: d, comprador, podeCsv, pessoas, setore
         <SheetDescription className="text-base">
           {d.empresa ? <Link href={`/clientes/${d.empresa.id}`} className="text-brand underline underline-offset-4">{d.empresa.nome}</Link> : 'Empresa não identificada'}
           {' · '}aberta {quem === 'Agente' ? 'pelo agente' : `por ${quem}`} <RelativeTime data={d.criadoEm} />
-          {d.pedidoVenda ? <Badge variant="brand" className="ml-2">Pedido de nota</Badge> : null}
+          {d.pedidoVenda && verPedidos ? <Badge variant="brand" className="ml-2">Pedido de nota</Badge> : null}
           {d.foraDoContrato && <Badge variant="warning" className="ml-2">Fora do contrato</Badge>}
         </SheetDescription>
       </SheetHeader>
       <SheetBody>
         <section className="flex flex-col gap-3 border-b border-border py-4">
           {!d.responsavelId && d.status !== 'concluido' && <BotaoAssumir id={d.id} cheio />}
-          <CamposDemanda d={controles} pessoas={pessoas} agora={agora} />
+          <CamposDemanda d={controles} pessoas={pessoas} agora={agora} podePrazo={podePrazo} />
           <BotoesDemanda d={controles} setores={setores} pessoas={pessoas} />
         </section>
         <Secao titulo="Descrição">
-          <EditarDescricao d={controles} contatos={contatos} />
+          <EditarDescricao d={controles} contatos={contatos} descricaoOculta={Boolean(d.descricaoOculta)} />
           {d.empresa?.cnpj && <DocumentText tipo="cnpj" valor={d.empresa.cnpj} className="text-xs text-muted" />}
         </Secao>
-        {d.pedidoVenda ? (
+        {d.pedidoVenda && verPedidos ? (
           <Secao titulo="Pedido de nota">
             <OrderSummary pedido={d.pedidoVenda} comprador={comprador} />
             {podeCsv && <BlingExportButton href={`/api/csv-bling?id=${d.id}`} problemas={problemas} />}

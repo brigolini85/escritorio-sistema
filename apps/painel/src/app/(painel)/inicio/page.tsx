@@ -18,6 +18,7 @@ import { lerFiltrosDemandas } from '@/lib/demandas';
 import { filtrarConsulta } from '@/lib/demandas-consulta';
 import { formatarUSD } from '@/lib/formatos';
 import { LIMITES_BATIMENTO, lerSinaisVida, MINUTOS_SEM_RESPONSAVEL_PADRAO, situacaoTeto } from '@/lib/inicio';
+import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { AtualizarAoVivo } from '../atendimento/atualizar-ao-vivo';
@@ -147,7 +148,10 @@ export default async function Inicio() {
             titulo="Conversas aguardando humano"
             valor={aguardando}
             destaque={(aguardando ?? 0) > 0 ? 'atencao' : undefined}
-            rodape={<Link href="/atendimento?filtro=sem_responsavel" className="text-brand underline-offset-4 hover:underline">Ver no Atendimento</Link>}
+            // "Atendimento: Sem acesso" (Parte D): a tela não abre, então o atalho não aparece.
+            rodape={temNivel(u, 'atendimento', 'meus_setores')
+              ? <Link href="/atendimento?filtro=sem_responsavel" className="text-brand underline-offset-4 hover:underline">Ver no Atendimento</Link>
+              : undefined}
           />
           <Numero titulo="Demandas abertas" valor={abertas}>
             {linhasSetor.length > 0 && (

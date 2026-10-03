@@ -1,8 +1,8 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { lerFiltroCaixa } from '@/lib/caixa';
 import { lerAgentePausado } from '@/lib/contadores';
-import { usaAssistente } from '@/lib/permissoes';
+import { temNivel, usaAssistente } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { AtalhosLista } from '../atalhos-lista';
@@ -22,6 +22,8 @@ export default async function Conversa({ params, searchParams }: {
   const { id } = await params;
   const sp = await searchParams;
   const u = await obterUsuario();
+  // "Atendimento: Sem acesso" (Parte D): o banco já não mostra conversa nenhuma; a tela nem abre.
+  if (!temNivel(u, 'atendimento', 'meus_setores')) redirect('/inicio');
   const sb = await supabaseServidor();
   const [{ data: existe }, { data: usuarios }, pausaGeral] = await Promise.all([
     sb.from('conversas').select('id').eq('id', id).maybeSingle(),

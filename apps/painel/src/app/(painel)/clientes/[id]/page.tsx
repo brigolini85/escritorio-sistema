@@ -29,6 +29,8 @@ export default async function FichaCliente({ params, searchParams }: {
   const aba: Aba = ABAS.some((a) => a.valor === pedida) ? (pedida as Aba) : 'dados';
   const u = await obterUsuario();
   const pode = temNivel(u, 'clientes', 'editar');
+  // Arquivar e restaurar exigem "Editar e arquivar" (Parte D); o banco (exigir_arquivar) recusa de novo.
+  const podeArquivar = temNivel(u, 'clientes', 'arquivar');
   const sb = await supabaseServidor();
   const { data: c } = await sb.from('clientes').select('*').eq('id', id).maybeSingle();
   if (!c) notFound();
@@ -49,18 +51,18 @@ export default async function FichaCliente({ params, searchParams }: {
           </span>
         )}
       />
-      {!c.ativo && <AvisoArquivado tipo="cliente" id={c.id} nome={c.razao_social} arquivadoEm={c.arquivado_em} arquivadoPor={arquivadoPor} pode={pode} />}
+      {!c.ativo && <AvisoArquivado tipo="cliente" id={c.id} nome={c.razao_social} arquivadoEm={c.arquivado_em} arquivadoPor={arquivadoPor} pode={podeArquivar} />}
       <AvisoErro erro={erro} prefixo="Não foi possível salvar: " />
       <AbasCliente id={id} atual={aba} />
       {(aba === 'clientes' || aba === 'fornecedores') && <EscolhaParceiros id={id} atual={aba} />}
       {aba === 'dados' && <SecaoDados id={id} u={u} pode={pode} c={c} erro={erro} />}
       {aba === 'contatos' && <SecaoContatos id={id} u={u} pode={pode} />}
-      {aba === 'clientes' && <SecaoParceiros id={id} tipo="cliente" pode={pode} />}
-      {aba === 'fornecedores' && <SecaoParceiros id={id} tipo="fornecedor" pode={pode} />}
-      {aba === 'produtos' && <SecaoProdutos id={id} pode={pode} />}
+      {aba === 'clientes' && <SecaoParceiros id={id} tipo="cliente" pode={pode} podeArquivar={podeArquivar} />}
+      {aba === 'fornecedores' && <SecaoParceiros id={id} tipo="fornecedor" pode={pode} podeArquivar={podeArquivar} />}
+      {aba === 'produtos' && <SecaoProdutos id={id} pode={pode} podeArquivar={podeArquivar} />}
       {aba === 'precos' && <SecaoPrecos id={id} podeEditar={temNivel(u, 'precos', 'mudar')} historico={historico} />}
       {aba === 'documentos' && <SecaoDocumentos id={id} pode={pode} admin={u.papel === 'admin'} />}
-      {aba === 'dados' && pode && c.ativo && <ExcluirCadastro tipo="cliente" id={c.id} nome={c.razao_social} variante="area" voltarPara="/clientes" />}
+      {aba === 'dados' && podeArquivar && c.ativo && <ExcluirCadastro tipo="cliente" id={c.id} nome={c.razao_social} variante="area" voltarPara="/clientes" />}
     </div>
   );
 }

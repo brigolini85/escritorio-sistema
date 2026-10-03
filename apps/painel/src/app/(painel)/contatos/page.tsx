@@ -39,8 +39,10 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const u = await obterUsuario();
   const pode = temNivel(u, 'clientes', 'editar');
+  // Arquivar e restaurar exigem "Editar e arquivar" (Parte D); o banco (exigir_arquivar) recusa de novo.
+  const podeArquivar = temNivel(u, 'clientes', 'arquivar');
   if (valorParam(params, 'ver') === 'arquivados') {
-    return <TelaArquivados tipo="contato" titulo="Contatos arquivados" voltar={{ rotulo: 'Contatos', href: '/contatos' }} pode={pode} />;
+    return <TelaArquivados tipo="contato" titulo="Contatos arquivados" voltar={{ rotulo: 'Contatos', href: '/contatos' }} pode={podeArquivar} />;
   }
   const q = termoSeguroPostgrest(valorParam(params, 'q'));
   const agente = valorParam(params, 'agente');
@@ -161,7 +163,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
             <Link href={hrefContato(c.id)} scroll={false} aria-label={`Editar ${c.nome}`} className={variantesBotao({ variant: 'outline', size: 'icon' })}>
               <Pencil aria-hidden size={16} strokeWidth={1.75} />
             </Link>
-            <ExcluirCadastro tipo="contato" id={c.id} nome={c.nome} />
+            {podeArquivar && <ExcluirCadastro tipo="contato" id={c.id} nome={c.nome} />}
           </span>
         ) : undefined}
         hrefLinha={(c) => hrefContato(c.id)}
@@ -203,7 +205,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
       <PainelLateralUrl param="contato" id={contatoAberto} hrefFechar={hrefContato(null)} esqueleto={<EsqueletoContato />} className="sm:max-w-lg">
         {contatoAberto && (
           <Suspense key={contatoAberto} fallback={<EsqueletoContato />}>
-            <DetalheContato id={contatoAberto} pode={pode} admin={u.papel === 'admin'} />
+            <DetalheContato id={contatoAberto} pode={pode} podeArquivar={podeArquivar} admin={u.papel === 'admin'} />
           </Suspense>
         )}
       </PainelLateralUrl>

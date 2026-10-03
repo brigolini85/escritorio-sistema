@@ -19,7 +19,7 @@ const col = { codigo: 'sm:w-20 sm:shrink-0', descricao: 'sm:min-w-0 sm:flex-1', 
  * Produtos que a empresa vende (código, descrição, unidade e apelidos que o agente reconhece).
  * Com permissão: cada linha é um formulário (edita e salva ali mesmo). Sem permissão: tabela só de leitura.
  */
-export async function SecaoProdutos({ id, pode }: { id: string; pode: boolean }) {
+export async function SecaoProdutos({ id, pode, podeArquivar }: { id: string; pode: boolean; podeArquivar: boolean }) {
   const sb = await supabaseServidor();
   const { data: produtos } = await sb.from('produtos').select('*').eq('cliente_id', id).eq('ativo', true).order('descricao');
   const { linhas: arquivados } = await lerArquivados(sb, 'produto', { clienteId: id });
@@ -49,7 +49,7 @@ export async function SecaoProdutos({ id, pode }: { id: string; pode: boolean })
             </TableBody>
           </Table>
         )}
-        <div className="px-4 pb-4"><ArquivadosRecolhidos rotulo="Produtos arquivados" tipo="produto" linhas={arquivados} pode={pode} /></div>
+        <div className="px-4 pb-4"><ArquivadosRecolhidos rotulo="Produtos arquivados" tipo="produto" linhas={arquivados} pode={podeArquivar} /></div>
       </Card>
     );
   }
@@ -68,7 +68,7 @@ export async function SecaoProdutos({ id, pode }: { id: string; pode: boolean })
             <Input name="descricao" defaultValue={p.descricao} className={`${classeCampoLinha} ${col.descricao}`} aria-label={`Descrição de ${p.codigo}`} />
             <Input name="unidade" defaultValue={p.unidade} className={`${classeCampoLinha} ${col.unidade}`} aria-label={`Unidade de ${p.codigo}`} />
             <Input name="apelidos" defaultValue={p.apelidos.join(', ')} className={`${classeCampoLinha} ${col.apelidos}`} aria-label={`Apelidos de ${p.codigo}`} />
-            <span className={col.situacao}><ExcluirCadastro tipo="produto" id={p.id} nome={p.descricao} /></span>
+            <span className={col.situacao}>{podeArquivar && <ExcluirCadastro tipo="produto" id={p.id} nome={p.descricao} />}</span>
             <span className={col.acao}><Button type="submit" variant="outline" size="sm">Salvar</Button></span>
           </form>
         ))}
@@ -80,7 +80,7 @@ export async function SecaoProdutos({ id, pode }: { id: string; pode: boolean })
           <span className="sm:w-38 sm:shrink-0"><Button type="submit" size="sm" className="w-full">Adicionar produto</Button></span>
         </form>
       </div>
-      <div className="px-4 pb-4"><ArquivadosRecolhidos rotulo="Produtos arquivados" tipo="produto" linhas={arquivados} pode={pode} /></div>
+      <div className="px-4 pb-4"><ArquivadosRecolhidos rotulo="Produtos arquivados" tipo="produto" linhas={arquivados} pode={podeArquivar} /></div>
     </Card>
   );
 }

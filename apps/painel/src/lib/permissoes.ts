@@ -21,7 +21,8 @@ export const ROTULO_NIVEL: { [M in Modulo]: Record<NivelDe<M>, string> } = {
 /** Linha embaixo de cada campo da ficha: os níveis, do menor ao maior, e o que precisa saber (imagem 06). */
 export const AJUDA_MODULO: Record<Modulo, string> = {
   atendimento: 'Sem acesso · Conversas dos meus setores · Todas as conversas',
-  demandas: 'Só as minhas · Do meu setor · Todas',
+  // Módulos independentes (spec 7.1): "Só as minhas" não fecha as conversas do setor que o Atendimento abre.
+  demandas: 'Só as minhas · Do meu setor · Todas. Vale só para Demandas: com "Conversas dos meus setores" no Atendimento, a pessoa lê as conversas do setor, mesmo as de demandas que não abre.',
   clientes: 'Só ver · Ver e editar · Editar e arquivar. Produtos entram em "Ver e editar".',
   precos: 'Só ver · Mudar preços. Produtos seguem em Clientes e contatos.',
   notas: 'Sem acesso · Ver · Corrigir e gerar. "Sem acesso" esconde o pedido na tela e no assistente.',

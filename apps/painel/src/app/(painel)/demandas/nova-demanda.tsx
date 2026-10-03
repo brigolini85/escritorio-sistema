@@ -21,8 +21,8 @@ const rotulo = 'text-xs font-bold uppercase tracking-wide text-brand';
  * Nova demanda (spec 6.4, imagem 04): ligação, e-mail ou balcão. Prioridade Normal por padrão; o prazo vem preenchido com o
  * sugerido e muda junto com a prioridade até a pessoa mexer nele. Responsável só do setor escolhido. Origem = equipe.
  */
-export function NovaDemanda({ empresas, setores, pessoas, sugeridos }: {
-  empresas: EmpresaOpcao[]; setores: { id: string; nome: string }[]; pessoas: PessoaSetor[]; sugeridos: Record<Prioridade, string | null>;
+export function NovaDemanda({ empresas, setores, pessoas, sugeridos, podePrazo }: {
+  empresas: EmpresaOpcao[]; setores: { id: string; nome: string }[]; pessoas: PessoaSetor[]; sugeridos: Record<Prioridade, string | null>; podePrazo: boolean;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -137,8 +137,10 @@ export function NovaDemanda({ empresas, setores, pessoas, sugeridos }: {
               Prazo {!prazoTocado && <span className="normal-case tracking-normal text-champagne-text">sugerido</span>}
             </label>
             <Input id={`${id}-prazo`} type="datetime-local" className="tabular" value={prazo} aria-invalid={Boolean(erroDe('prazo'))}
-              aria-describedby={descrito('prazo')} onChange={(e) => { setPrazo(e.target.value); setPrazoTocado(true); }} />
+              aria-describedby={descrito('prazo')} readOnly={!podePrazo}
+              onChange={(e) => { if (!podePrazo) return; setPrazo(e.target.value); setPrazoTocado(true); }} />
             {aviso('prazo')}
+            {!podePrazo && <p className="text-xs text-muted">O prazo sugerido vale. Só quem pode alterar prazos muda a data.</p>}
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">

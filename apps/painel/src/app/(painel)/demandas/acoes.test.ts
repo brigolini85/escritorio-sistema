@@ -4,11 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const falso = vi.hoisted(() => ({
   chamadas: [] as { nome: string; args: unknown }[], erro: null as string | null,
   leituras: [] as { tabela: string; coluna: string; valor: unknown }[], falhaLeitura: false,
-  atual: { titulo: 'Título do banco', resumo: 'Texto do banco', contato_id: '33333333-3333-4333-8333-333333333333' } as { titulo: string; resumo: string; contato_id: string | null } | null,
+  atual: { titulo: 'Título do banco', resumo: 'Texto do banco', contato_id: '33333333-3333-4333-8333-333333333333' } as { titulo: string; resumo: string; contato_id: string | null; pedido_venda?: unknown } | null,
 }));
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
-vi.mock('@/lib/sessao', () => ({ obterUsuario: async () => ({ id: 'u1' }) }));
+const sessao = vi.hoisted(() => ({ prazos: 'sim' as 'sim' | 'nao', notas: 'ver' as 'sem_acesso' | 'ver' | 'corrigir' }));
+vi.mock('@/lib/sessao', () => ({ obterUsuario: async () => ({ id: 'u1', papel: 'atendente', niveis: { prazos: sessao.prazos, notas: sessao.notas } }) }));
 vi.mock('@/lib/supabase/servidor', () => ({
   supabaseServidor: async () => ({
     from: (tabela: string) => ({ select: () => ({ eq: (coluna: string, valor: unknown) => {
@@ -22,11 +23,12 @@ vi.mock('@/lib/supabase/servidor', () => ({
   }),
 }));
 
-import { alterarStatusDemanda, definirPrazo, editarDemanda, definirPrioridade, notaInternaDemanda, transferirDemanda } from './acoes';
+import { alterarStatusDemanda, criarDemanda, definirPrazo, editarDemanda, definirPrioridade, notaInternaDemanda, transferirDemanda } from './acoes';
 
 const ID = '22222222-2222-4222-8222-222222222222';
 beforeEach(() => {
   falso.chamadas = []; falso.erro = null; falso.leituras = []; falso.falhaLeitura = false;
+  sessao.prazos = 'sim'; sessao.notas = 'ver';
   falso.atual = { titulo: 'Título do banco', resumo: 'Texto do banco', contato_id: '33333333-3333-4333-8333-333333333333' };
 });
 
@@ -74,6 +76,28 @@ describe('ações da demanda', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(await editarDemanda(ID, { titulo: 'X' })).toEqual({ ok: false, erro: 'Não consegui salvar agora. Tente de novo.' });
     expect(falso.chamadas).toEqual([]);
+  });
+  it('sem "Alterar prazos" o prazo à mão é recusado antes do banco (P10)', async () => {
+    sessao.prazos = 'nao';
+    expect(await definirPrazo(ID, '2026-10-13T18:00')).toEqual({ ok: false, erro: 'Você não tem permissão para alterar prazos.' });
+    expect(falso.chamadas).toEqual([]);
+  });
+  it('sem "Alterar prazos" a nova demanda com prazo escolhido é recusada; sem prazo, o banco calcula (P10)', async () => {
+    sessao.prazos = 'nao';
+    const nova = { cliente: 'c1', setor: 's1', titulo: 'Folha de outubro', descricao: '', prioridade: 'normal' as const, prazo: '2026-10-13T18:00', responsavel: '', contato: '' };
+    expect(await criarDemanda(nova)).toEqual({ ok: false, erro: 'Você não tem permissão para alterar prazos.', campo: 'prazo' });
+    expect(falso.chamadas).toEqual([]);
+    falso.erro = 'Setor não encontrado.'; // o falso não devolve a demanda criada: basta ver o que chegou ao banco
+    await criarDemanda({ ...nova, prazo: '' });
+    expect(falso.chamadas).toEqual([{ nome: 'criar_demanda', args: expect.objectContaining({ p_prazo: null }) }]);
+  });
+  it('"Pedidos de nota: Sem acesso" não muda a descrição de um pedido de nota (P11); título e contato, sim', async () => {
+    sessao.notas = 'sem_acesso';
+    falso.atual = { titulo: 'NF de Padaria', resumo: 'Itens: 10 pães R$ 5,00', contato_id: null, pedido_venda: null };
+    expect(await editarDemanda(ID, { descricao: 'Nova' })).toEqual({ ok: false, erro: 'Você não tem acesso a pedidos de nota.' });
+    expect(falso.chamadas).toEqual([]);
+    await editarDemanda(ID, { titulo: 'Outro título', contato: null });
+    expect(falso.chamadas).toEqual([{ nome: 'editar_demanda', args: { p_chamado: ID, p_titulo: 'Outro título', p_descricao: 'Itens: 10 pães R$ 5,00', p_contato: null } }]);
   });
   it('erro do banco volta na língua da tela', async () => {
     falso.erro = 'sem acesso a este chamado';

@@ -28,7 +28,7 @@ function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
 }
 
 /** Conteúdo do painel lateral do contato (?contato=<id>): empresas e marcações, agente e a zona de perigo (LGPD). */
-export async function DetalheContato({ id, pode, admin }: { id: string; pode: boolean; admin: boolean }) {
+export async function DetalheContato({ id, pode, podeArquivar, admin }: { id: string; pode: boolean; podeArquivar: boolean; admin: boolean }) {
   const sb = await supabaseServidor();
   const { data: c } = await sb.from('contatos')
     .select('id, nome, telefone, agente_pausado, ativo, arquivado_em, arquivado_por, contato_clientes(pode_pedir_nota, pode_atualizar_preco, clientes(id, razao_social, nome_fantasia))')
@@ -62,7 +62,7 @@ export async function DetalheContato({ id, pode, admin }: { id: string; pode: bo
       </SheetHeader>
       <SheetBody>
         {!c.ativo && !anonimizado && (
-          <div className="py-4"><AvisoArquivado tipo="contato" id={c.id} nome={c.nome} arquivadoEm={c.arquivado_em} arquivadoPor={arquivadoPor} pode={pode} /></div>
+          <div className="py-4"><AvisoArquivado tipo="contato" id={c.id} nome={c.nome} arquivadoEm={c.arquivado_em} arquivadoPor={arquivadoPor} pode={podeArquivar} /></div>
         )}
         {pode && c.ativo && (
           <Secao titulo="Dados">
@@ -99,7 +99,7 @@ export async function DetalheContato({ id, pode, admin }: { id: string; pode: bo
           )}
         </Secao>
 
-        {pode && c.ativo && (
+        {podeArquivar && c.ativo && (
           <div className="py-4"><ExcluirCadastro tipo="contato" id={c.id} nome={c.nome} variante="area" voltarPara="/contatos" /></div>
         )}
         {admin && !anonimizado && (

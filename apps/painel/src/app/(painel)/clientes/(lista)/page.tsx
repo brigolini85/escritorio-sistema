@@ -29,8 +29,10 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const u = await obterUsuario();
   const pode = temNivel(u, 'clientes', 'editar');
+  // Arquivar e restaurar exigem "Editar e arquivar" (Parte D); o banco (exigir_arquivar) recusa de novo.
+  const podeArquivar = temNivel(u, 'clientes', 'arquivar');
   if (valorParam(params, 'ver') === 'arquivados') {
-    return <TelaArquivados tipo="cliente" titulo="Clientes arquivados" voltar={{ rotulo: 'Clientes', href: '/clientes' }} pode={pode} />;
+    return <TelaArquivados tipo="cliente" titulo="Clientes arquivados" voltar={{ rotulo: 'Clientes', href: '/clientes' }} pode={podeArquivar} />;
   }
   const q = termoSeguroPostgrest(valorParam(params, 'q'));
   const ordem = lerOrdem(params, ORDENAVEIS, { coluna: 'razao_social', direcao: 'asc' })!;
@@ -124,7 +126,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
             <Link href={`/clientes/${c.id}`} aria-label={`Editar ${c.razao_social}`} className={variantesBotao({ variant: 'outline', size: 'icon' })}>
               <Pencil aria-hidden size={16} strokeWidth={1.75} />
             </Link>
-            <ExcluirCadastro tipo="cliente" id={c.id} nome={c.razao_social} />
+            {podeArquivar && <ExcluirCadastro tipo="cliente" id={c.id} nome={c.razao_social} />}
           </span>
         ) : undefined}
         erro={resultado.error ? 'Não consegui carregar os clientes agora.' : undefined}

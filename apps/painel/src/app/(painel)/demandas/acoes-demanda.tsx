@@ -12,6 +12,7 @@ import { toast } from '@/components/ui/toaster';
 import { cn } from '@/lib/cn';
 import { PrazoTexto } from '@/components/patterns/prioridade-prazo';
 import { OPCOES_PRIORIDADE, ROTULO_STATUS, type Prioridade } from '@/lib/demandas';
+import { AVISO_SEM_ACESSO_PEDIDO } from '@/lib/pedido-nota';
 import { paraCampoDataHora } from '@/lib/prazo';
 import { classeSelect } from '../clientes/estilos';
 import {
@@ -55,7 +56,7 @@ export function BotaoAssumir({ id, numero, cheio = false }: { id: string; numero
 }
 
 /** Responsável, Status, Prioridade e Prazo: gravam ao mudar; erro volta o campo ao valor de antes (decisão 17). */
-export function CamposDemanda({ d, pessoas, agora }: { d: DemandaControles; pessoas: PessoaSetor[]; agora: Date }) {
+export function CamposDemanda({ d, pessoas, agora, podePrazo }: { d: DemandaControles; pessoas: PessoaSetor[]; agora: Date; podePrazo: boolean }) {
   const id = useId();
   const [pendente, iniciar] = useTransition();
   const [valores, setValores] = useState({ responsavel: d.responsavelId ?? '', status: d.status, prioridade: d.prioridade, prazo: paraCampoDataHora(d.prazo) });
@@ -104,11 +105,12 @@ export function CamposDemanda({ d, pessoas, agora }: { d: DemandaControles; pess
       </div>
       <div className="grid gap-1">
         <label htmlFor={`${id}-prazo`} className={rotulo}>Prazo</label>
-        <Input id={`${id}-prazo`} type="datetime-local" className="tabular" value={valores.prazo} disabled={concluida}
+        <Input id={`${id}-prazo`} type="datetime-local" className="tabular" value={valores.prazo} disabled={concluida || !podePrazo}
           onChange={(e) => setValores((v) => ({ ...v, prazo: e.target.value }))}
           onBlur={(e) => { if (e.target.value && e.target.value !== paraCampoDataHora(d.prazo)) gravar('prazo', e.target.value, () => definirPrazo(d.id, e.target.value)); }} />
         {/* O campo guarda a data; o texto diz o que ela significa agora (pausado, hoje, venceu), spec 8. */}
         <p className="text-xs"><PrazoTexto prazo={d.prazo} pausadoDesde={d.pausadoDesde} concluidaEm={d.concluidaEm} agora={agora} /></p>
+        {!podePrazo && <p className="text-xs text-muted">Só quem pode alterar prazos escolhe a data. Mudar a prioridade recalcula o prazo.</p>}
       </div>
     </div>
   );
@@ -242,7 +244,7 @@ export function EditarTitulo({ d }: { d: DemandaControles }) {
 }
 
 /** Descrição e contato na empresa, com Salvar próprio (decisão 17). */
-export function EditarDescricao({ d, contatos }: { d: DemandaControles; contatos: { id: string; nome: string }[] }) {
+export function EditarDescricao({ d, contatos, descricaoOculta = false }: { d: DemandaControles; contatos: { id: string; nome: string }[]; descricaoOculta?: boolean }) {
   const [descricao, setDescricao] = useState(d.descricao);
   const [contato, setContato] = useState(d.contatoId ?? '');
   const [pendente, iniciar] = useTransition();
@@ -254,7 +256,8 @@ export function EditarDescricao({ d, contatos }: { d: DemandaControles; contatos
   return (
     <form className="grid gap-3" onSubmit={(e) => {
       e.preventDefault();
-      iniciar(async () => { avisar(await editarDemanda(d.id, { descricao, contato: contato || null })); });
+      // Descrição escondida (P11): só o contato vai; a descrição fica como está no banco.
+      iniciar(async () => { avisar(await editarDemanda(d.id, descricaoOculta ? { contato: contato || null } : { descricao, contato: contato || null })); });
     }}>
       <div className="grid gap-1">
         <label htmlFor={`${id}-contato`} className={rotulo}>Contato na empresa</label>
@@ -265,11 +268,13 @@ export function EditarDescricao({ d, contatos }: { d: DemandaControles; contatos
         </select>
       </div>
       <div className="grid gap-1">
-        <label htmlFor={`${id}-desc`} className={rotulo}>Descrição</label>
-        <Textarea id={`${id}-desc`} rows={4} maxLength={4000} value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+        {descricaoOculta ? <span className={rotulo}>Descrição</span> : <label htmlFor={`${id}-desc`} className={rotulo}>Descrição</label>}
+        {descricaoOculta
+          ? <p className="text-sm text-muted">{AVISO_SEM_ACESSO_PEDIDO}</p>
+          : <Textarea id={`${id}-desc`} rows={4} maxLength={4000} value={descricao} onChange={(e) => setDescricao(e.target.value)} />}
       </div>
       <div className="flex justify-end">
-        <Button type="submit" size="sm" variant="outline" disabled={!mudou || pendente}>{pendente ? 'Salvando…' : 'Salvar descrição'}</Button>
+        <Button type="submit" size="sm" variant="outline" disabled={!mudou || pendente}>{pendente ? 'Salvando…' : descricaoOculta ? 'Salvar contato' : 'Salvar descrição'}</Button>
       </div>
     </form>
   );

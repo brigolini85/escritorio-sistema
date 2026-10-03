@@ -16,7 +16,7 @@ import { classeCampoLinha } from '../estilos';
  * Clientes (redes/grupos) ou fornecedores da empresa, cada um com as unidades (CNPJ, endereço, CEP, telefone).
  * Os nomes são campos (Nome de <rede>) em modo leitura para quem não pode editar: desabilitados, sem botões.
  */
-export async function SecaoParceiros({ id, tipo, pode }: { id: string; tipo: 'cliente' | 'fornecedor'; pode: boolean }) {
+export async function SecaoParceiros({ id, tipo, pode, podeArquivar }: { id: string; tipo: 'cliente' | 'fornecedor'; pode: boolean; podeArquivar: boolean }) {
   const sb = await supabaseServidor();
   const { data: grupos } = await sb.from('parceiros_grupos')
     .select('id, nome, palavras_chave, parceiros_unidades(id, nome_unidade, razao_social, cnpj, inscricao_estadual, endereco, numero, complemento, cep, telefone, bairro, cidade, uf, palavras_chave)')
@@ -70,7 +70,7 @@ export async function SecaoParceiros({ id, tipo, pode }: { id: string; tipo: 'cl
               <Input name="palavras_chave" defaultValue={g.palavras_chave.join(', ')} placeholder="Palavras-chave da rede" className="h-9 min-w-48 flex-1" aria-label={`Palavras-chave de ${g.nome}`} />
               {pode && <Button type="submit" variant="outline" size="sm">Salvar</Button>}
             </fieldset>
-            {pode && <ExcluirCadastro tipo="rede" id={g.id} nome={g.nome} />}
+            {podeArquivar && <ExcluirCadastro tipo="rede" id={g.id} nome={g.nome} />}
           </form>
           <div className="flex flex-col gap-2 p-4">
             {g.parceiros_unidades.length === 0 && <p className="text-sm text-muted">Nenhuma unidade cadastrada.</p>}
@@ -96,7 +96,7 @@ export async function SecaoParceiros({ id, tipo, pode }: { id: string; tipo: 'cl
                       <form action={salvarUnidade.bind(null, id, g.id, un.id)} className="flex flex-col gap-3 border-t border-border p-3">
                         {camposUnidade(un)}
                         <div className="flex items-center justify-between gap-2">
-                          {pode && <ExcluirCadastro tipo="unidade" id={un.id} nome={un.nome_unidade} />}
+                          {podeArquivar && <ExcluirCadastro tipo="unidade" id={un.id} nome={un.nome_unidade} />}
                           {pode && <Button type="submit" size="sm">Salvar unidade</Button>}
                         </div>
                       </form>
@@ -124,8 +124,8 @@ export async function SecaoParceiros({ id, tipo, pode }: { id: string; tipo: 'cl
           </form>
         </Card>
       )}
-      <ArquivadosRecolhidos rotulo={tipo === 'cliente' ? 'Redes arquivadas' : 'Fornecedores arquivados'} tipo="rede" linhas={redesArquivadas} pode={pode} />
-      <ArquivadosRecolhidos rotulo="Unidades arquivadas" tipo="unidade" linhas={unidadesArquivadas} pode={pode} />
+      <ArquivadosRecolhidos rotulo={tipo === 'cliente' ? 'Redes arquivadas' : 'Fornecedores arquivados'} tipo="rede" linhas={redesArquivadas} pode={podeArquivar} />
+      <ArquivadosRecolhidos rotulo="Unidades arquivadas" tipo="unidade" linhas={unidadesArquivadas} pode={podeArquivar} />
     </div>
   );
 }

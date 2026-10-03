@@ -58,6 +58,8 @@ describe('filtros rápidos (Com o agente, Concluídas)', () => {
     expect(lerFiltroCaixa('concluidas', atendente)).toBe('concluidas');
     expect(lerFiltroCaixa('xyz', atendente)).toBe('setor');
     expect(lerFiltroCaixa(undefined, { papel: 'admin', setores: [] })).toBe('todas');
+    // "Todas as conversas" começa em Todas, mesmo com setor (o nível vai no tipo, Parte D).
+    expect(lerFiltroCaixa(undefined, { ...atendente, niveis: { atendimento: 'todas' } })).toBe('todas');
   });
 });
 

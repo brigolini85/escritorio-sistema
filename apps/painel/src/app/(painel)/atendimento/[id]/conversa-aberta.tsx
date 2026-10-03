@@ -11,6 +11,7 @@ import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { consultaCaixa } from '@/lib/caixa';
 import { mascararTelefone } from '@/lib/formatos';
 import { linhaDoTempo } from '@/lib/historico';
+import { AVISO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
 import { temNivel, usaAssistente } from '@/lib/permissoes';
 import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -57,7 +58,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     sb.from('chamados').select('*, setores(nome), usuarios(nome), chamado_eventos(tipo, texto, criado_em, usuarios(nome))')
       .eq('conversa_id', id).neq('status', 'concluido').order('numero').order('criado_em', { referencedTable: 'chamado_eventos' }),
     // Notas internas de todas as demandas da conversa (também as já concluídas) entram no histórico.
-    sb.from('chamado_eventos').select('id, texto, criado_em, usuario_id, usuarios(nome), chamados!inner(numero, conversa_id)')
+    sb.from('chamado_eventos').select('id, texto, criado_em, usuario_id, usuarios(nome), chamados!inner(numero, conversa_id, titulo, pedido_venda)')
       .eq('chamados.conversa_id', id).eq('tipo', 'nota_interna'),
     sb.from('decisoes_agente').select('etapa, entrada, saida, justificativa, criado_em').eq('conversa_id', id).order('criado_em', { ascending: false }).limit(30),
     sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
@@ -70,9 +71,12 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   const minha = conversa.atendente_id === u.id;
   const nomeDe = new Map(pessoas.map((p) => [p.id, p.nome]));
   const abertas = chamados ?? [];
+  // "Pedidos de nota: Sem acesso" (P11): pedido, descrição, notas e textos livres da demanda de pedido ficam no servidor.
+  const verPedidos = temNivel(u, 'notas', 'ver');
+  const oculto = (c: { titulo: string | null; pedido_venda: unknown } | null | undefined) => !verPedidos && Boolean(c) && ehPedidoDeNota(c!);
 
   // Cadastro da unidade compradora dos pedidos de nota (o mesmo que o CSV do Bling usa).
-  const unidades = [...new Set(abertas.flatMap((c) => {
+  const unidades = [...new Set(abertas.filter((c) => !oculto(c)).flatMap((c) => {
     const uid = (c.pedido_venda as PedidoVendaSalvo | null)?.unidade_id;
     return uid ? [uid] : [];
   }))];
@@ -108,7 +112,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
       falhou: m.status_envio === 'falhou',
     })),
     ...(notas ?? []).map((n): ItemHistorico => ({
-      id: n.id, criado_em: n.criado_em, tipo: 'nota', nome: n.usuarios?.nome ?? null, propria: n.usuario_id === u.id, conteudo: n.texto, demanda: n.chamados?.numero ?? null,
+      id: n.id, criado_em: n.criado_em, tipo: 'nota', nome: n.usuarios?.nome ?? null, propria: n.usuario_id === u.id, conteudo: oculto(n.chamados) ? AVISO_SEM_ACESSO_PEDIDO : n.texto, demanda: n.chamados?.numero ?? null,
     })),
   ];
   const historico = linhaDoTempo(itens);
@@ -120,12 +124,16 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     concluir: concluir.bind(null, c.id, id),
     nota: notaInterna.bind(null, c.id, id),
   }));
-  const demandasDetalhe: DemandaDetalhe[] = abertas.map((c) => ({
-    id: c.id, numero: c.numero, titulo: c.titulo, resumo: c.resumo, status: c.status as StatusDemanda,
-    setor: c.setores?.nome ?? null, responsavel: c.usuarios?.nome ?? null, fora_do_contrato: c.fora_do_contrato,
-    criado_em: c.criado_em, pedido_venda: c.pedido_venda,
-    eventos: c.chamado_eventos.map((e) => ({ tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null })),
-  }));
+  const demandasDetalhe: DemandaDetalhe[] = abertas.map((c) => {
+    const eventos = c.chamado_eventos.map((e) => ({ tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null }));
+    const semPedido = oculto(c);
+    return {
+      id: c.id, numero: c.numero, titulo: c.titulo, resumo: semPedido ? AVISO_SEM_ACESSO_PEDIDO : c.resumo, status: c.status as StatusDemanda,
+      setor: c.setores?.nome ?? null, responsavel: c.usuarios?.nome ?? null, fora_do_contrato: c.fora_do_contrato,
+      criado_em: c.criado_em, pedido_venda: semPedido ? null : c.pedido_venda,
+      eventos: semPedido ? ocultarEventosDoPedido(eventos) : eventos,
+    };
+  });
 
   return (
     <EstadoConversa

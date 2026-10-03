@@ -52,7 +52,7 @@ export const FILTROS_MAIS = FILTROS.filter((f) => !FILTROS_RAPIDOS.some((r) => r
 const VALORES_FILTRO = new Set<string>([...FILTROS, ...FILTROS_RAPIDOS].map((f) => f.valor));
 
 /** ?filtro= da URL: um valor conhecido, senão o filtro padrão da pessoa. */
-export function lerFiltroCaixa(valor: string | undefined, u: { papel: 'admin' | 'atendente'; setores: string[] }): FiltroCaixa {
+export function lerFiltroCaixa(valor: string | undefined, u: Parameters<typeof filtroPadrao>[0]): FiltroCaixa {
   return valor && VALORES_FILTRO.has(valor) ? (valor as FiltroCaixa) : filtroPadrao(u);
 }
 

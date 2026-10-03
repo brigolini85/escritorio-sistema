@@ -12,6 +12,7 @@ import { variantesBotao } from '@/components/ui/button';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { COLUNA_DA_ORDEM, OPCOES_PRIORIDADE, ORDEM_PADRAO, ORDENS, lerFiltrosDemandas, temFiltro, type FiltrosDemandas, type Prioridade, type Visao } from '@/lib/demandas';
 import { filtrarConsulta } from '@/lib/demandas-consulta';
+import { ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
 import { pendenciasCsvBling } from '@/lib/resumo-pedido';
 import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
@@ -44,6 +45,9 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
   const u = await obterUsuario();
   // CSV do Bling só para quem pode "Corrigir pedidos de nota e gerar CSV do Bling" (o administrador sempre pode).
   const podeCsv = temNivel(u, 'notas', 'corrigir');
+  // "Pedidos de nota: Sem acesso" (P11) esconde o pedido; "Alterar prazos" (P10) libera o prazo à mão.
+  const verPedidos = temNivel(u, 'notas', 'ver');
+  const podePrazo = temNivel(u, 'prazos', 'sim');
   // O próprio id em ?responsavel= vira "eu" também na URL, para a etiqueta dizer "Responsável: eu".
   if (valorParam(params, 'responsavel') === u.id) redirect(`/demandas${hrefComParams(params, { responsavel: 'eu', [PARAM_PAGINA]: valorParam(params, PARAM_PAGINA) })}`);
   const f = lerFiltrosDemandas(params, u.id);
@@ -96,7 +100,8 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
     resultado = await pagina_(paginacao);
   }
 
-  const linhas = await comPendencias(sb, resultado.data ?? [], podeCsv);
+  // Sem acesso a pedidos (P11): a linha não leva a etiqueta "Pedido de nota".
+  const linhas = (await comPendencias(sb, resultado.data ?? [], podeCsv)).map((l) => (verPedidos ? l : { ...l, temPedido: false }));
   const pagina = paginacao.pagina > 1 ? paginacao.pagina : null;
   const hrefDemanda = (id: string | null) => `/demandas${hrefComParams(params, { demanda: id, [PARAM_PAGINA]: pagina })}`;
   const filtrosAtivos = temFiltro(f);
@@ -163,12 +168,12 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
       <PainelDemanda demandaId={f.demanda} hrefFechar={hrefDemanda(null)}>
         {f.demanda && (
           <Suspense key={f.demanda} fallback={<EsqueletoDemanda />}>
-            <DetalheCarregado sb={sb} id={f.demanda} podeCsv={podeCsv} pessoas={pessoasSetor} setores={setores ?? []} agora={agora} />
+            <DetalheCarregado sb={sb} id={f.demanda} podeCsv={podeCsv} verPedidos={verPedidos} podePrazo={podePrazo} pessoas={pessoasSetor} setores={setores ?? []} agora={agora} />
           </Suspense>
         )}
       </PainelDemanda>
       <PainelLateralUrl param="nova" id={nova ? '1' : null} hrefFechar={`/demandas${hrefComParams(params, { nova: null })}`} esqueleto={<EsqueletoDemanda />} protegerAlteracoes>
-        {nova && <NovaDemanda empresas={nova.empresas} setores={setoresNova} pessoas={pessoasSetor} sugeridos={nova.sugeridos} />}
+        {nova && <NovaDemanda empresas={nova.empresas} setores={setoresNova} pessoas={pessoasSetor} sugeridos={nova.sugeridos} podePrazo={podePrazo} />}
       </PainelLateralUrl>
     </section>
   );
@@ -204,21 +209,23 @@ async function comPendencias(sb: Sb, dados: Parameters<typeof paraLinhaDemanda>[
   });
 }
 
-async function DetalheCarregado({ sb, id, podeCsv, pessoas, setores, agora }: {
-  sb: Sb; id: string; podeCsv: boolean; pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; agora: Date;
+async function DetalheCarregado({ sb, id, podeCsv, verPedidos, podePrazo, pessoas, setores, agora }: {
+  sb: Sb; id: string; podeCsv: boolean; verPedidos: boolean; podePrazo: boolean; pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; agora: Date;
 }) {
-  const aberta = await lerDemanda(sb, id);
+  const aberta = await lerDemanda(sb, id, verPedidos);
   return (
-    <DetalheDemanda demanda={aberta?.demanda ?? null} comprador={aberta?.comprador ?? null} podeCsv={podeCsv}
+    <DetalheDemanda demanda={aberta?.demanda ?? null} comprador={aberta?.comprador ?? null} podeCsv={podeCsv} verPedidos={verPedidos} podePrazo={podePrazo}
       pessoas={pessoas} setores={setores} contatos={aberta?.contatos ?? []} agora={agora} />
   );
 }
 
 /** Demanda do painel lateral (visão demandas_lista), com a linha do tempo, os contatos da empresa e o comprador. RLS vale. */
-async function lerDemanda(sb: Sb, id: string): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null; contatos: { id: string; nome: string }[] } | null> {
+async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null; contatos: { id: string; nome: string }[] } | null> {
   const { data: d } = await sb.from('demandas_lista').select('*').eq('id', id).maybeSingle();
   if (!d) return null;
-  const unidade = (d.pedido_venda as PedidoVendaSalvo | null)?.unidade_id ?? null;
+  // Sem acesso a pedidos (P11): o pedido, a descrição e os textos livres da linha do tempo nem saem do servidor.
+  const semPedido = !verPedidos && ehPedidoDeNota(d);
+  const unidade = semPedido ? null : (d.pedido_venda as PedidoVendaSalvo | null)?.unidade_id ?? null;
   const [{ data: eventos }, { data: cliente }, { data: vinculos }, { data: comprador }] = await Promise.all([
     sb.from('chamado_eventos').select('tipo, texto, criado_em, usuarios(nome)').eq('chamado_id', id).order('criado_em'),
     d.cliente_id ? sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj').eq('id', d.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -229,13 +236,13 @@ async function lerDemanda(sb: Sb, id: string): Promise<{ demanda: DemandaAberta;
   ]);
   return {
     demanda: {
-      id: d.id!, numero: Number(d.numero), titulo: d.titulo ?? '', descricao: d.resumo ?? '', status: d.status as StatusDemanda,
+      id: d.id!, numero: Number(d.numero), titulo: d.titulo ?? '', descricao: semPedido ? '' : d.resumo ?? '', descricaoOculta: semPedido, status: d.status as StatusDemanda,
       prioridade: (d.prioridade ?? 'normal') as Prioridade, prazo: d.prazo_em, pausadoDesde: d.prazo_pausado_desde, concluidaEm: d.concluido_em,
       criadoEm: d.criado_em!, origem: d.origem ?? 'agente', criadoPorNome: d.criado_por_nome, conversaId: d.conversa_id,
-      foraDoContrato: Boolean(d.fora_do_contrato), pedidoVenda: d.pedido_venda, setorId: d.setor_id, setor: d.setor,
+      foraDoContrato: Boolean(d.fora_do_contrato), pedidoVenda: semPedido ? null : d.pedido_venda, setorId: d.setor_id, setor: d.setor,
       responsavelId: d.responsavel_id, responsavelNome: d.responsavel, contatoId: d.contato_id,
       empresa: cliente ? { id: cliente.id, nome: cliente.nome_fantasia ?? cliente.razao_social, cnpj: cliente.cnpj } : null,
-      eventos: (eventos ?? []).map((e) => ({ tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null })),
+      eventos: ((m) => (semPedido ? ocultarEventosDoPedido(m) : m))((eventos ?? []).map((e) => ({ tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null }))),
     },
     comprador: (comprador as CompradorCadastrado | null) ?? null,
     contatos: (vinculos ?? []).map((v) => ({ id: v.contatos.id, nome: v.contatos.nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),

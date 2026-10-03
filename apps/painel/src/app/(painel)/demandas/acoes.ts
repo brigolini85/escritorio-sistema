@@ -3,6 +3,8 @@ import { revalidatePath } from 'next/cache';
 import { ROTULO_PRIORIDADE, ROTULO_STATUS, type Prioridade, type Visao } from '@/lib/demandas';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { campoDoErro, validarNovaDemanda, type CampoNova } from '@/lib/nova-demanda';
+import { ehPedidoDeNota } from '@/lib/pedido-nota';
+import { temNivel } from '@/lib/permissoes';
 import { doCampoDataHora } from '@/lib/prazo';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -40,6 +42,8 @@ export async function definirPrioridade(id: string, prioridade: Prioridade): Pro
 
 /** `campo`: valor do <input type="datetime-local">, no horário de Brasília. */
 export async function definirPrazo(id: string, campo: string): Promise<Resultado> {
+  // Prazo à mão exige "Alterar prazos" (P10); o banco também recusa.
+  if (!temNivel(await obterUsuario(), 'prazos', 'sim')) return { ok: false, erro: 'Você não tem permissão para alterar prazos.' };
   const iso = doCampoDataHora(campo);
   if (!iso) return { ok: false, erro: 'Escolha a data e a hora do prazo.' };
   return acao('definir_prioridade_prazo', { p_chamado: id, p_prazo: iso }, 'Prazo alterado.');
@@ -70,14 +74,16 @@ export async function reabrirDemanda(id: string): Promise<Resultado> {
  * (o atual, ou a escolha da pessoa; `null` explícito remove).
  */
 export async function editarDemanda(id: string, dados: { titulo?: string; descricao?: string; contato?: string | null }): Promise<Resultado> {
-  await obterUsuario();
+  const u = await obterUsuario();
   const sb = await supabaseServidor();
-  const { data: atual, error: erroLeitura } = await sb.from('chamados').select('titulo, resumo, contato_id').eq('id', id).maybeSingle();
+  const { data: atual, error: erroLeitura } = await sb.from('chamados').select('titulo, resumo, contato_id, pedido_venda').eq('id', id).maybeSingle();
   if (erroLeitura) {
     console.error('[demandas] falha ao ler a demanda para editar', erroLeitura);
     return { ok: false, erro: 'Não consegui salvar agora. Tente de novo.' };
   }
   if (!atual) return { ok: false, erro: mensagemDoBanco('sem acesso a este chamado') };
+  // "Pedidos de nota: Sem acesso" (P11): a tela não mostra a descrição do pedido, então também não a troca.
+  if (dados.descricao !== undefined && !temNivel(u, 'notas', 'ver') && ehPedidoDeNota(atual)) return { ok: false, erro: 'Você não tem acesso a pedidos de nota.' };
   const args = {
     p_chamado: id,
     p_titulo: dados.titulo ?? atual.titulo,
@@ -104,7 +110,8 @@ export async function criarDemanda(d: NovaDemandaDados): Promise<{ ok: true; men
   if (!v.ok) return v;
   const prazo = d.prazo ? doCampoDataHora(d.prazo) : null;
   if (d.prazo && !prazo) return { ok: false, erro: 'Escolha a data e a hora do prazo.', campo: 'prazo' };
-  await obterUsuario();
+  const u = await obterUsuario();
+  if (d.prazo && !temNivel(u, 'prazos', 'sim')) return { ok: false, erro: 'Você não tem permissão para alterar prazos.', campo: 'prazo' };
   const sb = await supabaseServidor();
   const { data, error } = await sb.rpc('criar_demanda' as never, {
     p_cliente: d.cliente, p_setor: d.setor, p_titulo: d.titulo, p_descricao: d.descricao, p_prioridade: d.prioridade,
