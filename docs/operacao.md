@@ -108,9 +108,37 @@ Em **Início**, clique em **Pausar agente**. A partir daí, o cliente **não rec
 
 O celular do escritório perdeu a conexão com a Z-API. Entre no painel da Z-API, abra a instância de produção e leia o QR code de novo com o celular do escritório (WhatsApp → Aparelhos conectados → Conectar aparelho). Em até um minuto o sistema percebe e volta a funcionar.
 
-### Convidar alguém
+### Pessoas, permissões e horário de acesso
 
-Aba **Usuários** (menu do administrador) → preencha nome e e-mail, marque os setores e clique em **Enviar convite**. Quem é do Fiscal e precisa baixar o CSV do Bling ou corrigir pedidos de nota precisa da marcação "Corrigir pedidos de nota e gerar CSV do Bling" (sem ela, os botões do CSV não aparecem). Para tirar o acesso de alguém, abra o usuário e desmarque **Ativo**.
+Configurações › Usuários e permissões › **Nova pessoa** abre a ficha em página inteira. Ao salvar, a pessoa recebe um convite por e-mail para criar a senha. Na ficha de quem já existe, "reenviar convite" (no rodapé) manda o convite de novo, ou um link para criar senha nova se a pessoa já tinha entrado. Para tirar o acesso de alguém, arquive a pessoa (Excluir… na ficha); ela volta pela lista de Arquivados.
+
+**Administrador = Sim** dá acesso total e esconde as permissões (menos o Assistente, que continua por escolha, porque depende do telefone). Ninguém tira o próprio acesso de administrador.
+
+Cada módulo tem um nível:
+
+| Módulo | Níveis |
+|---|---|
+| Atendimento | Sem acesso · Conversas dos meus setores · Todas as conversas |
+| Demandas | Só as minhas · Do meu setor · Todas |
+| Clientes e contatos | Só ver · Ver e editar (inclui produtos) · Editar e arquivar |
+| Preços | Só ver · Mudar preços |
+| Pedidos de nota e CSV Bling | Sem acesso · Ver · Corrigir e gerar |
+| Assistente | Sem acesso · Site · Site e WhatsApp (exige telefone) |
+| Treinar o agente | Sem acesso · Sim |
+| Alterar prazos de demandas | Não · Sim (escolher o prazo à mão; mudar a prioridade recalcula o prazo para todos) |
+| Configurações | Sem acesso · Sim (sem teto de IA, alertas, pausa do agente e usuários, que ficam com o administrador) |
+
+Quando a Parte D entrou, cada pessoa recebeu o nível que reproduz o que ela já fazia: ninguém passou a ver nem a fazer mais ou menos sem você mexer. Quem só tinha o assistente pelo WhatsApp ficou com "Site e WhatsApp".
+
+**Configurações: Sim** não é o mesmo que ser administrador. A pessoa abre Configurações e mexe em Expediente, Mensagens, Respostas prontas, Prazos, Setores e Feriados. Ficam só com o administrador: Usuários e permissões, Teto de IA e alertas, Integrações e a pausa do agente. Assim ninguém se faz administrador, muda o gasto com IA ou pausa o agente sem você saber. No menu, quem tem "Sim" vê o item como "Expediente".
+
+**Pedidos de nota: Sem acesso** esconde o bloco "Pedido de nota" e o CSV do Bling na demanda, a descrição e os itens do pedido e o antes e depois das correções. O assistente da pessoa também deixa de consultar e corrigir pedidos de nota e vendas. É uma proteção de tela e de assistente: a demanda continua visível pelo nível de Demandas.
+
+**Horário de acesso:** seg a sex, sábado e domingo, cada um Permitido (com início e fim) ou Bloqueado. Pessoa nova começa com seg a sex das 08:00 às 18:00 e fim de semana bloqueado; quem já existia ficou sem restrição até você definir. O fim vale inclusive (18:00 ainda entra, 18:01 não). Feriado segue o dia da semana. O administrador entra a qualquer hora e nunca é bloqueado.
+
+**Fora do horário** a pessoa não entra: aparece a página "Fora do seu horário de acesso", com o horário dela. Se a aba já estava aberta quando o horário acabou, a próxima ação leva a essa página; nada é lido nem gravado, e as mensagens dos clientes deixam de chegar naquela tela. O assistente pelo WhatsApp responde "Fora do seu horário de acesso. O assistente volta a responder quando o seu horário começar." sem gastar IA. Na lista de usuários, quem está fora do horário agora aparece como "Fora do horário agora".
+
+**Último acesso** aparece no topo da ficha e na lista (atualiza no máximo a cada 10 minutos de uso).
 
 ### "Por que o agente fez isso?"
 

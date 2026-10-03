@@ -219,23 +219,6 @@ export function IndicadorAlteracoes({ compacto = false, className }: { compacto?
 }
 
 /**
- * Nota do rodapé quando o formulário ocupa dois cards: `nota` normalmente; `notaAlterado` (em destaque) quando o
- * outro card (elemento com id `outro`) tem alteração não salva, que este Salvar também vai gravar.
- */
-export function NotaOutroCard({ outro, nota, notaAlterado, className }: { outro: string; nota: string; notaAlterado: string; className?: string }) {
-  const ctx = useContext(ContextoFormulario);
-  const [alterado, setAlterado] = useState(false);
-  const versao = ctx?.versao;
-  const form = ctx?.form;
-  useEffect(() => {
-    const f = form?.current;
-    const escopo = document.getElementById(outro);
-    setAlterado(Boolean(f && escopo && f.contains(escopo) && formularioAlterado(f, escopo)));
-  }, [versao, form, outro]);
-  return <p className={cn('text-xs', alterado ? 'text-warning' : 'text-subtle', className)}>{alterado ? notaAlterado : nota}</p>;
-}
-
-/**
  * Botão de enviar do FormularioAlteravel. O texto não muda (testes e leitor de tela acham pelo nome); enquanto
  * salva, fica desabilitado com um ícone girando. `destacar`: "outline" sem alteração e "primary" com alteração.
  */

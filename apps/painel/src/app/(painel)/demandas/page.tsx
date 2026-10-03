@@ -47,6 +47,8 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
   const podeCsv = temNivel(u, 'notas', 'corrigir');
   // "Pedidos de nota: Sem acesso" (P11) esconde o pedido; "Alterar prazos" (P10) libera o prazo à mão.
   const verPedidos = temNivel(u, 'notas', 'ver');
+  // "Atendimento: Sem acesso": a tela da conversa não abre, então o link do painel não aparece.
+  const podeConversa = temNivel(u, 'atendimento', 'meus_setores');
   const podePrazo = temNivel(u, 'prazos', 'sim');
   // O próprio id em ?responsavel= vira "eu" também na URL, para a etiqueta dizer "Responsável: eu".
   if (valorParam(params, 'responsavel') === u.id) redirect(`/demandas${hrefComParams(params, { responsavel: 'eu', [PARAM_PAGINA]: valorParam(params, PARAM_PAGINA) })}`);
@@ -168,7 +170,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
       <PainelDemanda demandaId={f.demanda} hrefFechar={hrefDemanda(null)}>
         {f.demanda && (
           <Suspense key={f.demanda} fallback={<EsqueletoDemanda />}>
-            <DetalheCarregado sb={sb} id={f.demanda} podeCsv={podeCsv} verPedidos={verPedidos} podePrazo={podePrazo} pessoas={pessoasSetor} setores={setores ?? []} agora={agora} />
+            <DetalheCarregado sb={sb} id={f.demanda} podeConversa={podeConversa} podeCsv={podeCsv} verPedidos={verPedidos} podePrazo={podePrazo} pessoas={pessoasSetor} setores={setores ?? []} agora={agora} />
           </Suspense>
         )}
       </PainelDemanda>
@@ -209,12 +211,12 @@ async function comPendencias(sb: Sb, dados: Parameters<typeof paraLinhaDemanda>[
   });
 }
 
-async function DetalheCarregado({ sb, id, podeCsv, verPedidos, podePrazo, pessoas, setores, agora }: {
-  sb: Sb; id: string; podeCsv: boolean; verPedidos: boolean; podePrazo: boolean; pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; agora: Date;
+async function DetalheCarregado({ sb, id, podeConversa, podeCsv, verPedidos, podePrazo, pessoas, setores, agora }: {
+  sb: Sb; id: string; podeConversa: boolean; podeCsv: boolean; verPedidos: boolean; podePrazo: boolean; pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; agora: Date;
 }) {
   const aberta = await lerDemanda(sb, id, verPedidos);
   return (
-    <DetalheDemanda demanda={aberta?.demanda ?? null} comprador={aberta?.comprador ?? null} podeCsv={podeCsv} verPedidos={verPedidos} podePrazo={podePrazo}
+    <DetalheDemanda demanda={aberta?.demanda ?? null} comprador={aberta?.comprador ?? null} podeConversa={podeConversa} podeCsv={podeCsv} verPedidos={verPedidos} podePrazo={podePrazo}
       pessoas={pessoas} setores={setores} contatos={aberta?.contatos ?? []} agora={agora} />
   );
 }

@@ -38,8 +38,8 @@ function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
 }
 
 /** Painel lateral da demanda (spec 6.3, imagem 05): tudo se resolve aqui, sem sair da tela. */
-export function DetalheDemanda({ demanda: d, comprador, podeCsv, verPedidos, podePrazo, pessoas, setores, contatos, agora }: {
-  demanda: DemandaAberta | null; comprador: CompradorCadastrado | null; podeCsv: boolean; verPedidos: boolean; podePrazo: boolean;
+export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, verPedidos, podePrazo, pessoas, setores, contatos, agora }: {
+  demanda: DemandaAberta | null; comprador: CompradorCadastrado | null; podeConversa: boolean; podeCsv: boolean; verPedidos: boolean; podePrazo: boolean;
   pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; contatos: { id: string; nome: string }[]; agora: Date;
 }) {
   if (!d) {
@@ -96,7 +96,7 @@ export function DetalheDemanda({ demanda: d, comprador, podeCsv, verPedidos, pod
             : <p className="text-sm text-muted">Nenhum evento registrado.</p>}
         </Secao>
       </SheetBody>
-      {d.conversaId && (
+      {d.conversaId && podeConversa && (
         <SheetFooter>
           <Link href={`/atendimento/${d.conversaId}`} className={variantesBotao({ variant: 'link' })}>
             <MessageSquare aria-hidden size={16} strokeWidth={1.75} />

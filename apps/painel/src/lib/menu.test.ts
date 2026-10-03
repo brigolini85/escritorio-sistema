@@ -20,6 +20,9 @@ describe('menu pelos níveis (Parte D)', () => {
   it('Configurações para quem tem "Sim", sem Usuários e permissões', () => {
     const conf = itensDoMenu({ papel: 'atendente', niveis: n({ configuracoes: 'sim' }) }).find((i) => i.rotulo === 'Configurações')!;
     expect(conf.filhos!.map((f) => f.rotulo)).not.toContain('Usuários e permissões');
+    // Sem o teto de IA, o item não promete "IA".
+    expect(conf.filhos!.map((f) => f.rotulo)).toContain('Expediente');
+    expect(conf.filhos!.map((f) => f.rotulo)).not.toContain('Expediente e IA');
   });
   it('administrador: Treinar e Configurações completas; Assistente só com a marcação', () => {
     const itens = itensDoMenu({ papel: 'admin', niveis: n() });

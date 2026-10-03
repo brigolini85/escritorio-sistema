@@ -11,7 +11,9 @@ const SUBMENU_CONFIGURACOES: ItemMenu[] = [
   { rotulo: 'Feriados', href: '/configuracoes#feriados' },
 ];
 // "Configurações: Sim" sem ser administrador (P12): Usuários e permissões fica de fora.
-const SUBMENU_SEM_USUARIOS = SUBMENU_CONFIGURACOES.filter((i) => i.href !== '/usuarios');
+// Sem o teto de IA (só do administrador) o item vira só "Expediente".
+const SUBMENU_SEM_USUARIOS = SUBMENU_CONFIGURACOES.filter((i) => i.href !== '/usuarios')
+  .map((i) => (i.href === '/configuracoes#expediente' ? { ...i, rotulo: 'Expediente' } : i));
 
 /** Itens do menu lateral pelos níveis da pessoa (Parte D). O administrador vê tudo, menos o Assistente sem a marcação. */
 export function itensDoMenu(u: { papel: 'admin' | 'atendente'; niveis: Niveis }): ItemMenu[] {
