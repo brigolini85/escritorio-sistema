@@ -1,6 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { ROTULO_PRIORIDADE, ROTULO_STATUS, type Prioridade } from '@/lib/demandas';
+import { ROTULO_PRIORIDADE, ROTULO_STATUS, type Prioridade, type Visao } from '@/lib/demandas';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { doCampoDataHora } from '@/lib/prazo';
 import { obterUsuario } from '@/lib/sessao';
@@ -84,4 +84,9 @@ export async function editarDemanda(id: string, dados: { titulo?: string; descri
     p_contato: dados.contato === undefined ? atual.contato_id : dados.contato,
   };
   return acao('editar_demanda', args, 'Demanda alterada.');
+}
+
+/** Tabela ou Quadro fica no perfil da pessoa (decisão 16). */
+export async function definirVisaoDemandas(visao: Visao): Promise<Resultado> {
+  return acao('definir_visao_demandas', { p_visao: visao }, visao === 'quadro' ? 'Quadro.' : 'Tabela.');
 }
