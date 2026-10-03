@@ -49,17 +49,20 @@ describe('obterOuCriarConversa', () => {
 });
 
 describe('abrirChamado', () => {
-  it('numera em sequência e registra o evento de criação', async () => {
+  it('numera em sequência; o banco grava prioridade, prazo e os eventos iniciais', async () => {
     const { cliente } = await criarEmpresaComContato('5531999990001');
     const conversa = await repos.obterOuCriarConversa('5531999990001', null);
     const { data: fiscal } = await db.from('setores').select('id').eq('nome', 'Fiscal').single();
     const novo = { clienteId: cliente.id, conversaId: conversa.id, setorId: fiscal!.id, responsavelId: null,
       titulo: 'Guia DAS', resumo: 'Cliente pediu a guia de setembro', foraDoContrato: false, origem: 'agente' };
-    const a = await repos.abrirChamado(novo);
+    const a = await repos.abrirChamado({ ...novo, prioridade: 'alta' });
     const b = await repos.abrirChamado({ ...novo, titulo: 'Holerite' });
     expect(b.numero).toBe(a.numero + 1);
-    const { count } = await db.from('chamado_eventos').select('*', { count: 'exact', head: true }).eq('chamado_id', a.id);
-    expect(count).toBe(1);
+    const { data: linhas } = await db.from('chamados').select('id, prioridade, prazo_em').in('id', [a.id, b.id]).order('numero');
+    expect(linhas!.map((l) => l.prioridade)).toEqual(['alta', 'normal']);
+    expect(linhas!.every((l) => l.prazo_em !== null)).toBe(true);
+    const { data: eventos } = await db.from('chamado_eventos').select('tipo').eq('chamado_id', a.id).order('criado_em');
+    expect(eventos!.map((e) => e.tipo)).toEqual(['criacao', 'prioridade_alterada', 'prazo_alterado']);
   });
 });
 

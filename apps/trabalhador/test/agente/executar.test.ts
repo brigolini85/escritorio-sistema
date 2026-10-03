@@ -137,7 +137,7 @@ describe('executarAgente', () => {
     expect(data).toHaveLength(1);
     expect(data![0]!.resumo).toBe('Quer contratar o escritório\n\nNome: Thiago, empresa: Padaria Teste');
     const { data: eventos } = await db.from('chamado_eventos').select('tipo').eq('chamado_id', data![0]!.id).order('criado_em');
-    expect(eventos!.map((e) => e.tipo)).toEqual(['criacao', 'nota_interna']);
+    expect(eventos!.map((e) => e.tipo)).toEqual(['criacao', 'prioridade_alterada', 'prazo_alterado', 'nota_interna']);
   });
 
   it('não envia nada se a conversa foi assumida por um atendente no meio do processamento', async () => {

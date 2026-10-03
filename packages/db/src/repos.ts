@@ -8,6 +8,7 @@ export type Conversa = Linha<'conversas'>;
 export type Mensagem = Linha<'mensagens'>;
 export type Chamado = Linha<'chamados'>;
 type TipoMensagem = Database['public']['Enums']['tipo_mensagem'];
+export type Prioridade = Database['public']['Enums']['prioridade_demanda'];
 
 export type EmpresaDoContato = { id: string; nome: string; podePedirNota: boolean; agentePausado: boolean };
 export type ContatoEncontrado = { id: string; nome: string; agentePausado: boolean; empresas: EmpresaDoContato[] };
@@ -30,6 +31,8 @@ export type NovaMensagemEntrada = {
 export type NovoChamado = {
   clienteId: string | null; conversaId: string | null; setorId: string | null; responsavelId: string | null;
   titulo: string; resumo: string; foraDoContrato: boolean; origem: string;
+  /** Sem ela, o banco usa 'normal'. O prazo é sempre calculado pelo banco. */
+  prioridade?: Prioridade;
 };
 export type TipoParceiro = 'cliente' | 'fornecedor';
 export type UnidadeParceiro = {
@@ -243,9 +246,8 @@ export function criarRepos(db: Db) {
     async abrirChamado(c: NovoChamado): Promise<{ id: string; numero: number }> {
       const novo = checar(await db.from('chamados').insert({
         cliente_id: c.clienteId, conversa_id: c.conversaId, setor_id: c.setorId, responsavel_id: c.responsavelId,
-        titulo: c.titulo, resumo: c.resumo, fora_do_contrato: c.foraDoContrato, origem: c.origem,
+        titulo: c.titulo, resumo: c.resumo, fora_do_contrato: c.foraDoContrato, origem: c.origem, prioridade: c.prioridade ?? 'normal',
       }).select('id, numero').single(), 'abrirChamado');
-      checar(await db.from('chamado_eventos').insert({ chamado_id: novo.id, cliente_id: c.clienteId, tipo: 'criacao', texto: c.resumo }), 'abrirChamado');
       return { id: novo.id, numero: Number(novo.numero) };
     },
 
