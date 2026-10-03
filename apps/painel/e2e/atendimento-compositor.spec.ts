@@ -196,6 +196,15 @@ test('Respostas prontas abre a lista mesmo com texto sem espaço antes do "/"', 
     await expect(campo).toHaveValue('Olá /');
     await campo.press('Enter');
     await expect(campo).toHaveValue('Olá Atendemos das 8h às 18h.');
+    // Texto terminando na letra "s": também entra o espaço antes do "/".
+    await campo.fill('Obrigados');
+    await page.getByRole('button', { name: 'Respostas prontas' }).click();
+    await expect(campo).toHaveValue('Obrigados /');
+    await expect(page.getByRole('listbox', { name: 'Respostas prontas' })).toBeVisible();
+    // Texto que já termina em espaço: sem espaço dobrado.
+    await campo.fill('Olá ');
+    await page.getByRole('button', { name: 'Respostas prontas' }).click();
+    await expect(campo).toHaveValue('Olá /');
   } finally {
     await db.from('respostas_prontas').delete().eq('pergunta', 'Horário e2e compositor');
   }

@@ -102,6 +102,7 @@ function FormResposta({ responder, respostas, conversaId, podeSugerir, abrirDema
   return (
     <form action={responder} onReset={() => { setArquivo(null); setDeSugestao(false); }}
       // Campo esvaziado: o texto deixa de ser "a sugestão" e a marca sai.
+      // Só digitação dispara onInput: a sugestão entra por código (el.value = ...) e por isso não apaga a marca.
       onInput={(e) => { if (deSugestao && e.target === campo.current && campo.current.value.trim() === '') setDeSugestao(false); }}
       className={cn('rounded-md border bg-surface shadow-sm focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-ring',
         deSugestao ? 'border-brand' : 'border-input focus-within:border-brand')}>
@@ -148,7 +149,7 @@ function FormResposta({ responder, respostas, conversaId, podeSugerir, abrirDema
             const el = campo.current;
             if (!el) return;
             // "/" só abre a lista no começo de uma palavra: com texto sem espaço no fim, entra um espaço antes.
-            el.value += (el.value === '' || /s$/.test(el.value) ? '' : ' ') + '/';
+            el.value += (el.value === '' || /\s$/.test(el.value) ? '' : ' ') + '/';
             el.focus();
             el.setSelectionRange(el.value.length, el.value.length);
             el.dispatchEvent(new Event('input', { bubbles: true }));

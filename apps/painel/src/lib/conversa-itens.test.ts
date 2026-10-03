@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  agruparPorTurno, cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, resumoPorQue, turnoDaPassagem,documentosAbertos, type DecisaoBruta,
+  agruparPorTurno, cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, resumoPorQue, turnoDaPassagem, documentosAbertos, type DecisaoBruta,
 } from './conversa-itens';
 import { AVISO_SEM_ACESSO_PEDIDO } from './pedido-nota';
 

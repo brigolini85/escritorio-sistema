@@ -19,7 +19,8 @@ export function FaixaPassagem({ desde, motivo, turno }: { desde: string; motivo:
     alvo?.focus({ preventScroll: true });
   };
   return (
-    <div role="note" aria-label="Passagem para pessoa" className="flex items-start gap-2 border-b border-border bg-warning-soft px-4 py-2 text-sm text-foreground">
+    // aria-live="off": a faixa fica dentro do role="log"; sem isto o log anunciaria o tempo que muda a cada 30 s.
+    <div role="note" aria-live="off" aria-label="Passagem para pessoa" className="flex items-start gap-2 border-b border-border bg-warning-soft px-4 py-2 text-sm text-foreground">
       <Hand aria-hidden size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-warning" />
       <p className="min-w-0 flex-1" suppressHydrationWarning>
         <strong>O agente passou para uma pessoa {min < 1 ? 'agora' : `há ${textoEspera(min)}`}.</strong>{' '}

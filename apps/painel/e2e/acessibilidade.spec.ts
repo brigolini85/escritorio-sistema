@@ -165,6 +165,8 @@ for (const tema of ['claro', 'escuro'] as const) {
       await expect(page.getByRole('log', { name: 'Histórico da conversa' })).toBeVisible();
       // Faixa de passagem + cronômetro (lista ao lado) e as abas da coluna da direita.
       await expect(page.getByRole('note', { name: 'Passagem para pessoa' })).toBeVisible();
+      // A faixa fica dentro do log, mas não é anunciada por ele (o tempo muda a cada 30 s).
+      await expect(page.getByRole('note', { name: 'Passagem para pessoa' })).toHaveAttribute('aria-live', 'off');
       for (const aba of ['Cliente', 'Assistente', 'Agente']) {
         await page.locator('#painel-conversa').getByRole('tab', { name: aba }).click();
         erros.push(...(await auditar(page, `conversa: aba ${aba}`, tema)));
