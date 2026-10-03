@@ -4902,13 +4902,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 1. **Resultado real de todas as suítes,** com o Supabase local nas portas 563xx (Restrições globais) e **`supabase db reset`** antes:
    - **regressão congelada:** a linha do `22_regressao_visibilidade.test.sql` de agora (100/100) ao lado da guardada na Task 1 (`$SCRATCH/regressao-antes.txt`), e `git diff e69bb7b -- supabase/tests/22_regressao_visibilidade.test.sql` **vazio**;
-   - `supabase test db`: todos os arquivos, com os números de cada um, inclusive `28` 14/14, `29` 35/35, `30` 17/17, `31` 19/19 e o `25` (função de gravação sem trava);
+   - `supabase test db`: todos os arquivos, com os números de cada um, inclusive `28` 14/14, `29` 41/41, `30` 27/27, `31` 18/18 (a asserção de Realtime saiu pelo ruling) e o `25` (função de gravação sem trava);
    - `pnpm --filter @escritorio/core test`;
    - `pnpm --filter @escritorio/db test` e `pnpm --filter @escritorio/db typecheck`;
    - `pnpm --filter @escritorio/trabalhador test` e `pnpm --filter @escritorio/trabalhador typecheck` (com `supabase db reset` antes, se o `supabase test db` rodou no mesmo banco);
    - `pnpm --filter @escritorio/painel test` e `pnpm --filter @escritorio/painel typecheck`;
    - `pnpm --filter @escritorio/painel e2e`: todos os specs, com `acessibilidade.spec.ts` nos dois temas (`supabase db reset` antes);
-   - **cenários com Claude real (P19):** `pnpm --filter @escritorio/trabalhador cenarios-atendimento` (5 cenários: 3 de passagem, 2 da sugestão; US$ menos de 1). Os 50 do agente (`cenarios`) **não** rodam (instrução desta parte); fica nas pendências;
+   - **cenários com Claude real (P19, ruling):** rodam **todos**: `pnpm --filter @escritorio/trabalhador cenarios` (os ~50 do agente, ~US$ 10–15) e `pnpm --filter @escritorio/trabalhador cenarios-atendimento` (os desta parte: passagem e sugestão). O ruling mudou a recomendação da P19 porque `passar_para_pessoa` muda o prompt do agente com clientes, e a regra 7b pode tirar casos de `abrir_chamado` / `sinalizar_nao_entendido`; só a suíte inteira mostra isso;
    - mostre os números exatos de cada suíte (passaram, falharam, pulados) e a linha final dos cenários. Nada de "deve passar";
    - ao terminar, devolva `supabase/config.toml` e `.env` às portas originais, a partir das cópias, e confira com `git status`.
 2. **Capturas para o dono comparar com `00-atendimento.png`:**
@@ -4920,9 +4920,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
    - com as variáveis do `.env.homologacao` carregadas (só leitura, sem alterar o arquivo), rode `supabase db push --db-url "$DATABASE_URL" --dry-run` e **mostre a saída ao dono**. Deve listar `20261005000100_painel_v2_leituras.sql` a `20261005000400_painel_v2_sugestao.sql` (e as das Partes C e D que ainda não estiverem lá);
    - explique o que muda para quem já está rodando na homologação:
      - **ninguém passa a ver mais nem menos** (teste 22); a `caixa_entrada` ganha colunas no fim (os painéis antigos não as leem);
-     - `criar_demanda` ganha um parâmetro com padrão: os painéis antigos (Parte C na 3006, Parte D na 3007) continuam abrindo demanda igual;
+     - `criar_demanda` ganha uma função nova de 9 parâmetros (com a conversa, sem valores padrão) e a de 8 parâmetros vira um invólucro dela, com os mesmos acessos: os painéis antigos (Parte C na 3006, Parte D na 3007) continuam chamando a de 8 e abrindo demanda igual;
      - assumir/devolver passam a limpar a espera e gravar marcos também quando feitos pelos painéis antigos;
-     - **com o trabalhador antigo (3001)** ainda ligado: o motivo da passagem **não** é gravado (a lista nova mostra só as assumidas em "Esperando pessoa"), o "por quê?" e o link do documento só aparecem nas respostas do trabalhador novo, e **Sugerir resposta não responde** (a fila `sugerir_resposta` não tem quem a atenda; o pedido vira "Demorou demais" em 2 minutos). Tudo isso passa a funcionar quando o dono trocar o trabalhador (item 4);
+     - **com o trabalhador antigo (3001)** ainda ligado: o motivo da passagem **não** é gravado (a lista nova mostra só as assumidas em "Esperando pessoa"), o "por quê?" e o link do documento só aparecem nas respostas do trabalhador novo, e **Sugerir resposta não responde** (a fila `sugerir_resposta` não tem quem a atenda; o pedido vira "Demorou demais" em 2 minutos). Também **o número "esperando você", o do menu e o aviso de nova conversa não sobem nas escaladas do agente** (sem motivo gravado, nada entra na espera; antes eles seguiam as demandas sem responsável). Tudo isso passa a funcionar quando o dono trocar o trabalhador (item 4);
    - **espere o "ok" dele.** Só então rode o mesmo comando sem `--dry-run`. Sem o "ok", pare aqui: o painel desta branch precisa das colunas novas.
 4. **Subir para o dono testar:**
    - **painel** desta worktree numa porta livre. Sugestão: **3008** (3002 e 3003 são da Parte A, 3004 da B, 3005 das sobras, 3006 da C, 3007 da D). Antes, `netstat -ano | findstr :3008`. Mesmo jeito do `ligar-teste.ps1` da raiz do repositório principal: variáveis do `.env.homologacao` carregadas e `pnpm --filter @escritorio/painel exec next dev -p 3008` rodando nesta worktree;
@@ -4942,7 +4942,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 5. **Pendências para listar no fim:**
    - as respostas do dono às perguntas P1 a P22 que ainda faltam, e as decisões 1 a 12 que ele ainda não confirmou;
    - o que ficou diferente da imagem 00;
-   - os 50 cenários do agente não rodaram (P19); recomendação: rodar antes de juntar, porque a ferramenta `passar_para_pessoa` mudou o prompt;
+   - o resultado dos ~50 cenários do agente (P19, ruling: rodam todos na Entrega) e qualquer caso que a regra 7b tenha tirado de `abrir_chamado` / `sinalizar_nao_entendido`;
    - Parte F: preencher `uso_ia.funcionalidade`/`usuario_id` nos outros caminhos e nos registros antigos; mostrar "sugerir resposta" na tela de gastos;
    - Parte H: linha "Papel" do contato; filtro de acesso por contato também na sugestão;
    - Parte G: a seção "Atendimento" de Configurações muda de lugar no redesenho.
