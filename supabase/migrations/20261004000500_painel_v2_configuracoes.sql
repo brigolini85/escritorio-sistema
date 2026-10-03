@@ -8,10 +8,18 @@ create policy leitura_configuracoes on public.configuracoes for select to authen
 create policy alteracao_configuracoes on public.configuracoes for update to authenticated
   using (public.tem_permissao('configuracoes', 'sim')) with check (public.tem_permissao('configuracoes', 'sim'));
 
+-- Setor e serviço: cadastra e altera, mas excluir de vez continua só do administrador (spec 5.2); apagar um setor
+-- leva junto os vínculos de pessoas, responsáveis, alertas e orientações. Feriado e resposta pronta não levam nada.
 do $$
 declare t text;
 begin
-  foreach t in array array['setores', 'servicos', 'feriados', 'respostas_prontas'] loop
+  foreach t in array array['setores', 'servicos'] loop
+    execute format('create policy insercao_configuracoes on public.%I for insert to authenticated '
+                   'with check (public.tem_permissao(''configuracoes'', ''sim''))', t);
+    execute format('create policy alteracao_configuracoes on public.%I for update to authenticated '
+                   'using (public.tem_permissao(''configuracoes'', ''sim'')) with check (public.tem_permissao(''configuracoes'', ''sim''))', t);
+  end loop;
+  foreach t in array array['feriados', 'respostas_prontas'] loop
     execute format('create policy escrita_configuracoes on public.%I for all to authenticated '
                    'using (public.tem_permissao(''configuracoes'', ''sim'')) with check (public.tem_permissao(''configuracoes'', ''sim''))', t);
   end loop;

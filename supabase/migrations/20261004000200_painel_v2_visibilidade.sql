@@ -51,12 +51,13 @@ language sql stable security definer set search_path = '' as $$ select public.po
 -- ---------- Alertas do setor: só quem vê as demandas do setor ("Do meu setor" ou "Todas") ----------
 -- Alerta com pessoa continua só dela (e do administrador). "Só as minhas" não recebe o do setor: não veria a demanda.
 
+-- O nível vai dentro de (select …) para rodar uma vez por consulta, e não uma por alerta.
 drop policy leitura on public.alertas;
 create policy leitura on public.alertas for select to authenticated using (
   public.eh_admin()
   or (public.eh_usuario_ativo() and usuario_id = auth.uid())
   or (usuario_id is null and setor_id is not null and setor_id in (select public.meus_setores())
-      and public.tem_nivel('demandas', 'meu_setor'))
+      and (select public.tem_nivel('demandas', 'meu_setor')))
 );
 
 create or replace function public.marcar_alerta_lido(p_alerta uuid) returns void
@@ -67,7 +68,7 @@ begin
     public.eh_admin()
     or (public.eh_usuario_ativo() and usuario_id = auth.uid())
     or (usuario_id is null and setor_id is not null and setor_id in (select public.meus_setores())
-        and public.tem_nivel('demandas', 'meu_setor'))
+        and (select public.tem_nivel('demandas', 'meu_setor')))
   );
 end $$;
 
