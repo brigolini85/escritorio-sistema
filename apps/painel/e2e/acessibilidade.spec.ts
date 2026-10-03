@@ -12,6 +12,7 @@ const CNPJ = '11444777000161';
 // Textos próprios deste spec: não podem conter trechos que outros specs procuram com getByText.
 const TITULO = 'Comprovante de acessibilidade (a11y)';
 const TITULO_ORIENTACAO = 'Orientação de acessibilidade (a11y)';
+const TURNO = '44444444-4444-4444-8444-444444444444';
 
 let usuarioSemeado: string | null = null;
 
@@ -30,11 +31,17 @@ async function semear(): Promise<Ids> {
   const { data: cliente } = await db.from('clientes').insert({ razao_social: 'Empresa Acessível Ltda', nome_fantasia: 'Acessível', cnpj: CNPJ }).select().single();
   const { data: contato } = await db.from('contatos').insert({ nome: 'Clara Acessível', telefone: TELEFONE }).select().single();
   await db.from('contato_clientes').insert({ contato_id: contato!.id, cliente_id: cliente!.id, pode_pedir_nota: true });
-  const { data: conversa } = await db.from('conversas').insert({ telefone: TELEFONE, contato_id: contato!.id, cliente_em_foco: cliente!.id }).select().single();
+  // Passagem para pessoa em andamento: a faixa amarela, o cronômetro e o "Ver decisão" entram na auditoria.
+  const minAtras = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+  const { data: conversa } = await db.from('conversas').insert({
+    telefone: TELEFONE, contato_id: contato!.id, cliente_em_foco: cliente!.id,
+    aguardando_pessoa_desde: minAtras(9), motivo_pessoa: 'não entendeu o pedido duas vezes',
+  }).select().single();
   await db.from('mensagens').insert([
-    { conversa_id: conversa!.id, direcao: 'entrada', autor: 'cliente', tipo: 'texto', conteudo: 'Bom dia, preciso do comprovante de acessibilidade.' },
-    { conversa_id: conversa!.id, direcao: 'saida', autor: 'agente', tipo: 'texto', conteudo: 'Bom dia! Já encaminhei para o Fiscal.' },
+    { conversa_id: conversa!.id, direcao: 'entrada', autor: 'cliente', tipo: 'texto', conteudo: 'Bom dia, preciso do comprovante de acessibilidade.', criado_em: minAtras(11), processada_em: minAtras(11) },
+    { conversa_id: conversa!.id, direcao: 'saida', autor: 'agente', tipo: 'texto', conteudo: 'Bom dia! Já encaminhei para o Fiscal.', criado_em: minAtras(10), turno_agente: TURNO, status_envio: 'enviada' },
   ]);
+  await db.from('decisoes_agente').insert({ conversa_id: conversa!.id, etapa: 'sinalizar_nao_entendido', entrada: {}, saida: {}, turno: TURNO, criado_em: minAtras(9.5) });
   const { data: setor } = await db.from('setores').select('id').eq('nome', 'Fiscal').single();
   const { data: demanda } = await db.from('chamados')
     .insert({ conversa_id: conversa!.id, cliente_id: cliente!.id, setor_id: setor!.id, titulo: TITULO, resumo: 'Cliente pediu o comprovante de acessibilidade.' })
@@ -156,6 +163,13 @@ for (const tema of ['claro', 'escuro'] as const) {
       const erros: string[] = [];
       await page.goto(`/atendimento/${ids.conversa}`);
       await expect(page.getByRole('log', { name: 'Histórico da conversa' })).toBeVisible();
+      // Faixa de passagem + cronômetro (lista ao lado) e as abas da coluna da direita.
+      await expect(page.getByRole('note', { name: 'Passagem para pessoa' })).toBeVisible();
+      for (const aba of ['Cliente', 'Assistente', 'Agente']) {
+        await page.locator('#painel-conversa').getByRole('tab', { name: aba }).click();
+        erros.push(...(await auditar(page, `conversa: aba ${aba}`, tema)));
+      }
+      await page.locator('#painel-conversa').getByRole('tab', { name: 'Cliente' }).click();
 
       await page.keyboard.press('Control+k');
       await page.getByRole('dialog').getByRole('combobox').fill('Acess');

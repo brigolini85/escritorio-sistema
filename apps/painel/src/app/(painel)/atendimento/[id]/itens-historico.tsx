@@ -20,7 +20,7 @@ export function MarcoConversa({ texto, criadoEm }: { texto: string; criadoEm: st
 /** Cartão de decisão (tracejado): o que o agente fez de importante neste turno. Alvo do "Ver decisão". */
 export function CartaoDecisaoConversa({ cartao }: { cartao: CartaoDecisao }) {
   return (
-    <div id={`turno-${cartao.turno}`} tabIndex={-1} className="ml-auto flex max-w-3/4 flex-col gap-0.5 rounded-lg border border-dashed border-agent-active px-3 py-2 text-sm focus:outline-2 focus:outline-ring">
+    <div id={`turno-${cartao.turno}`} tabIndex={-1} className="ml-auto flex max-w-3/4 scroll-mt-16 flex-col gap-0.5 rounded-lg border border-dashed border-agent-active px-3 py-2 text-sm focus:outline-2 focus:outline-ring">
       <p className="font-semibold text-foreground">Decisão do agente · <time dateTime={cartao.criado_em} className="tabular">{formatarHora(cartao.criado_em)}</time></p>
       <p className="text-muted">{cartao.linha}</p>
     </div>

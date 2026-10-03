@@ -2,7 +2,8 @@
 
 import { ClipboardPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useId, useState, useTransition } from 'react';
+import { useId, useRef, useState, useTransition } from 'react';
+import { useDescarteProtegido } from '@/components/patterns/formulario-alteravel';
 import { NovaDemanda } from '../../demandas/nova-demanda';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -17,6 +18,9 @@ export function AbrirDemanda({ conversaId, desligado }: { conversaId: string; de
   const idAviso = useId();
   const [dados, setDados] = useState<Dados | null>(null);
   const [carregando, iniciar] = useTransition();
+  const conteudo = useRef<HTMLDivElement>(null);
+  // Esc, X ou clique fora com a demanda já preenchida pergunta antes de descartar (igual ao painel de Demandas).
+  const { tentarFechar, janela } = useDescarteProtegido();
   const abrir = () => iniciar(async () => {
     const r = await dadosAbrirDemanda(conversaId);
     if ('erro' in r) toast.error(r.erro); else setDados(r);
@@ -28,8 +32,8 @@ export function AbrirDemanda({ conversaId, desligado }: { conversaId: string; de
         Abrir demanda
       </Button>
       {desligado && <span id={idAviso} className="text-xs text-muted">{desligado}</span>}
-      <Sheet open={Boolean(dados)} onOpenChange={(v) => { if (!v) setDados(null); }}>
-        <SheetContent aria-describedby={undefined}>
+      <Sheet open={Boolean(dados)} onOpenChange={(v) => { if (!v) tentarFechar(conteudo.current, () => setDados(null)); }}>
+        <SheetContent ref={conteudo} aria-describedby={undefined}>
           {dados && (
             <NovaDemanda
               empresas={dados.empresas} setores={dados.setores} pessoas={dados.pessoas} sugeridos={dados.sugeridos} podePrazo={dados.podePrazo}
@@ -38,6 +42,7 @@ export function AbrirDemanda({ conversaId, desligado }: { conversaId: string; de
               aoCancelar={() => setDados(null)}
             />
           )}
+          {janela}
         </SheetContent>
       </Sheet>
     </>

@@ -9,3 +9,6 @@ export function painelAbertoDoCookie(valor: string | undefined): boolean {
 export function cookiePainelConversa(aberto: boolean): string {
   return `${COOKIE_PAINEL_CONVERSA}=${aberto ? '1' : '0'}; Path=/; Max-Age=31536000; SameSite=Lax`;
 }
+
+/** Nome da coluna da direita conforme as abas que a pessoa tem: "Cliente e Agente" ou "Cliente, Assistente e Agente". */
+export const rotuloDasAbas = (comAssistente: boolean) => (comAssistente ? 'Cliente, Assistente e Agente' : 'Cliente e Agente');

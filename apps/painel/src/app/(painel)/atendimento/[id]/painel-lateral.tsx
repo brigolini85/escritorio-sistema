@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/cn';
 import { useEstadoConversa, type AbaPainel } from './estado-conversa';
+import { rotuloDasAbas } from './preferencias-conversa';
 
 /**
  * Coluna da direita (spec 7A.1): CLIENTE · ASSISTENTE · AGENTE. Recolhível pelo botão do cabeçalho ou Esc.
@@ -21,7 +22,7 @@ export function PainelLateral({ cliente, assistente, agente }: { cliente: ReactN
   return (
     <aside
       id="painel-conversa"
-      aria-label="Cliente, assistente e agente"
+      aria-label={rotuloDasAbas(Boolean(assistente))}
       className={cn(
         'flex min-h-0 flex-col border-t border-border bg-surface lg:border-l lg:border-t-0',
         'lg:max-xl:z-30 lg:max-xl:col-start-1 lg:max-xl:row-start-2 lg:max-xl:w-painel-conversa lg:max-xl:justify-self-end lg:max-xl:shadow-md',

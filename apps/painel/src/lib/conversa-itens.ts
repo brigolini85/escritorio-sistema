@@ -108,13 +108,6 @@ export function agruparPorTurno(decisoes: DecisaoBruta[]): { turno: string | nul
   return grupos.sort((a, b) => tempo(b.criado_em) - tempo(a.criado_em));
 }
 
-/** "Ver decisão" da faixa de passagem: o turno mais novo até a passagem. */
-export function ultimoTurnoAntes(decisoes: DecisaoBruta[], ate: string | null): string | null {
-  if (!ate) return null;
-  const antes = decisoes.filter((d) => d.turno && tempo(d.criado_em) <= tempo(ate)).sort((a, b) => tempo(b.criado_em) - tempo(a.criado_em));
-  return antes[0]?.turno ?? null;
-}
-
 /**
  * "Ver decisão" da faixa de passagem: o turno com cartão que veio depois da última mensagem do cliente e até a passagem,
  * ou seja, o que causou a passagem. Pausa e teto passam sem rodar o agente: sem turno, sem botão.

@@ -46,8 +46,8 @@ test('aba CLIENTE: empresa, contato, demandas da empresa, pedidos com valor e do
   await expect(painel.getByText('Simples Nacional')).toBeVisible();
   await expect(painel.getByText(s.servico)).toBeVisible();
   await expect(painel.getByRole('link', { name: /abrir ficha/ })).toHaveAttribute('href', /\/clientes\//);
-  await expect(painel.getByText('Pode pedir nota').locator('..')).toContainText('Sim');
-  await expect(painel.getByText('Pode mudar preço').locator('..')).toContainText('Não');
+  await expect(painel.getByText('Pode pedir nota').locator('xpath=following-sibling::dd[1]')).toHaveText('Sim');
+  await expect(painel.getByText('Pode mudar preço').locator('xpath=following-sibling::dd[1]')).toHaveText('Não');
   await expect(painel.getByRole('link', { name: new RegExp(`#${s.outra.numero}`) })).toHaveAttribute('href', `/demandas?demanda=${s.outra.id}`);
   // O número aparece no resumo da demanda e, dentro dela (fechada), no título: vale o primeiro.
   await expect(painel.getByText(`#${s.daConversa.numero}`).first()).toBeVisible();
@@ -103,4 +103,25 @@ test('de 1280 px o painel não cobre o histórico; em 1100 px cobre', async ({ p
     const [p2, l2] = [await painel.boundingBox(), await log.boundingBox()];
     return l2!.x + l2!.width > p2!.x + 1;
   }).toBe(true);
+});
+
+test('demanda da conversa sem empresa em foco aparece na aba CLIENTE e abre ali', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'ana-direita@e2e.local', senha: SENHA, nome: 'Ana Direita', papel: 'atendente', setores: ['Fiscal'] });
+  const tel = '5531970040002';
+  await db.from('chamados').delete().eq('titulo', 'Triagem sem empresa direita');
+  await db.from('conversas').delete().eq('telefone', tel);
+  const { data: fiscal } = await db.from('setores').select('id').eq('nome', 'Fiscal').single();
+  const { data: c } = await db.from('conversas').insert({ telefone: tel }).select().single();
+  const { data: d } = await db.from('chamados').insert({ conversa_id: c!.id, setor_id: fiscal!.id, titulo: 'Triagem sem empresa direita' }).select('id, numero').single();
+  await db.from('mensagens').insert({ conversa_id: c!.id, direcao: 'entrada', autor: 'cliente', conteudo: 'oi', processada_em: new Date().toISOString() });
+  await entrar(page, 'ana-direita@e2e.local', SENHA);
+  await page.goto(`/atendimento/${c!.id}`);
+  await expect(page.locator('body')).toHaveAttribute(HIDRATADA, '', { timeout: 30_000 });
+  const painel = page.locator('#painel-conversa');
+  await expect(painel.getByText('Nenhuma empresa ligada a esta conversa.')).toBeVisible();
+  await painel.getByText(`#${d!.numero}`).first().click();
+  await expect(painel.getByRole('button', { name: `Concluir a demanda #${d!.numero}` })).toBeVisible();
+  await expect(painel.getByRole('link', { name: `Abrir a demanda #${d!.numero} no painel` })).toHaveAttribute('href', `/demandas?demanda=${d!.id}`);
+  await painel.getByRole('button', { name: `Marcar a demanda #${d!.numero} como com o cliente` }).click();
+  await expect.poll(async () => (await db.from('chamados').select('status').eq('id', d!.id).single()).data!.status).toBe('aguardando_cliente');
 });

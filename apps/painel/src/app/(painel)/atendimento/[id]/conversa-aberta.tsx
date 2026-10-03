@@ -37,7 +37,7 @@ import { CartaoDecisaoConversa, MarcoConversa, PorQue } from './itens-historico'
 import { MarcarLida } from './marcar-lida';
 import { TrocarEmpresa } from './trocar-empresa';
 import { GradeConversa, PainelLateral } from './painel-lateral';
-import { COOKIE_PAINEL_CONVERSA, painelAbertoDoCookie } from './preferencias-conversa';
+import { COOKIE_PAINEL_CONVERSA, painelAbertoDoCookie, rotuloDasAbas } from './preferencias-conversa';
 
 const AUTOR: Record<string, AutorMensagem> = { cliente: 'cliente', agente: 'agente', atendente: 'atendente', sistema: 'sistema' };
 
@@ -127,7 +127,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
       conversa.contato_id
         ? sb.from('contato_clientes').select('pode_pedir_nota, pode_atualizar_preco').eq('contato_id', conversa.contato_id).eq('cliente_id', empresaId).maybeSingle()
         : Promise.resolve({ data: null }),
-      sb.from('chamados').select('id, numero, titulo, prioridade, prazo_em, prazo_pausado_desde, conversa_id')
+      sb.from('chamados').select('id, numero, titulo, prioridade, prazo_em, prazo_pausado_desde')
         .eq('cliente_id', empresaId).neq('status', 'concluido').order('prazo_em', { ascending: true, nullsFirst: false }).limit(20),
       // Sem acesso a pedidos de nota (P11), a consulta nem sai do servidor.
       verPedidos
@@ -210,9 +210,9 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   const daEmpresa = new Set((demandasEmpresa ?? []).map((d) => d.id));
   const demandasDaAba = [
     ...(demandasEmpresa ?? []).map((d) => ({ id: d.id, numero: d.numero, titulo: d.titulo, prioridade: d.prioridade as Prioridade,
-      prazo_em: d.prazo_em, prazo_pausado_desde: d.prazo_pausado_desde, daConversa: d.conversa_id === id })),
+      prazo_em: d.prazo_em, prazo_pausado_desde: d.prazo_pausado_desde })),
     ...abertas.filter((d) => !daEmpresa.has(d.id)).map((d) => ({ id: d.id, numero: d.numero, titulo: d.titulo, prioridade: d.prioridade as Prioridade,
-      prazo_em: d.prazo_em, prazo_pausado_desde: d.prazo_pausado_desde, daConversa: true })),
+      prazo_em: d.prazo_em, prazo_pausado_desde: d.prazo_pausado_desde })),
   ];
 
   return (
@@ -272,7 +272,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
               </p>
             </div>
             <AgentStateIndicator estado={estado} className="mt-0.5" />
-            <BotaoPainel />
+            <BotaoPainel rotuloAbas={rotuloDasAbas(podeAssistente)} />
           </div>
           <AcoesConversa
             minha={minha}
@@ -356,7 +356,10 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
           <Compositor
             responder={responder.bind(null, id)} demandas={demandasAcoes} respostas={respostas ?? []}
             conversaId={id} podeSugerir={usaAssistente(u, 'site')}
-            abrirDemanda={<AbrirDemanda key="abrir-demanda" conversaId={id} desligado={empresa || outrasEmpresas.length ? null : 'Cadastre o contato e a empresa antes de abrir uma demanda.'} />}
+            abrirDemanda={(
+              // key fixa: o elemento passa pelo Compositor (client) e a atualização ao vivo não pode remontar a janela já aberta.
+              <AbrirDemanda key="abrir-demanda" conversaId={id} desligado={empresa || outrasEmpresas.length ? null : 'Cadastre o contato e a empresa antes de abrir uma demanda.'} />
+            )}
           />
         </div>
       </GradeConversa>

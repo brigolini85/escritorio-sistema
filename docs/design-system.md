@@ -80,6 +80,8 @@ O painel não tem zoom: o tamanho da letra sobe sozinho com a tela, e a pessoa a
   - **Nome e monograma do escritório** (`lib/escritorio.ts`): `NOME_ESCRITORIO` e `MONOGRAMA`, usados no menu e no login. É o único lugar para trocar quando o logo chegar.
 - Uma tela (`app/(painel)/...`) monta patterns e primitivos. Ela não recria com classes soltas algo que já é um pattern.
 
+**Cronômetro de espera** (`atendimento/cronometro-espera.tsx`): verde/âmbar/vermelho pelos limites de Configurações › Atendimento, sempre com o número ("18 min") e, para o leitor de tela, "esperando há 18 minutos". **Marco** (centralizado, cinza) e **cartão de decisão** (tracejado) só aparecem na conversa; texto de pedido de nota nunca entra neles. O catálogo `/_design` mostra três cronômetros e um marco ("Atendimento (Parte E)").
+
 **Ficha em página inteira** (Parte D, `usuarios/ficha-usuario.tsx`): cadastros com muitos campos usam página inteira com trilha, 3 colunas e rodapé com Voltar e Salvar, em vez de painel lateral. Campos que somem por uma escolha (ex.: "Administrador = Sim") ficam num `fieldset` desligado e escondido pela classe `hidden`: não vão no envio e voltam com o valor de antes.
 
 ## Criar um componente novo
@@ -118,6 +120,7 @@ Use sempre estes termos, em português do Brasil:
 | Nota interna | comentário, observação privada |
 | Concluir | fechar, resolver |
 
+- **Atendimento:** "Esperando pessoa", "Com o agente", "Concluídas hoje", "esperando você", "agente passou: <motivo>", "pediu para falar com pessoa", "com <nome>", "respondendo", "resolvido pelo agente", "agente pausado para esta empresa / este contato", "Ver decisão", "por quê?", "Decisão do agente", "Sugestão do assistente (editável)", "Usar sugestão", "Abrir demanda", "trocar empresa", "Concluir atendimento".
 - **Pessoa** (usuário da equipe): "Nova pessoa", "Cadastro de <nome>". **Nível** (de uma permissão): "Só as minhas", "Do meu setor", "Todas", "Só ver", "Ver e editar", "Editar e arquivar", "Corrigir e gerar", "Site e WhatsApp". **Horário de acesso**: "Permitido", "Bloqueado", "Fora do seu horário de acesso".
 
 Os dois robôs têm nomes e cores diferentes:
@@ -127,7 +130,7 @@ Os dois robôs têm nomes e cores diferentes:
 
 ## Atalhos do teclado
 
-A lista aparece com `?` em qualquer tela, fora de campos de texto, ou pelo menu da pessoa, em "Atalhos do teclado". Ao criar um atalho, acrescente-o em `ATALHOS` (`components/layout/atalhos.ts`) e use `ignorarAtalho()` para ele não disparar enquanto a pessoa digita.
+A lista aparece com `?` em qualquer tela, fora de campos de texto, ou pelo menu da pessoa, em "Atalhos do teclado". Ao criar um atalho, acrescente-o em `ATALHOS` (`components/layout/atalhos.ts`) e use `ignorarAtalho()` para ele não disparar enquanto a pessoa digita. No compositor da conversa, **Enter envia e Shift+Enter quebra a linha** (Ctrl+Enter também envia); com a lista de respostas prontas aberta, Enter escolhe a resposta.
 
 ## Testes de acessibilidade
 

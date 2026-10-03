@@ -129,7 +129,7 @@ test('sem acesso a pedidos de nota, o por quê mostra o aviso e nunca o conteúd
     conversa_id: s.conversa, etapa: 'abrir_pedido_nota', entrada: { texto: 'SEGREDO-DO-PEDIDO 10 caixas' }, saida: { itens: 'SEGREDO-DO-PEDIDO' },
     turno: TURNO, criado_em: new Date(Date.now() - 29.3 * 60_000).toISOString(),
   });
-  await db.from('usuario_permissoes').update({ nivel: 'sem_acesso' }).eq('usuario_id', ana).eq('modulo', 'notas');
+  await db.from('usuario_permissoes').upsert({ usuario_id: ana, modulo: 'notas', nivel: 'sem_acesso' });
   await entrar(page, 'ana-conversa@e2e.local', SENHA);
   await page.goto(`/atendimento/${s.conversa}`);
   const log = page.getByRole('log', { name: 'Histórico da conversa' });

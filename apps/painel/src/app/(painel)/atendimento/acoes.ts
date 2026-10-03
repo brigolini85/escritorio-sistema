@@ -155,13 +155,15 @@ export async function pedirSugestao(conversaId: string): Promise<{ ok: true; id:
   return { ok: true, id: data as string };
 }
 
-export type LeituraSugestao = { status: 'pendente' | 'pronta' | 'falhou'; texto: string | null; erro: string | null };
+export type LeituraSugestao = { status: 'pendente' | 'pronta' | 'falhou' | 'erro'; texto: string | null; erro: string | null };
 
 /** Estado do pedido de sugestão (a tabela não está no Realtime: o painel pergunta a cada poucos segundos). Só quem pediu lê (RLS). */
 export async function lerSugestao(id: string): Promise<LeituraSugestao | null> {
   await obterUsuario();
   const sb = await supabaseServidor();
-  const { data } = await sb.from('sugestoes_resposta').select('status, texto, erro').eq('id', id).maybeSingle();
+  const { data, error } = await sb.from('sugestoes_resposta').select('status, texto, erro').eq('id', id).maybeSingle();
+  // Erro do banco (fora do horário, sessão vencida): não é "pendente"; o painel mostra o motivo depois de algumas tentativas.
+  if (error) return { status: 'erro', texto: null, erro: mensagemDoBanco(error.message) };
   return data ? { status: data.status as LeituraSugestao['status'], texto: data.texto, erro: data.erro } : null;
 }
 
@@ -179,5 +181,8 @@ export async function dadosAbrirDemanda(conversaId: string): Promise<(DadosNovaD
   const dados = await lerDadosNovaDemanda(sb, u, ids);
   if (dados.setores.length === 0) return { erro: 'Você não tem setor para abrir demanda.' };
   if (dados.empresas.length === 0) return { erro: 'Cadastre o contato e a empresa antes de abrir uma demanda.' };
-  return { ...dados, inicial: { cliente: c.cliente_em_foco && dados.empresas.some((e) => e.id === c.cliente_em_foco) ? c.cliente_em_foco : dados.empresas[0]!.id, contato: c.contato_id ?? '' } };
+  const cliente = c.cliente_em_foco && dados.empresas.some((e) => e.id === c.cliente_em_foco) ? c.cliente_em_foco : dados.empresas[0]!.id;
+  // O contato só vem escolhido se fala por esta empresa (senão a lista de contatos dela não o teria).
+  const ligado = Boolean(c.contato_id) && (vinculos ?? []).some((v) => v.cliente_id === cliente);
+  return { ...dados, inicial: { cliente, contato: ligado ? c.contato_id! : '' } };
 }

@@ -45,7 +45,7 @@ export function DemandaDaConversa({ d, acoes, comprador, podeCsv }: {
       <div className="flex flex-wrap items-center gap-2">
         {d.status !== 'aguardando_cliente' && (
           <form action={acoes.aguardandoCliente}>
-            <Button size="sm" variant="outline"><Clock aria-hidden size={16} strokeWidth={1.75} />Com o cliente</Button>
+            <Button size="sm" variant="outline" aria-label={`Marcar a demanda #${d.numero} como com o cliente`}><Clock aria-hidden size={16} strokeWidth={1.75} />Com o cliente</Button>
           </form>
         )}
         <ConfirmDialog
@@ -58,7 +58,7 @@ export function DemandaDaConversa({ d, acoes, comprador, podeCsv }: {
           tipo="concluir"
           acao={acoes.concluir}
         />
-        <Link href={`/demandas?demanda=${d.id}`} className="text-sm text-brand underline-offset-4 hover:underline">abrir no painel</Link>
+        <Link href={`/demandas?demanda=${d.id}`} aria-label={`Abrir a demanda #${d.numero} no painel`} className="text-sm text-brand underline-offset-4 hover:underline">abrir no painel</Link>
       </div>
     </article>
   );

@@ -24,7 +24,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { LIMITES_PADRAO } from '@/lib/atendimento';
 import { lerOrdem, lerPagina, ordenarLinhas, paginar, valorParam, type ParamsBusca } from '@/lib/tabela-url';
+import { CronometroEspera } from '../atendimento/cronometro-espera';
+import { MarcoConversa } from '../atendimento/[id]/itens-historico';
 import { DemoConfirmacoes, DemoTabela, DemoTiposConfirmacao, type DemandaExemplo } from './demos-padroes';
 
 // Seção "Padrões de domínio" do /_design (fase 3): cada padrão de components/patterns com dados de exemplo.
@@ -311,6 +314,13 @@ export function Padroes({ params }: { params: ParamsBusca }) {
           />
         </Exemplo>
       </div>
+
+      <Exemplo titulo="Atendimento (Parte E): CronometroEspera (verde, âmbar, vermelho) e MarcoConversa">
+        <CronometroEspera desde={ha(3 * 60)} limites={LIMITES_PADRAO} />
+        <CronometroEspera desde={ha(10 * 60)} limites={LIMITES_PADRAO} />
+        <CronometroEspera desde={ha(20 * 60)} limites={LIMITES_PADRAO} />
+        <MarcoConversa texto="Demanda #1042 aberta no Fiscal · urgente" criadoEm={ha(60)} />
+      </Exemplo>
     </Secao>
   );
 }

@@ -9,6 +9,8 @@ import { lerSugestao, pedirSugestao, type LeituraSugestao } from '../acoes';
 /** A tabela não está no Realtime: pergunta a cada INTERVALO_MS (≤ 3 s) até sair de "pendente" ou passar ESPERA_MAXIMA_MS. */
 const INTERVALO_MS = 2_500;
 const ESPERA_MAXIMA_MS = 120_000;
+/** Consultas seguidas com erro do banco (ou da rede) antes de mostrar o motivo, em vez de esperar os 2 minutos. */
+const ERROS_SEGUIDOS = 3;
 
 /**
  * Sugerir resposta (spec 7A.1): só ao clicar; o resultado entra no campo, marcado como sugestão, e só se o campo estiver vazio.
@@ -22,6 +24,8 @@ export function SugerirResposta({ conversaId, campo, aoUsar }: {
   const [pedido, setPedido] = useState<string | null>(null);
   const [pronta, setPronta] = useState<string | null>(null);
   const [pedindo, setPedindo] = useState(false);
+  // Texto da região viva depois que o pedido termina ("Sugestão no campo" / "Sugestão pronta…").
+  const [anuncio, setAnuncio] = useState('');
   const tratado = useRef<string | null>(null);
 
   useEffect(() => {
@@ -29,15 +33,18 @@ export function SugerirResposta({ conversaId, campo, aoUsar }: {
     let ativo = true;
     let tempo: ReturnType<typeof setTimeout> | undefined;
     const inicio = Date.now();
+    let errosSeguidos = 0;
     const tratar = (l: LeituraSugestao | null) => {
       if (!ativo || tratado.current === pedido) return;
+      errosSeguidos = !l || l.status === 'erro' ? errosSeguidos + 1 : 0;
       if (l?.status !== 'pronta' && l?.status !== 'falhou') {
-        if (Date.now() - inicio >= ESPERA_MAXIMA_MS) l = { status: 'falhou', texto: null, erro: 'Demorou demais. Tente de novo.' };
+        if (errosSeguidos >= ERROS_SEGUIDOS) l = { status: 'falhou', texto: null, erro: l?.erro ?? 'Não consegui consultar a sugestão. Tente de novo.' };
+        else if (Date.now() - inicio >= ESPERA_MAXIMA_MS) l = { status: 'falhou', texto: null, erro: 'Demorou demais. Tente de novo.' };
         else return;
       }
       tratado.current = pedido;
       setPedido(null);
-      if (l.status === 'falhou' || !l.texto) {
+      if (l.status !== 'pronta' || !l.texto) {
         toast.error(l.erro ?? 'Não consegui sugerir agora.');
         return;
       }
@@ -45,9 +52,11 @@ export function SugerirResposta({ conversaId, campo, aoUsar }: {
       if (el && el.value.trim() === '') {
         el.value = l.texto;
         el.focus();
+        setAnuncio('Sugestão no campo');
         aoUsar();
       } else {
         setPronta(l.texto);
+        setAnuncio('Sugestão pronta. Escolha usar ou descartar.');
       }
     };
     const perguntar = async () => {
@@ -65,6 +74,7 @@ export function SugerirResposta({ conversaId, campo, aoUsar }: {
 
   const pedir = async () => {
     setPronta(null);
+    setAnuncio('');
     setPedindo(true);
     const r = await pedirSugestao(conversaId).finally(() => setPedindo(false));
     if (!r.ok) {
@@ -81,17 +91,19 @@ export function SugerirResposta({ conversaId, campo, aoUsar }: {
         <Sparkles aria-hidden size={16} strokeWidth={1.75} />
         Sugerir resposta
       </Button>
-      <span aria-live="polite" className="text-xs text-muted">{pedido || pedindo ? 'Preparando sugestão…' : ''}</span>
+      {/* Uma região viva só: "Preparando…" (visível) e, ao terminar, o aviso para o leitor de tela. */}
+      <span aria-live="polite" className={pedido || pedindo ? 'text-xs text-muted' : 'sr-only'}>{pedido || pedindo ? 'Preparando sugestão…' : anuncio}</span>
       {pronta && (
-        <span role="status" className="flex w-full flex-wrap items-center gap-2 rounded-md bg-assistant-soft px-2 py-1.5 text-sm text-foreground">
+        <span className="flex w-full flex-wrap items-center gap-2 rounded-md bg-assistant-soft px-2 py-1.5 text-sm text-foreground">
           <span className="font-medium">Sugestão pronta</span>
           <span className="line-clamp-1 min-w-0 flex-1 text-muted">{pronta}</span>
           <Button type="button" size="sm" onClick={() => {
             if (campo.current) { campo.current.value = pronta; campo.current.focus(); }
             setPronta(null);
+            setAnuncio('Sugestão no campo');
             aoUsar();
           }}>Usar sugestão</Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setPronta(null)}>Descartar</Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => { setPronta(null); setAnuncio(''); }}>Descartar</Button>
         </span>
       )}
     </>

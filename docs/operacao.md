@@ -140,9 +140,31 @@ Quando a Parte D entrou, cada pessoa recebeu o nível que reproduz o que ela já
 
 **Último acesso** aparece no topo da ficha e na lista (atualiza no máximo a cada 10 minutos de uso).
 
+### Atendimento: quem espera, por quê e as sugestões
+
+A lista mostra primeiro **Esperando pessoa** (o agente passou a conversa para alguém, ou a conversa está assumida por alguém), com quem espera há mais tempo no topo. Depois vem **Com o agente** e, recolhidas, as **Concluídas hoje**. O título diz quantas esperam por você (as que estão sem ninguém ou assumidas por você); o número ao lado de Atendimento no menu é o mesmo. O seletor **Filtro**, ao lado da busca, continua existindo (Aguardando humano, Comigo, Do meu setor e os outros); os grupos aparecem dentro do filtro escolhido.
+
+- **Cronômetro:** verde até 5 minutos de espera, âmbar até 15, vermelho depois. Sempre vem escrito o número de minutos, a cor nunca está sozinha. Para mudar os limites: Configurações › Atendimento.
+- **Bolinha de não lidas:** são as mensagens do cliente que **você** ainda não leu. Cada pessoa tem a sua conta: abrir a conversa zera só para você, a bolinha do colega continua. Conversa que você nunca abriu conta só as mensagens depois da última resposta (até "9+").
+- **Por que passou para pessoa:** o cliente pediu ("pediu para falar com pessoa"), o agente não entendeu duas vezes, o teto de IA foi atingido, o agente estava pausado ou houve uma falha. O motivo aparece na lista e na **faixa amarela** no topo da conversa; o botão **Ver decisão** leva ao cartão do que o agente fez. Passar para pessoa **não cala o agente**: ele continua respondendo o cliente até alguém assumir.
+- **Assumir, Devolver ao agente e Concluir.** Assumir tira a conversa do agente. Devolver ao agente entrega de volta. **Concluir** (aparece depois de assumir) encerra o atendimento humano: a conversa volta para o agente e vai para "Concluídas hoje". Concluir o atendimento **não conclui as demandas**: elas continuam abertas até alguém concluí-las (cada demanda tem o próprio Concluir, na aba Cliente). Se o cliente escrever de novo, a conversa volta para "Com o agente".
+- **"por quê?"** embaixo de cada resposta nova do agente mostra o que ele consultou. Os **cartões tracejados** mostram o que ele fez de importante (abriu demanda, passou para pessoa, enviou documento). Os **marcos** cinza no meio da conversa registram o que aconteceu (assumiu, devolveu, trocou a empresa, demanda aberta, transferida ou concluída). Nenhum marco mostra o texto de pedidos de nota. Respostas de antes desta versão não têm "por quê?"; a aba **Agente** tem todas as decisões, antigas e novas.
+- **Trocar empresa:** para contato que fala por mais de uma empresa. Só dá para trocar entre as empresas dele, não precisa assumir antes e fica registrado na conversa. **As demandas já abertas continuam com a empresa antiga**; só o que vier depois usa a nova empresa.
+- **Sugerir resposta:** só aparece para quem usa o assistente pelo site. A pessoa pede um rascunho e o assistente **só lê** (conversa, empresa, demandas, preços): ele **nunca envia nada** e não cria nem muda nada. O texto aparece no campo, marcado como "Sugestão do assistente (editável)", e só vai ao cliente se você clicar em **Enviar**. Se você já tinha começado a escrever, o texto não é apagado: aparece "Sugestão pronta" com **Usar sugestão** e **Descartar**. Apagar o texto do campo tira a marca de sugestão. A sugestão conta no teto de IA, aparece em Gastos com IA como "sugerir resposta" com o nome de quem pediu e some depois de 1 dia.
+- **Abrir demanda:** abre a janela de nova demanda já com a empresa, o contato e a conversa. Em conversa sem empresa cadastrada o botão fica desligado, com a explicação. Se você começou a preencher e tentar fechar a janela, o painel pergunta antes de descartar.
+- **Coluna da direita** (abas): **Cliente** (empresa, contato, demandas abertas, últimos pedidos de nota, documentos liberados para o agente), **Assistente** (só para quem usa o assistente) e **Agente** (todas as decisões do agente nesta conversa). Quem tem "Pedidos de nota: Sem acesso" não vê os pedidos nem o conteúdo deles em lugar nenhum desta tela. Ao escrever, Enter envia e Shift+Enter quebra a linha.
+
+**Atenção, só funciona depois de trocar o trabalhador.** O trabalhador que está ligado hoje (porta 3001) é o da Parte A, e ele não conhece as novidades do Atendimento. Enquanto não for trocado pelo desta versão:
+
+- **Sugerir resposta não responde:** o pedido fica sem quem o atenda e, em 2 minutos, aparece "Demorou demais".
+- **O motivo da passagem para pessoa não é gravado:** a lista nova mostra em "Esperando pessoa" só as conversas assumidas, e a faixa amarela não aparece.
+- O **"por quê?"** e o link do documento que o agente mandou só aparecem nas respostas do trabalhador novo.
+
+O que é só do painel (grupos, cronômetro, bolinha de não lidas, Assumir, Concluir, trocar empresa, Abrir demanda, abas) funciona já. Para trocar o trabalhador: feche a janela do trabalhador atual (Ctrl+C), abra o da versão nova no mesmo lugar (porta 3001, para onde o túnel já aponta). Para voltar ao anterior, feche o novo e abra o antigo.
+
 ### "Por que o agente fez isso?"
 
-Dentro de cada conversa, no lado direito, há o quadro **Por que o agente fez isso?**. Ele mostra cada ação do agente (qual ferramenta usou, com quais informações e o que aconteceu). Use para entender uma resposta estranha antes de pedir uma correção.
+Dentro de cada conversa, na aba **Agente** da coluna da direita, estão todas as ações do agente (qual ferramenta usou, com quais informações e o que aconteceu), e o "por quê?" aparece embaixo de cada resposta. Use para entender uma resposta estranha antes de pedir uma correção.
 
 ### Tipos de alerta
 

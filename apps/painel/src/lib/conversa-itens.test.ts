@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  agruparPorTurno, cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, resumoPorQue, turnoDaPassagem, ultimoTurnoAntes, documentosAbertos, type DecisaoBruta,
+  agruparPorTurno, cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, resumoPorQue, turnoDaPassagem,documentosAbertos, type DecisaoBruta,
 } from './conversa-itens';
 import { AVISO_SEM_ACESSO_PEDIDO } from './pedido-nota';
 
@@ -80,11 +80,6 @@ describe('marcos (decisão 6)', () => {
 describe('turnos', () => {
   it('agrupa por turno (sem turno: cada uma sozinha), o mais novo primeiro', () => {
     expect(agruparPorTurno(DECISOES).map((g) => [g.turno, g.decisoes.length])).toEqual([['T2', 3], ['T1', 2], [null, 1]]);
-  });
-  it('último turno antes da passagem (Ver decisão)', () => {
-    expect(ultimoTurnoAntes(DECISOES, '2026-10-05T14:32:30Z')).toBe('T2');
-    expect(ultimoTurnoAntes(DECISOES, '2026-10-05T14:31:30Z')).toBe('T1');
-    expect(ultimoTurnoAntes(DECISOES, null)).toBeNull();
   });
 });
 

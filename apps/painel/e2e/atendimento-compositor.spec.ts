@@ -7,7 +7,8 @@ const HIDRATADA = 'data-conversa-hidratada';
 // A primeira checagem de cada tela pode esperar a rota compilar; a sugestão é lida a cada ≤ 3 s.
 const LONGO = { timeout: 30_000 };
 
-async function cenario(comEmpresa = true) {
+/** `vincular`: o contato fala pela empresa (por padrão, sim quando há empresa). */
+async function cenario(comEmpresa = true, vincular = comEmpresa) {
   await db.from('chamados').delete().eq('titulo', 'Preço da costela para conferir');
   await db.from('conversas').delete().eq('telefone', TEL);
   await db.from('contatos').delete().eq('telefone', TEL);
@@ -15,7 +16,7 @@ async function cenario(comEmpresa = true) {
   const { data: setor } = await db.from('setores').select('id').eq('nome', 'Fiscal').single();
   const { data: cliente } = await db.from('clientes').insert({ razao_social: 'Rede Compositor Ltda', cnpj: '11222333000181' }).select().single();
   const { data: contato } = await db.from('contatos').insert({ nome: 'Carla Compositor', telefone: TEL }).select().single();
-  if (comEmpresa) await db.from('contato_clientes').insert({ contato_id: contato!.id, cliente_id: cliente!.id });
+  if (vincular) await db.from('contato_clientes').insert({ contato_id: contato!.id, cliente_id: cliente!.id });
   const { data: c } = await db.from('conversas').insert({ telefone: TEL, contato_id: contato!.id, cliente_em_foco: comEmpresa ? cliente!.id : null }).select().single();
   await db.from('chamados').insert({ conversa_id: c!.id, cliente_id: comEmpresa ? cliente!.id : null, setor_id: setor!.id, titulo: 'Compositor e2e' });
   await db.from('mensagens').insert({ conversa_id: c!.id, direcao: 'entrada', autor: 'cliente', conteudo: 'Qual o preço da costela?', processada_em: new Date().toISOString() });
@@ -77,9 +78,15 @@ test('Sugerir resposta: nada é gravado na conversa até ENVIAR; edita e envia (
   await db.from('sugestoes_resposta').update({ status: 'pronta', texto: 'Oi, Carla! A costela sai a R$ 9,50.', concluida_em: new Date().toISOString() }).eq('id', s.id);
   const campo = page.getByLabel('Resposta para o cliente');
   await expect(campo).toHaveValue('Oi, Carla! A costela sai a R$ 9,50.', LONGO);
-  await expect(page.getByText('Sugestão do assistente (editável)')).toBeVisible();
+  const marca = page.getByText('Sugestão do assistente (editável)');
+  await expect(marca).toBeVisible();
+  // O leitor de tela ouve o aviso na região viva (visível só para ele).
+  await expect(page.locator('[aria-live="polite"]').filter({ hasText: 'Sugestão no campo' })).toBeAttached();
   // Sugerir nunca envia: depois de a sugestão chegar, nenhuma mensagem foi gravada.
   expect(await contarMensagens(conversa)).toBe(antes);
+  // Campo esvaziado: o texto deixou de ser a sugestão e a marca sai.
+  await campo.fill('');
+  await expect(marca).toHaveCount(0);
   await campo.fill('Oi, Carla! A costela sai a R$ 9,50 a unidade.');
   await page.getByRole('tabpanel', { name: 'Responder ao cliente' }).getByRole('button', { name: 'Enviar' }).click();
   await expect(page.getByRole('log', { name: 'Histórico da conversa' }).getByText('Oi, Carla! A costela sai a R$ 9,50 a unidade.')).toBeVisible(LONGO);
@@ -98,7 +105,8 @@ test('sugestão com texto já digitado não sobrescreve (P12)', async ({ page })
   await expect(page.getByText('Preparando sugestão…')).toBeVisible(LONGO);
   const s = await pedidoDe(ana);
   await db.from('sugestoes_resposta').update({ status: 'pronta', texto: 'Texto sugerido', concluida_em: new Date().toISOString() }).eq('id', s.id);
-  await expect(page.getByText('Sugestão pronta')).toBeVisible(LONGO);
+  await expect(page.getByText('Sugestão pronta', { exact: true })).toBeVisible(LONGO);
+  await expect(page.locator('[aria-live="polite"]').filter({ hasText: 'Sugestão pronta. Escolha usar ou descartar.' })).toBeAttached();
   await expect(campo).toHaveValue('Meu rascunho');
   expect(await contarMensagens(conversa)).toBe(antes);
   await page.getByRole('button', { name: 'Usar sugestão' }).click();
@@ -157,4 +165,68 @@ test('Abrir demanda desligado em conversa sem empresa, com a explicação (P22)'
   await expect(botao).toBeDisabled();
   await expect(botao).toHaveAccessibleDescription('Cadastre o contato e a empresa antes de abrir uma demanda.');
   await expect(page.getByText('Cadastre o contato e a empresa antes de abrir uma demanda.')).toBeVisible();
+});
+
+test('erro persistente na consulta da sugestão mostra o aviso em segundos, sem esperar os 2 minutos', async ({ page }) => {
+  const ana = await criarUsuarioTeste({ email: 'ana-comp@e2e.local', senha: SENHA, nome: 'Ana Comp', papel: 'atendente', setores: ['Fiscal'], permissoes: ['assistente_site'] });
+  const conversa = await cenario();
+  await entrar(page, 'ana-comp@e2e.local', SENHA);
+  await abrir(page, conversa);
+  await page.getByRole('button', { name: 'Sugerir resposta' }).click();
+  await expect(page.getByText('Preparando sugestão…')).toBeVisible(LONGO);
+  await pedidoDe(ana);
+  // A partir daqui toda ação do servidor falha (rede caída): a consulta do painel erra três vezes seguidas.
+  await page.route('**/*', (r) => (r.request().method() === 'POST' && r.request().headers()['next-action'] ? r.abort() : r.continue()));
+  await expect(page.getByText('Não consegui consultar a sugestão. Tente de novo.')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('Preparando sugestão…')).toHaveCount(0);
+});
+
+test('Respostas prontas abre a lista mesmo com texto sem espaço antes do "/"', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'ana-comp@e2e.local', senha: SENHA, nome: 'Ana Comp', papel: 'atendente', setores: ['Fiscal'] });
+  const conversa = await cenario();
+  await db.from('respostas_prontas').delete().eq('pergunta', 'Horário e2e compositor');
+  await db.from('respostas_prontas').insert({ pergunta: 'Horário e2e compositor', resposta: 'Atendemos das 8h às 18h.' });
+  try {
+    await entrar(page, 'ana-comp@e2e.local', SENHA);
+    await abrir(page, conversa);
+    const campo = page.getByLabel('Resposta para o cliente');
+    await campo.fill('Olá');
+    await page.getByRole('button', { name: 'Respostas prontas' }).click();
+    await expect(page.getByRole('listbox', { name: 'Respostas prontas' })).toBeVisible();
+    await expect(campo).toHaveValue('Olá /');
+    await campo.press('Enter');
+    await expect(campo).toHaveValue('Olá Atendemos das 8h às 18h.');
+  } finally {
+    await db.from('respostas_prontas').delete().eq('pergunta', 'Horário e2e compositor');
+  }
+});
+
+test('Abrir demanda: fechar com a demanda preenchida pergunta antes de descartar', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'ana-comp@e2e.local', senha: SENHA, nome: 'Ana Comp', papel: 'atendente', setores: ['Fiscal'] });
+  const conversa = await cenario();
+  await entrar(page, 'ana-comp@e2e.local', SENHA);
+  await abrir(page, conversa);
+  await page.getByRole('button', { name: 'Abrir demanda' }).click();
+  const painel = page.getByRole('dialog', { name: 'Nova demanda' });
+  await expect(painel.getByLabel('Título')).toBeVisible(LONGO);
+  await painel.getByLabel('Título').fill('Rascunho que não pode se perder');
+  await page.keyboard.press('Escape');
+  const pergunta = page.getByRole('dialog', { name: 'Descartar as alterações?' });
+  await expect(pergunta).toBeVisible();
+  await pergunta.getByRole('button', { name: 'Continuar editando' }).click();
+  await expect(painel.getByLabel('Título')).toHaveValue('Rascunho que não pode se perder');
+  await page.keyboard.press('Escape');
+  await page.getByRole('dialog', { name: 'Descartar as alterações?' }).getByRole('button', { name: 'Descartar' }).click();
+  await expect(painel).toHaveCount(0);
+});
+
+test('Abrir demanda: o contato só vem escolhido se fala pela empresa da conversa', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'ana-comp@e2e.local', senha: SENHA, nome: 'Ana Comp', papel: 'atendente', setores: ['Fiscal'] });
+  const conversa = await cenario(true, false);
+  await entrar(page, 'ana-comp@e2e.local', SENHA);
+  await abrir(page, conversa);
+  await page.getByRole('button', { name: 'Abrir demanda' }).click();
+  const painel = page.getByRole('dialog', { name: 'Nova demanda' });
+  await expect(painel.getByLabel('Empresa', { exact: true })).toContainText('Rede Compositor Ltda', LONGO);
+  await expect(painel.getByLabel('Contato na empresa')).toHaveValue('');
 });

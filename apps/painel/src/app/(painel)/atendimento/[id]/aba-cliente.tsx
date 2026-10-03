@@ -1,4 +1,4 @@
-import { Download, ExternalLink } from 'lucide-react';
+import { ChevronRight, Download, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { DocumentText } from '@/components/patterns/document-text';
@@ -9,7 +9,7 @@ import { formatarData } from '@/lib/formatos';
 import { ContatoDaConversa } from './contato-da-conversa';
 
 export type EmpresaDaAba = { id: string; nome: string; cnpj: string | null; regime: string | null; servicos: string[] };
-export type DemandaDaEmpresa = { id: string; numero: number; titulo: string; prioridade: Prioridade; prazo_em: string | null; prazo_pausado_desde: string | null; daConversa: boolean };
+export type DemandaDaEmpresa = { id: string; numero: number; titulo: string; prioridade: Prioridade; prazo_em: string | null; prazo_pausado_desde: string | null };
 export type PedidoRecente = { id: string; criado_em: string; destino: string; total: number };
 
 /** Rótulo de seção (spec 4.2): caixa alta, vinho e negrito, com contagem à direita quando houver. */
@@ -81,7 +81,8 @@ export function AbaCliente({ conversaId, empresa, contato, podeEditarContato, ma
             {demandas.map((d) => {
               const linha = (
                 <span className="flex w-full items-baseline justify-between gap-2 py-1.5">
-                  <span className="min-w-0 truncate"><span className="tabular font-bold">#{d.numero}</span> {d.titulo}</span>
+                  {detalheDaConversa.has(d.id) && <ChevronRight aria-hidden size={14} strokeWidth={1.75} className="shrink-0 self-center text-muted transition-transform group-open:rotate-90" />}
+                  <span className="min-w-0 flex-1 truncate"><span className="tabular font-bold">#{d.numero}</span> {d.titulo}</span>
                   <span className="flex shrink-0 items-baseline gap-1 text-xs">
                     <PrioridadeTexto prioridade={d.prioridade} caixaAlta />
                     <span aria-hidden>·</span>

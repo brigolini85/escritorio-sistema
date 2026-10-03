@@ -173,7 +173,7 @@ function BotaoEnviar({ rotulo, enviando, aoTerminar }: { rotulo: string; enviand
 }
 
 /** Mostra ou esconde a coluna Cliente/Assistente/Agente (a partir de lg; abaixo disso ele fica embaixo da conversa). */
-export function BotaoPainel() {
+export function BotaoPainel({ rotuloAbas }: { rotuloAbas: string }) {
   const { painelAberto, alternarPainel } = useEstadoConversa();
   return (
     <Tooltip>
@@ -192,7 +192,7 @@ export function BotaoPainel() {
           {painelAberto ? <PanelRightClose aria-hidden size={16} strokeWidth={1.75} /> : <PanelRightOpen aria-hidden size={16} strokeWidth={1.75} />}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{painelAberto ? 'Esconder Cliente, Assistente e Agente (Esc)' : 'Mostrar Cliente, Assistente e Agente'}</TooltipContent>
+      <TooltipContent>{painelAberto ? `Esconder ${rotuloAbas} (Esc)` : `Mostrar ${rotuloAbas}`}</TooltipContent>
     </Tooltip>
   );
 }
