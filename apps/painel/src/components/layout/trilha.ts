@@ -13,6 +13,7 @@ const SECOES: Secao[] = [
   { prefixo: '/contatos', trilha: [{ rotulo: 'Cadastros' }, { rotulo: 'Contatos' }] },
   { prefixo: '/assistente', trilha: [{ rotulo: 'Assistente' }] },
   { prefixo: '/treinar-agente', trilha: [{ rotulo: 'Treinar o agente' }] },
+  { prefixo: '/gastos-ia', trilha: [{ rotulo: 'Administração' }, { rotulo: 'Gastos com IA' }] },
   { prefixo: '/configuracoes', trilha: [{ rotulo: 'Configurações' }] },
   { prefixo: '/usuarios', trilha: [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões' }], detalhe: 'Pessoa' },
   // Rota fixa mais longa que /usuarios/[id]: sem esta linha, /usuarios/novo viraria "Pessoa".

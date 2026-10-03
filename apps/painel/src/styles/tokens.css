@@ -75,6 +75,18 @@
   --modulo-assistente: hsl(40 60% 60%); /* ícone do Assistente no menu */
   --modulo-treinar: hsl(25 71% 58%); /* ícone do Treinar agente no menu */
   --modulo-configuracoes: hsl(185 43% 52%); /* ícone das Configurações no menu */
+  --modulo-gastos: hsl(45 70% 58%); /* ícone de Gastos com IA no menu (moeda) */
+  /* Gastos com IA: uma cor por funcionalidade (paleta validada pela skill dataviz em #ffffff; a cor segue a funcionalidade) */
+  --gasto-agente: #2a8a60; /* Agente de clientes */
+  --gasto-assistente-site: #c08d28; /* Assistente (site); contraste 2,97:1, por isso legenda e tabela sempre presentes */
+  --gasto-sugerir: #a3324d; /* Sugerir resposta (vinho) */
+  --gasto-testar: #d06a2c; /* Testar o agente */
+  --gasto-assistente-whatsapp: #8565b8; /* Assistente (WhatsApp) */
+  --gasto-transcricao: #4a78bd; /* Transcrição de áudio */
+  --gasto-especialista: #1f7f8c; /* Especialista por setor (Parte I; validar quando aparecer junto das outras) */
+  --gasto-nao-identificado: hsl(345 4% 60%); /* registros antigos sem funcionalidade: cinza de propósito ("outros") */
+  --gasto-dia: hsl(348 30% 82%); /* barras dos dias no gráfico "Por dia" */
+  --gasto-hoje: hsl(348 55% 31%); /* barra de hoje no "Por dia" (vinho) */
 
   /* Domínio: estados que a equipe reconhece de relance */
   --agent-active: hsl(170 80% 24%); /* agente de clientes respondendo */
@@ -156,6 +168,17 @@
   --modulo-assistente: hsl(40 60% 60%);
   --modulo-treinar: hsl(25 71% 58%);
   --modulo-configuracoes: hsl(185 43% 52%);
+  --modulo-gastos: hsl(45 70% 58%);
+  --gasto-agente: #2f9a68;
+  --gasto-assistente-site: #b5892a;
+  --gasto-sugerir: #c2508f;
+  --gasto-testar: #c86e33;
+  --gasto-assistente-whatsapp: #9c7fd0;
+  --gasto-transcricao: #5f8fd6;
+  --gasto-especialista: #2fa3b3;
+  --gasto-nao-identificado: hsl(345 3% 50%);
+  --gasto-dia: hsl(348 20% 32%);
+  --gasto-hoje: hsl(348 70% 72%);
   --agent-active: hsl(168 60% 52%);
   --agent-active-foreground: hsl(168 70% 8%);
   --agent-active-soft: hsl(170 45% 13%);
@@ -222,6 +245,17 @@
     --modulo-assistente: hsl(40 60% 60%);
     --modulo-treinar: hsl(25 71% 58%);
     --modulo-configuracoes: hsl(185 43% 52%);
+    --modulo-gastos: hsl(45 70% 58%);
+    --gasto-agente: #2f9a68;
+    --gasto-assistente-site: #b5892a;
+    --gasto-sugerir: #c2508f;
+    --gasto-testar: #c86e33;
+    --gasto-assistente-whatsapp: #9c7fd0;
+    --gasto-transcricao: #5f8fd6;
+    --gasto-especialista: #2fa3b3;
+    --gasto-nao-identificado: hsl(345 3% 50%);
+    --gasto-dia: hsl(348 20% 32%);
+    --gasto-hoje: hsl(348 70% 72%);
     --agent-active: hsl(168 60% 52%);
     --agent-active-foreground: hsl(168 70% 8%);
     --agent-active-soft: hsl(170 45% 13%);

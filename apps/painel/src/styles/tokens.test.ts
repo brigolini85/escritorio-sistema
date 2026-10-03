@@ -145,6 +145,7 @@ const OBRIGATORIOS = [
   '--sidebar-bg', '--sidebar-bg-raised', '--sidebar-text', '--sidebar-border', '--sidebar-active', '--sidebar-active-foreground', '--accent-champagne', '--accent-champagne-text',
   '--graphite', '--graphite-foreground', '--warning-decor',
   ...['inicio', 'atendimento', 'demandas', 'clientes', 'contatos', 'assistente', 'treinar', 'configuracoes'].map((m) => `--modulo-${m}`),
+  '--gasto-agente', '--gasto-sugerir', '--gasto-hoje', '--modulo-gastos',
 ];
 
 const ESTADOS = ['success', 'warning', 'danger', 'info', 'agent-active', 'agent-paused', 'human-owned', 'assistant'];

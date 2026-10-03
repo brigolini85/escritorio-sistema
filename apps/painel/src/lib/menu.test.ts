@@ -24,9 +24,13 @@ describe('menu pelos níveis (Parte D)', () => {
     expect(conf.filhos!.map((f) => f.rotulo)).toContain('Expediente');
     expect(conf.filhos!.map((f) => f.rotulo)).not.toContain('Expediente e IA');
   });
+  it('Gastos com IA: só o administrador, antes de Configurações (spec 7)', () => {
+    expect(rotulos('admin', n())).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Treinar o agente', 'Gastos com IA', 'Configurações']);
+    expect(rotulos('atendente', n({ configuracoes: 'sim', treinar: 'sim', assistente: 'site_whatsapp' }))).not.toContain('Gastos com IA');
+  });
   it('administrador: Treinar e Configurações completas; Assistente só com a marcação', () => {
     const itens = itensDoMenu({ papel: 'admin', niveis: n() });
-    expect(itens.map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Treinar o agente', 'Configurações']);
+    expect(itens.map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Treinar o agente', 'Gastos com IA', 'Configurações']);
     expect(itens.at(-1)!.filhos!.map((f) => f.rotulo)).toContain('Usuários e permissões');
     expect(rotulos('admin', n({ assistente: 'site' }))).toContain('Assistente');
   });

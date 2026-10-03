@@ -14,6 +14,7 @@ describe('trilha da barra do topo (ícone › Seção › Tela)', () => {
     ['/assistente', [{ rotulo: 'Assistente' }]],
     ['/treinar-agente', [{ rotulo: 'Treinar o agente' }]],
     ['/configuracoes', [{ rotulo: 'Configurações' }]],
+    ['/gastos-ia', [{ rotulo: 'Administração' }, { rotulo: 'Gastos com IA' }]],
     ['/usuarios', [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões' }]],
     ['/_design', [{ rotulo: 'Catálogo do design' }]],
   ])('%s', (rota, esperado) => {

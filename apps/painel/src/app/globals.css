@@ -73,6 +73,17 @@
   --color-modulo-assistente: var(--modulo-assistente);
   --color-modulo-treinar: var(--modulo-treinar);
   --color-modulo-configuracoes: var(--modulo-configuracoes);
+  --color-modulo-gastos: var(--modulo-gastos);
+  --color-gasto-agente: var(--gasto-agente);
+  --color-gasto-assistente-site: var(--gasto-assistente-site);
+  --color-gasto-sugerir: var(--gasto-sugerir);
+  --color-gasto-testar: var(--gasto-testar);
+  --color-gasto-assistente-whatsapp: var(--gasto-assistente-whatsapp);
+  --color-gasto-transcricao: var(--gasto-transcricao);
+  --color-gasto-especialista: var(--gasto-especialista);
+  --color-gasto-nao-identificado: var(--gasto-nao-identificado);
+  --color-gasto-dia: var(--gasto-dia);
+  --color-gasto-hoje: var(--gasto-hoje);
 
   /* Larguras fixas de layout pedidas pela spec (valores em tokens.css): w-sidebar, w-sidebar-recolhida */
   --spacing-sidebar: var(--sidebar-width);
