@@ -1,4 +1,4 @@
-import { pedidoVendaBling, variantesTelefone, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo } from '@escritorio/core';
+import { lerNiveis, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo } from '@escritorio/core';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { Db } from './cliente';
 import type { Database, Json } from './tipos.gen';
@@ -41,7 +41,20 @@ export type UnidadeParceiro = {
   endereco: string | null; numero: string | null; complemento: string | null; cep: string | null;
   palavrasChave: string[];
 };
-export type UsuarioAssistente = { id: string; nome: string; papel: 'admin' | 'atendente'; permissoes: string[]; setores: string[]; telefone: string | null; ativo: boolean };
+export type UsuarioAssistente = { id: string; nome: string; papel: 'admin' | 'atendente'; niveis: Niveis; setores: string[]; telefone: string | null; ativo: boolean };
+const COLUNAS_ASSISTENTE = 'id, nome, papel, telefone, ativo, usuario_setores(setor_id), usuario_permissoes(modulo, nivel)';
+type LinhaAssistente = {
+  id: string; nome: string; papel: 'admin' | 'atendente'; telefone: string | null; ativo: boolean;
+  usuario_setores: { setor_id: string }[]; usuario_permissoes: { modulo: string; nivel: string }[];
+};
+/** Linha de usuarios com setores e níveis (Parte D): o que o assistente precisa saber da pessoa. */
+function paraUsuarioAssistente(u: LinhaAssistente): UsuarioAssistente {
+  return {
+    id: u.id, nome: u.nome, papel: u.papel, telefone: u.telefone, ativo: u.ativo,
+    setores: u.usuario_setores.map((s) => s.setor_id),
+    niveis: lerNiveis(Object.fromEntries(u.usuario_permissoes.map((p) => [p.modulo, p.nivel]))),
+  };
+}
 export type CanalAssistente = 'site' | 'whatsapp';
 export type MensagemAssistente = Linha<'assistente_mensagens'>;
 export type ArquivoAssistente = { tipo: 'csv_bling'; chamados: string[]; nome: string; partes: number };
@@ -469,16 +482,23 @@ export function criarRepos(db: Db) {
       return r.data;
     },
 
+    /** Telefone de alguém da equipe com "Site e WhatsApp" (o mesmo critério de eh_telefone_do_assistente). */
     async usuarioDoAssistente(telefone: string): Promise<UsuarioAssistente | null> {
-      const linhas = checar(await db.from('usuarios').select('id, nome, papel, permissoes, telefone, ativo, usuario_setores(setor_id)')
-        .in('telefone', variantesTelefone(telefone)).eq('ativo', true).contains('permissoes', ['assistente_whatsapp']).limit(1), 'usuarioDoAssistente');
-      const u = linhas[0];
-      return u ? { id: u.id, nome: u.nome, papel: u.papel, permissoes: u.permissoes, telefone: u.telefone, ativo: u.ativo, setores: u.usuario_setores.map((s) => s.setor_id) } : null;
+      const linhas = checar(await db.from('usuarios').select(COLUNAS_ASSISTENTE)
+        .in('telefone', variantesTelefone(telefone)).eq('ativo', true), 'usuarioDoAssistente');
+      return (linhas as LinhaAssistente[]).map(paraUsuarioAssistente).find((u) => u.niveis.assistente === 'site_whatsapp') ?? null;
     },
 
     async obterUsuarioAssistente(id: string): Promise<UsuarioAssistente | null> {
-      const u = checar(await db.from('usuarios').select('id, nome, papel, permissoes, telefone, ativo, usuario_setores(setor_id)').eq('id', id).maybeSingle(), 'obterUsuarioAssistente');
-      return u ? { id: u.id, nome: u.nome, papel: u.papel, permissoes: u.permissoes, telefone: u.telefone, ativo: u.ativo, setores: u.usuario_setores.map((s) => s.setor_id) } : null;
+      const u = checar(await db.from('usuarios').select(COLUNAS_ASSISTENTE).eq('id', id).maybeSingle(), 'obterUsuarioAssistente');
+      return u ? paraUsuarioAssistente(u as LinhaAssistente) : null;
+    },
+
+    /** Horário de acesso (Parte D): quem decide é o banco, com o mesmo critério do painel. */
+    async horarioPermite(usuarioId: string, quando: Date): Promise<boolean> {
+      const r = await db.rpc('horario_permite', { p_usuario: usuarioId, p_quando: quando.toISOString() });
+      if (r.error) throw new Error(r.error.message);
+      return r.data === true;
     },
 
     async registrarMensagemAssistente(m: { usuarioId: string; canal: CanalAssistente; conversaId: string | null; papel: 'usuario' | 'assistente'; conteudo: string; arquivo?: ArquivoAssistente | null; processada?: boolean }): Promise<string> {

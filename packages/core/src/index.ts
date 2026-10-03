@@ -7,3 +7,4 @@ export * from './custo';
 export * from './documentos';
 export * from './busca';
 export * from './bling';
+export * from './permissoes';
