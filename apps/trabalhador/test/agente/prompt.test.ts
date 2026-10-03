@@ -102,6 +102,7 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
     const texto = montarBlocosSistema({ setores: [], respostasProntas: [], orientacoes: [], empresaEmFoco: null } as never).system.map((b) => b.text).join('\n');
     expect(texto).toContain('passar_para_pessoa');
     expect(texto).toContain('falar com uma pessoa');
+    expect(texto).toContain('Em assunto sensível (regra 11), só abrir_chamado.');
   });
 
   it('regra 2: só as explicações gerais da skill, quando perguntarem, sem números do caso', () => {
