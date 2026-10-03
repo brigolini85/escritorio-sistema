@@ -88,3 +88,17 @@ test('lápis de editar em cada linha; na própria linha tem lápis e não tem ar
   await expect(page).toHaveURL(new RegExp(`usuario=${bia}`));
   await expect(page.getByRole('dialog').getByPlaceholder('Nome')).toHaveValue('Bia Arquivo');
 });
+
+test('Demandas: pessoa arquivada só aparece no filtro quando já está nele, como "(arquivado)"', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'admin@teste.com', senha: SENHA, nome: 'Admin Arquivo', papel: 'admin' });
+  const ze = await criarUsuarioTeste({ email: 'ze@teste.com', senha: SENHA, nome: 'Zé Arquivo', papel: 'atendente' });
+  await db.from('chamados').insert({ responsavel_id: ze, titulo: 'Guia do DAS (usuario e2e)' });
+  await db.from('usuarios').update({ ativo: false }).eq('id', ze);
+  await entrar(page, 'admin@teste.com', SENHA);
+  await page.goto(`/demandas?responsavel=${ze}`);
+  await expect(page.getByLabel('Responsável')).toContainText('Zé Arquivo (arquivado)');
+  await expect(page.getByText(/\(inativo\)/)).toHaveCount(0);
+  await page.goto('/demandas');
+  await page.getByLabel('Responsável').click();
+  await expect(page.getByRole('option', { name: /Zé Arquivo/ })).toHaveCount(0);
+});

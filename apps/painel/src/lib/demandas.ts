@@ -85,3 +85,12 @@ export function inicioDoPeriodo(periodo: PeriodoFiltro | null, agora: Date): str
   const dias = periodo === '7d' ? 7 : 30;
   return new Date(agora.getTime() - dias * 24 * 60 * 60 * 1000).toISOString();
 }
+
+/**
+ * Pessoas do filtro Responsável. Arquivada sai da seleção (spec 5.1), exceto a que já está no filtro da URL
+ * (senão o Select pareceria "Qualquer um"); essa aparece como "(arquivado)", o nome do estado no painel.
+ */
+export function opcoesResponsavel(pessoas: { id: string; nome: string; ativo: boolean }[], euId: string, filtro: string | null) {
+  return pessoas.filter((p) => p.id !== euId && (p.ativo || p.id === filtro))
+    .map((p) => ({ valor: p.id, rotulo: p.ativo ? p.nome : `${p.nome} (arquivado)` }));
+}

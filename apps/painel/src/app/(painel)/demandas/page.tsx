@@ -13,7 +13,7 @@ import { StatusBadge, type StatusDemanda } from '@/components/patterns/status-ba
 import { Badge } from '@/components/ui/badge';
 import { variantesBotao } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
-import { inicioDoPeriodo, lerFiltrosDemandas, OPCOES_PERIODO, OPCOES_STATUS, OPCOES_TIPO, temFiltroAlemDoSetor } from '@/lib/demandas';
+import { inicioDoPeriodo, lerFiltrosDemandas, OPCOES_PERIODO, OPCOES_STATUS, OPCOES_TIPO, opcoesResponsavel, temFiltroAlemDoSetor } from '@/lib/demandas';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { pendenciasCsvBling } from '@/lib/resumo-pedido';
@@ -228,9 +228,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
           { param: 'status', rotulo: 'Status', todos: 'Em aberto', opcoes: OPCOES_STATUS },
           { param: 'responsavel', rotulo: 'Responsável', todos: 'Qualquer um', opcoes: [
             { valor: 'eu', rotulo: 'Comigo' }, { valor: 'sem', rotulo: 'Sem responsável' },
-            // Inativos só aparecem quando já estão no filtro da URL (senão o Select pareceria "Qualquer um").
-            ...(pessoas ?? []).filter((p) => p.id !== u.id && (p.ativo || p.id === f.responsavel))
-              .map((p) => ({ valor: p.id, rotulo: p.ativo ? p.nome : `${p.nome} (inativo)` })),
+            ...opcoesResponsavel(pessoas ?? [], u.id, f.responsavel),
           ] },
           { param: 'tipo', rotulo: 'Tipo', todos: 'Todos', opcoes: OPCOES_TIPO },
           { param: 'periodo', rotulo: 'Aberta', todos: 'Qualquer data', opcoes: OPCOES_PERIODO },

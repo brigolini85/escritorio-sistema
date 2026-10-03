@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inicioDoDiaSP, inicioDoPeriodo, lerFiltrosDemandas, temFiltroAlemDoSetor } from './demandas';
+import { inicioDoDiaSP, inicioDoPeriodo, lerFiltrosDemandas, opcoesResponsavel, temFiltroAlemDoSetor } from './demandas';
 
 const ID = '3f2b8c1e-5d4a-4e7b-9c1f-2a3b4c5d6e7f';
 
@@ -41,5 +41,19 @@ describe('período', () => {
     expect(inicioDoPeriodo('7d', agora)).toBe('2026-09-23T04:30:00.000Z');
     expect(inicioDoPeriodo('30d', agora)).toBe('2026-08-31T04:30:00.000Z');
     expect(inicioDoPeriodo(null, agora)).toBeNull();
+  });
+});
+
+describe('opcoesResponsavel', () => {
+  const pessoas = [
+    { id: 'eu', nome: 'Ana', ativo: true },
+    { id: 'bia', nome: 'Bia', ativo: true },
+    { id: 'ze', nome: 'Zé', ativo: false },
+  ];
+  it('arquivado sai da seleção (spec 5.1); eu viro "Comigo" à parte', () => {
+    expect(opcoesResponsavel(pessoas, 'eu', null)).toEqual([{ valor: 'bia', rotulo: 'Bia' }]);
+  });
+  it('arquivado que já está no filtro da URL aparece como "(arquivado)", nunca "(inativo)"', () => {
+    expect(opcoesResponsavel(pessoas, 'eu', 'ze')).toEqual([{ valor: 'bia', rotulo: 'Bia' }, { valor: 'ze', rotulo: 'Zé (arquivado)' }]);
   });
 });
