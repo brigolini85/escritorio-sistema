@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
     return aviso(FALHA_AO_MONTAR, [], 503);
   }
   const { pedidos, problemas } = carregado;
-  if (pedidos.length === 0) return aviso('Nenhum pedido de venda para exportar.', ['Só as demandas de nota de venda abertas pelo agente geram o arquivo.']);
+  if (pedidos.length === 0) return aviso('Nenhum pedido de venda para exportar.', ['Nenhuma demanda de venda neste filtro. Só as demandas de pedido de nota geram o arquivo.']);
   if (problemas.length) return aviso('Complete os dados abaixo antes de gerar o arquivo:', problemas);
 
   const partes = dividirPedidosBling(pedidos);

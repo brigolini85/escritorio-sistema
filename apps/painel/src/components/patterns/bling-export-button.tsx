@@ -9,7 +9,7 @@ import { cn } from '@/lib/cn';
 const CARREGANDO_MS = 6000;
 
 /**
- * Link para a rota existente /api/csv-bling (?id=, ?setor=&parte=, ?assistente=&parte=), com cara de botão.
+ * Link para a rota existente /api/csv-bling (?id=, os filtros da tela Demandas com ?parte=N, ou ?assistente=&parte=), com cara de botão.
  * É um link (role=link) e o nome acessível sempre contém "CSV Bling" (os testes procuram por ele).
  * Ao clicar, mostra "Gerando o arquivo…" enquanto o servidor monta o CSV.
  * `problemas`: pendências já conhecidas (problemasPedidoBling do core: qual pedido e qual campo falta).

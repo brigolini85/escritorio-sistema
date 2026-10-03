@@ -7,13 +7,15 @@ import { PageHeader } from '@/components/layout/page-header';
 import { BarraSelecao, DataTable } from '@/components/patterns/data-table';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { variantesBotao } from '@/components/ui/button';
-import { COLUNA_DA_ORDEM, ORDEM_PADRAO, ORDENS, lerFiltrosDemandas, temFiltro, type FiltrosDemandas } from '@/lib/demandas';
+import type { StatusDemanda } from '@/components/patterns/status-badge';
+import { COLUNA_DA_ORDEM, ORDEM_PADRAO, ORDENS, lerFiltrosDemandas, temFiltro, type FiltrosDemandas, type Prioridade } from '@/lib/demandas';
 import { filtrarConsulta } from '@/lib/demandas-consulta';
 import { pendenciasCsvBling } from '@/lib/resumo-pedido';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { faixaDaConsulta, hrefComParams, lerOrdem, lerPagina, paginar, PARAM_PAGINA, valorParam, type Paginacao, type ParamsBusca } from '@/lib/tabela-url';
 import { AtualizarAoVivo } from '../atendimento/atualizar-ao-vivo';
+import { BotaoAssumir, type PessoaSetor } from './acoes-demanda';
 import { BarraDemandas } from './barra-demandas';
 import { COLUNAS_LISTA, colunasDemandas, paraLinhaDemanda, type LinhaDemanda } from './colunas-demandas';
 import { DetalheDemanda, type DemandaAberta } from './detalhe-demanda';
@@ -47,7 +49,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
 
   const [{ data: setores }, { data: pessoas }, total, novas, resolvendo, comCliente, vencidas, pedidos] = await Promise.all([
     sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
-    sb.from('usuarios').select('id, nome, ativo').order('nome'),
+    sb.from('usuarios').select('id, nome, ativo, usuario_setores(setor_id)').order('nome'),
     contar(),
     contar({ status: ['aberto'] }),
     contar({ status: ['em_andamento'] }),
@@ -56,6 +58,8 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
     // Pedidos de venda do mesmo filtro (para o CSV Bling); com "Tipo: Outras" não há nenhum.
     podeCsv && f.tipo !== 'outras' ? contar({ tipo: 'venda' }) : Promise.resolve({ count: 0, error: null }),
   ]);
+  // Arquivada não recebe demanda nova (Parte B): só ativas nos controles.
+  const pessoasSetor = (pessoas ?? []).filter((p) => p.ativo).map((p) => ({ id: p.id, nome: p.nome, setores: p.usuario_setores.map((s) => s.setor_id) }));
   const pedidosVenda = pedidos.count ?? 0;
   const partesBling = Math.ceil(pedidosVenda / PEDIDOS_POR_ARQUIVO_BLING);
 
@@ -89,14 +93,14 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
         f={f}
         contagens={{ aberto: novas.count, em_andamento: resolvendo.count, aguardando_cliente: comCliente.count, vencidas: vencidas.count }}
         setores={setores ?? []}
-        pessoas={pessoas ?? []}
+        pessoas={(pessoas ?? []).map((p) => ({ id: p.id, nome: p.nome, ativo: p.ativo }))}
         euId={u.id}
         ordem={ordem}
       />
       <DataTable
         rotulo="Demandas"
         linhas={linhas}
-        colunas={colunasDemandas(agora)}
+        colunas={colunasDemandas(agora, (d) => (!d.responsavelId && d.status !== 'concluido' ? <BotaoAssumir id={d.id} /> : null))}
         chave={(d) => d.id}
         params={params}
         paginacao={paginacao}
@@ -122,7 +126,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
       <PainelDemanda demandaId={f.demanda} hrefFechar={hrefDemanda(null)}>
         {f.demanda && (
           <Suspense key={f.demanda} fallback={<EsqueletoDemanda />}>
-            <DetalheCarregado sb={sb} id={f.demanda} podeCsv={podeCsv} />
+            <DetalheCarregado sb={sb} id={f.demanda} podeCsv={podeCsv} pessoas={pessoasSetor} setores={setores ?? []} agora={agora} />
           </Suspense>
         )}
       </PainelDemanda>
@@ -148,29 +152,40 @@ async function comPendencias(sb: Sb, dados: Parameters<typeof paraLinhaDemanda>[
   });
 }
 
-async function DetalheCarregado({ sb, id, podeCsv }: { sb: Sb; id: string; podeCsv: boolean }) {
+async function DetalheCarregado({ sb, id, podeCsv, pessoas, setores, agora }: {
+  sb: Sb; id: string; podeCsv: boolean; pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; agora: Date;
+}) {
   const aberta = await lerDemanda(sb, id);
-  return <DetalheDemanda demanda={aberta?.demanda ?? null} comprador={aberta?.comprador ?? null} podeCsv={podeCsv} />;
+  return (
+    <DetalheDemanda demanda={aberta?.demanda ?? null} comprador={aberta?.comprador ?? null} podeCsv={podeCsv}
+      pessoas={pessoas} setores={setores} contatos={aberta?.contatos ?? []} agora={agora} />
+  );
 }
 
-/** Demanda do painel lateral, com a linha do tempo e o cadastro do comprador (como no CSV do Bling). RLS vale. */
-async function lerDemanda(sb: Sb, id: string): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null } | null> {
-  const { data: d } = await sb.from('chamados')
-    .select('id, numero, titulo, resumo, status, criado_em, conversa_id, fora_do_contrato, pedido_venda, setores(nome), usuarios(nome), clientes(id, razao_social, nome_fantasia, cnpj), chamado_eventos(tipo, texto, criado_em, usuarios(nome))')
-    .eq('id', id).order('criado_em', { referencedTable: 'chamado_eventos' }).maybeSingle();
+/** Demanda do painel lateral (visão demandas_lista), com a linha do tempo, os contatos da empresa e o comprador. RLS vale. */
+async function lerDemanda(sb: Sb, id: string): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null; contatos: { id: string; nome: string }[] } | null> {
+  const { data: d } = await sb.from('demandas_lista').select('*').eq('id', id).maybeSingle();
   if (!d) return null;
   const unidade = (d.pedido_venda as PedidoVendaSalvo | null)?.unidade_id ?? null;
-  const { data: comprador } = unidade
-    ? await sb.from('parceiros_unidades').select(COLUNAS_COMPRADOR).eq('id', unidade).maybeSingle()
-    : { data: null };
+  const [{ data: eventos }, { data: cliente }, { data: vinculos }, { data: comprador }] = await Promise.all([
+    sb.from('chamado_eventos').select('tipo, texto, criado_em, usuarios(nome)').eq('chamado_id', id).order('criado_em'),
+    d.cliente_id ? sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj').eq('id', d.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
+    d.cliente_id
+      ? sb.from('contato_clientes').select('contatos!inner(id, nome, ativo)').eq('cliente_id', d.cliente_id).eq('contatos.ativo', true)
+      : Promise.resolve({ data: [] as { contatos: { id: string; nome: string; ativo: boolean } }[] }),
+    unidade ? sb.from('parceiros_unidades').select(COLUNAS_COMPRADOR).eq('id', unidade).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
   return {
     demanda: {
-      id: d.id, numero: d.numero, titulo: d.titulo, resumo: d.resumo, status: d.status, criado_em: d.criado_em,
-      conversa_id: d.conversa_id, fora_do_contrato: d.fora_do_contrato, pedido_venda: d.pedido_venda,
-      setor: d.setores?.nome ?? null, responsavel: d.usuarios?.nome ?? null,
-      empresa: d.clientes ? { id: d.clientes.id, nome: d.clientes.nome_fantasia ?? d.clientes.razao_social, cnpj: d.clientes.cnpj } : null,
-      eventos: d.chamado_eventos.map((e) => ({ tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null })),
+      id: d.id!, numero: Number(d.numero), titulo: d.titulo ?? '', descricao: d.resumo ?? '', status: d.status as StatusDemanda,
+      prioridade: (d.prioridade ?? 'normal') as Prioridade, prazo: d.prazo_em, pausadoDesde: d.prazo_pausado_desde, concluidaEm: d.concluido_em,
+      criadoEm: d.criado_em!, origem: d.origem ?? 'agente', criadoPorNome: d.criado_por_nome, conversaId: d.conversa_id,
+      foraDoContrato: Boolean(d.fora_do_contrato), pedidoVenda: d.pedido_venda, setorId: d.setor_id, setor: d.setor,
+      responsavelId: d.responsavel_id, contatoId: d.contato_id,
+      empresa: cliente ? { id: cliente.id, nome: cliente.nome_fantasia ?? cliente.razao_social, cnpj: cliente.cnpj } : null,
+      eventos: (eventos ?? []).map((e) => ({ tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null })),
     },
     comprador: (comprador as CompradorCadastrado | null) ?? null,
+    contatos: (vinculos ?? []).map((v) => ({ id: v.contatos.id, nome: v.contatos.nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
   };
 }
