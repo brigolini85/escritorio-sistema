@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { comAvisoNaUrl } from '@/lib/avisos';
 import { cadastrarContatoPeloTelefone, lerManter } from '@/lib/cadastro-contato';
 import { enfileirarEnvio } from '@/lib/fila';
+import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -24,6 +25,33 @@ export async function assumir(conversaId: string) {
 export async function devolverAoAgente(conversaId: string) {
   await rpc('devolver_ao_agente', { p_conversa: conversaId });
   revalidatePath(`/atendimento/${conversaId}`);
+}
+
+export type Resultado = { ok: true; mensagem: string } | { ok: false; erro: string };
+
+/** Concluir o atendimento humano (P6): devolve ao agente e vai para "Concluídas hoje". Demandas não mudam. */
+export async function concluirAtendimento(conversaId: string) {
+  await rpc('concluir_conversa', { p_conversa: conversaId });
+  revalidatePath(`/atendimento/${conversaId}`);
+  revalidatePath('/atendimento');
+}
+
+/** Trocar a empresa da conversa (spec 7A.2): só entre as do contato; o banco confere e audita. */
+export async function trocarEmpresa(conversaId: string, clienteId: string): Promise<Resultado> {
+  await obterUsuario();
+  const sb = await supabaseServidor();
+  const { data, error } = await sb.rpc('trocar_empresa_conversa', { p_conversa: conversaId, p_cliente: clienteId });
+  if (error) return { ok: false, erro: mensagemDoBanco(error.message) };
+  revalidatePath(`/atendimento/${conversaId}`);
+  return { ok: true, mensagem: `Conversa agora em ${(data as { empresa: string }).empresa}.` };
+}
+
+/** Não lidas por pessoa (spec 7A.2): marca até a última mensagem que a tela mostrou. true = mudou algo. */
+export async function marcarLida(conversaId: string, ate: string): Promise<boolean> {
+  await obterUsuario();
+  const sb = await supabaseServidor();
+  const { data, error } = await sb.rpc('marcar_conversa_lida', { p_conversa: conversaId, p_ate: ate });
+  return !error && Boolean(data);
 }
 
 export async function responder(conversaId: string, formData: FormData) {

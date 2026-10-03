@@ -14,7 +14,7 @@ type Estilo = { rotulo: string; Icone: LucideIcon | null; lado: 'esquerda' | 'di
 const ESTILO: Record<Exclude<AutorMensagem, 'sistema'>, Estilo> = {
   cliente: { rotulo: 'Cliente', Icone: null, lado: 'esquerda', balao: 'border border-border bg-surface', cabecalho: 'text-muted', hora: 'text-subtle' },
   agente: { rotulo: 'Agente', Icone: Bot, lado: 'direita', balao: 'bg-agent-active-soft', cabecalho: 'text-agent-active', hora: 'text-agent-active' },
-  atendente: { rotulo: 'Equipe', Icone: UserRound, lado: 'direita', balao: 'bg-human-owned-soft', cabecalho: 'text-human-owned', hora: 'text-human-owned' },
+  atendente: { rotulo: 'Equipe', Icone: UserRound, lado: 'direita', balao: 'bg-brand-soft', cabecalho: 'text-brand', hora: 'text-brand' },
   nota_interna: {
     rotulo: 'Nota interna', Icone: StickyNote, lado: 'inteira', balao: 'border border-internal-note-border bg-internal-note',
     cabecalho: 'text-internal-note-foreground', hora: 'text-subtle',

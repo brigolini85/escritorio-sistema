@@ -53,6 +53,7 @@ export function AcoesConversa({
   minha,
   assumir,
   devolver,
+  concluirAtendimento,
   demandas,
   setores,
   pessoas,
@@ -61,6 +62,7 @@ export function AcoesConversa({
   minha: boolean;
   assumir: Acao;
   devolver: Acao;
+  concluirAtendimento: Acao;
   demandas: DemandaDaConversa[];
   setores: { id: string; nome: string }[];
   pessoas: { id: string; nome: string }[];
@@ -90,6 +92,20 @@ export function AcoesConversa({
           </Button>
         </form>
       )}
+      {minha && (
+        <form action={concluirAtendimento}>
+          <Button size="sm" aria-label="Concluir atendimento" title="Concluir atendimento: volta ao agente e vai para Concluídas hoje">
+            <CircleCheck aria-hidden size={16} strokeWidth={1.75} />
+            Concluir
+          </Button>
+        </form>
+      )}
+      {!d && (
+        <Button size="sm" variant="outline" disabled title="Esta conversa não tem demanda aberta para transferir.">
+          <ArrowRightLeft aria-hidden size={16} strokeWidth={1.75} />
+          <span className="@max-3xl:sr-only">Transferir</span>
+        </Button>
+      )}
 
       {d && (
         <>
@@ -106,7 +122,7 @@ export function AcoesConversa({
           <ConfirmDialog
             key={`c-${d.id}`}
             gatilho={(
-              <Button size="sm" variant="outline" title="Concluir">
+              <Button size="sm" variant="outline" title="Concluir" aria-label={`Concluir a demanda #${d.numero}`}>
                 <CircleCheck aria-hidden size={16} strokeWidth={1.75} />
                 <span className="@max-3xl:sr-only">Concluir</span>
               </Button>

@@ -8,11 +8,12 @@ import { OrderSummary } from '@/components/patterns/order-summary';
 import { RelativeTime } from '@/components/patterns/relative-time';
 import { StatusBadge, type StatusDemanda } from '@/components/patterns/status-badge';
 import { Badge } from '@/components/ui/badge';
-import { camposLegiveis, rotuloEtapa, type CampoLegivel } from '@/lib/decisoes';
+import { camposLegiveis, rotuloEtapa } from '@/lib/decisoes';
 import { formatarDataHora } from '@/lib/formatos';
 import { pendenciasCsvBling, resumirPedido } from '@/lib/resumo-pedido';
 import { LinhaDoTempoDemanda, type EventoDemanda } from '@/components/patterns/linha-do-tempo-demanda';
 import { MoneyText } from '@/components/patterns/money-text';
+import { CamposDecisao } from './campos-decisao';
 import { ContatoDaConversa } from './contato-da-conversa';
 import { VerPedido } from './ver-pedido';
 
@@ -151,35 +152,14 @@ export function DetalhesConversa({
                     <time dateTime={d.criado_em} className="tabular text-xs text-subtle">{formatarDataHora(d.criado_em)}</time>
                   </p>
                   {d.justificativa && <p className="text-muted">{d.justificativa}</p>}
-                  <Campos titulo="Recebeu" campos={camposLegiveis(d.entrada)} />
-                  <Campos titulo="Resultado" campos={camposLegiveis(d.saida)} />
+                  <CamposDecisao titulo="Recebeu" campos={camposLegiveis(d.entrada)} />
+                  <CamposDecisao titulo="Resultado" campos={camposLegiveis(d.saida)} />
                 </li>
               ))}
             </ol>
           )}
         </details>
       </section>
-    </div>
-  );
-}
-
-function Campos({ titulo, campos }: { titulo: string; campos: CampoLegivel[] }) {
-  if (campos.length === 0) return null;
-  return (
-    <div>
-      <p className="text-xs font-medium text-subtle">{titulo}</p>
-      <dl className="flex flex-col gap-0.5 text-xs">
-        {campos.map((c, i) => (
-          <div key={i} className="flex gap-2">
-            <dt className="shrink-0 text-muted">{c.chave}</dt>
-            <dd className="min-w-0 flex-1 text-foreground">
-              {c.bloco
-                ? <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-surface-muted p-1.5 font-mono text-xs">{c.valor}</pre>
-                : <span className="break-words">{c.valor}</span>}
-            </dd>
-          </div>
-        ))}
-      </dl>
     </div>
   );
 }

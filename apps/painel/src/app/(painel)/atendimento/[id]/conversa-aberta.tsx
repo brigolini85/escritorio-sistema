@@ -8,7 +8,9 @@ import { estadoDaConversa } from '@/components/patterns/estado-agente';
 import { HistoricoRolante } from '@/components/patterns/historico-rolante';
 import { MessageBubble, type AutorMensagem } from '@/components/patterns/message-bubble';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
+import { iniciais } from '@/lib/atendimento';
 import { consultaCaixa } from '@/lib/caixa';
+import { cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, ultimoTurnoAntes, type CartaoDecisao, type DecisaoBruta } from '@/lib/conversa-itens';
 import { mascararTelefone } from '@/lib/formatos';
 import { linhaDoTempo } from '@/lib/historico';
 import { AVISO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
@@ -16,7 +18,7 @@ import { temNivel, usaAssistente } from '@/lib/permissoes';
 import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ConversaAssistente } from '../../assistente/conversa-assistente';
-import { alterarStatus, assumir, concluir, devolverAoAgente, notaInterna, responder, transferir } from '../acoes';
+import { alterarStatus, assumir, concluir, concluirAtendimento, devolverAoAgente, notaInterna, responder, transferir } from '../acoes';
 import { Realce } from '../realce';
 import { AcoesConversa, BotaoPainel, type DemandaDaConversa } from './acoes-conversa';
 import { situacaoDasMensagens } from '../../treinar-agente/ensinar';
@@ -24,14 +26,20 @@ import { Compositor } from './compositor';
 import { EnsinarAgente } from './ensinar-agente';
 import { DetalhesConversa, type DemandaDetalhe } from './detalhes-conversa';
 import { AvisoAssistente, EstadoConversa } from './estado-conversa';
+import { FaixaPassagem } from './faixa-passagem';
+import { CartaoDecisaoConversa, MarcoConversa, PorQue } from './itens-historico';
+import { MarcarLida } from './marcar-lida';
+import { TrocarEmpresa } from './trocar-empresa';
 import { GradeConversa, PainelLateral } from './painel-lateral';
 import { COOKIE_PAINEL_CONVERSA, painelAbertoDoCookie } from './preferencias-conversa';
 
 const AUTOR: Record<string, AutorMensagem> = { cliente: 'cliente', agente: 'agente', atendente: 'atendente', sistema: 'sistema' };
 
 type ItemHistorico =
-  | { id: string; criado_em: string; tipo: 'mensagem'; autor: AutorMensagem; nome: string | null; propria: boolean; conteudo: string | null; transcricao: string | null; arquivo: { nome: string; href: string } | null; falhou: boolean }
-  | { id: string; criado_em: string; tipo: 'nota'; nome: string | null; propria: boolean; conteudo: string | null; demanda: number | null };
+  | { id: string; criado_em: string; tipo: 'mensagem'; autor: AutorMensagem; nome: string | null; propria: boolean; conteudo: string | null; transcricao: string | null; arquivo: { nome: string; href: string } | null; falhou: boolean; porQue: DecisaoBruta[] | null }
+  | { id: string; criado_em: string; tipo: 'nota'; nome: string | null; propria: boolean; conteudo: string | null; demanda: number | null }
+  | { id: string; criado_em: string; tipo: 'cartao'; cartao: CartaoDecisao }
+  | { id: string; criado_em: string; tipo: 'marco'; texto: string };
 
 export type Empresa = { id: string; nome: string };
 
@@ -53,20 +61,23 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     .select('*, contatos(id, nome, agente_pausado), clientes:cliente_em_foco(id, razao_social, nome_fantasia, cnpj, agente_pausado, ativo)')
     .eq('id', id).maybeSingle();
   if (!conversa) notFound();
-  const [{ data: mensagens }, { data: chamados }, { data: notas }, { data: decisoes }, { data: setores }, { data: respostas }, { data: vinculos }] = await Promise.all([
+  const [{ data: mensagens }, { data: chamados }, { data: notas }, { data: decisoes }, { data: setores }, { data: respostas }, { data: vinculos }, { data: eventosConversa }, { data: todasDemandas }, { data: transferencias }] = await Promise.all([
     sb.from('mensagens').select('*, usuarios(nome)').eq('conversa_id', id).order('criado_em'),
     sb.from('chamados').select('*, setores(nome), usuarios(nome), chamado_eventos(tipo, texto, criado_em, usuarios(nome))')
       .eq('conversa_id', id).neq('status', 'concluido').order('numero').order('criado_em', { referencedTable: 'chamado_eventos' }),
     // Notas internas de todas as demandas da conversa (também as já concluídas) entram no histórico.
     sb.from('chamado_eventos').select('id, texto, criado_em, usuario_id, usuarios(nome), chamados!inner(numero, conversa_id, titulo, pedido_venda)')
       .eq('chamados.conversa_id', id).eq('tipo', 'nota_interna'),
-    sb.from('decisoes_agente').select('etapa, entrada, saida, justificativa, criado_em').eq('conversa_id', id).order('criado_em', { ascending: false }).limit(30),
+    sb.from('decisoes_agente').select('id, etapa, entrada, saida, justificativa, criado_em, turno').eq('conversa_id', id).order('criado_em', { ascending: false }).limit(300),
     sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
     sb.from('respostas_prontas').select('id, pergunta, resposta').eq('ativo', true).order('pergunta'),
-    // Outras empresas pelas quais o contato fala (só leitura; trocar a empresa da conversa ainda não existe).
+    // Empresas ativas pelas quais o contato fala (a troca da empresa da conversa só vale entre elas).
     conversa.contatos
-      ? sb.from('contato_clientes').select('clientes(id, razao_social, nome_fantasia)').eq('contato_id', conversa.contatos.id)
-      : Promise.resolve({ data: [] as { clientes: { id: string; razao_social: string; nome_fantasia: string | null } | null }[] }),
+      ? sb.from('contato_clientes').select('clientes!inner(id, razao_social, nome_fantasia, ativo)').eq('contato_id', conversa.contatos.id).eq('clientes.ativo', true)
+      : Promise.resolve({ data: [] as { clientes: { id: string; razao_social: string; nome_fantasia: string | null; ativo: boolean } | null }[] }),
+    sb.from('conversa_eventos').select('id, tipo, texto, criado_em, usuarios(nome)').eq('conversa_id', id).order('criado_em'),
+    sb.from('chamados').select('id, numero, prioridade, criado_em, concluido_em, setores(nome)').eq('conversa_id', id),
+    sb.from('chamado_eventos').select('id, criado_em, texto, chamados!inner(numero, conversa_id)').eq('chamados.conversa_id', id).eq('tipo', 'transferencia'),
   ]);
   const minha = conversa.atendente_id === u.id;
   const nomeDe = new Map(pessoas.map((p) => [p.id, p.nome]));
@@ -74,6 +85,16 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   // "Pedidos de nota: Sem acesso" (P11): pedido, descrição, notas e textos livres da demanda de pedido ficam no servidor.
   const verPedidos = temNivel(u, 'notas', 'ver');
   const oculto = (c: { titulo: string | null; pedido_venda: unknown } | null | undefined) => !verPedidos && Boolean(c) && ehPedidoDeNota(c!);
+  // Sem acesso a pedidos, o conteúdo do pedido sai das decisões ANTES de virar "por quê?", cartão ou aba AGENTE (P11).
+  const decisoesTela = ocultarPedidoDasDecisoes((decisoes ?? []).map((d) => ({ ...d, justificativa: d.justificativa ?? null })), verPedidos);
+  const porQue = porQueDasMensagens(mensagens ?? [], decisoesTela);
+  const marcos = marcosDaConversa({
+    eventos: (eventosConversa ?? []).map((e) => ({ id: e.id, tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null })),
+    demandas: (todasDemandas ?? []).map((c) => ({ id: c.id, numero: c.numero, setor: c.setores?.nome ?? null, prioridade: c.prioridade, criado_em: c.criado_em, concluido_em: c.concluido_em })),
+    transferencias: (transferencias ?? []).map((t) => ({ id: t.id, numero: t.chamados.numero, setor: t.texto, criado_em: t.criado_em })),
+  });
+  const turnoDaPassagem = ultimoTurnoAntes(decisoesTela, conversa.aguardando_pessoa_desde);
+  const ultimaMensagemEm = (mensagens ?? []).at(-1)?.criado_em ?? null;
 
   // Cadastro da unidade compradora dos pedidos de nota (o mesmo que o CSV do Bling usa).
   const unidades = [...new Set(abertas.filter((c) => !oculto(c)).flatMap((c) => {
@@ -83,6 +104,14 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   const { data: compradores } = unidades.length
     ? await sb.from('parceiros_unidades').select('id, razao_social, nome_unidade, cnpj, endereco, numero, complemento, bairro, cidade, uf, cep, telefone').in('id', unidades)
     : { data: [] };
+
+  // Link do documento que a IA mandou: só se for da empresa da conversa (ou de outra empresa ativa do contato) e a pessoa puder abri-lo (RLS).
+  const idsDocumentos = [...new Set((mensagens ?? []).flatMap((m) => (m.documento_id ? [m.documento_id] : [])))];
+  const { data: documentosVisiveis } = idsDocumentos.length
+    ? await sb.from('documentos_empresa').select('id, cliente_id').in('id', idsDocumentos)
+    : { data: [] as { id: string; cliente_id: string }[] };
+  const empresasDaConversa = new Set([conversa.cliente_em_foco, ...(vinculos ?? []).map((v) => v.clientes?.id)].filter(Boolean));
+  const documentosAbertos = new Set((documentosVisiveis ?? []).filter((x) => empresasDaConversa.has(x.cliente_id)).map((x) => x.id));
 
   const podeAssistente = usaAssistente(u);
   const podeCsv = temNivel(u, 'notas', 'corrigir');
@@ -107,10 +136,17 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     ...(mensagens ?? []).map((m): ItemHistorico => ({
       id: m.id, criado_em: m.criado_em, tipo: 'mensagem', autor: AUTOR[m.autor] ?? 'sistema',
       nome: m.autor === 'atendente' ? m.usuarios?.nome ?? null : null, propria: m.atendente_id === u.id,
-      conteudo: m.conteudo, transcricao: m.transcricao,
-      arquivo: m.arquivo_path ? { nome: m.arquivo_nome ?? 'Abrir anexo', href: `/api/arquivos?path=${encodeURIComponent(m.arquivo_path)}` } : null,
-      falhou: m.status_envio === 'falhou',
+      // Documento que a IA mandou: o nome vira link (download auditado em /api/documentos); sem acesso, fica o texto.
+      conteudo: m.documento_id && documentosAbertos.has(m.documento_id) ? null : m.conteudo, transcricao: m.transcricao,
+      arquivo: m.documento_id
+        ? documentosAbertos.has(m.documento_id)
+          ? { nome: (m.conteudo ?? 'Documento').replace(/^📎\s*/u, ''), href: `/api/documentos?id=${m.documento_id}` }
+          : null
+        : m.arquivo_path ? { nome: m.arquivo_nome ?? 'Abrir anexo', href: `/api/arquivos?path=${encodeURIComponent(m.arquivo_path)}` } : null,
+      falhou: m.status_envio === 'falhou', porQue: porQue.get(m.id) ?? null,
     })),
+    ...cartoesDeDecisao(decisoesTela).map((c): ItemHistorico => ({ id: c.id, criado_em: c.criado_em, tipo: 'cartao', cartao: c })),
+    ...marcos.map((x): ItemHistorico => ({ id: x.id, criado_em: x.criado_em, tipo: 'marco', texto: x.texto })),
     ...(notas ?? []).map((n): ItemHistorico => ({
       id: n.id, criado_em: n.criado_em, tipo: 'nota', nome: n.usuarios?.nome ?? null, propria: n.usuario_id === u.id, conteudo: oculto(n.chamados) ? AVISO_SEM_ACESSO_PEDIDO : n.texto, demanda: n.chamados?.numero ?? null,
     })),
@@ -162,7 +198,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
                 demandas={demandasDetalhe}
                 compradores={new Map((compradores ?? []).map((c) => [c.id, c as CompradorCadastrado]))}
                 podeCsv={podeCsv}
-                decisoes={(decisoes ?? []).map((d) => ({ ...d, justificativa: d.justificativa ?? null }))}
+                decisoes={decisoesTela}
               />
             )}
           />
@@ -177,28 +213,16 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
             >
               <ArrowLeft aria-hidden size={16} strokeWidth={1.75} />
             </Link>
+            <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-muted text-sm font-bold text-brand">{iniciais(nomeContato)}</span>
             <div className="min-w-0 flex-1">
-              <h1 id="titulo-conversa" className="truncate text-lg font-semibold text-foreground">{nomeContato}</h1>
-              <p className="truncate text-sm text-muted">
-                {empresa?.nome ?? 'Empresa não definida'}
-                {conversa.contatos && (
-                  <>
-                    <span aria-hidden> · </span>
-                    <span className="tabular">{mascararTelefone(conversa.telefone)}</span>
-                  </>
-                )}
+              <h1 id="titulo-conversa" className="truncate text-lg font-bold text-foreground">
+                {nomeContato}{' '}
+                {conversa.contatos && <span className="tabular text-sm font-normal text-muted">{mascararTelefone(conversa.telefone)}</span>}
+              </h1>
+              <p className="flex flex-wrap items-center gap-x-1.5 text-sm">
+                <span className="truncate font-semibold text-brand">{empresa?.nome ?? 'Empresa não definida'}</span>
+                {outrasEmpresas.length > 0 && <><span aria-hidden className="text-subtle">·</span><TrocarEmpresa conversaId={id} outras={outrasEmpresas} /></>}
               </p>
-              {outrasEmpresas.length > 0 && (
-                <p className="truncate text-xs text-subtle">
-                  Também fala por:{' '}
-                  {outrasEmpresas.map((e, i) => (
-                    <span key={e.id}>
-                      {i > 0 && ', '}
-                      <Link href={`/clientes/${e.id}`} className="text-brand underline-offset-4 hover:underline">{e.nome}</Link>
-                    </span>
-                  ))}
-                </p>
-              )}
             </div>
             <AgentStateIndicator estado={estado} className="mt-0.5" />
             <BotaoPainel />
@@ -207,6 +231,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
             minha={minha}
             assumir={assumir.bind(null, id)}
             devolver={devolverAoAgente.bind(null, id)}
+            concluirAtendimento={concluirAtendimento.bind(null, id)}
             demandas={demandasAcoes}
             setores={setores ?? []}
             pessoas={pessoas.filter((p) => p.ativo).map((p) => ({ id: p.id, nome: p.nome }))}
@@ -220,6 +245,12 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
           </AcoesConversa>
         </header>
 
+        {conversa.aguardando_pessoa_desde && (
+          <div className="lg:col-start-1 lg:row-start-2 lg:self-start lg:z-10">
+            <FaixaPassagem desde={conversa.aguardando_pessoa_desde} motivo={conversa.motivo_pessoa} turno={turnoDaPassagem} />
+          </div>
+        )}
+        <MarcarLida conversaId={id} ate={ultimaMensagemEm} />
         <HistoricoRolante
           ultima={historico.at(-1)?.chave ?? ''}
           compositor="[data-compositor]"
@@ -242,6 +273,8 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
                   );
                 }
                 const m = h.item;
+                if (m.tipo === 'marco') return <div key={h.chave} className="flex"><MarcoConversa texto={m.texto} criadoEm={m.criado_em} /></div>;
+                if (m.tipo === 'cartao') return <div key={h.chave} className="flex"><CartaoDecisaoConversa cartao={m.cartao} /></div>;
                 return (
                   <div key={h.chave} data-realce={m.criado_em} data-realce-proprio={m.propria ? '' : undefined} className="flex flex-col rounded-lg">
                     {m.tipo === 'nota' ? (
@@ -261,7 +294,9 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
                         transcricao={m.transcricao}
                         arquivo={m.arquivo}
                         falhou={m.falhou}
-                      />
+                      >
+                        {m.porQue && <PorQue decisoes={m.porQue} />}
+                      </MessageBubble>
                     )}
                   </div>
                 );
