@@ -27,3 +27,5 @@ describe('camposLegiveis', () => {
     expect(camposLegiveis('ok')).toEqual([{ chave: 'Valor', valor: 'ok', bloco: false }]);
   });
 });
+
+it('passar_para_pessoa tem rótulo', () => expect(rotuloEtapa('passar_para_pessoa')).toBe('Passou para uma pessoa'));

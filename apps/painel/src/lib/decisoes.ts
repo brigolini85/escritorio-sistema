@@ -6,6 +6,7 @@ const ETAPAS: Record<string, string> = {
   abrir_chamado: 'Abriu uma demanda',
   consultar_chamados: 'Consultou as demandas',
   sinalizar_nao_entendido: 'Não entendeu a mensagem',
+  passar_para_pessoa: 'Passou para uma pessoa',
   buscar_parceiros: 'Buscou clientes e fornecedores',
   buscar_produtos: 'Buscou produtos',
   resumir_pedido_nota: 'Resumiu o pedido de nota',
