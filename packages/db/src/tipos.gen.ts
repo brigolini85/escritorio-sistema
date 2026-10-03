@@ -1042,8 +1042,14 @@ isOneToOne: false
 "pode_ver_chamado":
 { Args: { "p_chamado": string }; Returns: boolean
                            },
+"pode_ver_chamado_de":
+{ Args: { "p_chamado": string,"p_usuario": string }; Returns: boolean
+                           },
 "pode_ver_conversa":
 { Args: { "p_conversa": string }; Returns: boolean
+                           },
+"pode_ver_conversa_de":
+{ Args: { "p_conversa": string,"p_usuario": string }; Returns: boolean
                            },
 "proximo_dia_util":
 { Args: { "p_dia": string }; Returns: string
