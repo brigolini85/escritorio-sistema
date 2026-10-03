@@ -42,3 +42,38 @@ test('atendente não vê o item nem a tela', async ({ page }) => {
   await page.goto('/gastos-ia');
   await expect(page).toHaveURL(/\/inicio/);
 });
+
+test('ranking da equipe: só pessoas; clicar abre o detalhe linha a linha', async ({ page }) => {
+  await entrar(page, dados.admin.email, dados.admin.senha);
+  await page.goto('/gastos-ia');
+  const ranking = page.getByRole('region', { name: 'Quem mais gasta na equipe' });
+  await expect(ranking.getByRole('row')).toHaveCount(3);                 // cabeçalho + Thiago + Ana
+  await expect(ranking.getByRole('row').nth(1)).toContainText('Thiago Gastos');
+  await expect(ranking.getByText('Agente de clientes')).toHaveCount(0);   // agente fica fora do ranking
+  await expect(ranking.getByText('Sugerir resposta')).toBeVisible();      // legenda sempre visível
+  await ranking.getByRole('link', { name: /Ana Gastos/ }).click();
+  await expect(page).toHaveURL(/pessoa=/);
+  const painel = page.getByRole('dialog', { name: /Ana Gastos/ });
+  await expect(painel.getByRole('row')).toHaveCount(3);                  // cabeçalho + sugestão + assistente
+  await expect(painel).toContainText('Sugerir resposta');
+});
+
+test('gastos por cliente: abrir a empresa mostra os atendimentos e "abrir" leva à conversa naquele dia', async ({ page }) => {
+  await entrar(page, dados.admin.email, dados.admin.senha);
+  await page.goto('/gastos-ia');
+  const clientes = page.getByRole('region', { name: 'Gastos por cliente' });
+  await clientes.getByRole('searchbox', { name: 'Buscar empresa' }).fill('bom preço');
+  await clientes.getByRole('searchbox', { name: 'Buscar empresa' }).press('Enter');
+  await expect(page).toHaveURL(/busca=bom/);
+  const linha = clientes.getByRole('button', { name: /Rede Bom Preço Gastos/ });
+  await expect(linha).toHaveAttribute('aria-expanded', 'false');
+  await linha.click();
+  await expect(page).toHaveURL(/empresa=/);
+  await expect(clientes.getByRole('button', { name: /Rede Bom Preço Gastos/ })).toHaveAttribute('aria-expanded', 'true');
+  const atendimentos = clientes.getByRole('table', { name: /Atendimentos de Rede Bom Preço Gastos/ });
+  await expect(atendimentos).toContainText('Carla Mendes');
+  await expect(atendimentos).toContainText('passou para pessoa');        // hoje houve resposta de atendente
+  await atendimentos.getByRole('link', { name: /abrir/ }).first().click();
+  await expect(page).toHaveURL(new RegExp(`/atendimento/${dados.conversa}\\?data=\\d{4}-\\d{2}-\\d{2}`));
+  await expect(page.locator('[data-dia-alvo="true"]')).toBeInViewport();
+});

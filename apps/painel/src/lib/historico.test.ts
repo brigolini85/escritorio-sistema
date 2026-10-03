@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { linhaDoTempo, rotuloDia } from './historico';
+import { lerDataAlvo, linhaDoTempo, rotuloDia } from './historico';
 
 // 30/09/2026 às 10:00 em Brasília (13:00 UTC).
 const agora = new Date('2026-09-30T13:00:00Z');
@@ -27,5 +27,22 @@ describe('linhaDoTempo', () => {
   });
   it('lista vazia não tem separador', () => {
     expect(linhaDoTempo([], agora)).toEqual([]);
+  });
+});
+
+describe('linhaDoTempo: âncora do dia', () => {
+  it('o separador de dia traz a data ISO (âncora do "abrir" de Gastos com IA)', () => {
+    const l = linhaDoTempo([{ id: 'a', criado_em: '2026-09-22T03:10:00Z' }], new Date('2026-10-01T12:00:00Z'));
+    expect(l[0]).toMatchObject({ tipo: 'dia', iso: '2026-09-22' });
+  });
+});
+
+describe('lerDataAlvo (?data= do Atendimento)', () => {
+  it('só AAAA-MM-DD válido; o resto é ignorado', () => {
+    expect(lerDataAlvo('2026-09-22')).toBe('2026-09-22');
+    expect(lerDataAlvo('2026-02-30')).toBeNull();
+    expect(lerDataAlvo('22/09/2026')).toBeNull();
+    expect(lerDataAlvo('2026-09-22"><script>')).toBeNull();
+    expect(lerDataAlvo(undefined)).toBeNull();
   });
 });

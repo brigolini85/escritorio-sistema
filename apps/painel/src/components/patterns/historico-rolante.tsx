@@ -16,6 +16,7 @@ import { decidirRolagem, estaNoFim } from '@/lib/rolagem-lista';
  * - `ultima`: identifica o fim da lista (ex.: id da última mensagem); mudou = chegou algo novo.
  * - `compositor`: seletor CSS do formulário de envio desta lista (o envio abre a janela de descida).
  * - `como`: elemento que rola (`div` com `role="log"` ou `ul`, quando os filhos são `<li>`).
+ * - `inicial`: id de um elemento da lista para abrir rolado até ele (ex.: o dia do `?data=`), em vez do fim; sem ele, nada muda.
  */
 export function HistoricoRolante({
   ultima,
@@ -26,6 +27,7 @@ export function HistoricoRolante({
   className,
   classNameLista,
   testId,
+  inicial,
   children,
 }: {
   ultima: string;
@@ -36,6 +38,7 @@ export function HistoricoRolante({
   className?: string;
   classNameLista?: string;
   testId?: string;
+  inicial?: string;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLElement>(null);
@@ -56,9 +59,14 @@ export function HistoricoRolante({
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const acao = decidirRolagem({ anterior: vista.current, ultima, noFim: noFim.current, desdeEnvioMs: Date.now() - enviouEm.current });
+    // O alvo só vale na abertura e só se estiver na lista (dia pedido sem mensagem: abre no fim, como sempre).
+    const alvo = vista.current === null && inicial ? el.querySelector<HTMLElement>(`#${CSS.escape(inicial)}`) : null;
+    const acao = decidirRolagem({ anterior: vista.current, ultima, noFim: noFim.current, desdeEnvioMs: Date.now() - enviouEm.current, alvoInicial: Boolean(alvo) });
     vista.current = ultima;
-    if (acao === 'inicio' || acao === 'manter-fim') el.scrollTop = el.scrollHeight;
+    if (acao === 'alvo' && alvo) {
+      alvo.scrollIntoView({ block: 'start' });
+      noFim.current = estaNoFim(el);
+    } else if (acao === 'inicio' || acao === 'manter-fim') el.scrollTop = el.scrollHeight;
     else if (acao === 'descer') descer();
     else if (acao === 'avisar') setNovas(true);
   });

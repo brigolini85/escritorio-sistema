@@ -11,6 +11,7 @@ import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { iniciais } from '@/lib/atendimento';
 import { consultaCaixa } from '@/lib/caixa';
 import { cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, turnoDaPassagem, documentosAbertos as documentosAbertosDe, type CartaoDecisao, type DecisaoBruta } from '@/lib/conversa-itens';
+import { cn } from '@/lib/cn';
 import { mascararTelefone } from '@/lib/formatos';
 import { linhaDoTempo } from '@/lib/historico';
 import { AVISO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
@@ -53,7 +54,7 @@ export type Empresa = { id: string; nome: string };
  * Centro (cabeçalho, histórico, compositor) e painel da direita da conversa aberta. Fica num Suspense na página:
  * enquanto carrega aparece o esqueleto no formato da conversa; a lista ao lado não pisca.
  */
-export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pausaGeral }: {
+export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pausaGeral, dataAlvo = null }: {
   id: string;
   u: UsuarioPainel;
   filtroNaUrl: string | null;
@@ -61,6 +62,8 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   erro?: string;
   pessoas: { id: string; nome: string; ativo: boolean }[];
   pausaGeral: boolean | null;
+  /** Dia pedido em ?data= (o "abrir" de Gastos com IA): o histórico abre rolado até ele, realçado. */
+  dataAlvo?: string | null;
 }) {
   const sb = await supabaseServidor();
   const { data: conversa } = await sb.from('conversas')
@@ -298,6 +301,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
           compositor="[data-compositor]"
           rotulo="Histórico da conversa"
           role="log"
+          inicial={dataAlvo ? `dia-${dataAlvo}` : undefined}
           className="min-h-0 flex-1 lg:col-start-1 lg:row-start-2"
           classNameLista="h-full"
         >
@@ -311,10 +315,19 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
               {historico.length === 0 && <p className="py-10 text-center text-sm text-muted">Nenhuma mensagem nesta conversa ainda.</p>}
               {historico.map((h) => {
                 if (h.tipo === 'dia') {
+                  const alvo = dataAlvo !== null && h.iso === dataAlvo;
+                  const rotulo = alvo ? `${h.rotulo} · Atendimento deste dia` : h.rotulo;
                   return (
-                    <div key={h.chave} role="separator" aria-label={h.rotulo} className="my-2 flex items-center gap-3 text-xs font-medium text-subtle">
+                    <div
+                      key={h.chave}
+                      id={h.iso ? `dia-${h.iso}` : undefined}
+                      data-dia-alvo={alvo ? 'true' : undefined}
+                      role="separator"
+                      aria-label={rotulo}
+                      className={cn('my-2 flex scroll-mt-14 items-center gap-3 text-xs font-medium text-subtle', alvo && 'rounded-md bg-brand-soft px-2 py-1 font-semibold text-brand')}
+                    >
                       <span className="h-px flex-1 bg-border" />
-                      {h.rotulo}
+                      {rotulo}
                       <span className="h-px flex-1 bg-border" />
                     </div>
                   );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  INFO_FUNCIONALIDADE, ORDEM_EMPILHADO, emReais, formatarUsdFino, iniciais, lerPeriodo, montarRanking, percentual, previsaoFechamento, textoDiaMaisCaro,
+  INFO_FUNCIONALIDADE, ORDEM_EMPILHADO, emReais, formatarUsdFino, iniciais, lerPeriodo, montarRanking, percentual, previsaoFechamento, textoDiaMaisCaro, lerEmpresaAberta, lerPessoaAberta,
 } from './gastos';
 import { FUNCIONALIDADES_IA } from '@escritorio/core';
 
@@ -68,6 +68,12 @@ describe('textoDiaMaisCaro', () => {
     expect(textoDiaMaisCaro({ dia: '2026-09-26', custo_dia: 3.9, dias_com_gasto: 2, funcionalidade: 'agente_clientes', pessoa: null, chamadas: 120 }))
       .toBe('26/09 foi o dia mais caro (US$ 3,90): Agente de clientes, 120 chamadas.');
   });
+  it('1 chamada: singular ("1 vez", "1 chamada")', () => {
+    expect(textoDiaMaisCaro({ dia: '2026-09-26', custo_dia: 3.9, dias_com_gasto: 2, funcionalidade: 'testar_agente', pessoa: 'Thiago', chamadas: 1 }))
+      .toBe('26/09 foi o dia mais caro (US$ 3,90): Testar o agente usado 1 vez por Thiago.');
+    expect(textoDiaMaisCaro({ dia: '2026-09-26', custo_dia: 3.9, dias_com_gasto: 2, funcionalidade: 'agente_clientes', pessoa: null, chamadas: 1 }))
+      .toBe('26/09 foi o dia mais caro (US$ 3,90): Agente de clientes, 1 chamada.');
+  });
   it('um dia só ou nada: sem alerta', () => {
     expect(textoDiaMaisCaro({ dia: '2026-09-26', custo_dia: 1, dias_com_gasto: 1, funcionalidade: 'agente_clientes', pessoa: null, chamadas: 1 })).toBeNull();
     expect(textoDiaMaisCaro(null)).toBeNull();
@@ -91,5 +97,23 @@ describe('formatos', () => {
   it('iniciais', () => {
     expect(iniciais('Thiago Brigolini')).toBe('TB');
     expect(iniciais('Ana')).toBe('AN');
+  });
+});
+
+describe('parâmetros da URL (?pessoa=, ?empresa=)', () => {
+  const ID = '0b6f6d7e-3f1a-4c2b-9d8e-1a2b3c4d5e6f';
+  it('pessoa: só uuid; o resto é ignorado', () => {
+    expect(lerPessoaAberta(ID)).toBe(ID);
+    expect(lerPessoaAberta(ID.toUpperCase())).toBe(ID);
+    expect(lerPessoaAberta('sem')).toBeNull();
+    expect(lerPessoaAberta("1' or 1=1")).toBeNull();
+    expect(lerPessoaAberta(undefined)).toBeNull();
+  });
+  it('empresa: uuid ou "sem" (Sem empresa identificada); o resto é ignorado', () => {
+    expect(lerEmpresaAberta(ID)).toBe(ID);
+    expect(lerEmpresaAberta('sem')).toBe('sem');
+    expect(lerEmpresaAberta('abc')).toBeNull();
+    expect(lerEmpresaAberta('')).toBeNull();
+    expect(lerEmpresaAberta(undefined)).toBeNull();
   });
 });

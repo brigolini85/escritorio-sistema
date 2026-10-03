@@ -34,3 +34,14 @@ describe('decidirRolagem por identidade', () => {
     expect(decidirRolagem({ anterior: 'm1', ultima: 'm2', noFim: false, desdeEnvioMs: longe })).toBe('avisar');
   });
 });
+
+describe('decidirRolagem com alvo inicial', () => {
+  it('com alvo inicial, não desce ao fim na abertura', () => {
+    expect(decidirRolagem({ anterior: null, ultima: 'a', noFim: true, desdeEnvioMs: longe, alvoInicial: true })).toBe('alvo');
+    expect(decidirRolagem({ anterior: null, ultima: 'a', noFim: true, desdeEnvioMs: longe, alvoInicial: false })).toBe('inicio');
+  });
+  it('depois da abertura, o alvo não muda nada: mensagem nova segue a regra de sempre', () => {
+    expect(decidirRolagem({ anterior: 'a', ultima: 'b', noFim: false, desdeEnvioMs: longe, alvoInicial: true })).toBe('avisar');
+    expect(decidirRolagem({ anterior: 'a', ultima: 'b', noFim: true, desdeEnvioMs: longe, alvoInicial: true })).toBe('descer');
+  });
+});

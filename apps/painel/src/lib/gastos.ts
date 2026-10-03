@@ -103,9 +103,26 @@ export function textoDiaMaisCaro(d: { dia: string; custo_dia: number; dias_com_g
   if (!d || Number(d.dias_com_gasto) < 2) return null;
   const rotulo = INFO_FUNCIONALIDADE[d.funcionalidade as FuncionalidadeIa]?.rotulo ?? d.funcionalidade;
   const inicioTexto = `${ddmm(d.dia)} foi o dia mais caro (${formatarUSD(Number(d.custo_dia)).replace(NBSP, ' ')})`;
+  const n = Number(d.chamadas);
   return d.pessoa
-    ? `${inicioTexto}: ${rotulo} usado ${d.chamadas} vezes por ${d.pessoa}.`
-    : `${inicioTexto}: ${rotulo}, ${d.chamadas} chamadas.`;
+    ? `${inicioTexto}: ${rotulo} usado ${n} ${n === 1 ? 'vez' : 'vezes'} por ${d.pessoa}.`
+    : `${inicioTexto}: ${rotulo}, ${n} ${n === 1 ? 'chamada' : 'chamadas'}.`;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const primeiro = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+/** `?pessoa=` (detalhe da pessoa): só uuid; lixo é ignorado antes de chegar à função do banco. */
+export function lerPessoaAberta(v: string | string[] | undefined): string | null {
+  const s = primeiro(v);
+  return s && UUID.test(s) ? s.toLowerCase() : null;
+}
+
+/** `?empresa=` (empresa aberta em "Gastos por cliente"): uuid, ou 'sem' para "Sem empresa identificada". */
+export function lerEmpresaAberta(v: string | string[] | undefined): string | null {
+  const s = primeiro(v);
+  if (s === 'sem') return 'sem';
+  return s && UUID.test(s) ? s.toLowerCase() : null;
 }
 
 /** Custo de uma chamada: 4 casas abaixo de 1 centavo (senão tudo vira "US$ 0,00"). */
