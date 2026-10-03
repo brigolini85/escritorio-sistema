@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
-import { BotaoDescartar, BotaoSalvar, FormularioAlteravel, IndicadorAlteracoes } from '@/components/patterns/formulario-alteravel';
+import { BotaoDescartar, BotaoSalvar, fixarComoSalvo, FormularioAlteravel, IndicadorAlteracoes } from '@/components/patterns/formulario-alteravel';
 import type { ButtonProps } from '@/components/ui/button';
 import { CardFooter } from '@/components/ui/card';
 import { toast } from '@/components/ui/toaster';
@@ -48,6 +48,9 @@ export function FormularioConfig({ acao, rotulo, antesDeEnviar, limparAoSalvar =
       if (limparAoSalvar) {
         form.reset();
         form.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        // Sem recarga, o que foi salvo vira o novo "antes" (o <select> não é atualizado pelo React).
+        fixarComoSalvo(form);
       }
       return true;
     } catch {

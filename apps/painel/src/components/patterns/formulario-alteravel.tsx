@@ -70,11 +70,15 @@ export function contarAlteracoes(form: HTMLFormElement, escopo?: Element | null)
   return nomes.size;
 }
 
-/** Volta os campos nativos (do escopo, se dado) ao valor que veio do servidor e avisa o formulário. Switch do Radix não volta. */
+/** Volta os campos (do escopo, se dado) ao valor que veio do servidor e avisa o formulário. Switch do Radix volta com um clique. */
 export function restaurarCampos(form: HTMLFormElement, escopo?: Element | null) {
+  const chaves: HTMLButtonElement[] = [];
   for (const el of form.elements) {
     if (escopo && !escopo.contains(el)) continue;
-    if (el instanceof HTMLInputElement) {
+    if (el instanceof HTMLButtonElement) {
+      // O estado do Switch/Checkbox do Radix é do React: só o clique o devolve (depois do laço, que o clique pode mexer nos campos).
+      if (campoAlterado(el)) chaves.push(el);
+    } else if (el instanceof HTMLInputElement) {
       if (el.type === 'checkbox' || el.type === 'radio') el.checked = el.defaultChecked;
       else if (!['hidden', 'submit', 'button', 'reset', 'image', 'file'].includes(el.type)) el.value = el.defaultValue;
       el.setCustomValidity('');
@@ -83,6 +87,28 @@ export function restaurarCampos(form: HTMLFormElement, escopo?: Element | null) 
     } else if (el instanceof HTMLSelectElement) {
       for (const o of el.options) o.selected = o.defaultSelected;
       if (!el.multiple && ![...el.options].some((o) => o.defaultSelected) && el.options.length > 0) el.selectedIndex = 0;
+    }
+  }
+  for (const b of chaves) b.click();
+  form.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/**
+ * Salvou sem recarregar (FormularioConfig): o que está na tela vira o "valor salvo" de cada campo. O React 19 atualiza
+ * defaultValue/defaultChecked no próximo render, mas não o defaultSelected das opções de um <select>: sem isto, o select
+ * continuaria âmbar, contando como alteração e voltando a um valor que já não é o salvo.
+ */
+export function fixarComoSalvo(form: HTMLFormElement) {
+  for (const el of form.elements) {
+    if (el instanceof HTMLButtonElement) {
+      if (el.getAttribute(ATRIBUTO_INICIAL) !== null) el.setAttribute(ATRIBUTO_INICIAL, el.getAttribute('aria-checked') === 'true' ? 'true' : 'false');
+    } else if (el instanceof HTMLInputElement) {
+      if (el.type === 'checkbox' || el.type === 'radio') el.defaultChecked = el.checked;
+      else if (!['hidden', 'submit', 'button', 'reset', 'image', 'file'].includes(el.type)) el.defaultValue = el.value;
+    } else if (el instanceof HTMLTextAreaElement) {
+      el.defaultValue = el.value;
+    } else if (el instanceof HTMLSelectElement) {
+      for (const o of el.options) o.defaultSelected = o.selected;
     }
   }
   form.dispatchEvent(new Event('input', { bubbles: true }));
