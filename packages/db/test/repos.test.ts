@@ -68,7 +68,7 @@ describe('abrirChamado', () => {
 
 describe('custoIaDoMes', () => {
   it('soma só o mês pedido', async () => {
-    await repos.registrarUsoIa({ conversaId: null, modelo: 'claude-sonnet-5', tokensEntrada: 10, tokensSaida: 5,
+    await repos.registrarUsoIa({ funcionalidade: 'agente_clientes', usuarioId: null, clienteId: null, conversaId: null, modelo: 'claude-sonnet-5', tokensEntrada: 10, tokensSaida: 5,
       tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd: 1.5 });
     const mes = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()).slice(0, 7);
     expect(await repos.custoIaDoMes(mes)).toBeCloseTo(1.5);
@@ -97,7 +97,7 @@ describe('ehTelefoneInterno', () => {
 describe('revisão 2026-09-28', () => {
   it('custoIaDoMes soma mais de 1000 registros (limite de linhas da API)', async () => {
     const mes = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()).slice(0, 7);
-    const linhas = Array.from({ length: 1001 }, () => ({ modelo: 'claude-sonnet-5', tokens_entrada: 1, tokens_saida: 1, custo_usd: 0.01 }));
+    const linhas = Array.from({ length: 1001 }, () => ({ funcionalidade: 'agente_clientes', modelo: 'claude-sonnet-5', tokens_entrada: 1, tokens_saida: 1, custo_usd: 0.01 }));
     const { error } = await db.from('uso_ia').insert(linhas);
     expect(error).toBeNull();
     expect(await repos.custoIaDoMes(mes)).toBeCloseTo(10.01);

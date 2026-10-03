@@ -830,13 +830,13 @@ isOneToOne: false
                   ]
                 },"uso_ia": {
                   Row: {
-                    "cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"custo_usd": number,"funcionalidade": string | null,"id": string,"modelo": string,"provedor": string,"segundos_audio": number | null,"setor_id": string | null,"tokens_cache_escrita": number,"tokens_cache_leitura": number,"tokens_entrada": number,"tokens_saida": number,"usuario_id": string | null
+                    "cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"custo_usd": number,"funcionalidade": string,"id": string,"modelo": string,"provedor": string,"segundos_audio": number | null,"setor_id": string | null,"tokens_cache_escrita": number,"tokens_cache_leitura": number,"tokens_entrada": number,"tokens_saida": number,"usuario_id": string | null
                   }
                   Insert: {
-                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd": number,"funcionalidade"?: string | null,"id"?: string,"modelo": string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada": number,"tokens_saida": number,"usuario_id"?: string | null
+                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd": number,"funcionalidade": string,"id"?: string,"modelo": string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada": number,"tokens_saida": number,"usuario_id"?: string | null
                   }
                   Update: {
-                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd"?: number,"funcionalidade"?: string | null,"id"?: string,"modelo"?: string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada"?: number,"tokens_saida"?: number,"usuario_id"?: string | null
+                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd"?: number,"funcionalidade"?: string,"id"?: string,"modelo"?: string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada"?: number,"tokens_saida"?: number,"usuario_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -1139,6 +1139,52 @@ isOneToOne: false
                            },
 "exigir_arquivar":
 { Args: { "p_tipo": string }; Returns: string
+                           },
+"gastos_atendimentos_base":
+{ Args: { "p_ate": string,"p_de": string }; Returns: {
+              "chamadas": number,"cliente_id": string,"conversa_id": string,"custo_usd": number,"dia": string,"passou_para_pessoa": boolean
+            }[]
+                           },
+"gastos_atendimentos_do_cliente":
+{ Args: { "p_ate": string,"p_cliente": string,"p_de": string }; Returns: {
+              "contato": string,"conversa_id": string,"custo_usd": number,"dia": string,"inicio": string,"mensagens": number,"resultado": string
+            }[]
+                           },
+"gastos_chamadas":
+{ Args: { "p_ate": string,"p_cliente"?: string,"p_de": string,"p_funcionalidade"?: string,"p_limite"?: number,"p_usuario"?: string }; Returns: {
+              "cliente_id": string,"conversa_id": string,"criado_em": string,"custo_usd": number,"empresa": string,"funcionalidade": string,"id": string,"modelo": string,"pessoa": string,"provedor": string,"segundos_audio": number,"tokens_cache_escrita": number,"tokens_cache_leitura": number,"tokens_entrada": number,"tokens_saida": number,"usuario_id": string
+            }[]
+                           },
+"gastos_checar":
+{ Args: { "p_ate": string,"p_de": string }; Returns: undefined
+                           },
+"gastos_dia_mais_caro":
+{ Args: { "p_ate": string,"p_de": string }; Returns: {
+              "chamadas": number,"custo": number,"custo_dia": number,"dia": string,"dias_com_gasto": number,"funcionalidade": string,"pessoa": string,"usuario_id": string
+            }[]
+                           },
+"gastos_por_cliente":
+{ Args: { "p_ate": string,"p_busca"?: string,"p_de": string }; Returns: {
+              "atendimentos": number,"cliente_id": string,"custo_usd": number,"nome": string,"resolvidos": number
+            }[]
+                           },
+"gastos_por_dia":
+{ Args: { "p_ate": string,"p_de": string }; Returns: {
+              "chamadas": number,"custo_usd": number,"dia": string
+            }[]
+                           },
+"gastos_por_funcionalidade":
+{ Args: { "p_ate": string,"p_de": string }; Returns: {
+              "chamadas": number,"custo_usd": number,"funcionalidade": string
+            }[]
+                           },
+"gastos_por_pessoa":
+{ Args: { "p_ate": string,"p_de": string }; Returns: {
+              "chamadas": number,"custo_usd": number,"funcionalidade": string,"nome": string,"usuario_id": string
+            }[]
+                           },
+"gastos_resumo":
+{ Args: { "p_ate": string,"p_de": string }; Returns: Json
                            },
 "horario_permite":
 { Args: { "p_quando"?: string,"p_usuario": string }; Returns: boolean

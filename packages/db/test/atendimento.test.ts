@@ -37,13 +37,27 @@ describe('repositório da Parte E', () => {
     expect((await db.from('decisoes_agente').select('turno').eq('conversa_id', c.id).single()).data!.turno).toBe(turno);
   });
 
-  it('uso de IA com funcionalidade e pessoa; sem elas continua como antes', async () => {
-    const pessoa = await criarUsuario(db, 'uso@atendimento.local');
-    await repos.registrarUsoIa({ conversaId: null, modelo: 'm', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd: 0.01,
-      funcionalidade: 'sugerir_resposta', usuarioId: pessoa });
-    await repos.registrarUsoIa({ conversaId: null, modelo: 'm', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd: 0.01 });
-    const linhas = (await db.from('uso_ia').select('funcionalidade, usuario_id').order('funcionalidade', { nullsFirst: true })).data!;
-    expect(linhas).toEqual([{ funcionalidade: null, usuario_id: null }, { funcionalidade: 'sugerir_resposta', usuario_id: pessoa }]);
+  it('registrarUsoIa grava funcionalidade, pessoa, conversa, empresa, provedor e segundos', async () => {
+    await repos.registrarUsoIa({ funcionalidade: 'transcricao_audio', usuarioId: null, conversaId: null, clienteId: null, modelo: 'whisper-large-v3-turbo',
+      provedor: 'groq', tokensEntrada: 0, tokensSaida: 0, tokensCacheLeitura: 0, tokensCacheEscrita: 0, segundosAudio: 42.5, custoUsd: 0.0005 });
+    const l = (await db.from('uso_ia').select('funcionalidade, provedor, segundos_audio, usuario_id, cliente_id').single()).data!;
+    expect(l).toEqual({ funcionalidade: 'transcricao_audio', provedor: 'groq', segundos_audio: 42.5, usuario_id: null, cliente_id: null });
+  });
+
+  it('registrarUsoIa recusa gravar sem funcionalidade ou como nao_identificado (gasto novo assim é bug)', async () => {
+    const base = { usuarioId: null, conversaId: null, clienteId: null, modelo: 'm', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd: 0.01 };
+    // @ts-expect-error funcionalidade é obrigatória
+    await expect(repos.registrarUsoIa(base)).rejects.toThrow('registrarUsoIa: funcionalidade obrigatória');
+    // @ts-expect-error nao_identificado não é gravável
+    await expect(repos.registrarUsoIa({ ...base, funcionalidade: 'nao_identificado' })).rejects.toThrow('registrarUsoIa: funcionalidade obrigatória');
+    expect((await db.from('uso_ia').select('id')).data).toEqual([]);
+  });
+
+  it('obterConfiguracoes traz o custo por minuto da transcrição', async () => {
+    await db.from('configuracoes').update({ custo_minuto_transcricao_usd: 0.000667 }).eq('id', 1);
+    expect((await repos.obterConfiguracoes()).custoMinutoTranscricaoUsd).toBeCloseTo(0.000667, 6);
+    await db.from('configuracoes').update({ custo_minuto_transcricao_usd: null }).eq('id', 1);
+    expect((await repos.obterConfiguracoes()).custoMinutoTranscricaoUsd).toBeNull();
   });
 
   it('sugestão: lê e conclui uma vez só (só sai de pendente)', async () => {

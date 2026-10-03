@@ -1,4 +1,4 @@
-import { lerNiveis, type FuncionalidadeIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo } from '@escritorio/core';
+import { lerNiveis, FUNCIONALIDADES_IA, type FuncionalidadeGravavel, type ProvedorIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo } from '@escritorio/core';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { Db } from './cliente';
 import type { Database, Json } from './tipos.gen';
@@ -23,11 +23,18 @@ export type Configuracoes = {
   emailAlertas: string | null;
   modeloConversa: string;
   precosModelos: Record<string, PrecoModelo>;
+  custoMinutoTranscricaoUsd: number | null;
   mensagens: Record<string, string>;
 };
 export type NovaMensagemEntrada = {
   conversaId: string; clienteId: string | null; idProvedor: string; tipo: TipoMensagem;
   conteudo?: string | null; midiaUrlOrigem?: string | null; arquivoNome?: string | null; arquivoMime?: string | null;
+};
+/** Uma chamada à IA (spec 7B.2). Tudo obrigatório: caminho novo que esquecer a funcionalidade não compila (Prompt F). */
+export type NovoUsoIa = {
+  funcionalidade: FuncionalidadeGravavel; usuarioId: string | null; conversaId: string | null; clienteId: string | null;
+  modelo: string; provedor?: ProvedorIa; tokensEntrada: number; tokensSaida: number; tokensCacheLeitura: number; tokensCacheEscrita: number;
+  segundosAudio?: number | null; custoUsd: number;
 };
 export type NovoChamado = {
   clienteId: string | null; conversaId: string | null; setorId: string | null; responsavelId: string | null;
@@ -335,13 +342,18 @@ export function criarRepos(db: Db) {
       });
     },
 
-    async registrarUsoIa(u: { conversaId: string | null; modelo: string; tokensEntrada: number; tokensSaida: number;
-      tokensCacheLeitura: number; tokensCacheEscrita: number; custoUsd: number;
-      /** Parte E: só a sugestão preenche; a Parte F completa os outros caminhos (P13). */
-      funcionalidade?: FuncionalidadeIa | null; usuarioId?: string | null }): Promise<void> {
-      checar(await db.from('uso_ia').insert({ conversa_id: u.conversaId, modelo: u.modelo, tokens_entrada: u.tokensEntrada,
-        tokens_saida: u.tokensSaida, tokens_cache_leitura: u.tokensCacheLeitura, tokens_cache_escrita: u.tokensCacheEscrita,
-        custo_usd: u.custoUsd, funcionalidade: u.funcionalidade ?? null, usuario_id: u.usuarioId ?? null }), 'registrarUsoIa');
+    async registrarUsoIa(u: NovoUsoIa): Promise<void> {
+      // Segunda trava (a primeira é o tipo): nada novo entra como nao_identificado nem sem funcionalidade.
+      const f = u.funcionalidade as string | undefined;
+      if (!f || f === 'nao_identificado' || !(FUNCIONALIDADES_IA as readonly string[]).includes(f)) {
+        throw new Error(`registrarUsoIa: funcionalidade obrigatória (recebido ${String(f)})`);
+      }
+      checar(await db.from('uso_ia').insert({
+        funcionalidade: u.funcionalidade, usuario_id: u.usuarioId, conversa_id: u.conversaId, cliente_id: u.clienteId,
+        modelo: u.modelo, provedor: u.provedor ?? 'anthropic', tokens_entrada: u.tokensEntrada, tokens_saida: u.tokensSaida,
+        tokens_cache_leitura: u.tokensCacheLeitura, tokens_cache_escrita: u.tokensCacheEscrita,
+        segundos_audio: u.segundosAudio ?? null, custo_usd: u.custoUsd,
+      }), 'registrarUsoIa');
     },
 
     async custoIaDoMes(mes: string): Promise<number> {
@@ -363,6 +375,7 @@ export function criarRepos(db: Db) {
         emailAlertas: c.email_alertas,
         modeloConversa: c.modelo_conversa,
         precosModelos: c.precos_modelos as Record<string, PrecoModelo>,
+        custoMinutoTranscricaoUsd: c.custo_minuto_transcricao_usd === null ? null : Number(c.custo_minuto_transcricao_usd),
         mensagens: c.mensagens as Record<string, string>,
       };
     },
