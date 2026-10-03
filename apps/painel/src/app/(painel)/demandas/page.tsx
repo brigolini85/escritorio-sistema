@@ -6,14 +6,14 @@ import { Suspense } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { BarraSelecao, DataTable } from '@/components/patterns/data-table';
 import { EmptyState } from '@/components/patterns/empty-state';
-import type { EmpresaOpcao } from '@/components/patterns/escolher-empresa';
 import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
 import { variantesBotao } from '@/components/ui/button';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
-import { COLUNA_DA_ORDEM, OPCOES_PRIORIDADE, ORDEM_PADRAO, ORDENS, lerFiltrosDemandas, temFiltro, type FiltrosDemandas, type Prioridade, type Visao } from '@/lib/demandas';
+import { COLUNA_DA_ORDEM, ORDEM_PADRAO, ORDENS, lerFiltrosDemandas, temFiltro, type FiltrosDemandas, type Prioridade, type Visao } from '@/lib/demandas';
 import { filtrarConsulta } from '@/lib/demandas-consulta';
 import { ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
 import { pendenciasCsvBling } from '@/lib/resumo-pedido';
+import { lerDadosNovaDemanda } from '@/lib/nova-demanda-dados';
 import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -75,7 +75,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
   // Nova demanda: quem não é administrador abre só nos próprios setores (P10).
   const setoresNova = u.papel === 'admin' ? setores ?? [] : (setores ?? []).filter((s) => u.setores.includes(s.id));
   const podeNova = setoresNova.length > 0;
-  const nova = f.nova && podeNova ? await lerNova(sb) : null;
+  const nova = f.nova && podeNova ? await lerDadosNovaDemanda(sb, u) : null;
   const visao: Visao = perfil?.visao_demandas === 'quadro' ? 'quadro' : 'tabela';
   const lido = visao === 'quadro' ? await lerQuadro(sb, f, u.id, agora) : null;
   const quadro = lido?.colunas ?? null;
@@ -179,18 +179,6 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
       </PainelLateralUrl>
     </section>
   );
-}
-
-/** Empresas ativas (arquivada sai das seleções, spec 5.1) e o prazo sugerido de cada prioridade, calculado agora pelo banco. */
-async function lerNova(sb: Sb): Promise<{ empresas: EmpresaOpcao[]; sugeridos: Record<Prioridade, string | null> }> {
-  const [{ data: clientes }, ...prazos] = await Promise.all([
-    sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj').eq('ativo', true).order('razao_social'),
-    ...OPCOES_PRIORIDADE.map((o) => sb.rpc('calcular_prazo', { p_prioridade: o.valor })),
-  ]);
-  return {
-    empresas: (clientes ?? []).map((c) => ({ id: c.id, nome: c.nome_fantasia ?? c.razao_social, detalhe: c.cnpj })),
-    sugeridos: Object.fromEntries(OPCOES_PRIORIDADE.map((o, i) => [o.valor, (prazos[i]?.data as string | null) ?? null])) as Record<Prioridade, string | null>,
-  };
 }
 
 /** Pendências do CSV de cada pedido desta página (mesma conta da rota, com o comprador cadastrado). */

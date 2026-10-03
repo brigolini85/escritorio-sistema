@@ -102,6 +102,8 @@ export type NovaDemandaDados = {
   cliente: string; setor: string; titulo: string; descricao: string; prioridade: Prioridade;
   /** Valor do datetime-local; vazio = o prazo sugerido pelo banco. */
   prazo: string; responsavel: string; contato: string;
+  /** Abrir demanda a partir do Atendimento (spec 7A.1). */
+  conversa?: string;
 };
 
 /** Nova demanda pela equipe (origem equipe). Erro volta com o campo, para aparecer nele sem perder o que foi digitado. */
@@ -116,6 +118,8 @@ export async function criarDemanda(d: NovaDemandaDados): Promise<{ ok: true; men
   const { data, error } = await sb.rpc('criar_demanda' as never, {
     p_cliente: d.cliente, p_setor: d.setor, p_titulo: d.titulo, p_descricao: d.descricao, p_prioridade: d.prioridade,
     p_prazo: prazo, p_responsavel: d.responsavel || null, p_contato: d.contato || null,
+    // A função de 9 parâmetros não tem defaults: as 9 chaves vão sempre.
+    p_conversa: d.conversa || null,
   } as never);
   if (error) {
     const erro = mensagemDoBanco(error.message);

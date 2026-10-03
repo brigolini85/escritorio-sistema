@@ -22,6 +22,7 @@ import { alterarStatus, assumir, concluir, concluirAtendimento, devolverAoAgente
 import { Realce } from '../realce';
 import { AcoesConversa, BotaoPainel, type DemandaDaConversa } from './acoes-conversa';
 import { situacaoDasMensagens } from '../../treinar-agente/ensinar';
+import { AbrirDemanda } from './abrir-demanda';
 import { Compositor } from './compositor';
 import { EnsinarAgente } from './ensinar-agente';
 import { DetalhesConversa, type DemandaDetalhe } from './detalhes-conversa';
@@ -305,7 +306,11 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
         </HistoricoRolante>
 
         <div className="lg:col-start-1 lg:row-start-3">
-          <Compositor responder={responder.bind(null, id)} demandas={demandasAcoes} respostas={respostas ?? []} />
+          <Compositor
+            responder={responder.bind(null, id)} demandas={demandasAcoes} respostas={respostas ?? []}
+            conversaId={id} podeSugerir={usaAssistente(u, 'site')}
+            abrirDemanda={<AbrirDemanda key="abrir-demanda" conversaId={id} desligado={empresa || outrasEmpresas.length ? null : 'Cadastre o contato e a empresa antes de abrir uma demanda.'} />}
+          />
         </div>
       </GradeConversa>
     </EstadoConversa>

@@ -91,6 +91,18 @@ describe('ações da demanda', () => {
     await criarDemanda({ ...nova, prazo: '' });
     expect(falso.chamadas).toEqual([{ nome: 'criar_demanda', args: expect.objectContaining({ p_prazo: null }) }]);
   });
+  it('repassa a conversa ao banco, com as 9 chaves sempre (sem conversa: p_conversa null)', async () => {
+    const nova = { cliente: 'c1', setor: 's1', titulo: 'Folha de outubro', descricao: '', prioridade: 'normal' as const, prazo: '', responsavel: '', contato: '' };
+    falso.erro = 'Setor não encontrado.';
+    await criarDemanda({ ...nova, conversa: 'c1' });
+    await criarDemanda(nova);
+    expect(falso.chamadas.map((c) => c.args)).toEqual([
+      expect.objectContaining({ p_conversa: 'c1' }),
+      expect.objectContaining({ p_conversa: null }),
+    ]);
+    expect(Object.keys(falso.chamadas[0]!.args as object).sort()).toEqual(
+      ['p_cliente', 'p_contato', 'p_conversa', 'p_descricao', 'p_prazo', 'p_prioridade', 'p_responsavel', 'p_setor', 'p_titulo']);
+  });
   it('"Pedidos de nota: Sem acesso" não muda a descrição de um pedido de nota (P11); título e contato, sim', async () => {
     sessao.notas = 'sem_acesso';
     falso.atual = { titulo: 'NF de Padaria', resumo: 'Itens: 10 pães R$ 5,00', contato_id: null, pedido_venda: null };

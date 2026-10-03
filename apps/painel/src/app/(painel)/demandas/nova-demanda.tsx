@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useId, useRef, useState, useTransition, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { EscolherEmpresa, type EmpresaOpcao } from '@/components/patterns/escolher-empresa';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,14 +21,21 @@ const rotulo = 'text-xs font-bold uppercase tracking-wide text-brand';
  * Nova demanda (spec 6.4, imagem 04): ligação, e-mail ou balcão. Prioridade Normal por padrão; o prazo vem preenchido com o
  * sugerido e muda junto com a prioridade até a pessoa mexer nele. Responsável só do setor escolhido. Origem = equipe.
  */
-export function NovaDemanda({ empresas, setores, pessoas, sugeridos, podePrazo }: {
+export function NovaDemanda({ empresas, setores, pessoas, sugeridos, podePrazo, inicial, conversa, aoConcluir, aoCancelar }: {
   empresas: EmpresaOpcao[]; setores: { id: string; nome: string }[]; pessoas: PessoaSetor[]; sugeridos: Record<Prioridade, string | null>; podePrazo: boolean;
+  /** Abrir demanda do Atendimento: empresa e contato da conversa já escolhidos. */
+  inicial?: { cliente?: string; contato?: string };
+  /** A demanda nasce ligada a esta conversa (spec 7A.1). */
+  conversa?: string;
+  /** Fora da tela Demandas: quem abriu decide o que fazer depois (fechar o painel, avisar). */
+  aoConcluir?: (r: { id: string; mensagem: string }) => void;
+  aoCancelar?: () => void;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
   const id = useId();
   const [pendente, iniciar] = useTransition();
-  const [cliente, setCliente] = useState('');
+  const [cliente, setCliente] = useState(inicial?.cliente ?? '');
   const [setor, setSetor] = useState(setores.length === 1 ? setores[0]!.id : '');
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -36,12 +43,17 @@ export function NovaDemanda({ empresas, setores, pessoas, sugeridos, podePrazo }
   const [prazo, setPrazo] = useState(paraCampoDataHora(sugeridos.normal));
   const [prazoTocado, setPrazoTocado] = useState(false);
   const [responsavel, setResponsavel] = useState('');
-  const [contato, setContato] = useState('');
+  const [contato, setContato] = useState(inicial?.contato ?? '');
   const [contatos, setContatos] = useState<{ id: string; nome: string }[]>([]);
   const [erro, setErro] = useState<{ campo?: CampoNova; texto: string } | null>(null);
   // Empresa trocada antes da lista de contatos chegar: a resposta atrasada é descartada.
-  const empresaAtual = useRef('');
+  const empresaAtual = useRef(inicial?.cliente ?? '');
   const erroDe = (c: CampoNova) => (erro?.campo === c ? erro.texto : null);
+
+  // Empresa já escolhida (Abrir demanda do Atendimento): carrega os contatos dela uma vez.
+  useEffect(() => {
+    if (inicial?.cliente) void contatosDaEmpresa(inicial.cliente).then((l) => { if (empresaAtual.current === inicial.cliente) setContatos(l); }).catch(() => undefined);
+  }, [inicial?.cliente]);
 
   const escolherPrioridade = (p: Prioridade) => {
     setPrioridade(p);
@@ -59,12 +71,13 @@ export function NovaDemanda({ empresas, setores, pessoas, sugeridos, podePrazo }
   const enviar = (e: FormEvent) => {
     e.preventDefault();
     iniciar(async () => {
-      const r = await criarDemanda({ cliente, setor, titulo, descricao, prioridade, prazo: prazoTocado ? prazo : '', responsavel, contato });
+      const r = await criarDemanda({ cliente, setor, titulo, descricao, prioridade, prazo: prazoTocado ? prazo : '', responsavel, contato, conversa: conversa ?? '' });
       if (!r.ok) {
         setErro({ campo: r.campo, texto: r.erro });
         if (!r.campo) avisar(r);
         return;
       }
+      if (aoConcluir) { aoConcluir(r); return; }
       avisar(r);
       const p = new URLSearchParams(sp.toString());
       p.delete('nova');
@@ -75,6 +88,7 @@ export function NovaDemanda({ empresas, setores, pessoas, sugeridos, podePrazo }
 
   // Tira só o ?nova=1 (link direto não pode "voltar" para fora do painel).
   const cancelar = () => {
+    if (aoCancelar) { aoCancelar(); return; }
     const p = new URLSearchParams(sp.toString());
     p.delete('nova');
     router.replace(`/demandas${p.size ? `?${p.toString()}` : ''}`, { scroll: false });
@@ -93,7 +107,7 @@ export function NovaDemanda({ empresas, setores, pessoas, sugeridos, podePrazo }
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-1">
             <label htmlFor={`${id}-empresa`} className={rotulo}>Empresa</label>
-            <EscolherEmpresa id={`${id}-empresa`} name="cliente" empresas={empresas} aoMudar={escolherEmpresa}
+            <EscolherEmpresa id={`${id}-empresa`} name="cliente" empresas={empresas} inicial={inicial?.cliente ?? null} aoMudar={escolherEmpresa}
               aria-invalid={Boolean(erroDe('cliente'))} aria-describedby={descrito('cliente')} />
             {aviso('cliente')}
           </div>

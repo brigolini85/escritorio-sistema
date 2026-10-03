@@ -3,9 +3,10 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { comAvisoNaUrl } from '@/lib/avisos';
 import { cadastrarContatoPeloTelefone, lerManter } from '@/lib/cadastro-contato';
-import { enfileirarEnvio } from '@/lib/fila';
+import { enfileirarEnvio, enfileirarSugestao } from '@/lib/fila';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
-import { temNivel } from '@/lib/permissoes';
+import { lerDadosNovaDemanda, type DadosNovaDemanda } from '@/lib/nova-demanda-dados';
+import { temNivel, usaAssistente } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
@@ -137,4 +138,46 @@ export async function alternarAgenteContato(contatoId: string, conversaId: strin
   if (conversaId) revalidatePath(`/atendimento/${conversaId}`);
   revalidatePath('/clientes');
   revalidatePath('/contatos');
+}
+
+/** Sugerir resposta (spec 7A.1): grava o pedido (o banco confere assistente, acesso e horário) e põe na fila. Nada vai à conversa. */
+export async function pedirSugestao(conversaId: string): Promise<{ ok: true; id: string } | { ok: false; erro: string }> {
+  const u = await obterUsuario();
+  if (!usaAssistente(u, 'site')) return { ok: false, erro: 'Sugerir resposta usa o assistente: peça acesso ao administrador.' };
+  const sb = await supabaseServidor();
+  const { data, error } = await sb.rpc('pedir_sugestao_resposta', { p_conversa: conversaId });
+  if (error) return { ok: false, erro: mensagemDoBanco(error.message) };
+  try {
+    await enfileirarSugestao(data as string);
+  } catch {
+    return { ok: false, erro: 'Não consegui pedir a sugestão agora. Tente de novo em 2 minutos.' };
+  }
+  return { ok: true, id: data as string };
+}
+
+export type LeituraSugestao = { status: 'pendente' | 'pronta' | 'falhou'; texto: string | null; erro: string | null };
+
+/** Estado do pedido de sugestão (a tabela não está no Realtime: o painel pergunta a cada poucos segundos). Só quem pediu lê (RLS). */
+export async function lerSugestao(id: string): Promise<LeituraSugestao | null> {
+  await obterUsuario();
+  const sb = await supabaseServidor();
+  const { data } = await sb.from('sugestoes_resposta').select('status, texto, erro').eq('id', id).maybeSingle();
+  return data ? { status: data.status as LeituraSugestao['status'], texto: data.texto, erro: data.erro } : null;
+}
+
+/** Dados do painel "Nova demanda" para esta conversa: só as empresas do contato (ou a da conversa), com elas já escolhidas. */
+export async function dadosAbrirDemanda(conversaId: string): Promise<(DadosNovaDemanda & { inicial: { cliente: string; contato: string } }) | { erro: string }> {
+  const u = await obterUsuario();
+  const sb = await supabaseServidor();
+  const { data: c } = await sb.from('conversas').select('cliente_em_foco, contato_id').eq('id', conversaId).maybeSingle();
+  if (!c) return { erro: 'Sem acesso a esta conversa.' };
+  const { data: vinculos } = c.contato_id
+    ? await sb.from('contato_clientes').select('cliente_id').eq('contato_id', c.contato_id)
+    : { data: [] as { cliente_id: string }[] };
+  const ids = [...new Set([...(c.cliente_em_foco ? [c.cliente_em_foco] : []), ...(vinculos ?? []).map((v) => v.cliente_id)])];
+  if (ids.length === 0) return { erro: 'Cadastre o contato e a empresa antes de abrir uma demanda.' };
+  const dados = await lerDadosNovaDemanda(sb, u, ids);
+  if (dados.setores.length === 0) return { erro: 'Você não tem setor para abrir demanda.' };
+  if (dados.empresas.length === 0) return { erro: 'Cadastre o contato e a empresa antes de abrir uma demanda.' };
+  return { ...dados, inicial: { cliente: c.cliente_em_foco && dados.empresas.some((e) => e.id === c.cliente_em_foco) ? c.cliente_em_foco : dados.empresas[0]!.id, contato: c.contato_id ?? '' } };
 }

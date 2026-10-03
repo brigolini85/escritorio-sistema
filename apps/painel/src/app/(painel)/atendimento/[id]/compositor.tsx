@@ -1,13 +1,14 @@
 'use client';
 
-import { LockKeyhole, Paperclip, SendHorizontal, StickyNote, X } from 'lucide-react';
-import { useId, useRef, useState, type KeyboardEvent } from 'react';
+import { ListChecks, LockKeyhole, Paperclip, SendHorizontal, Sparkles, StickyNote, X } from 'lucide-react';
+import { useCallback, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/cn';
 import { EscolherDemanda, rotuloDemanda, type DemandaDaConversa } from './acoes-conversa';
 import { demandaEmFoco, useEstadoConversa, type ModoCompositor } from './estado-conversa';
+import { SugerirResposta } from './sugerir-resposta';
 
 type Acao = (dados: FormData) => void | Promise<void>;
 export type RespostaPronta = { id: string; pergunta: string; resposta: string };
@@ -15,12 +16,11 @@ export type RespostaPronta = { id: string; pergunta: string; resposta: string };
 const SEM_DEMANDA = 'A nota interna fica registrada numa demanda, e esta conversa não tem demanda aberta.';
 const areaTexto = 'block min-h-16 w-full resize-none bg-transparent px-3 py-2 text-base text-foreground placeholder:text-subtle focus:outline-none disabled:cursor-not-allowed';
 
-/** Envia o formulário com Ctrl/⌘+Enter (Enter sozinho quebra a linha, como no WhatsApp Web com Shift). */
+/** Enter envia; Shift+Enter quebra a linha (spec 7A.1). Ctrl/⌘+Enter também envia. Durante a composição de acentos, não envia. */
 function enviarComAtalho(e: KeyboardEvent<HTMLTextAreaElement>) {
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-    e.preventDefault();
-    e.currentTarget.form?.requestSubmit();
-  }
+  if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+  e.preventDefault();
+  e.currentTarget.form?.requestSubmit();
 }
 
 /**
@@ -29,7 +29,12 @@ function enviarComAtalho(e: KeyboardEvent<HTMLTextAreaElement>) {
  * Nota interna: ação `notaInterna` da demanda em foco (campo `texto`); sem demanda aberta, fica desabilitada.
  * "/" no começo de uma palavra abre as respostas prontas (Configurações), que entram no texto para revisar antes de enviar.
  */
-export function Compositor({ responder, demandas, respostas }: { responder: Acao; demandas: DemandaDaConversa[]; respostas: RespostaPronta[] }) {
+export function Compositor({ responder, demandas, respostas, conversaId, podeSugerir, abrirDemanda }: {
+  responder: Acao; demandas: DemandaDaConversa[]; respostas: RespostaPronta[];
+  conversaId: string; podeSugerir: boolean;
+  /** Botão "Abrir demanda" (já ligado à conversa). */
+  abrirDemanda: ReactNode;
+}) {
   const { modo, setModo, demandaId } = useEstadoConversa();
   const demanda = demandaEmFoco(demandas, demandaId);
   const semDemanda = !demanda;
@@ -49,7 +54,7 @@ export function Compositor({ responder, demandas, respostas }: { responder: Acao
         </TabsList>
 
         <TabsContent value="responder" forceMount className="mt-2 data-[state=inactive]:hidden">
-          <FormResposta responder={responder} respostas={respostas} />
+          <FormResposta responder={responder} respostas={respostas} conversaId={conversaId} podeSugerir={podeSugerir} abrirDemanda={abrirDemanda} />
         </TabsContent>
         <TabsContent value="nota" forceMount className="mt-2 data-[state=inactive]:hidden">
           {demanda ? (
@@ -72,7 +77,7 @@ export function Compositor({ responder, demandas, respostas }: { responder: Acao
                 respostas={respostas}
               />
               <div className="flex items-center justify-end gap-2 px-2 pb-2">
-                <span className="mr-auto px-1 text-xs text-internal-note-foreground">Ctrl+Enter salva</span>
+                <span className="mr-auto px-1 text-xs text-internal-note-foreground">Enter salva · Shift+Enter quebra linha</span>
                 <BotaoEnviar rotulo="Salvar nota" enviando="Salvando…" />
               </div>
             </form>
@@ -85,13 +90,25 @@ export function Compositor({ responder, demandas, respostas }: { responder: Acao
   );
 }
 
-function FormResposta({ responder, respostas }: { responder: Acao; respostas: RespostaPronta[] }) {
+function FormResposta({ responder, respostas, conversaId, podeSugerir, abrirDemanda }: {
+  responder: Acao; respostas: RespostaPronta[]; conversaId: string; podeSugerir: boolean; abrirDemanda: ReactNode;
+}) {
   const [arquivo, setArquivo] = useState<string | null>(null);
+  const [deSugestao, setDeSugestao] = useState(false);
+  const campo = useRef<HTMLTextAreaElement>(null);
+  const usarSugestao = useCallback(() => setDeSugestao(true), []);
   const entrada = useRef<HTMLInputElement>(null);
   const id = useId();
   return (
-    <form action={responder} onReset={() => setArquivo(null)} className="rounded-md border border-input bg-surface shadow-sm focus-within:border-brand focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-ring">
-      <CampoComRespostas name="texto" placeholder="Escreva a resposta para o cliente" rotulo="Resposta para o cliente" respostas={respostas} />
+    <form action={responder} onReset={() => { setArquivo(null); setDeSugestao(false); }}
+      className={cn('rounded-md border bg-surface shadow-sm focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-ring',
+        deSugestao ? 'border-brand' : 'border-input focus-within:border-brand')}>
+      {deSugestao && (
+        <p className="flex items-center gap-1.5 px-3 pt-2 text-xs font-bold uppercase tracking-wide text-brand">
+          <Sparkles aria-hidden size={14} strokeWidth={1.75} /> Sugestão do assistente (editável)
+        </p>
+      )}
+      <CampoComRespostas name="texto" placeholder="Escreva a resposta para o cliente" rotulo="Resposta para o cliente" respostas={respostas} campoRef={campo} />
       <div className="flex flex-wrap items-center gap-2 px-2 pb-2">
         <input
           ref={entrada}
@@ -124,8 +141,22 @@ function FormResposta({ responder, respostas }: { responder: Acao; respostas: Re
             </button>
           </span>
         )}
+        {respostas.length > 0 && (
+          <Button type="button" size="sm" variant="ghost" onClick={() => {
+            const el = campo.current;
+            if (!el) return;
+            el.value += '/';
+            el.focus();
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          }}>
+            <ListChecks aria-hidden size={16} strokeWidth={1.75} />
+            Respostas prontas
+          </Button>
+        )}
+        {podeSugerir && <SugerirResposta conversaId={conversaId} campo={campo} aoUsar={usarSugestao} />}
+        {abrirDemanda}
         <span className="ml-auto flex items-center gap-2">
-          <span className="hidden text-xs text-subtle sm:inline">{respostas.length > 0 && '/ respostas prontas · '}Ctrl+Enter envia</span>
+          <span className="hidden text-xs text-subtle sm:inline">{respostas.length > 0 && '/ respostas prontas · '}Enter envia · Shift+Enter quebra linha</span>
           <BotaoEnviar rotulo="Enviar" enviando="Enviando…" />
         </span>
       </div>
@@ -157,14 +188,17 @@ function CampoComRespostas({
   rotulo,
   dataAtalho,
   respostas,
+  campoRef,
 }: {
   name: string;
   placeholder: string;
   rotulo: string;
   dataAtalho?: string;
   respostas: RespostaPronta[];
+  campoRef?: RefObject<HTMLTextAreaElement | null>;
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
+  const refInterno = useRef<HTMLTextAreaElement>(null);
+  const ref = campoRef ?? refInterno;
   const idLista = useId();
   const [busca, setBusca] = useState<{ inicio: number; termo: string } | null>(null);
   const [ativo, setAtivo] = useState(0);
