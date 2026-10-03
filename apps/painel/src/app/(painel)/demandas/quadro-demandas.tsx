@@ -23,16 +23,21 @@ export function QuadroDemandas({ colunas, hrefs, agora }: { colunas: ColunaQuadr
   const [arrastando, setArrastando] = useState<LinhaDemanda | null>(null);
   const [sobre, setSobre] = useState<StatusDemanda | null>(null);
   const [concluir, setConcluir] = useState<LinhaDemanda | null>(null);
-  const [anuncio, setAnuncio] = useState('');
+  const [anuncio, setAnuncio] = useState({ texto: '', n: 0 });
+  const [movendo, setMovendo] = useState<string | null>(null);
   const [, iniciar] = useTransition();
+  // O contador alterna um espaço invisível no fim: o texto muda e o leitor de tela lê de novo mesmo um aviso igual ao anterior.
+  const anunciar = (texto: string) => setAnuncio((a) => ({ texto, n: a.n + 1 }));
   const data = new Date(agora);
   const nomeDa = (s: StatusDemanda) => colunas.find((c) => c.status === s)?.titulo ?? s;
 
   const mover = (d: LinhaDemanda, para: StatusDemanda) => {
     if (d.status === para || d.status === 'concluido') return;
     if (para === 'concluido') { setConcluir(d); return; }
+    setMovendo(d.id);
     iniciar(async () => {
-      if (avisar(await alterarStatusDemanda(d.id, para))) setAnuncio(`Demanda #${d.numero} foi para ${nomeDa(para)}.`);
+      if (avisar(await alterarStatusDemanda(d.id, para))) anunciar(`Demanda #${d.numero} foi para ${nomeDa(para)}.`);
+      setMovendo(null);
     });
   };
 
@@ -40,13 +45,14 @@ export function QuadroDemandas({ colunas, hrefs, agora }: { colunas: ColunaQuadr
     if (!e.shiftKey || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
     e.preventDefault();
     const i = ORDEM.indexOf(d.status) + (e.key === 'ArrowRight' ? 1 : -1);
-    if (i >= 0 && i < ORDEM.length) mover(d, ORDEM[i]!);
+    if (d.status === 'concluido' || i < 0 || i >= ORDEM.length) { anunciar('Não dá para mover para lá.'); return; }
+    mover(d, ORDEM[i]!);
   };
 
   return (
     <>
       <p id="dica-quadro" className="sr-only">Para mover sem o mouse: com o cartão em foco, Shift e seta para a direita ou para a esquerda.</p>
-      <p aria-live="polite" className="sr-only">{anuncio}</p>
+      <p aria-live="polite" className="sr-only">{anuncio.texto}{anuncio.n % 2 ? '\u200B' : ''}</p>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {colunas.map((c) => (
           <section
@@ -71,12 +77,14 @@ export function QuadroDemandas({ colunas, hrefs, agora }: { colunas: ColunaQuadr
                     onDragStart={(e) => { setArrastando(d); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', d.id); }}
                     onDragEnd={() => { setArrastando(null); setSobre(null); }}
                     onKeyDown={(e) => teclado(e, d)}
+                    aria-busy={movendo === d.id || undefined}
                     aria-describedby={d.status !== 'concluido' ? 'dica-quadro' : undefined}
                     className={cn(
                       'flex flex-col gap-1 rounded-md border border-border bg-surface p-3 text-sm hover:border-brand',
                       (d.prioridade === 'urgente' || d.vencida) && 'border-l-4 border-l-danger',
                       d.prioridade === 'alta' && !d.vencida && 'border-l-4 border-l-warning',
                       d.status === 'concluido' && 'bg-surface-muted',
+                      movendo === d.id && 'opacity-60',
                     )}
                   >
                     <span className="flex items-center justify-between gap-2 text-muted">
@@ -118,7 +126,7 @@ export function QuadroDemandas({ colunas, hrefs, agora }: { colunas: ColunaQuadr
         acao={async () => {
           const d = concluir;
           if (!d) return;
-          if (avisar(await concluirDemanda(d.id))) setAnuncio(`Demanda #${d.numero} concluída.`);
+          if (avisar(await concluirDemanda(d.id))) anunciar(`Demanda #${d.numero} concluída.`);
           setConcluir(null);
         }}
       />

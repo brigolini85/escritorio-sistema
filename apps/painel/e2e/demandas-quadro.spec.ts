@@ -30,8 +30,21 @@ test('quadro: arrastar muda o status, Concluída pede confirmação, teclado mov
   await cartao(`${P} Admissão`).dragTo(coluna(/^Concluída/));
   const janela = page.getByRole('dialog', { name: /Concluir a demanda/ });
   await expect(janela).toBeVisible();
+  await janela.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(janela).toBeHidden();
+  await expect(coluna(/^Resolvendo/)).toContainText(`${P} Admissão`);
+  await expect(coluna(/^Concluída/)).not.toContainText(`${P} Admissão`);
+
+  await cartao(`${P} Admissão`).dragTo(coluna(/^Concluída/));
+  await expect(janela).toBeVisible();
   await janela.getByRole('button', { name: 'Concluir' }).click();
   await expect(page.getByText('Demanda concluída.')).toBeVisible();
+  await expect(coluna(/^Concluída/)).toContainText(`${P} Admissão`);
+  // Cartão concluído não arrasta nem se move pelo teclado.
+  await expect(cartao(`${P} Admissão`)).not.toHaveAttribute('draggable', 'true');
+  await cartao(`${P} Admissão`).focus();
+  await page.keyboard.press('Shift+ArrowLeft');
+  await expect(page.getByText('Não dá para mover para lá.')).toBeAttached();
   await expect(coluna(/^Concluída/)).toContainText(`${P} Admissão`);
 
   await cartao(`${P} Nota de venda`).focus();

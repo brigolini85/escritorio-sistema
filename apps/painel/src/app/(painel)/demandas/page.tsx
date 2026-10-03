@@ -22,7 +22,8 @@ import { COLUNAS_LISTA, colunasDemandas, paraLinhaDemanda, type LinhaDemanda } f
 import { DetalheDemanda, type DemandaAberta } from './detalhe-demanda';
 import { ExportarSelecionadas } from './exportar-selecionadas';
 import { EsqueletoDemanda, PainelDemanda } from './painel-demanda';
-import { QuadroDemandas, type ColunaQuadro } from './quadro-demandas';
+import { lerQuadro } from './ler-quadro';
+import { QuadroDemandas } from './quadro-demandas';
 import { RodapeDemandas } from './rodape-demandas';
 
 const POR_PAGINA = 50;
@@ -62,7 +63,8 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
     podeCsv && f.tipo !== 'outras' ? contar({ tipo: 'venda' }) : Promise.resolve({ count: 0, error: null }),
   ]);
   const visao: Visao = perfil?.visao_demandas === 'quadro' ? 'quadro' : 'tabela';
-  const quadro = visao === 'quadro' ? await lerQuadro(sb, f, u.id, agora) : null;
+  const lido = visao === 'quadro' ? await lerQuadro(sb, f, u.id, agora) : null;
+  const quadro = lido?.colunas ?? null;
   // Arquivada não recebe demanda nova (Parte B): só ativas nos controles.
   const pessoasSetor = (pessoas ?? []).filter((p) => p.ativo).map((p) => ({ id: p.id, nome: p.nome, setores: p.usuario_setores.map((s) => s.setor_id) }));
   const pedidosVenda = pedidos.count ?? 0;
@@ -94,7 +96,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
   return (
     <section>
       <AtualizarAoVivo />
-      <PageHeader titulo="Gestão das demandas" contagem={totalN} acoes={<AlternarVisao atual={visao} />} />
+      <PageHeader titulo="Gestão das demandas" contagem={quadro ? quadro.reduce((n, c) => n + c.total, 0) : totalN} acoes={<AlternarVisao atual={visao} />} />
       <BarraDemandas
         params={params}
         f={f}
@@ -106,11 +108,15 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
         ordem={quadro ? undefined : ordem}
       />
       {quadro ? (
+        lido?.erro ? (
+          <EmptyState icone={FilterX} titulo="Não consegui carregar as demandas agora." descricao="Atualize a página em instantes." />
+        ) : (
         <QuadroDemandas
           colunas={quadro}
           hrefs={Object.fromEntries(quadro.flatMap((c) => c.cartoes).map((d) => [d.id, hrefDemanda(d.id)]))}
           agora={agora.toISOString()}
         />
+        )
       ) : (
         <>
           <DataTable
@@ -150,24 +156,6 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
       </PainelDemanda>
     </section>
   );
-}
-
-const POR_COLUNA = 50;
-const SETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
-
-/** As 4 colunas do quadro (spec 6.2): os mesmos filtros e busca da tabela, menos os status; Concluída só dos últimos 7 dias. */
-async function lerQuadro(sb: Sb, f: FiltrosDemandas, euId: string, agora: Date): Promise<ColunaQuadro[]> {
-  const desde = new Date(agora.getTime() - SETE_DIAS_MS).toISOString();
-  const coluna = async (status: StatusDemanda, titulo: string): Promise<ColunaQuadro> => {
-    const base = filtrarConsulta(sb.from('demandas_lista').select(COLUNAS_LISTA, { count: 'exact' }).eq('status', status), f, euId, agora, { semStatus: true });
-    const { data, count } = status === 'concluido'
-      ? await base.gte('concluido_em', desde).order('concluido_em', { ascending: false }).limit(POR_COLUNA)
-      : await base.order('prazo_em', { ascending: true, nullsFirst: false }).order('numero', { ascending: false }).limit(POR_COLUNA);
-    return { status, titulo, total: count ?? 0, cartoes: (data ?? []).map((d) => paraLinhaDemanda(d, [])) };
-  };
-  return Promise.all([
-    coluna('aberto', 'Nova'), coluna('em_andamento', 'Resolvendo'), coluna('aguardando_cliente', 'Com o cliente'), coluna('concluido', 'Concluída · 7 dias'),
-  ]);
 }
 
 /** Pendências do CSV de cada pedido desta página (mesma conta da rota, com o comprador cadastrado). */
