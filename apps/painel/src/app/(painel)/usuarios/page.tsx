@@ -1,5 +1,5 @@
 import { variantesTelefone } from '@escritorio/core';
-import { CircleAlert, SearchX, TriangleAlert, UsersRound } from 'lucide-react';
+import { SearchX, TriangleAlert, UsersRound } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { DataTable, type ColunaTabela } from '@/components/patterns/data-table';
 import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
@@ -35,15 +35,6 @@ function resumo(u: Linha): string {
     + `${u.permissoes.includes('assistente_whatsapp') ? ' · assistente no WhatsApp' : ''}`;
 }
 
-function AvisoErro({ erro }: { erro: string }) {
-  return (
-    <p role="alert" className="flex items-start gap-2 rounded-md border border-danger bg-danger-soft p-3 text-sm text-danger">
-      <CircleAlert aria-hidden size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
-      <span>{erro}</span>
-    </p>
-  );
-}
-
 function AvisoContato({ contato }: { contato: string }) {
   return (
     <p className="flex items-start gap-2 rounded-md border border-warning bg-warning-soft p-3 text-sm text-warning">
@@ -76,7 +67,7 @@ function EsqueletoUsuario() {
 /**
  * Pessoas do escritório (só o administrador). Tabela com papel, setores, telefone e permissões;
  * ?usuario=<id> abre o painel lateral com o formulário de sempre (salvarUsuario); "Convidar pessoa" abre a janela
- * do convite (convidarUsuario). Os erros das duas ações voltam em ?erro=.
+ * do convite (convidarUsuario). Os erros das duas ações aparecem no próprio formulário.
  */
 export default async function Usuarios({ searchParams }: { searchParams: Promise<ParamsBusca> }) {
   const eu = await exigirAdmin();
@@ -84,7 +75,6 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
   if (valorParam(params, 'ver') === 'arquivados') {
     return <TelaArquivados tipo="usuario" titulo="Usuários arquivados" voltar={{ rotulo: 'Usuários e permissões', href: '/usuarios' }} pode />;
   }
-  const erro = valorParam(params, 'erro');
   const pedido = valorParam(params, 'usuario');
   const usuarioAberto = pedido && UUID.test(pedido) ? pedido : null;
   const ordem = lerOrdem(params, ['nome'], { coluna: 'nome', direcao: 'asc' })!;
@@ -176,11 +166,10 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
         acoes={(
           <>
             <LinkArquivados href="/usuarios?ver=arquivados" total={arquivados} />
-            <ConviteUsuario acao={convidarUsuario} setores={opcoesSetor} emails={linhas.map((l) => l.email.toLowerCase())} />
+            <ConviteUsuario acao={convidarUsuario} setores={opcoesSetor} />
           </>
         )}
       />
-      {erro && <div className="mb-4"><AvisoErro erro={erro} /></div>}
       <DataTable
         rotulo="Usuários"
         linhas={ativos}
@@ -215,12 +204,7 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
                   usuario={aberto}
                   setores={opcoesSetor}
                   enviar="Salvar usuário"
-                  aviso={(erro || aberto.contatoDoTelefone) && (
-                    <>
-                      {erro && <AvisoErro erro={erro} />}
-                      {aberto.contatoDoTelefone && <AvisoContato contato={aberto.contatoDoTelefone} />}
-                    </>
-                  )}
+                  aviso={aberto.contatoDoTelefone && <AvisoContato contato={aberto.contatoDoTelefone} />}
                 />
                 {aberto.id !== eu.id && (
                   <div className="px-4 pb-4"><ExcluirCadastro tipo="usuario" id={aberto.id} nome={aberto.nome} variante="area" voltarPara="/usuarios" /></div>

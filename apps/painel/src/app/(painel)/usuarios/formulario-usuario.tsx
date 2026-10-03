@@ -1,8 +1,8 @@
 'use client';
 
-import { TriangleAlert } from 'lucide-react';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { useFormStatus } from 'react-dom';
+import { CircleAlert, TriangleAlert } from 'lucide-react';
+import { unstable_rethrow } from 'next/navigation';
+import { useId, useState, useTransition, type FormEvent, type ReactNode } from 'react';
 import { FormField } from '@/components/patterns/form-field';
 import { BotaoSalvar, FormularioAlteravel, IndicadorAlteracoes, inicialRadix } from '@/components/patterns/formulario-alteravel';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,11 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ROTULO_DE_OPCAO } from '@/components/ui/rotulo-de-opcao';
 import { Switch } from '@/components/ui/switch';
+import { toast } from '@/components/ui/toaster';
 import { cn } from '@/lib/cn';
 import { classeSelect } from '../clientes/estilos';
-import { PERMISSOES } from './esquemas';
+import { PERMISSOES, type EstadoUsuario } from './esquemas';
 
-type Acao = (dados: FormData) => void | Promise<void>;
+type Acao = (dados: FormData) => Promise<EstadoUsuario>;
+const FALHA = 'Não consegui salvar agora. Tente de novo.';
 export type SetorOpcao = { id: string; nome: string; ativo: boolean };
 export type DadosUsuario = { nome: string; email: string; telefone: string | null; papel: 'admin' | 'atendente'; setores: string[]; permissoes: string[]; ativo: boolean };
 
@@ -34,15 +36,26 @@ const PERMISSOES_DE_EDICAO = new Set(['editar_clientes', 'editar_precos', 'emiti
  * nome, email, telefone, papel, setor (vários), permissao (várias). Switch e Checkbox
  * (Radix) enviam name=value quando marcados, como as caixas nativas enviavam.
  * O aviso de WhatsApp sem telefone aparece na hora, mas não impede o envio: quem decide é o servidor
- * ("Informe o telefone para usar o assistente pelo WhatsApp").
+ * ("Informe o telefone para usar o assistente pelo WhatsApp"). Os erros voltam da ação e aparecem no campo
+ * (ou no aviso do formulário), sem fechar o painel nem perder o que foi digitado.
  */
+/** Erro sem campo (banco, convite recusado): dentro do formulário, no painel, não no topo da página. */
+function AvisoErro({ erro }: { erro: string }) {
+  return (
+    <p role="alert" className="flex items-start gap-2 rounded-md border border-danger bg-danger-soft p-3 text-sm text-danger">
+      <CircleAlert aria-hidden size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+      <span>{erro}</span>
+    </p>
+  );
+}
+
 export function FormularioUsuario({
   acao,
   usuario,
   setores,
   enviar,
   aviso,
-  aoTerminar,
+  aoSalvar,
   className,
 }: {
   acao: Acao;
@@ -52,8 +65,8 @@ export function FormularioUsuario({
   enviar: string;
   /** Aviso acima dos campos (ex.: o telefone também é de um contato). */
   aviso?: ReactNode;
-  /** Chamado quando o envio termina (a janela do convite fecha). */
-  aoTerminar?: () => void;
+  /** Depois de salvar (a janela do convite fecha). */
+  aoSalvar?: () => void;
   className?: string;
 }) {
   const id = useId();
@@ -62,19 +75,45 @@ export function FormularioUsuario({
   const [whatsapp, setWhatsapp] = useState(usuario?.permissoes.includes('assistente_whatsapp') ?? false);
   const [papel, setPapel] = useState(usuario?.papel ?? 'atendente');
   const semTelefone = whatsapp && !telefone.trim();
+  const [estado, setEstado] = useState<EstadoUsuario | null>(null);
+  const [enviando, iniciar] = useTransition();
+  const erros = estado && !estado.ok ? estado.erros : {};
+
+  const enviarFormulario = (e: FormEvent<HTMLFormElement>) => {
+    // Envio pela própria tela (sem action no <form>): o React não limpa os campos, então o erro aparece no campo
+    // com o painel aberto e tudo o que foi digitado (sobra 6 da Parte B).
+    e.preventDefault();
+    const dados = new FormData(e.currentTarget);
+    iniciar(async () => {
+      try {
+        const r = await acao(dados);
+        setEstado(r);
+        if (!r.ok) return;
+        toast.success(editando
+          ? `Salvo: ${String(dados.get('nome') ?? '').trim()}.`
+          : `Convite enviado para ${String(dados.get('email') ?? '').trim().toLowerCase()}.`);
+        aoSalvar?.();
+      } catch (err) {
+        unstable_rethrow(err);
+        console.error('[usuarios] falha ao salvar', err);
+        setEstado({ ok: false, erros: { geral: FALHA } });
+      }
+    });
+  };
 
   return (
-    <FormularioAlteravel action={acao} className={cn('flex min-h-0 flex-1 flex-col', className)}>
+    <FormularioAlteravel onSubmit={enviarFormulario} className={cn('flex min-h-0 flex-1 flex-col', className)}>
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4">
         {aviso}
+        {erros.geral && <AvisoErro erro={erros.geral} />}
         <div className="grid gap-3 sm:grid-cols-2">
-          <FormField id={`${id}-nome`} rotulo="Nome">
+          <FormField id={`${id}-nome`} rotulo="Nome" erro={erros.nome}>
             <Input name="nome" defaultValue={usuario?.nome} placeholder="Nome" required autoComplete="off" />
           </FormField>
-          <FormField id={`${id}-email`} rotulo="E-mail" ajuda={editando ? 'O e-mail de acesso não muda aqui.' : undefined}>
+          <FormField id={`${id}-email`} rotulo="E-mail" ajuda={editando ? 'O e-mail de acesso não muda aqui.' : undefined} erro={erros.email}>
             <Input name="email" type={editando ? 'text' : 'email'} defaultValue={usuario?.email} placeholder="E-mail" required readOnly={editando} autoComplete="off" className={cn(editando && 'bg-surface-muted text-muted')} />
           </FormField>
-          <FormField id={`${id}-telefone`} rotulo="Telefone">
+          <FormField id={`${id}-telefone`} rotulo="Telefone" erro={erros.telefone}>
             <Input
               name="telefone"
               defaultValue={usuario?.telefone ?? ''}
@@ -84,7 +123,7 @@ export function FormularioUsuario({
               onChange={(e) => setTelefone(e.target.value)}
             />
           </FormField>
-          <FormField id={`${id}-papel`} rotulo="Papel">
+          <FormField id={`${id}-papel`} rotulo="Papel" erro={erros.papel}>
             <select name="papel" defaultValue={usuario?.papel ?? 'atendente'} onChange={(e) => setPapel(e.target.value as 'admin' | 'atendente')} className={classeSelect}>
               <option value="atendente">Atendente</option>
               <option value="admin">Administrador</option>
@@ -155,20 +194,8 @@ export function FormularioUsuario({
       </div>
       <div className="flex items-center justify-end gap-3 border-t border-border p-4">
         <IndicadorAlteracoes />
-        <BotaoSalvar>{enviar}</BotaoSalvar>
-        {aoTerminar && <AoTerminar aoTerminar={aoTerminar} />}
+        <BotaoSalvar enviando={enviando}>{enviar}</BotaoSalvar>
       </div>
     </FormularioAlteravel>
   );
-}
-
-/** Avisa quando o envio termina (com sucesso ou com ?erro= na página), para a janela do convite fechar. */
-function AoTerminar({ aoTerminar }: { aoTerminar: () => void }) {
-  const { pending } = useFormStatus();
-  const antes = useRef(false);
-  useEffect(() => {
-    if (antes.current && !pending) aoTerminar();
-    antes.current = pending;
-  }, [pending, aoTerminar]);
-  return null;
 }

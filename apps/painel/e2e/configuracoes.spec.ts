@@ -49,7 +49,7 @@ test('administrador convida pessoa na aba Usuários e vê aviso ao faltar telefo
   await page.getByRole('button', { name: 'Configurações: abrir submenu' }).click();
   await page.getByRole('menuitem', { name: 'Usuários e permissões' }).click();
   const preencher = async () => {
-    // O convite fica numa janela; depois de cada envio ela fecha.
+    // O convite fica numa janela; ela fecha quando o envio dá certo.
     await page.getByRole('button', { name: 'Convidar pessoa' }).click();
     await page.getByPlaceholder('Nome').last().fill('Nova Pessoa');
     await page.getByPlaceholder('E-mail').last().fill('nova@teste.com');
@@ -57,10 +57,14 @@ test('administrador convida pessoa na aba Usuários e vê aviso ao faltar telefo
   };
   await preencher();
   await page.getByRole('button', { name: 'Enviar convite' }).click();
-  await expect(page.getByText('Informe o telefone para usar o assistente pelo WhatsApp')).toBeVisible();
-  await preencher();
-  await page.getByPlaceholder('Telefone com DDD (para o assistente pelo WhatsApp)').last().fill('(31) 95555-0001');
-  await page.getByRole('button', { name: 'Enviar convite' }).click();
+  // Sobra 6 da Parte B: a janela fica aberta, com o erro no campo telefone e o que foi digitado.
+  const janela = page.getByRole('dialog', { name: 'Convidar pessoa' });
+  await expect(janela.getByText('Informe o telefone para usar o assistente pelo WhatsApp')).toBeVisible();
+  await expect(janela.getByPlaceholder('E-mail')).toHaveValue('nova@teste.com');
+  await janela.getByPlaceholder('Telefone com DDD (para o assistente pelo WhatsApp)').fill('(31) 95555-0001');
+  await janela.getByRole('button', { name: 'Enviar convite' }).click();
+  await expect(page.getByText('Convite enviado para nova@teste.com.')).toBeVisible();
+  await expect(janela).toHaveCount(0);
   await expect(page.getByText('Nova Pessoa · Atendente · assistente no WhatsApp')).toBeVisible();
   const { data } = await db.from('usuarios').select('permissoes, telefone').eq('email', 'nova@teste.com').single();
   expect(data).toEqual({ permissoes: ['assistente_whatsapp'], telefone: '5531955550001' });

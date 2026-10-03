@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UsuarioForm } from './esquemas';
+import { errosDoFormulario, UsuarioForm } from './esquemas';
 
 const form = (campos: Record<string, string | string[]>) => {
   const f = new FormData();
@@ -32,5 +32,19 @@ describe('UsuarioForm (aba Usuários, pedido do dono, 2026-09-29)', () => {
   });
   it('recusa permissão desconhecida', () => {
     expect(UsuarioForm.safeParse(form({ nome: 'Ana', email: 'ana@escritorio.com', papel: 'atendente', permissao: 'apagar_tudo' })).success).toBe(false);
+  });
+});
+
+describe('errosDoFormulario', () => {
+  it('cada mensagem vai para o seu campo; o que não é campo vai para geral', () => {
+    expect(errosDoFormulario([
+      { path: ['telefone'], message: 'Telefone inválido' },
+      { path: ['nome'], message: 'Informe o nome' },
+      { path: ['permissoes', 0], message: 'Permissão desconhecida' },
+    ])).toEqual({ telefone: 'Telefone inválido', nome: 'Informe o nome', geral: 'Permissão desconhecida' });
+  });
+  it('não repete a mesma mensagem no mesmo campo', () => {
+    expect(errosDoFormulario([{ path: ['email'], message: 'E-mail inválido' }, { path: ['email'], message: 'E-mail inválido' }]))
+      .toEqual({ email: 'E-mail inválido' });
   });
 });

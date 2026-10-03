@@ -239,7 +239,11 @@ export function NotaOutroCard({ outro, nota, notaAlterado, className }: { outro:
  * Botão de enviar do FormularioAlteravel. O texto não muda (testes e leitor de tela acham pelo nome); enquanto
  * salva, fica desabilitado com um ícone girando. `destacar`: "outline" sem alteração e "primary" com alteração.
  */
-export function BotaoSalvar({ children, destacar = false, className, ...props }: Omit<ButtonProps, 'type' | 'variant'> & { destacar?: boolean }) {
+export function BotaoSalvar({ children, destacar = false, enviando = false, className, ...props }: Omit<ButtonProps, 'type' | 'variant'> & {
+  destacar?: boolean;
+  /** Formulário enviado à mão (onSubmit + transição): o useFormStatus não sabe que está salvando. */
+  enviando?: boolean;
+}) {
   const ancora = useRef<HTMLButtonElement>(null);
   const alterado = useAlterado(ancora);
   const { pending } = useFormStatus();

@@ -75,10 +75,11 @@ test('Usuários: telefone inválido avisa; salvar mantém setor inativo, registr
 
   await form.getByPlaceholder('Telefone com DDD (para o assistente pelo WhatsApp)').fill('12345');
   await form.getByRole('button', { name: 'Salvar usuário' }).click();
-  await expect(page.getByText('Telefone inválido')).toBeVisible();
-  await expect(page).toHaveURL(/erro=/);
+  // Sobra 6 da Parte B: o erro fica no campo, o painel continua aberto e o que foi digitado não se perde.
+  await expect(form.getByText('Telefone inválido')).toBeVisible();
+  await expect(form.getByPlaceholder('Telefone com DDD (para o assistente pelo WhatsApp)')).toHaveValue('12345');
+  await expect(page).not.toHaveURL(/erro=/);
 
-  await page.getByText('Bia Revisão · Atendente').click();
   await form.getByPlaceholder('Nome').fill('Bia Revisão Souza');
   await form.getByPlaceholder('Telefone com DDD (para o assistente pelo WhatsApp)').fill('');
   await form.getByRole('button', { name: 'Salvar usuário' }).click();

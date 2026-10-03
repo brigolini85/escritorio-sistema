@@ -35,3 +35,24 @@ export const UsuarioForm = z.preprocess((v) => {
   permissoes: z.array(z.enum(PERMISSOES.map((p) => p.valor) as [string, ...string[]], { message: 'Permissão desconhecida' })),
 }).refine((u) => !u.permissoes.includes('assistente_whatsapp') || u.telefone !== null,
   { message: 'Informe o telefone para usar o assistente pelo WhatsApp', path: ['telefone'] }));
+
+/** Resultado de salvar ou convidar: o erro volta para a tela, no campo (sobra 6 da Parte B), sem ?erro= na URL. */
+export type CampoUsuario = 'nome' | 'email' | 'telefone' | 'papel' | 'geral';
+export type ErrosUsuario = Partial<Record<CampoUsuario, string>>;
+export type EstadoUsuario =
+  | { ok: true }
+  | { ok: false; erros: ErrosUsuario; telefoneDeArquivado?: { id: string; nome: string } };
+
+const CAMPOS = new Set<string>(['nome', 'email', 'telefone', 'papel']);
+
+/** Mensagens da validação agrupadas por campo; o que não é campo do formulário vai para "geral". */
+export function errosDoFormulario(issues: { path: PropertyKey[]; message: string }[]): ErrosUsuario {
+  const erros: ErrosUsuario = {};
+  for (const i of issues) {
+    const campo = (CAMPOS.has(String(i.path[0])) ? String(i.path[0]) : 'geral') as CampoUsuario;
+    const atual = erros[campo];
+    if (!atual) erros[campo] = i.message;
+    else if (!atual.split('; ').includes(i.message)) erros[campo] = `${atual}; ${i.message}`;
+  }
+  return erros;
+}
