@@ -244,6 +244,7 @@
 
   /* Ícones do lucide nascem com width/height em px; aqui viram rem para crescer com a letra. */
   svg.lucide[width="8"] { width: calc(8rem / 14); height: calc(8rem / 14); }
+  svg.lucide[width="12"] { width: calc(12rem / 14); height: calc(12rem / 14); }
   svg.lucide[width="14"] { width: 1rem; height: 1rem; }
   svg.lucide[width="16"] { width: calc(16rem / 14); height: calc(16rem / 14); }
   svg.lucide[width="18"] { width: calc(18rem / 14); height: calc(18rem / 14); }
@@ -291,4 +292,14 @@
 }
 @media (min-width: 1920px) {
   html { --letra-base: 1rem; }
+}
+
+/* Configurações (spec 7C.4): campo alterado e ainda não salvo fica âmbar; o "antes: X" vem junto, em texto (nunca só cor). */
+:is(input, textarea, select)[data-alterado]:not([type='checkbox'], [type='radio']) {
+  border-color: var(--warning-decor);
+  background-color: var(--warning-soft);
+}
+label:has(> input[type='checkbox'][data-alterado]) {
+  border-color: var(--warning-decor);
+  box-shadow: 0 0 0 1px var(--warning-decor);
 }

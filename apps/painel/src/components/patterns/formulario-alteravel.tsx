@@ -1,13 +1,13 @@
 'use client';
 
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, Pencil } from 'lucide-react';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type RefObject } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button, type ButtonProps } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/cn';
 
-type Contexto = { form: RefObject<HTMLFormElement | null>; versao: number };
+type Contexto = { form: RefObject<HTMLFormElement | null>; versao: number; conferir: () => void };
 const ContextoFormulario = createContext<Contexto | null>(null);
 
 /** Atributo que marca um pedaço do formulário (ex.: um card) como escopo do indicador que estiver dentro dele.
@@ -52,9 +52,90 @@ export function formularioAlterado(form: HTMLFormElement, escopo?: Element | nul
   return [...form.elements].some((el) => (!escopo || escopo.contains(el)) && campoAlterado(el));
 }
 
+/** Algum formulário montado mudou de estado: o menu de Configurações mostra "não salvo". */
+const EVENTO_ALTERADOS = 'formularios-alterados';
+const avisarMudanca = () => window.dispatchEvent(new Event(EVENTO_ALTERADOS));
+
+type Montado = { salvarParaSair: () => Promise<boolean> };
 /** Formulários alteráveis montados na página: um único par de ouvintes cuida de todos (uma pergunta só). */
-const montados = new Set<HTMLFormElement>();
-const algumAlterado = () => [...montados].some((f) => f.isConnected && formularioAlterado(f));
+const montados = new Map<HTMLFormElement, Montado>();
+const algumAlterado = () => [...montados.keys()].some((f) => f.isConnected && formularioAlterado(f));
+
+/** Quantos campos (pelo nome) mudaram: as caixas "dia" do expediente contam como uma alteração. */
+export function contarAlteracoes(form: HTMLFormElement, escopo?: Element | null): number {
+  const nomes = new Set<string>();
+  [...form.elements].forEach((el, i) => {
+    if ((!escopo || escopo.contains(el)) && campoAlterado(el)) nomes.add((el as HTMLInputElement).name || el.id || `#${i}`);
+  });
+  return nomes.size;
+}
+
+/** Volta os campos nativos (do escopo, se dado) ao valor que veio do servidor e avisa o formulário. Switch do Radix não volta. */
+export function restaurarCampos(form: HTMLFormElement, escopo?: Element | null) {
+  for (const el of form.elements) {
+    if (escopo && !escopo.contains(el)) continue;
+    if (el instanceof HTMLInputElement) {
+      if (el.type === 'checkbox' || el.type === 'radio') el.checked = el.defaultChecked;
+      else if (!['hidden', 'submit', 'button', 'reset', 'image', 'file'].includes(el.type)) el.value = el.defaultValue;
+      el.setCustomValidity('');
+    } else if (el instanceof HTMLTextAreaElement) {
+      el.value = el.defaultValue;
+    } else if (el instanceof HTMLSelectElement) {
+      for (const o of el.options) o.selected = o.defaultSelected;
+      if (!el.multiple && ![...el.options].some((o) => o.defaultSelected) && el.options.length > 0) el.selectedIndex = 0;
+    }
+  }
+  form.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/** Janela própria para sair com alteração (Configurações, D14). Sem ela, vale o confirm do navegador de sempre. */
+type GuardaSaida = (destino: string) => void;
+let guarda: GuardaSaida | null = null;
+export function definirGuardaSaida(g: GuardaSaida | null) {
+  guarda = g;
+}
+
+/** Soma das alterações de todos os formulários montados (texto da janela de saída). */
+export const totalDeAlteracoes = () => [...montados.keys()].filter((f) => f.isConnected).reduce((n, f) => n + contarAlteracoes(f), 0);
+
+/** "Salvar e sair": salva, um por vez, cada formulário alterado; para no primeiro que não salvar. */
+export async function salvarAlteradosParaSair(): Promise<boolean> {
+  for (const [f, m] of montados) {
+    if (!f.isConnected || !formularioAlterado(f)) continue;
+    if (!(await m.salvarParaSair())) return false;
+  }
+  return true;
+}
+
+/** "Descartar" da janela de saída: tudo volta ao valor salvo. */
+export function descartarAlterados() {
+  for (const f of montados.keys()) if (f.isConnected && formularioAlterado(f)) restaurarCampos(f);
+  avisarMudanca();
+}
+
+/** O menu acompanha se há alteração pendente na página. */
+export function useAlgumAlterado(): boolean {
+  const [alterado, setAlterado] = useState(false);
+  useEffect(() => {
+    const ver = () => setAlterado(algumAlterado());
+    ver();
+    window.addEventListener(EVENTO_ALTERADOS, ver);
+    return () => window.removeEventListener(EVENTO_ALTERADOS, ver);
+  }, []);
+  return alterado;
+}
+
+/** Ação do servidor chamada direto (sem o <form>): falha se lançar ou devolver { ok: false }. */
+async function salvarPelaAction(f: HTMLFormElement, action: (d: FormData) => unknown): Promise<boolean> {
+  if (!f.reportValidity()) return false;
+  try {
+    const r = await action(new FormData(f));
+    return !(r && typeof r === 'object' && 'ok' in r && (r as { ok: unknown }).ok === false);
+  } catch {
+    return false;
+  }
+}
+
 const PERGUNTA_SAIR = 'Há alterações não salvas nesta página. Sair sem salvar?';
 
 /** Fechar ou recarregar a aba: o navegador pergunta (returnValue para Chrome antigo e WebViews). */
@@ -83,24 +164,31 @@ function aoClicarLink(e: MouseEvent) {
   // Âncora na mesma página (navegação interna de Configurações): nada se perde.
   if (destino.pathname === aqui.pathname && destino.search === aqui.search) return;
   if (!algumAlterado()) return;
+  if (guarda) {
+    e.preventDefault();
+    e.stopPropagation();
+    guarda(`${destino.pathname}${destino.search}${destino.hash}`);
+    return;
+  }
   if (!window.confirm(PERGUNTA_SAIR)) {
     e.preventDefault();
     e.stopPropagation();
   }
 }
 
-function registrar(f: HTMLFormElement): () => void {
+function registrar(f: HTMLFormElement, m: Montado): () => void {
   if (montados.size === 0) {
     window.addEventListener('beforeunload', aoDescarregar);
     document.addEventListener('click', aoClicarLink, true);
   }
-  montados.add(f);
+  montados.set(f, m);
   return () => {
     montados.delete(f);
     if (montados.size === 0) {
       window.removeEventListener('beforeunload', aoDescarregar);
       document.removeEventListener('click', aoClicarLink, true);
     }
+    avisarMudanca();
   };
 }
 
@@ -149,10 +237,22 @@ export function useDescarteProtegido() {
  * a página volta com os valores novos como padrão e o indicador some sozinho. Fechar ou recarregar a aba, ou
  * seguir um link para outra página do painel, com alteração pede confirmação. Use com <IndicadorAlteracoes /> e <BotaoSalvar /> dentro.
  */
-export function FormularioAlteravel({ className, children, onInput, onChange, onClick, onReset, ...props }: ComponentProps<'form'>) {
+export function FormularioAlteravel({
+  className, children, onInput, onChange, onClick, onReset, marcarAlterados = false, salvarParaSair, ...props
+}: ComponentProps<'form'> & {
+  /** Campo alterado ganha data-alterado (âmbar pelo CSS global; Configurações). */
+  marcarAlterados?: boolean;
+  /** Como salvar este formulário pela janela "Salvar e sair". Sem ele, chama a action, se for função. */
+  salvarParaSair?: (form: HTMLFormElement) => Promise<boolean>;
+}) {
   const form = useRef<HTMLFormElement>(null);
   const [versao, setVersao] = useState(0);
   const conferir = useCallback(() => setVersao((v) => v + 1), []);
+  const salvar = useRef<(f: HTMLFormElement) => Promise<boolean>>(async () => false);
+  const action = props.action;
+  useLayoutEffect(() => {
+    salvar.current = salvarParaSair ?? (typeof action === 'function' ? (f) => salvarPelaAction(f, action) : async () => false);
+  });
 
   // Os valores padrão mudam quando a página volta do servidor (render novo): confere de novo.
   useLayoutEffect(() => {
@@ -162,11 +262,19 @@ export function FormularioAlteravel({ className, children, onInput, onChange, on
   useEffect(() => {
     const f = form.current;
     if (!f) return;
-    return registrar(f);
+    return registrar(f, { salvarParaSair: () => salvar.current(f) });
   }, []);
 
+  // Marca os campos alterados (âmbar) e avisa quem acompanha (menu "não salvo").
+  useEffect(() => {
+    const f = form.current;
+    if (!f) return;
+    if (marcarAlterados) for (const el of f.elements) el.toggleAttribute('data-alterado', campoAlterado(el));
+    avisarMudanca();
+  }, [versao, marcarAlterados]);
+
   return (
-    <ContextoFormulario.Provider value={{ form, versao }}>
+    <ContextoFormulario.Provider value={{ form, versao, conferir }}>
       <form
         ref={form}
         className={className}
@@ -184,28 +292,38 @@ export function FormularioAlteravel({ className, children, onInput, onChange, on
   );
 }
 
-/** true quando os campos do formulário (ou só os do escopo onde `ancora` está) têm alteração não salva. */
-function useAlterado(ancora: RefObject<Element | null>): boolean {
+/** Quantos campos do formulário (ou só do escopo onde `ancora` está) têm alteração não salva. */
+function useContagem(ancora: RefObject<Element | null>): number {
   const ctx = useContext(ContextoFormulario);
-  const [alterado, setAlterado] = useState(false);
+  const [n, setN] = useState(0);
   const versao = ctx?.versao;
   const form = ctx?.form;
   useEffect(() => {
     const f = form?.current;
     const escopo = ancora.current?.closest(`[${ESCOPO_ALTERACOES}]`) ?? null;
-    setAlterado(Boolean(f && formularioAlterado(f, escopo && f.contains(escopo) ? escopo : null)));
+    setN(f ? contarAlteracoes(f, escopo && f.contains(escopo) ? escopo : null) : 0);
   }, [versao, form, ancora]);
-  return alterado;
+  return n;
 }
 
 /**
  * "Alterações não salvas" (ponto amarelo + texto) quando algum campo mudou. Dentro de um elemento com
  * `data-escopo-alteracoes`, só os campos desse elemento contam (ex.: um card de um formulário que ocupa dois cards).
  * `compacto`: só "Não salvo" (linhas de uma lista).
+ * `contar` (Configurações): "1 alteração não salva" / "N alterações não salvas" num selo, e "Sem alterações" quando nada mudou.
  */
-export function IndicadorAlteracoes({ compacto = false, className }: { compacto?: boolean; className?: string }) {
+export function IndicadorAlteracoes({ compacto = false, contar = false, className }: { compacto?: boolean; contar?: boolean; className?: string }) {
   const ancora = useRef<HTMLSpanElement>(null);
-  const alterado = useAlterado(ancora);
+  const n = useContagem(ancora);
+  const alterado = n > 0;
+  if (contar) {
+    return (
+      <span ref={ancora} role="status" className={cn('inline-flex items-center gap-1.5 text-sm', alterado ? 'rounded-md bg-warning-soft px-3 py-1.5 font-semibold text-warning' : 'text-muted', className)}>
+        {alterado && <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />}
+        {alterado ? (n === 1 ? '1 alteração não salva' : `${n} alterações não salvas`) : 'Sem alterações'}
+      </span>
+    );
+  }
   return (
     <span ref={ancora} role="status" className={cn('inline-flex items-center gap-1.5 text-sm text-warning', compacto && 'text-xs', !alterado && 'sr-only', className)}>
       {alterado && (
@@ -228,7 +346,7 @@ export function BotaoSalvar({ children, destacar = false, enviando = false, clas
   enviando?: boolean;
 }) {
   const ancora = useRef<HTMLButtonElement>(null);
-  const alterado = useAlterado(ancora);
+  const alterado = useContagem(ancora) > 0;
   const pending = useFormStatus().pending || enviando;
   return (
     <Button
@@ -244,4 +362,62 @@ export function BotaoSalvar({ children, destacar = false, enviando = false, clas
       {children}
     </Button>
   );
+}
+
+/** "antes: X" embaixo de um campo alterado (Configurações, spec 7C.4). `texto`: o valor salvo, já escrito como a pessoa lê. */
+export function Antes({ campo, texto, className }: { campo: string; texto: string; className?: string }) {
+  const ctx = useContext(ContextoFormulario);
+  const [mostrar, setMostrar] = useState(false);
+  const versao = ctx?.versao;
+  const form = ctx?.form;
+  useEffect(() => {
+    const f = form?.current;
+    setMostrar(Boolean(f && [...f.elements].some((el) => (el as HTMLInputElement).name === campo && campoAlterado(el))));
+  }, [versao, form, campo]);
+  if (!mostrar) return null;
+  return (
+    <p className={cn('mt-1 flex items-center gap-1 text-xs font-bold text-warning', className)}>
+      <Pencil aria-hidden size={12} strokeWidth={2} />
+      antes: {texto}
+    </p>
+  );
+}
+
+/** Volta os campos do cartão (ou do escopo) ao valor salvo. Desabilitado quando nada mudou. */
+export function BotaoDescartar({ children = 'Descartar', className, ...props }: Omit<ButtonProps, 'type' | 'onClick' | 'variant'>) {
+  const ancora = useRef<HTMLButtonElement>(null);
+  const n = useContagem(ancora);
+  const ctx = useContext(ContextoFormulario);
+  return (
+    <Button
+      ref={ancora}
+      type="button"
+      variant="outline"
+      disabled={n === 0}
+      className={className}
+      {...props}
+      onClick={() => {
+        const f = ctx?.form.current;
+        if (!f) return;
+        const escopo = ancora.current?.closest(`[${ESCOPO_ALTERACOES}]`) ?? null;
+        restaurarCampos(f, escopo && f.contains(escopo) ? escopo : null);
+        ctx?.conferir();
+      }}
+    >
+      {children}
+    </Button>
+  );
+}
+
+/** Valor atual de um campo do formulário, acompanhando digitação e Descartar (ex.: exemplo de vencimento em Prazos). */
+export function useCampoDoFormulario(nome: string, inicial: string): string {
+  const ctx = useContext(ContextoFormulario);
+  const [valor, setValor] = useState(inicial);
+  const versao = ctx?.versao;
+  const form = ctx?.form;
+  useEffect(() => {
+    const el = form?.current?.elements.namedItem(nome);
+    if (el && 'value' in el) setValor(String(el.value));
+  }, [versao, form, nome]);
+  return valor;
 }
