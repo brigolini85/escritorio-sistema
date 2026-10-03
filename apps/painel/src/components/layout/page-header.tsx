@@ -46,7 +46,7 @@ export function PageHeader({
           </h1>
           {descricao && <p className="mt-1 text-base text-muted">{descricao}</p>}
         </div>
-        {acoes && <div className="flex shrink-0 flex-wrap items-center gap-2">{acoes}</div>}
+        {acoes && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{acoes}</div>}
       </div>
     </header>
   );
