@@ -85,3 +85,50 @@ test('limites de espera em Configurações mudam a cor', async ({ page }) => {
   await expect(page.locator('[data-espera="verde"]')).toContainText('18 min', { timeout: 30_000 });
   await db.from('configuracoes').update({ espera_verde_min: 5, espera_ambar_min: 15 }).eq('id', 1);
 });
+
+test('J/K pulam o grupo recolhido "Concluídas hoje"', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'ana-lista@e2e.local', senha: SENHA, nome: 'Ana Lista', papel: 'atendente', setores: ['Fiscal'] });
+  const a = await conversa('9001', { nome: 'Carla', cliente: 'Rede', minutosEspera: 5, mensagens: ['um'] });
+  const b = await conversa('9002', { nome: 'Jorge', cliente: 'Padaria', mensagens: ['dois'] });
+  const c = await conversa('9003', { nome: 'Paulo', cliente: 'Mercado', mensagens: ['três'] });
+  await db.from('conversas').update({ concluida_em: new Date().toISOString() }).eq('id', c);
+  await entrar(page, 'ana-lista@e2e.local', SENHA);
+  // A busca deixa na lista só as três conversas deste teste.
+  await page.goto(`/atendimento?q=${PREFIXO}90`);
+  const concluidas = page.locator('details', { hasText: 'Concluídas hoje' });
+  await expect(concluidas).toBeAttached({ timeout: 30_000 });
+  await expect(concluidas).not.toHaveAttribute('open', '');
+  await page.keyboard.press('j');
+  await expect(page).toHaveURL(new RegExp(`/atendimento/${a}`), { timeout: 30_000 });
+  await page.keyboard.press('j');
+  await expect(page).toHaveURL(new RegExp(`/atendimento/${b}`), { timeout: 30_000 });
+  await expect(page.locator(`a[data-conversa-item][href^="/atendimento/${b}"]`)).toHaveAttribute('aria-current', 'page');
+  await page.keyboard.press('j');
+  // A conversa concluída está recolhida: J fica na última visível.
+  await page.waitForTimeout(1500);
+  await expect(page).toHaveURL(new RegExp(`/atendimento/${b}`));
+  expect(page.url()).not.toContain(c);
+});
+
+test('a conversa que espera há mais tempo aparece mesmo fora das 200 mais recentes', async ({ page }) => {
+  const ENCHER = '553197002';
+  await db.from('conversas').delete().like('telefone', `${ENCHER}%`);
+  try {
+    await criarUsuarioTeste({ email: 'admin-lista@e2e.local', senha: SENHA, nome: 'Admin Lista', papel: 'admin' });
+    // Esperando há 40 min, com a última mensagem de 2 dias atrás.
+    const antiga = await conversa('0009', { nome: 'Antiga', cliente: 'Rede', minutosEspera: 40, mensagens: ['oi'] });
+    await db.from('mensagens').update({ criado_em: new Date(Date.now() - 2 * 24 * 60 * 60_000).toISOString() }).eq('conversa_id', antiga);
+    // 201 conversas com mensagem agora: sozinhas, enchem o limite da lista.
+    const { data: novas } = await db.from('conversas')
+      .insert(Array.from({ length: 201 }, (_, i) => ({ telefone: `${ENCHER}${String(i).padStart(4, '0')}` }))).select('id');
+    await db.from('mensagens').insert(novas!.map((n) => ({ conversa_id: n.id, direcao: 'entrada', autor: 'cliente', conteudo: 'enchendo',
+      processada_em: new Date().toISOString() })));
+    await entrar(page, 'admin-lista@e2e.local', SENHA);
+    await page.goto('/atendimento');
+    const esperando = page.getByRole('region', { name: /Esperando pessoa/ });
+    await expect(esperando.locator(`a[href^="/atendimento/${antiga}"]`)).toBeVisible({ timeout: 30_000 });
+    await expect(esperando.locator(`a[href^="/atendimento/${antiga}"] [data-espera="vermelho"]`)).toContainText('40 min');
+  } finally {
+    await db.from('conversas').delete().like('telefone', `${ENCHER}%`);
+  }
+});

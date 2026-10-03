@@ -13,15 +13,26 @@ export type LinhaAtendimento = {
   chamados_abertos: number | null; aguardando_pessoa_desde: string | null; motivo_pessoa: string | null; concluida_em: string | null;
   espera_desde: string | null; esperando_pessoa: boolean | null; esperando_voce: boolean | null; nao_lidas: number | null;
   contato_pausado: boolean | null; empresa_pausada: boolean | null; agente_respondendo: boolean | null;
+  /** Alguma mensagem do cliente depois de concluir (a conversa foi retomada). */
+  cliente_apos_concluir: boolean | null;
 };
 
 const ms = (iso: string | null): number => (iso ? new Date(iso).getTime() : Number.NaN);
 
 /** Concluída hoje (Brasília), ninguém esperando e o cliente não escreveu depois (decisão 10). */
-export function concluidaHoje(l: Pick<LinhaAtendimento, 'concluida_em' | 'esperando_pessoa' | 'ultima_autor' | 'ultima_em'>, agora: Date): boolean {
-  if (!l.concluida_em || l.esperando_pessoa) return false;
+export function concluidaHoje(
+  l: Pick<LinhaAtendimento, 'concluida_em' | 'esperando_pessoa' | 'ultima_autor' | 'ultima_em' | 'cliente_apos_concluir'>, agora: Date,
+): boolean {
+  if (!l.concluida_em || l.esperando_pessoa || l.cliente_apos_concluir) return false;
   if (formatarData(l.concluida_em) !== formatarData(agora)) return false;
+  // Reforço pela última mensagem, caso a coluna venha vazia.
   return !(l.ultima_autor === 'cliente' && ms(l.ultima_em) > ms(l.concluida_em));
+}
+
+/** Junta as listas pelo id (a primeira vence): quem espera, lido à parte, mais as recentes. */
+export function juntarSemRepetir<T extends { id: string | null }>(...listas: T[][]): T[] {
+  const vistos = new Set<string | null>();
+  return listas.flat().filter((l) => !vistos.has(l.id) && Boolean(vistos.add(l.id)));
 }
 
 /** Esperando pessoa (quem espera há mais tempo primeiro; sem cronômetro por último) · Com o agente · Concluídas hoje. */

@@ -5,7 +5,7 @@ import type { Database } from '@escritorio/db';
 
 type Cliente = SupabaseClient<Database>;
 
-/** "Esperando você" (spec 7A.1, P2): passou para pessoa ou assumida, sem ninguém ou comigo. */
+/** "Esperando você" (spec 7A.1, P2 e ruling): espera em aberto (passagem ou cliente sem resposta), sem ninguém ou comigo. */
 export async function contarConversasAguardando(sb: Cliente): Promise<number | null> {
   const { count, error } = await sb.from('caixa_entrada').select('id', { count: 'exact', head: true }).eq('esperando_voce', true);
   return error ? null : count ?? 0;

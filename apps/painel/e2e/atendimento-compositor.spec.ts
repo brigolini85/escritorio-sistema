@@ -50,6 +50,38 @@ test('Enter envia e Shift+Enter quebra a linha', async ({ page }) => {
   await expect(page.getByRole('log', { name: 'Histórico da conversa' }).getByText(/Linha um\s+Linha dois/)).toBeVisible(LONGO);
 });
 
+test('Enter duas vezes seguidas manda a resposta e a nota uma vez só', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'ana-comp@e2e.local', senha: SENHA, nome: 'Ana Comp', papel: 'atendente', setores: ['Fiscal'] });
+  const conversa = await cenario();
+  await entrar(page, 'ana-comp@e2e.local', SENHA);
+  await abrir(page, conversa);
+  const campo = page.getByLabel('Resposta para o cliente');
+  await campo.fill('Resposta única');
+  // Duas teclas Enter antes de a ação terminar (o texto ainda está no campo).
+  await campo.press('Enter');
+  await campo.press('Enter');
+  const log = page.getByRole('log', { name: 'Histórico da conversa' });
+  await expect(log.getByText('Resposta única')).toBeVisible(LONGO);
+  await expect(campo).toHaveValue('', LONGO);
+  const respostas = async () => (await db.from('mensagens').select('id', { count: 'exact', head: true })
+    .eq('conversa_id', conversa).eq('conteudo', 'Resposta única')).count;
+  expect(await respostas()).toBe(1);
+
+  await page.getByRole('tab', { name: 'Nota interna' }).click();
+  const nota = page.getByRole('textbox', { name: 'Nota interna', exact: true });
+  await nota.fill('Nota única');
+  await nota.press('Enter');
+  await nota.press('Enter');
+  await expect(nota).toHaveValue('', LONGO);
+  const { data: demanda } = await db.from('chamados').select('id').eq('conversa_id', conversa).single();
+  await expect.poll(async () => (await db.from('chamado_eventos').select('id', { count: 'exact', head: true })
+    .eq('chamado_id', demanda!.id).eq('texto', 'Nota única')).count, LONGO).toBe(1);
+  // Mais um instante: um segundo envio atrasado também apareceria aqui.
+  await page.waitForTimeout(1500);
+  expect(await respostas()).toBe(1);
+  expect((await db.from('chamado_eventos').select('id', { count: 'exact', head: true }).eq('chamado_id', demanda!.id).eq('texto', 'Nota única')).count).toBe(1);
+});
+
 test('J, K, A e N digitados no compositor ficam no texto (não disparam atalhos)', async ({ page }) => {
   await criarUsuarioTeste({ email: 'ana-comp@e2e.local', senha: SENHA, nome: 'Ana Comp', papel: 'atendente', setores: ['Fiscal'] });
   const conversa = await cenario();

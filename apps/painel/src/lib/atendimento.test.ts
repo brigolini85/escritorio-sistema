@@ -1,7 +1,7 @@
 import { MOTIVOS_PASSAGEM } from '@escritorio/core';
 import { describe, expect, it } from 'vitest';
 import {
-  LIMITES_PADRAO, agruparConversas, corDaEspera, iniciais, lerLimites, linhaDeEstado, minutosDeEspera, previaDaUltima,
+  LIMITES_PADRAO, agruparConversas, corDaEspera, iniciais, juntarSemRepetir, lerLimites, linhaDeEstado, minutosDeEspera, previaDaUltima,
   rotuloEsperaLeitor, textoEspera, textoNaoLidas, type LinhaAtendimento,
 } from './atendimento';
 
@@ -10,7 +10,8 @@ const linha = (p: Partial<LinhaAtendimento>): LinhaAtendimento => ({
   id: 'c', telefone: '5531999990001', nome_contato: 'Carla Mendes', empresa: 'Rede Bom Preço', estado: 'agente', atendente_id: null,
   ultima_mensagem: 'oi', ultima_em: '2026-10-05T13:50:00-03:00', ultima_tipo: 'texto', ultima_autor: 'cliente', ultima_transcricao: null,
   chamados_abertos: 0, aguardando_pessoa_desde: null, motivo_pessoa: null, concluida_em: null, espera_desde: null,
-  esperando_pessoa: false, esperando_voce: false, nao_lidas: 0, contato_pausado: false, empresa_pausada: false, agente_respondendo: false, ...p,
+  esperando_pessoa: false, esperando_voce: false, nao_lidas: 0, contato_pausado: false, empresa_pausada: false, agente_respondendo: false,
+  cliente_apos_concluir: false, ...p,
 });
 
 describe('grupos (decisão 10, P1)', () => {
@@ -27,6 +28,23 @@ describe('grupos (decisão 10, P1)', () => {
     expect(g.esperando.map((l) => l.id)).toEqual(['b', 'a', 'h']);
     expect(g.comAgente.map((l) => l.id)).toEqual(['g', 'v', 'o']);
     expect(g.concluidasHoje.map((l) => l.id)).toEqual(['k']);
+  });
+  it('conversa retomada (cliente escreveu depois de concluir e o agente respondeu) não volta para Concluídas hoje', () => {
+    const g = agruparConversas([
+      linha({ id: 'r', concluida_em: '2026-10-05T12:00:00-03:00', ultima_autor: 'agente', ultima_em: '2026-10-05T12:31:00-03:00', cliente_apos_concluir: true }),
+      linha({ id: 'k', concluida_em: '2026-10-05T12:00:00-03:00', ultima_autor: 'agente', ultima_em: '2026-10-05T12:10:00-03:00' }),
+    ], AGORA);
+    expect(g.comAgente.map((l) => l.id)).toEqual(['r']);
+    expect(g.concluidasHoje.map((l) => l.id)).toEqual(['k']);
+  });
+});
+
+describe('lista com limite', () => {
+  it('quem espera (lido à parte) entra mesmo fora das recentes, sem repetir', () => {
+    const esperando = [linha({ id: 'w', esperando_pessoa: true }), linha({ id: 'a', esperando_pessoa: true })];
+    const recentes = [linha({ id: 'a', esperando_pessoa: true }), linha({ id: 'b' })];
+    expect(juntarSemRepetir(esperando, recentes).map((l) => l.id)).toEqual(['w', 'a', 'b']);
+    expect(juntarSemRepetir([], recentes).map((l) => l.id)).toEqual(['a', 'b']);
   });
 });
 

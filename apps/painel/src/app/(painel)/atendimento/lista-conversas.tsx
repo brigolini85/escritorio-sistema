@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { BotaoTentarDeNovo } from '@/components/patterns/data-table-cliente';
 import { EmptyState } from '@/components/patterns/empty-state';
-import { agruparConversas, lerLimites, type LinhaAtendimento } from '@/lib/atendimento';
+import { agruparConversas, juntarSemRepetir, lerLimites, type LinhaAtendimento } from '@/lib/atendimento';
 import { interpretarBusca } from '@/lib/busca';
 import { lerAgentePausado } from '@/lib/contadores';
 import { consultaCaixa, filtroPadrao, passaNoFiltro, rotuloFiltroCaixa, type FiltroCaixa } from '@/lib/caixa';
@@ -13,6 +13,8 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import { FiltrosCaixa } from './filtros-caixa';
 import { ItemConversa } from './item-conversa';
 import { Realce } from './realce';
+
+const LIMITE_LISTA = 200;
 
 /**
  * Coluna da esquerda do Atendimento (320px), usada na lista (/atendimento) e ao lado da conversa aberta
@@ -47,24 +49,31 @@ export async function ListaConversas({
   className?: string;
 }) {
   const sb = await supabaseServidor();
-  let consulta = sb.from('caixa_entrada').select('*');
-  if (filtro === 'minhas') consulta = consulta.eq('atendente_id', u.id);
-  else if (filtro === 'setor') consulta = consulta.overlaps('setores_abertos', u.setores.length ? u.setores : ['00000000-0000-0000-0000-000000000000']);
-  else if (filtro === 'sem_responsavel') consulta = consulta.eq('sem_responsavel', true);
-  else if (filtro === 'aguardando') consulta = consulta.eq('aguardando_cliente', true);
-  else if (filtro === 'agente') consulta = consulta.eq('estado', 'agente').eq('sem_responsavel', false);
-  else if (filtro === 'concluidas') consulta = consulta.eq('estado', 'agente').eq('chamados_abertos', 0);
   const busca = interpretarBusca(q);
-  if (busca) {
-    consulta = consulta.or(`nome_contato.ilike.%${busca.termo}%,empresa.ilike.%${busca.termo}%,telefone.ilike.%${busca.digitos || busca.termo}%`);
-  }
-  const [{ data, error }, { data: pessoas }, pausaGeral, { data: limitesBrutos }] = await Promise.all([
-    consulta.order('ultima_em', { ascending: false, nullsFirst: false }).limit(200),
+  // A mesma consulta (filtro e busca) para a lista e para quem está esperando.
+  const montar = () => {
+    let consulta = sb.from('caixa_entrada').select('*');
+    if (filtro === 'minhas') consulta = consulta.eq('atendente_id', u.id);
+    else if (filtro === 'setor') consulta = consulta.overlaps('setores_abertos', u.setores.length ? u.setores : ['00000000-0000-0000-0000-000000000000']);
+    else if (filtro === 'sem_responsavel') consulta = consulta.eq('sem_responsavel', true);
+    else if (filtro === 'aguardando') consulta = consulta.eq('aguardando_cliente', true);
+    else if (filtro === 'agente') consulta = consulta.eq('estado', 'agente').eq('sem_responsavel', false);
+    else if (filtro === 'concluidas') consulta = consulta.eq('estado', 'agente').eq('chamados_abertos', 0);
+    if (busca) {
+      consulta = consulta.or(`nome_contato.ilike.%${busca.termo}%,empresa.ilike.%${busca.termo}%,telefone.ilike.%${busca.digitos || busca.termo}%`);
+    }
+    return consulta;
+  };
+  const [{ data: recentes, error }, { data: esperandoAgora, error: erroEspera }, { data: pessoas }, pausaGeral, { data: limitesBrutos }] = await Promise.all([
+    montar().order('ultima_em', { ascending: false, nullsFirst: false }).limit(LIMITE_LISTA),
+    // Quem espera há mais tempo costuma ter a última mensagem antiga: lido à parte, nunca fica fora do limite da lista.
+    montar().not('espera_desde', 'is', null).order('espera_desde', { ascending: true }).limit(LIMITE_LISTA),
     nomesProntos ? Promise.resolve({ data: null }) : sb.from('usuarios').select('id, nome'),
     pausaPronta !== undefined ? Promise.resolve(pausaPronta) : lerAgentePausado(sb),
     sb.rpc('limites_espera'),
   ]);
   const nomes = nomesProntos ?? new Map((pessoas ?? []).map((p) => [p.id, p.nome]));
+  const data = error || erroEspera ? null : juntarSemRepetir(esperandoAgora ?? [], recentes ?? []);
   const linhas = (data ?? []).filter((l) => passaNoFiltro({
     id: l.id!, atendente_id: l.atendente_id, setores_abertos: l.setores_abertos ?? [],
     sem_responsavel: Boolean(l.sem_responsavel), aguardando_cliente: Boolean(l.aguardando_cliente),
@@ -95,7 +104,7 @@ export async function ListaConversas({
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-y-auto">
-        {error ? (
+        {error || erroEspera ? (
           <EmptyState
             titulo="Não consegui carregar as conversas."
             descricao="Verifique a conexão e tente de novo."

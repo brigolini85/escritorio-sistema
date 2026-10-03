@@ -1,7 +1,7 @@
 'use client';
 
 import { ListChecks, LockKeyhole, Paperclip, SendHorizontal, Sparkles, StickyNote, X } from 'lucide-react';
-import { useCallback, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,11 +16,29 @@ export type RespostaPronta = { id: string; pergunta: string; resposta: string };
 const SEM_DEMANDA = 'A nota interna fica registrada numa demanda, e esta conversa não tem demanda aberta.';
 const areaTexto = 'block min-h-16 w-full resize-none bg-transparent px-3 py-2 text-base text-foreground placeholder:text-subtle focus:outline-none disabled:cursor-not-allowed';
 
-/** Enter envia; Shift+Enter quebra a linha (spec 7A.1). Ctrl/⌘+Enter também envia. Durante a composição de acentos, não envia. */
+/**
+ * Enter envia; Shift+Enter quebra a linha (spec 7A.1). Ctrl/⌘+Enter também envia. Durante a composição de acentos, não envia.
+ * Tecla segurada (repetição) não envia de novo; o envio em andamento é barrado no onSubmit do formulário (useEnvioUnico).
+ */
 function enviarComAtalho(e: KeyboardEvent<HTMLTextAreaElement>) {
   if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
   e.preventDefault();
+  if (e.repeat) return;
   e.currentTarget.form?.requestSubmit();
+}
+
+/**
+ * Um envio por vez (mesmo padrão do compositor do assistente): o submit marca o envio em andamento e outro,
+ * antes de a ação terminar, é barrado; nem Enter nem o botão mandam a mesma resposta (ou nota) duas vezes.
+ * O BotaoEnviar libera quando a ação termina (useFormStatus só funciona dentro do formulário).
+ */
+function useEnvioUnico() {
+  const enviando = useRef(false);
+  const aoEnviar = useCallback((e: FormEvent<HTMLFormElement>) => {
+    if (enviando.current) e.preventDefault();
+    else enviando.current = true;
+  }, []);
+  return { enviando, aoEnviar };
 }
 
 /**
@@ -38,6 +56,7 @@ export function Compositor({ responder, demandas, respostas, conversaId, podeSug
   const { modo, setModo, demandaId } = useEstadoConversa();
   const demanda = demandaEmFoco(demandas, demandaId);
   const semDemanda = !demanda;
+  const nota = useEnvioUnico();
 
   return (
     <div data-compositor="" className="border-t border-border bg-surface p-3">
@@ -58,7 +77,7 @@ export function Compositor({ responder, demandas, respostas, conversaId, podeSug
         </TabsContent>
         <TabsContent value="nota" forceMount className="mt-2 data-[state=inactive]:hidden">
           {demanda ? (
-            <form action={demanda.nota} className="rounded-md border border-internal-note-border bg-internal-note focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-ring">
+            <form action={demanda.nota} onSubmit={nota.aoEnviar} className="rounded-md border border-internal-note-border bg-internal-note focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-ring">
               <div className="flex flex-wrap items-center gap-2 px-3 pt-2 text-xs font-medium text-internal-note-foreground">
                 <LockKeyhole aria-hidden size={14} strokeWidth={1.75} />
                 <span>Nota interna · o cliente não vê</span>
@@ -78,7 +97,7 @@ export function Compositor({ responder, demandas, respostas, conversaId, podeSug
               />
               <div className="flex items-center justify-end gap-2 px-2 pb-2">
                 <span className="mr-auto px-1 text-xs text-internal-note-foreground">Enter salva · Shift+Enter quebra linha</span>
-                <BotaoEnviar rotulo="Salvar nota" enviando="Salvando…" />
+                <BotaoEnviar rotulo="Salvar nota" enviando="Salvando…" emAndamento={nota.enviando} />
               </div>
             </form>
           ) : (
@@ -99,8 +118,9 @@ function FormResposta({ responder, respostas, conversaId, podeSugerir, abrirDema
   const usarSugestao = useCallback(() => setDeSugestao(true), []);
   const entrada = useRef<HTMLInputElement>(null);
   const id = useId();
+  const envio = useEnvioUnico();
   return (
-    <form action={responder} onReset={() => { setArquivo(null); setDeSugestao(false); }}
+    <form action={responder} onSubmit={envio.aoEnviar} onReset={() => { setArquivo(null); setDeSugestao(false); }}
       // Campo esvaziado: o texto deixa de ser "a sugestão" e a marca sai.
       // Só digitação dispara onInput: a sugestão entra por código (el.value = ...) e por isso não apaga a marca.
       onInput={(e) => { if (deSugestao && e.target === campo.current && campo.current.value.trim() === '') setDeSugestao(false); }}
@@ -162,15 +182,19 @@ function FormResposta({ responder, respostas, conversaId, podeSugerir, abrirDema
         {abrirDemanda}
         <span className="ml-auto flex items-center gap-2">
           <span className="hidden text-xs text-subtle sm:inline">{respostas.length > 0 && '/ respostas prontas · '}Enter envia · Shift+Enter quebra linha</span>
-          <BotaoEnviar rotulo="Enviar" enviando="Enviando…" />
+          <BotaoEnviar rotulo="Enviar" enviando="Enviando…" emAndamento={envio.enviando} />
         </span>
       </div>
     </form>
   );
 }
 
-function BotaoEnviar({ rotulo, enviando }: { rotulo: string; enviando: string }) {
+function BotaoEnviar({ rotulo, enviando, emAndamento }: { rotulo: string; enviando: string; emAndamento: RefObject<boolean> }) {
   const { pending } = useFormStatus();
+  // A ação terminou (com sucesso ou com ?erro=): libera o próximo envio.
+  useEffect(() => {
+    if (!pending) emAndamento.current = false;
+  }, [pending, emAndamento]);
   return (
     <Button type="submit" size="sm" disabled={pending}>
       {pending ? enviando : rotulo}
