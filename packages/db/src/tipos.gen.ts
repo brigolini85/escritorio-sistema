@@ -255,13 +255,13 @@ isOneToOne: false
                   ]
                 },"configuracoes": {
                   Row: {
-                    "agente_pausado": boolean,"alerta_ia_80_mes": string | null,"aviso_login": string,"dias_uteis": (number)[],"email_alertas": string | null,"horario_fim": string,"horario_inicio": string,"id": number,"mensagens": NonNullable<Json>,"minutos_alerta_fila": number,"modelo_conversa": string,"modelo_rapido": string,"prazo_alta_dias": number,"prazo_baixa_dias": number,"prazo_normal_dias": number,"prazo_urgente_dias": number,"precos_modelos": NonNullable<Json>,"telefone_dono": string | null,"teto_ia_usd": number
+                    "agente_pausado": boolean,"alerta_ia_80_mes": string | null,"aviso_login": string,"dias_uteis": (number)[],"email_alertas": string | null,"espera_ambar_min": number,"espera_verde_min": number,"horario_fim": string,"horario_inicio": string,"id": number,"mensagens": NonNullable<Json>,"minutos_alerta_fila": number,"modelo_conversa": string,"modelo_rapido": string,"prazo_alta_dias": number,"prazo_baixa_dias": number,"prazo_normal_dias": number,"prazo_urgente_dias": number,"precos_modelos": NonNullable<Json>,"telefone_dono": string | null,"teto_ia_usd": number
                   }
                   Insert: {
-                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
+                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
                   }
                   Update: {
-                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
+                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
                   }
                   Relationships: [
                     
@@ -310,6 +310,37 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"conversa_eventos": {
+                  Row: {
+                    "conversa_id": string,"criado_em": string,"id": string,"texto": string | null,"tipo": string,"usuario_id": string | null
+                  }
+                  Insert: {
+                    "conversa_id": string,"criado_em"?: string,"id"?: string,"texto"?: string | null,"tipo": string,"usuario_id"?: string | null
+                  }
+                  Update: {
+                    "conversa_id"?: string,"criado_em"?: string,"id"?: string,"texto"?: string | null,"tipo"?: string,"usuario_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversa_eventos_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "caixa_entrada"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversa_eventos_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "conversas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversa_eventos_usuario_id_fkey"
+      columns: ["usuario_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"conversa_leituras": {
                   Row: {
                     "conversa_id": string,"lida_ate": string,"usuario_id": string
@@ -343,13 +374,13 @@ isOneToOne: false
                   ]
                 },"conversas": {
                   Row: {
-                    "atendente_id": string | null,"atualizado_em": string,"aviso_lgpd_enviado_em": string | null,"cliente_em_foco": string | null,"contato_id": string | null,"criado_em": string,"estado": Database["public"]['Enums']["estado_conversa"],"id": string,"telefone": string,"tentativas_nao_entendido": number
+                    "aguardando_pessoa_desde": string | null,"atendente_id": string | null,"atualizado_em": string,"aviso_lgpd_enviado_em": string | null,"cliente_em_foco": string | null,"concluida_em": string | null,"contato_id": string | null,"criado_em": string,"estado": Database["public"]['Enums']["estado_conversa"],"id": string,"motivo_pessoa": string | null,"telefone": string,"tentativas_nao_entendido": number
                   }
                   Insert: {
-                    "atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"telefone": string,"tentativas_nao_entendido"?: number
+                    "aguardando_pessoa_desde"?: string | null,"atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"concluida_em"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"motivo_pessoa"?: string | null,"telefone": string,"tentativas_nao_entendido"?: number
                   }
                   Update: {
-                    "atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"telefone"?: string,"tentativas_nao_entendido"?: number
+                    "aguardando_pessoa_desde"?: string | null,"atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"concluida_em"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"motivo_pessoa"?: string | null,"telefone"?: string,"tentativas_nao_entendido"?: number
                   }
                   Relationships: [
                     {
@@ -374,13 +405,13 @@ isOneToOne: false
                   ]
                 },"decisoes_agente": {
                   Row: {
-                    "cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"entrada": Json | null,"etapa": string,"id": string,"justificativa": string | null,"saida": Json | null
+                    "cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"entrada": Json | null,"etapa": string,"id": string,"justificativa": string | null,"saida": Json | null,"turno": string | null
                   }
                   Insert: {
-                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"entrada"?: Json | null,"etapa": string,"id"?: string,"justificativa"?: string | null,"saida"?: Json | null
+                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"entrada"?: Json | null,"etapa": string,"id"?: string,"justificativa"?: string | null,"saida"?: Json | null,"turno"?: string | null
                   }
                   Update: {
-                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"entrada"?: Json | null,"etapa"?: string,"id"?: string,"justificativa"?: string | null,"saida"?: Json | null
+                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"entrada"?: Json | null,"etapa"?: string,"id"?: string,"justificativa"?: string | null,"saida"?: Json | null,"turno"?: string | null
                   }
                   Relationships: [
                     {
@@ -443,13 +474,13 @@ isOneToOne: false
                   ]
                 },"mensagens": {
                   Row: {
-                    "arquivo_mime": string | null,"arquivo_nome": string | null,"arquivo_path": string | null,"atendente_id": string | null,"autor": Database["public"]['Enums']["autor_mensagem"],"cliente_id": string | null,"conteudo": string | null,"conversa_id": string,"criado_em": string,"direcao": Database["public"]['Enums']["direcao_mensagem"],"envio_reservado_em": string | null,"id": string,"id_provedor": string | null,"midia_url_origem": string | null,"processada_em": string | null,"status_envio": Database["public"]['Enums']["status_envio"] | null,"tipo": Database["public"]['Enums']["tipo_mensagem"],"transcricao": string | null
+                    "arquivo_mime": string | null,"arquivo_nome": string | null,"arquivo_path": string | null,"atendente_id": string | null,"autor": Database["public"]['Enums']["autor_mensagem"],"cliente_id": string | null,"conteudo": string | null,"conversa_id": string,"criado_em": string,"direcao": Database["public"]['Enums']["direcao_mensagem"],"documento_id": string | null,"envio_reservado_em": string | null,"id": string,"id_provedor": string | null,"midia_url_origem": string | null,"processada_em": string | null,"status_envio": Database["public"]['Enums']["status_envio"] | null,"tipo": Database["public"]['Enums']["tipo_mensagem"],"transcricao": string | null,"turno_agente": string | null
                   }
                   Insert: {
-                    "arquivo_mime"?: string | null,"arquivo_nome"?: string | null,"arquivo_path"?: string | null,"atendente_id"?: string | null,"autor": Database["public"]['Enums']["autor_mensagem"],"cliente_id"?: string | null,"conteudo"?: string | null,"conversa_id": string,"criado_em"?: string,"direcao": Database["public"]['Enums']["direcao_mensagem"],"envio_reservado_em"?: string | null,"id"?: string,"id_provedor"?: string | null,"midia_url_origem"?: string | null,"processada_em"?: string | null,"status_envio"?: Database["public"]['Enums']["status_envio"] | null,"tipo"?: Database["public"]['Enums']["tipo_mensagem"],"transcricao"?: string | null
+                    "arquivo_mime"?: string | null,"arquivo_nome"?: string | null,"arquivo_path"?: string | null,"atendente_id"?: string | null,"autor": Database["public"]['Enums']["autor_mensagem"],"cliente_id"?: string | null,"conteudo"?: string | null,"conversa_id": string,"criado_em"?: string,"direcao": Database["public"]['Enums']["direcao_mensagem"],"documento_id"?: string | null,"envio_reservado_em"?: string | null,"id"?: string,"id_provedor"?: string | null,"midia_url_origem"?: string | null,"processada_em"?: string | null,"status_envio"?: Database["public"]['Enums']["status_envio"] | null,"tipo"?: Database["public"]['Enums']["tipo_mensagem"],"transcricao"?: string | null,"turno_agente"?: string | null
                   }
                   Update: {
-                    "arquivo_mime"?: string | null,"arquivo_nome"?: string | null,"arquivo_path"?: string | null,"atendente_id"?: string | null,"autor"?: Database["public"]['Enums']["autor_mensagem"],"cliente_id"?: string | null,"conteudo"?: string | null,"conversa_id"?: string,"criado_em"?: string,"direcao"?: Database["public"]['Enums']["direcao_mensagem"],"envio_reservado_em"?: string | null,"id"?: string,"id_provedor"?: string | null,"midia_url_origem"?: string | null,"processada_em"?: string | null,"status_envio"?: Database["public"]['Enums']["status_envio"] | null,"tipo"?: Database["public"]['Enums']["tipo_mensagem"],"transcricao"?: string | null
+                    "arquivo_mime"?: string | null,"arquivo_nome"?: string | null,"arquivo_path"?: string | null,"atendente_id"?: string | null,"autor"?: Database["public"]['Enums']["autor_mensagem"],"cliente_id"?: string | null,"conteudo"?: string | null,"conversa_id"?: string,"criado_em"?: string,"direcao"?: Database["public"]['Enums']["direcao_mensagem"],"documento_id"?: string | null,"envio_reservado_em"?: string | null,"id"?: string,"id_provedor"?: string | null,"midia_url_origem"?: string | null,"processada_em"?: string | null,"status_envio"?: Database["public"]['Enums']["status_envio"] | null,"tipo"?: Database["public"]['Enums']["tipo_mensagem"],"transcricao"?: string | null,"turno_agente"?: string | null
                   }
                   Relationships: [
                     {
@@ -475,6 +506,12 @@ isOneToOne: false
       columns: ["conversa_id"]
 isOneToOne: false
       referencedRelation: "conversas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "mensagens_documento_id_fkey"
+      columns: ["documento_id"]
+isOneToOne: false
+      referencedRelation: "documentos_empresa"
       referencedColumns: ["id"]
     }
                   ]
@@ -859,7 +896,7 @@ isOneToOne: false
           Views: {
             "caixa_entrada": {
                   Row: {
-                    "aguardando_cliente": boolean | null,"atendente_id": string | null,"chamados_abertos": number | null,"empresa": string | null,"estado": Database["public"]['Enums']["estado_conversa"] | null,"id": string | null,"nome_contato": string | null,"sem_responsavel": boolean | null,"setores_abertos": (string)[] | null,"telefone": string | null,"ultima_em": string | null,"ultima_mensagem": string | null
+                    "agente_respondendo": boolean | null,"aguardando_cliente": boolean | null,"aguardando_pessoa_desde": string | null,"atendente_id": string | null,"chamados_abertos": number | null,"cliente_id": string | null,"concluida_em": string | null,"contato_pausado": boolean | null,"empresa": string | null,"empresa_pausada": boolean | null,"espera_desde": string | null,"esperando_pessoa": boolean | null,"esperando_voce": boolean | null,"estado": Database["public"]['Enums']["estado_conversa"] | null,"id": string | null,"motivo_pessoa": string | null,"nao_lidas": number | null,"nome_contato": string | null,"sem_responsavel": boolean | null,"setores_abertos": (string)[] | null,"telefone": string | null,"ultima_autor": Database["public"]['Enums']["autor_mensagem"] | null,"ultima_em": string | null,"ultima_mensagem": string | null,"ultima_tipo": Database["public"]['Enums']["tipo_mensagem"] | null,"ultima_transcricao": string | null
                   }
                   Relationships: [
                     {
@@ -867,6 +904,12 @@ isOneToOne: false
       columns: ["atendente_id"]
 isOneToOne: false
       referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversas_cliente_em_foco_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
       referencedColumns: ["id"]
     }
                   ]
@@ -948,6 +991,9 @@ isOneToOne: false
                            },
 "concluir_chamado":
 { Args: { "p_chamado": string }; Returns: undefined
+                           },
+"concluir_conversa":
+{ Args: { "p_conversa": string }; Returns: undefined
                            },
 "contato_arquivado_do_telefone":
 { Args: { "p_telefone": string }; Returns: Json
@@ -1048,6 +1094,12 @@ isOneToOne: false
                            },
 "horario_valido":
 { Args: { "h": Json }; Returns: boolean
+                           },
+"limites_espera":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"marcar_aguardando_pessoa":
+{ Args: { "p_conversa": string,"p_motivo": string }; Returns: boolean
                            },
 "marcar_alerta_lido":
 { Args: { "p_alerta": string }; Returns: undefined
