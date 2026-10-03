@@ -109,7 +109,7 @@ async function rodar(c: Cenario): Promise<string[]> {
     if (esperadas !== undefined && abertas !== esperadas) falhasRodada1.push(`depois da rodada ${r + 1}: esperava ${esperadas} nota(s) passada(s) para o Fiscal; obteve ${abertas}`);
   }
 
-  const { data: chamados } = await db.from('chamados').select('setor_id, fora_do_contrato, titulo, resumo, setores(nome), origem').eq('conversa_id', conversa.id).eq('origem', 'agente');
+  const { data: chamados } = await db.from('chamados').select('setor_id, fora_do_contrato, titulo, resumo, setores(nome), origem, prioridade, prazo_em').eq('conversa_id', conversa.id).eq('origem', 'agente');
   const { data: decisoes } = await db.from('decisoes_agente').select('etapa').eq('conversa_id', conversa.id);
   const etapas = (decisoes ?? []).map((d) => d.etapa);
   const respostas = canal.enviados.map((e) => e.texto ?? '').join('\n');
@@ -134,6 +134,9 @@ async function rodar(c: Cenario): Promise<string[]> {
     falhas.push(`esperava chamado no setor ${e.chamadoSetor}; obteve ${JSON.stringify(chamados?.map((x) => x.setores?.nome ?? 'triagem'))}`);
   }
   if (e.foraDoContrato !== undefined && !chamados?.some((x) => x.fora_do_contrato === e.foraDoContrato)) falhas.push(`esperava fora_do_contrato=${e.foraDoContrato}`);
+  if (e.prioridade && !chamados?.some((x) => x.prioridade === e.prioridade && x.prazo_em)) {
+    falhas.push(`esperava uma demanda com prioridade ${e.prioridade} e prazo; obteve ${JSON.stringify(chamados?.map((x) => x.prioridade))}`);
+  }
   for (const f of e.ferramentas ?? []) if (!etapas.includes(f)) falhas.push(`esperava usar ${f}`);
   for (const f of e.semFerramentas ?? []) if (etapas.includes(f)) falhas.push(`não deveria usar ${f}`);
   for (const t of e.resumoContem ?? []) if (!chamados?.some((x) => x.resumo.toLowerCase().includes(t.toLowerCase()))) falhas.push(`resumo do chamado deveria conter "${t}"`);
@@ -158,13 +161,16 @@ async function principal() {
     console.error('Falta a ANTHROPIC_API_KEY no .env: os cenários conversam com o Claude de verdade.');
     process.exit(1);
   }
+  // `pnpm cenarios prioridade` roda só os cenários cujo nome contém "prioridade" (cada um custa chamadas ao Claude).
+  const filtro = process.argv[2]?.trim();
+  const lista = filtro ? CENARIOS.filter((c) => c.nome.includes(filtro)) : CENARIOS;
   let falhou = 0;
-  for (const c of CENARIOS) {
+  for (const c of lista) {
     const falhas = await rodar(c).catch((e: Error) => [`erro: ${e.message}`]);
     if (falhas.length) falhou++;
     console.log(`${falhas.length ? '❌' : '✅'} ${c.nome}${falhas.length ? `\n   - ${falhas.join('\n   - ')}` : ''}`);
   }
-  console.log(`\n${CENARIOS.length - falhou}/${CENARIOS.length} cenários passaram`);
+  console.log(`\n${lista.length - falhou}/${lista.length} cenários passaram`);
   process.exit(falhou ? 1 : 0);
 }
 

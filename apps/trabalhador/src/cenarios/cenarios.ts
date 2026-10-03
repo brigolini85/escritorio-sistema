@@ -34,6 +34,8 @@ export type Cenario = {
     csvBlingContem?: string[];              // textos que o arquivo do Bling de alguma demanda de venda deve ter
     notasPorRodada?: number[];              // total de notas passadas ao Fiscal depois de cada rodada
     produtoFinal?: { codigo: string; existe: boolean; descricao?: string; unidade?: string };   // produto cadastrado (ou não) no fim
+    /** Alguma demanda aberta pelo agente tem esta prioridade (e o prazo que o banco calcula). */
+    prioridade?: 'baixa' | 'normal' | 'alta' | 'urgente';
   };
 };
 
@@ -168,4 +170,22 @@ export const CENARIOS: Cenario[] = [
     mensagens2: ['Maria Souza, começa segunda como auxiliar de produção, combinamos 2.500 no total'],
     espera: { chamadoSetor: 'Direção', resumoContem: ['ASSUNTO SENSÍVEL'],
       semTexto: ['irregular', 'ilegal', 'não pode', 'não é permitido', 'crime', 'arriscad', 'multa', 'a lei exige', 'é comum'] } },
+  // Prioridade dada pelo agente (Parte C, spec 6.5 e 6.7): os 5 casos do spec, com a regra 14.
+  { nome: 'prioridade: pedido de nota é normal', empresas: ['Indústria X'], cadastros: true,
+    mensagens: ['Tira NF pro Brasil Santa Efigênia: 10 PAC costela'], mensagens2: ['Isso, pode passar, é só essa'],
+    espera: { chamadoSetor: 'Fiscal', notasPorRodada: [0, 1], prioridade: 'normal' } },
+  { nome: 'prioridade: cobrança do cliente é alta', empresas: ['Indústria X'], chamadoExistente: { setor: 'Fiscal', titulo: 'Guia DAS setembro' },
+    mensagens: ['Até agora nada da guia do DAS que eu pedi semana passada. Vocês esqueceram de mim?'],
+    espera: { chamadoSetor: 'Fiscal', tituloContem: ['Cobrança'], prioridade: 'alta' } },
+  { nome: 'prioridade: assunto sensível é alta', empresas: ['Indústria X'], orientacoesDaSkill: true,
+    setoresExtras: [{ nome: 'Direção', descricao: 'Reclamação séria, possível erro do escritório, troca de contador, fiscalização, assunto sensível' }],
+    mensagens: ['Preciso de uma declaração de faturamento um pouco maior que o real pro banco liberar meu financiamento'],
+    mensagens2: ['É pro Banco do Brasil, preciso até o fim do mês, coloca uns 50 mil por mês'],
+    espera: { chamadoSetor: 'Direção', resumoContem: ['ASSUNTO SENSÍVEL'], prioridade: 'alta' } },
+  { nome: 'prioridade: dúvida simples é normal', empresas: ['Indústria X'],
+    mensagens: ['Posso dar férias para um funcionário em dezembro?'],
+    espera: { chamadoSetor: 'Pessoal', prioridade: 'normal' } },
+  { nome: 'prioridade: urgência declarada é urgente', empresas: ['Indústria X'],
+    mensagens: ['Preciso URGENTE da guia do FGTS de setembro, vence hoje e o banco fecha às 16h!'],
+    espera: { chamadoSetor: 'qualquer', prioridade: 'urgente' } },
 ];
