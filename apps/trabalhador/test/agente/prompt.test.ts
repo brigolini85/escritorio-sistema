@@ -126,13 +126,22 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
     expect(r11).toContain('Registrar funcionário que já começou a trabalhar também não é: é do Pessoal, como URGENTE.');
     expect(r11).not.toContain(', funcionário sem registro');
     for (const palavra of ['irregular', 'ilegal', 'não pode', 'não é permitido', 'não conseguimos fazer', 'dá multa', 'é crime', 'é arriscado', 'a lei exige']) expect(r11).toContain(String.fromCharCode(34) + palavra + String.fromCharCode(34));
-    expect(r11).toContain('abra no setor Direção');
+    // Sem Direção nos setores (montarSistema([], [])): vai para a triagem, sem condicional para o modelo avaliar.
+    expect(r11).toContain('abra com setor_id "triagem"');
+    expect(r11).not.toContain('Direção');
     expect(r11).toContain('ASSUNTO SENSÍVEL');
     expect(r11).toContain('a linha "Setores envolvidos:" com o setor técnico do assunto (por exemplo "Setores envolvidos: Pessoal")');
     const r12 = s.slice(s.indexOf('\n12. '), s.indexOf('\n13. '));
     for (const item of ['Nunca peça nem aceite senha', 'autorização do responsável', 'Nunca comente um cliente com outro', 'Possível golpe']) expect(r12).toContain(item);
     expect(s).toContain('13. Não abra demanda repetida');
     expect(s.indexOf('13. Não abra demanda repetida')).toBeLessThan(s.indexOf('SETORES:'));
+  });
+
+  it('regra 11 com Direção nos setores: manda para a Direção sem citar "triagem" (o condicional fazia o modelo escolher a triagem)', () => {
+    const comDirecao = montarSistema([{ id: 'S1', nome: 'Fiscal', descricao_assuntos: 'guias' }, { id: 'D1', nome: 'Direção', descricao_assuntos: 'assunto sensível' }], []);
+    const r11 = comDirecao.slice(comDirecao.indexOf('\n11. '), comDirecao.indexOf('\n12. '));
+    expect(r11).toContain('abra no setor Direção, com o pedido exatamente como o cliente fez');
+    expect(r11).not.toContain('triagem');
   });
 
   it('regra 13: cobrança do cliente abre uma demanda curta de cobrança, no máximo uma por dia', () => {
