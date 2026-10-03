@@ -80,7 +80,7 @@ export function AppShell({
         </a>
         <aside
           className={cn(
-            'sticky top-0 hidden h-screen shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-150 ease-out lg:block',
+            'sticky top-0 hidden h-screen shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-150 ease-out print:hidden lg:block',
             recolhido ? 'w-sidebar-recolhida' : 'w-sidebar',
           )}
         >
@@ -100,7 +100,7 @@ export function AppShell({
         </Sheet>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header ref={cabecalho} className="sticky top-0 z-40">
+          <header ref={cabecalho} className="sticky top-0 z-40 print:hidden">
             <FaixaAmbiente rotulo={ambiente} />
             <Topbar estadoAgente={aoVivo.estadoAgente} onAbrirMenu={() => setGaveta(true)} />
           </header>

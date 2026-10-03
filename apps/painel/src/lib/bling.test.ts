@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 import { carregarPedidosBling } from './bling';
+import { lerFiltrosDemandas } from './demandas';
 
 type Resposta = { data: unknown; error: { message: string } | null };
 
@@ -9,7 +10,7 @@ type Resposta = { data: unknown; error: { message: string } | null };
 function sbFalso(respostas: Record<string, Resposta[]>) {
   const consulta = (tabela: string) => {
     const q: Record<string, unknown> = {};
-    for (const m of ['select', 'not', 'order', 'in', 'eq', 'neq', 'is']) q[m] = () => q;
+    for (const m of ['select', 'not', 'order', 'in', 'eq', 'neq', 'is', 'gte', 'lt', 'or']) q[m] = () => q;
     q.then = (ok: (r: Resposta) => unknown, erro: (e: unknown) => unknown) => Promise.resolve(respostas[tabela]!.shift()!).then(ok, erro);
     return q;
   };
@@ -25,8 +26,8 @@ describe('carregarPedidosBling (revisão final, I)', () => {
     const sb = sbFalso({ chamados: [{ data: [{ numero: 1, pedido_venda: pedido }], error: null }, { data: null, error: { message: 'tempo esgotado' } }] });
     await expect(carregarPedidosBling(sb, { ids })).rejects.toThrow('tempo esgotado');
   });
-  it('a consulta das demandas abertas ou a dos cadastros que falha também lança', async () => {
-    await expect(carregarPedidosBling(sbFalso({ chamados: [{ data: null, error: { message: 'x' } }] }), { setor: 'todos' })).rejects.toThrow();
+  it('a consulta das demandas do filtro ou a dos cadastros que falha também lança', async () => {
+    await expect(carregarPedidosBling(sbFalso({ demandas_lista: [{ data: null, error: { message: 'x' } }] }), { filtros: lerFiltrosDemandas({}), euId: 'u1', agora: new Date() })).rejects.toThrow();
     const sb = sbFalso({ chamados: [{ data: [{ numero: 1, pedido_venda: pedido }], error: null }], parceiros_unidades: [{ data: null, error: { message: 'y' } }] });
     await expect(carregarPedidosBling(sb, { id: 'c1' })).rejects.toThrow('y');
   });

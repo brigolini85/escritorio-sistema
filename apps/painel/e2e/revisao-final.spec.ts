@@ -38,7 +38,7 @@ test('com a permissão, a atendente vê o botão e baixa o CSV (F)', async ({ pa
   await criarUsuarioTeste({ email: 'ana-csv@e2e.local', senha, nome: 'Ana', papel: 'atendente', setores: ['Fiscal'], permissoes: ['emitir_notas'] });
   await entrar(page, 'ana-csv@e2e.local', senha);
   await page.goto('/demandas');
-  await expect(page.getByRole('link', { name: 'Exportar CSV Bling' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'CSV Bling' })).toBeVisible();
   const r = await page.request.get(`/api/csv-bling?id=${id}`);
   expect(r.status()).toBe(200);
   expect(r.headers()['content-type']).toContain('text/csv');

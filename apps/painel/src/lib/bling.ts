@@ -1,11 +1,13 @@
 import 'server-only';
 import { pedidoVendaBling, problemasPedidoBling, type PedidoVendaBling, type PedidoVendaSalvo } from '@escritorio/core';
+import type { FiltrosDemandas } from './demandas';
+import { filtrarConsulta } from './demandas-consulta';
 import type { supabaseServidor } from './supabase/servidor';
 
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;
 
-/** Qual conjunto de demandas vira arquivo: uma demanda (botão da demanda), várias (link do assistente) ou as abertas do filtro da tela Demandas. */
-export type FiltroBling = { id: string } | { ids: string[] } | { setor: string };
+/** Qual conjunto de demandas vira arquivo: uma (botão da demanda), várias (assistente, seleção) ou as do filtro da tela Demandas. */
+export type FiltroBling = { id: string } | { ids: string[] } | { filtros: FiltrosDemandas; euId: string; agora: Date };
 
 /** Uma consulta que falhou não pode virar um arquivo pela metade: lança, e a rota mostra o aviso. */
 function dados<T>(r: { data: T | null; error: { message: string } | null }): T {
@@ -26,15 +28,12 @@ export async function carregarPedidosBling(sb: Sb, filtro: FiltroBling): Promise
     const ids = [...new Set(filtro.ids)];
     for (let i = 0; i < ids.length; i += 100) linhas.push(...dados(await base().in('id', ids.slice(i, i + 100))));
     linhas.sort((a, b) => Number(a.numero) - Number(b.numero));
+  } else if ('id' in filtro) {
+    linhas = dados(await base().eq('id', filtro.id));
   } else {
-    let consulta = base();
-    if ('id' in filtro) consulta = consulta.eq('id', filtro.id);
-    else {
-      consulta = consulta.neq('status', 'concluido');
-      if (filtro.setor === 'triagem') consulta = consulta.is('setor_id', null);
-      else if (filtro.setor !== 'todos') consulta = consulta.eq('setor_id', filtro.setor);
-    }
-    linhas = dados(await consulta);
+    // Os mesmos filtros da tela (pendência 10 do redesign): o arquivo leva exatamente as demandas de venda que a tabela mostra.
+    linhas = dados(await filtrarConsulta(sb.from('demandas_lista').select('numero, pedido_venda').is('tem_pedido', true), filtro.filtros, filtro.euId, filtro.agora)
+      .order('numero')) as { numero: number | string; pedido_venda: unknown }[];
   }
   const salvos = linhas.map((c) => ({ numero: Number(c.numero), salvo: c.pedido_venda as unknown as PedidoVendaSalvo }));
 

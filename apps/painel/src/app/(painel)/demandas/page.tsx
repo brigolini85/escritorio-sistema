@@ -1,4 +1,4 @@
-import type { CompradorCadastrado, PedidoVendaSalvo } from '@escritorio/core';
+import { PEDIDOS_POR_ARQUIVO_BLING, type CompradorCadastrado, type PedidoVendaSalvo } from '@escritorio/core';
 import { FilterX } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -19,6 +19,7 @@ import { COLUNAS_LISTA, colunasDemandas, paraLinhaDemanda, type LinhaDemanda } f
 import { DetalheDemanda, type DemandaAberta } from './detalhe-demanda';
 import { ExportarSelecionadas } from './exportar-selecionadas';
 import { EsqueletoDemanda, PainelDemanda } from './painel-demanda';
+import { RodapeDemandas } from './rodape-demandas';
 
 const POR_PAGINA = 50;
 const COLUNAS_COMPRADOR = 'id, razao_social, nome_unidade, cnpj, endereco, numero, complemento, bairro, cidade, uf, cep, telefone';
@@ -44,7 +45,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
   const contar = (mudanca: Partial<FiltrosDemandas> = {}) =>
     filtrarConsulta(sb.from('demandas_lista').select('id', { count: 'exact', head: true }), { ...f, ...mudanca }, u.id, agora);
 
-  const [{ data: setores }, { data: pessoas }, total, novas, resolvendo, comCliente, vencidas] = await Promise.all([
+  const [{ data: setores }, { data: pessoas }, total, novas, resolvendo, comCliente, vencidas, pedidos] = await Promise.all([
     sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
     sb.from('usuarios').select('id, nome, ativo').order('nome'),
     contar(),
@@ -52,7 +53,11 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
     contar({ status: ['em_andamento'] }),
     contar({ status: ['aguardando_cliente'] }),
     contar({ vencidas: true }),
+    // Pedidos de venda do mesmo filtro (para o CSV Bling); com "Tipo: Outras" não há nenhum.
+    podeCsv && f.tipo !== 'outras' ? contar({ tipo: 'venda' }) : Promise.resolve({ count: 0, error: null }),
   ]);
+  const pedidosVenda = pedidos.count ?? 0;
+  const partesBling = Math.ceil(pedidosVenda / PEDIDOS_POR_ARQUIVO_BLING);
 
   const totalN = total.count ?? 0;
   let paginacao = paginar(totalN, lerPagina(params), POR_PAGINA);
@@ -111,6 +116,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
           />
         )}
       />
+      <RodapeDemandas params={params} partesBling={partesBling} pedidosVenda={pedidosVenda} />
 
       {/* Sempre montado: abre na hora com esqueleto ao clicar na linha; o detalhe chega à parte (Suspense). */}
       <PainelDemanda demandaId={f.demanda} hrefFechar={hrefDemanda(null)}>
