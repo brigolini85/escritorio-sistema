@@ -63,7 +63,7 @@ export async function processarSugestao(d: DepsAssistente, sugestaoId: string, u
         ...(ultima ? { tool_choice: { type: 'tool' as const, name: ENTREGAR_RASCUNHO.name } } : {}),
       });
       const uso = usoDaResposta(r.usage);
-      await repos.registrarUsoIa({ funcionalidade: 'sugerir_resposta', usuarioId: s.usuario_id, conversaId: s.conversa_id, clienteId: ctx.conversa.empresa?.id ?? null, modelo: config.modeloConversa, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
+      await repos.registrarUsoIa({ funcionalidade: 'sugerir_resposta', usuarioId: s.usuario_id, conversaId: s.conversa_id, clienteId: ctx.conversa.empresaIdentificadaId ?? null, modelo: config.modeloConversa, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
         tokensCacheLeitura: uso.cacheLeitura, tokensCacheEscrita: uso.cacheEscrita, custoUsd: calcularCustoUsd(uso, preco) });
       const usos = r.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
       if (r.stop_reason !== 'tool_use' || usos.length === 0) {

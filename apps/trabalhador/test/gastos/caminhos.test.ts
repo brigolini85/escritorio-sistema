@@ -72,6 +72,41 @@ describe('uso_ia por caminho', () => {
     expect(await usos()).toEqual([expect.objectContaining({ funcionalidade: 'sugerir_resposta', usuario_id: ana, conversa_id: conversa.id, cliente_id: empresas[0]!.id })]);
   });
 
+  // Revisão final (I1): a mesma regra de empresa em todo caminho (empresaDoUso): várias empresas sem foco não viram a primeira.
+  it('agente de clientes com várias empresas e nenhuma em foco: sem empresa', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X', 'Comércio Y']);
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Olá!' } }), fim()]);
+    const c = await repos.obterConversa(conversa.id);
+    const ctx = await carregarContexto(repos, c, await repos.buscarContato(c.telefone), await repos.obterConfiguracoes(), SEGUNDA_10H);
+    await executarAgente({ repos, ia, envio: envio() }, ctx, [{ type: 'text', text: 'oi' }]);
+    const l = await usos();
+    expect(l.length).toBeGreaterThan(0);
+    expect(l.every((u) => u.funcionalidade === 'agente_clientes' && u.cliente_id === null)).toBe(true);
+  });
+
+  const sugerirSemFoco = async (nomes: string[], email: string, telefone: string) => {
+    const ana = await criarUsuarioTeste({ email, permissoes: ['assistente_site'], setores: ['Fiscal'] });
+    const { conversa, empresas } = await contatoComEmpresas(nomes, telefone);
+    await repos.abrirChamado({ clienteId: empresas[0]!.id, conversaId: conversa.id, setorId: await setorId('Fiscal'), responsavelId: null,
+      titulo: 'Guia', resumo: 'x', foraDoContrato: false, origem: 'agente' });
+    const id = (await db.from('sugestoes_resposta').insert({ usuario_id: ana, conversa_id: conversa.id }).select('id').single()).data!.id;
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'entregar_rascunho', entrada: { texto: 'Bom dia!' } })]);
+    await processarSugestao({ repos, ia, canal }, id, true);
+    return { ana, conversa, empresas, ia };
+  };
+
+  it('Sugerir resposta com várias empresas e nenhuma em foco: sem empresa no gasto (o prompt continua igual)', async () => {
+    const { ana, conversa, empresas, ia } = await sugerirSemFoco(['Empresa Z', 'Empresa W'], 'ana4@gastos.local', '5531999990005');
+    expect(await usos()).toEqual([expect.objectContaining({ funcionalidade: 'sugerir_resposta', usuario_id: ana, conversa_id: conversa.id, cliente_id: null })]);
+    // O texto do prompt não muda: continua citando a primeira empresa do contato, como antes.
+    expect(JSON.stringify(ia.recebidos[0]!.system)).toContain(`id ${empresas[0]!.id}`);
+  });
+
+  it('Sugerir resposta com uma empresa só e nenhuma em foco: essa empresa', async () => {
+    const { empresas } = await sugerirSemFoco(['Empresa Z'], 'ana5@gastos.local', '5531999990006');
+    expect(await usos()).toEqual([expect.objectContaining({ funcionalidade: 'sugerir_resposta', cliente_id: empresas[0]!.id })]);
+  });
+
   it('Testar o agente: testar_agente, com quem pediu, sem conversa e sem empresa (mesmo com empresa escolhida)', async () => {
     const thiago = await criarUsuarioTeste({ email: 'treino@gastos.local', permissoes: ['treinar_agente'] });
     const { empresas } = await contatoComEmpresas(['Empresa T'], '5531999990004');

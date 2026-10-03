@@ -37,3 +37,12 @@ export function custoTranscricaoUsd(segundos: number | null, custoMinutoUsd: num
   if (!segundos || !custoMinutoUsd || segundos <= 0 || custoMinutoUsd <= 0) return 0;
   return Math.round((segundos / 60) * custoMinutoUsd * 1_000_000) / 1_000_000;
 }
+
+/**
+ * Empresa de um gasto com IA (uso_ia.cliente_id), a mesma regra em todo caminho: a empresa em foco, se é do contato;
+ * senão a única empresa do contato; senão nenhuma (várias empresas sem foco não viram a primeira da lista).
+ */
+export function empresaDoUso(clienteEmFoco: string | null, empresas: readonly { id: string }[]): string | null {
+  if (clienteEmFoco && empresas.some((e) => e.id === clienteEmFoco)) return clienteEmFoco;
+  return empresas.length === 1 ? empresas[0]!.id : null;
+}

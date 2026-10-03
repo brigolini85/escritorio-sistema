@@ -1,4 +1,4 @@
-import { estaNoExpediente } from '@escritorio/core';
+import { empresaDoUso, estaNoExpediente } from '@escritorio/core';
 import type { Configuracoes, ContatoEncontrado, Conversa, EmpresaDoContato, OrientacaoAgente, Repos } from '@escritorio/db';
 
 export type ContextoAgente = {
@@ -19,9 +19,10 @@ export async function carregarContexto(
   repos: Repos, conversa: Conversa, contato: ContatoEncontrado | null, config: Configuracoes, agora: Date,
 ): Promise<ContextoAgente> {
   const empresas = contato?.empresas ?? [];
-  let empresaEmFoco = empresas.find((e) => e.id === conversa.cliente_em_foco) ?? null;
-  if (!empresaEmFoco && empresas.length === 1) {
-    empresaEmFoco = empresas[0]!;
+  // A mesma regra da empresa do gasto (empresaDoUso): foco do contato, senão a única empresa, senão nenhuma.
+  const idEmFoco = empresaDoUso(conversa.cliente_em_foco, empresas);
+  const empresaEmFoco = empresas.find((e) => e.id === idEmFoco) ?? null;
+  if (empresaEmFoco && empresaEmFoco.id !== conversa.cliente_em_foco) {
     await repos.atualizarConversa(conversa.id, { cliente_em_foco: empresaEmFoco.id });
   }
   return {
