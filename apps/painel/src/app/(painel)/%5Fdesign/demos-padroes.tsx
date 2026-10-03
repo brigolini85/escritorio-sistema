@@ -117,7 +117,7 @@ export function DemoTabela({
           { param: 'setor', rotulo: 'Setor', todos: 'Todos os setores', opcoes: setores.map((s) => ({ valor: s, rotulo: s })) },
           {
             param: 'status', rotulo: 'Status', todos: 'Todos',
-            opcoes: [{ valor: 'aberto', rotulo: 'Aberta' }, { valor: 'em_andamento', rotulo: 'Em andamento' }, { valor: 'aguardando_cliente', rotulo: 'Aguardando cliente' }],
+            opcoes: [{ valor: 'aberto', rotulo: 'Nova' }, { valor: 'em_andamento', rotulo: 'Resolvendo' }, { valor: 'aguardando_cliente', rotulo: 'Com o cliente' }],
           },
         ]}
         total={total}

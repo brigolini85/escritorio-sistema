@@ -124,6 +124,13 @@ Dentro de cada conversa, no lado direito, há o quadro **Por que o agente fez is
 
 De segunda a sábado, às 18h, você recebe o **resumo do dia** no WhatsApp e no e-mail.
 
+### Prioridade e prazo das demandas
+
+- O agente dá a prioridade ao abrir a demanda: **urgente** quando o cliente diz que é urgente (ou nota errada, golpe, funcionário sem registro), **alta** em assunto sensível e cobrança, **normal** no resto, **baixa** só quando o cliente diz que não tem pressa.
+- O prazo é calculado em **dias úteis** (expediente e feriados das Configurações): urgente no mesmo dia, alta 1, normal 2, baixa 5. Mude em **Configurações › Prazos**.
+- Em **"Com o cliente"** o prazo para de correr; quando a demanda volta, o prazo anda o tempo que ficou parado.
+- Demanda vencida avisa o responsável (sem responsável, o setor) na lista de avisos do Início.
+
 ## 4. Pedir mudanças ao Claude
 
 1. Abra o Claude Code no VS Code e descreva em português o que quer mudar (por exemplo: "quero que o agente também responda sobre o prazo do IR").
@@ -160,7 +167,7 @@ A Z-API é uma solução não oficial. O caminho definitivo é a **API oficial d
 O arquivo segue o modelo de **pedido de venda** do Bling: 41 colunas separadas por vírgula, UTF-8 sem BOM e uma linha por produto. O número do pedido é o número da demanda.
 
 - **Um pedido:** na demanda de nota de venda (tela Demandas ou ao lado da conversa), clique em **"Baixar CSV Bling"**.
-- **Vários pedidos:** na tela **Demandas**, o botão **"Exportar CSV Bling"** gera um arquivo com todas as demandas de nota de venda abertas do filtro escolhido. Acima de 500 pedidos, aparecem os botões "parte 1", "parte 2" etc., sem dividir um pedido entre arquivos.
+- **Vários pedidos:** na tela **Demandas**, o link **"CSV Bling"** (no rodapé da tabela) gera um arquivo com as demandas de nota de venda **do filtro que está na tela**: busca, status, vencidas, setor, responsável, prioridade, tipo e período. Acima de 500 pedidos, aparecem "parte 1", "parte 2" etc., sem dividir um pedido entre arquivos.
 - **Nome do arquivo:** `pedidos_venda_bling_AAAAMMDD_HHMM.csv`, com a data e a hora em que foi gerado (horário de Brasília).
 - **Comprador:** vem do cadastro do cliente (Clientes → empresa → aba Clientes): razão social, CNPJ, endereço, número, complemento, bairro, cidade, UF, CEP e telefone. Preencha esses campos uma vez; o arquivo sempre usa o cadastro atual. Sem endereço de entrega combinado na conversa, a entrega vai para o endereço do comprador.
 - **Pedido:** produtos, quantidades e preço da tabela vêm do que o agente organizou. Data de entrega, forma de pagamento, frete, transportadora, observações e endereço de entrega diferente só vão preenchidos se o cliente falar deles; o agente não pergunta.

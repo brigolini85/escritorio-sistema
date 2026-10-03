@@ -10,6 +10,7 @@ const porta = process.env.E2E_PORTA ?? '3100';
 export default defineConfig({
   testDir: './e2e',
   workers: 1,
+  globalSetup: './e2e/aquecer.ts',
   use: { baseURL: `http://localhost:${porta}`, locale: 'pt-BR' },
   webServer: { command: `pnpm dev -p ${porta}`, url: `http://localhost:${porta}/entrar`, reuseExistingServer: true, timeout: 120_000 },
 });

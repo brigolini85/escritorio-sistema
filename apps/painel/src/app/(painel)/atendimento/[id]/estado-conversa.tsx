@@ -15,7 +15,7 @@ type Estado = {
   setAba: (a: AbaPainel) => void;
   modo: ModoCompositor;
   setModo: (m: ModoCompositor) => void;
-  /** Demanda escolhida (id) sobre a qual agem Transferir, Aguardando cliente, Concluir e a nota interna (quando há mais de uma aberta). Pode ter sido concluída numa atualização ao vivo: use demandaEmFoco(). */
+  /** Demanda escolhida (id) sobre a qual agem Transferir, Com o cliente, Concluir e a nota interna (quando há mais de uma aberta). Pode ter sido concluída numa atualização ao vivo: use demandaEmFoco(). */
   demandaId: string | null;
   setDemandaId: (id: string) => void;
   /** Aviso de erro do assistente (?erro=), guardado aqui porque o parâmetro sai da URL depois de mostrado. */

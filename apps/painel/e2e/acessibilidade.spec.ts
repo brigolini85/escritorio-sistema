@@ -113,6 +113,7 @@ for (const tema of ['claro', 'escuro'] as const) {
         `/atendimento/${ids.conversa}`,
         '/demandas',
         `/demandas?demanda=${ids.demanda}`,
+        '/demandas?nova=1',
         '/clientes',
         '/clientes?ver=arquivados',
         `/clientes/${ids.cliente}`,
@@ -139,6 +140,12 @@ for (const tema of ['claro', 'escuro'] as const) {
         if (rota.includes('demanda=')) await expect(page.getByRole('dialog', { name: /Nº [0-9]+/ }).getByLabel('Responsável')).toBeVisible({ timeout: 30_000 });
         erros.push(...(await auditar(page, rota, tema)));
       }
+      // Quadro (preferência da pessoa): liga, audita e volta para a tabela, para os outros testes.
+      await db.from('usuarios').update({ visao_demandas: 'quadro' }).eq('email', EMAIL);
+      await page.goto('/demandas');
+      await expect(page.getByRole('button', { name: 'Quadro' })).toHaveAttribute('aria-pressed', 'true');
+      erros.push(...(await auditar(page, '/demandas (quadro)', tema)));
+      await db.from('usuarios').update({ visao_demandas: 'tabela' }).eq('email', EMAIL);
       expect(erros, erros.join('\n')).toEqual([]);
     });
 

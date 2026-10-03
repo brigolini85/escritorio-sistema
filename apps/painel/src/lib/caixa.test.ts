@@ -13,7 +13,7 @@ describe('passaNoFiltro', () => {
     expect(passaNoFiltro(linha({ setores_abertos: ['fiscal'] }), 'setor', u)).toBe(true);
     expect(passaNoFiltro(linha({ setores_abertos: ['pessoal'] }), 'setor', u)).toBe(false);
   });
-  it('sem responsável e aguardando cliente', () => {
+  it('sem responsável e com o cliente', () => {
     expect(passaNoFiltro(linha({ sem_responsavel: true }), 'sem_responsavel', u)).toBe(true);
     expect(passaNoFiltro(linha({ aguardando_cliente: true }), 'aguardando', u)).toBe(true);
   });
@@ -49,6 +49,7 @@ describe('filtros rápidos (Com o agente, Concluídas)', () => {
     expect(new Set(valores).size).toBe(valores.length);
     expect([...valores].sort()).toEqual(['agente', 'aguardando', 'concluidas', 'minhas', 'sem_responsavel', 'setor', 'todas']);
     expect(rotuloFiltroCaixa('sem_responsavel')).toBe('Aguardando humano');
+    expect(rotuloFiltroCaixa('aguardando')).toBe('Com o cliente');
     expect(rotuloFiltroCaixa('setor')).toBe('Do meu setor');
   });
   it('filtro desconhecido na URL vira o padrão da pessoa', () => {

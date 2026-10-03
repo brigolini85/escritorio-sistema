@@ -18,6 +18,7 @@ import { OrderSummary } from '@/components/patterns/order-summary';
 import { PageHeader } from '@/components/patterns/page-header';
 import { PermissionGate } from '@/components/patterns/permission-gate';
 import { RelativeTime } from '@/components/patterns/relative-time';
+import { PrazoTexto, PrioridadeTexto } from '@/components/patterns/prioridade-prazo';
 import { StatusBadge, STATUS_CONVERSA, STATUS_DEMANDA, TIPO_ORIENTACAO, type StatusConversa, type StatusDemanda, type TipoOrientacaoSelo } from '@/components/patterns/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -139,7 +140,13 @@ export function Padroes({ params }: { params: ParamsBusca }) {
         <Exemplo titulo="Status de demanda (texto colorido + ponto)">
           {(Object.keys(STATUS_DEMANDA) as StatusDemanda[]).map((s) => <StatusBadge key={s} tipo="demanda" status={s} />)}
         </Exemplo>
-        <Exemplo titulo="HealthSignal" className="flex flex-col items-start gap-2">
+        <Exemplo titulo="Prioridade e prazo (sempre escritos)" className="flex flex-wrap items-center gap-4 text-sm">
+          {(['urgente', 'alta', 'normal', 'baixa'] as const).map((p) => <PrioridadeTexto key={p} prioridade={p} />)}
+          <PrazoTexto prazo={new Date(Date.now() + 2 * 3600_000).toISOString()} pausadoDesde={null} concluidaEm={null} agora={new Date()} />
+          <PrazoTexto prazo={new Date(Date.now() - 3600_000).toISOString()} pausadoDesde={null} concluidaEm={null} agora={new Date()} />
+          <PrazoTexto prazo={null} pausadoDesde={new Date().toISOString()} concluidaEm={null} agora={new Date()} />
+        </Exemplo>
+        <Exemplo titulo="HealthSignal"className="flex flex-col items-start gap-2">
           <HealthSignal rotulo="WhatsApp (Z-API)" ultimoSinal={ha(40)} detalhe="Conectado ao número (31) 3222-1100" />
           <HealthSignal rotulo="Fila (pg-boss)" ultimoSinal={ha(4 * 60)} />
           <HealthSignal rotulo="Trabalhador" ultimoSinal={ha(25 * 60)} />

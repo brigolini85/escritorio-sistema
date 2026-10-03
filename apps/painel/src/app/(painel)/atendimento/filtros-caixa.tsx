@@ -14,7 +14,7 @@ const ESPERA_BUSCA_MS = 300;
 
 /**
  * Filtros rápidos (Aguardando humano · Comigo · Com o agente · Concluídas), o menu "Mais" com os filtros
- * antigos (Todas, Do meu setor, Aguardando cliente) e a busca. Tudo na URL (?filtro=, ?q=), lido pela página no servidor.
+ * antigos (Todas, Do meu setor, Com o cliente) e a busca. Tudo na URL (?filtro=, ?q=), lido pela página no servidor.
  * `caminho`: a página atual (a lista ou a conversa aberta), para trocar o filtro sem fechar a conversa.
  */
 export function FiltrosCaixa({ caminho, filtro, q }: { caminho: string; filtro: FiltroCaixa; q: string }) {

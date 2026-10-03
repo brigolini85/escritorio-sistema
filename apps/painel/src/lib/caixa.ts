@@ -10,7 +10,7 @@ export const FILTROS: { valor: FiltroCaixa; rotulo: string }[] = [
   { valor: 'minhas', rotulo: 'Minhas' },
   { valor: 'setor', rotulo: 'Do meu setor' },
   { valor: 'sem_responsavel', rotulo: 'Sem responsável' },
-  { valor: 'aguardando', rotulo: 'Aguardando cliente' },
+  { valor: 'aguardando', rotulo: 'Com o cliente' },
 ];
 
 export function passaNoFiltro(l: LinhaCaixa, filtro: FiltroCaixa, u: { id: string; setores: string[] }): boolean {
@@ -46,7 +46,7 @@ export const FILTROS_RAPIDOS: { valor: FiltroCaixa; rotulo: string }[] = [
   { valor: 'concluidas', rotulo: 'Concluídas' },
 ];
 
-/** Os demais filtros (Todas, Do meu setor, Aguardando cliente), no menu "Mais". */
+/** Os demais filtros (Todas, Do meu setor, Com o cliente), no menu "Mais". */
 export const FILTROS_MAIS = FILTROS.filter((f) => !FILTROS_RAPIDOS.some((r) => r.valor === f.valor));
 
 const VALORES_FILTRO = new Set<string>([...FILTROS, ...FILTROS_RAPIDOS].map((f) => f.valor));

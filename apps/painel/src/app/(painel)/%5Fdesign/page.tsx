@@ -97,7 +97,7 @@ const SELOS = [
 ] as const;
 
 const DEMANDAS = [
-  { numero: 1042, empresa: 'Padaria Pão Quente Ltda', setor: 'Fiscal', status: 'Aberta', valor: 'R$ 1.280,00' },
+  { numero: 1042, empresa: 'Padaria Pão Quente Ltda', setor: 'Fiscal', status: 'Nova', valor: 'R$ 1.280,00' },
   { numero: 1041, empresa: 'Mercado Bom Preço', setor: 'Pessoal', status: 'Concluída', valor: 'R$ 96,50' },
   { numero: 1039, empresa: 'Auto Peças Irmãos Silva', setor: 'Fiscal', status: 'Atrasada', valor: 'R$ 12.400,00' },
 ];
