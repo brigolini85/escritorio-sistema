@@ -1,4 +1,4 @@
-import { MOTIVOS_PASSAGEM, custoTranscricaoUsd, mesReferencia, motivoDaEscalada } from '@escritorio/core';
+import { MOTIVOS_PASSAGEM, custoTranscricaoUsd, empresaDoUso, mesReferencia, motivoDaEscalada } from '@escritorio/core';
 import type { Conversa, Mensagem } from '@escritorio/db';
 import type { Alertas } from './alertas';
 import { erroTemporarioIa } from './agente/cliente-ia';
@@ -30,9 +30,11 @@ function anexoParaIa(m: Mensagem, bytes: Uint8Array, mimeCompleto: string, nome:
 }
 
 const AVISO_AUDIO_FALHOU = '[áudio não pôde ser transcrito]';
+/** Para onde vai o custo de uma transcrição (uso_ia.conversa_id e cliente_id). */
+type DestinoCusto = { conversaId: string | null; clienteId: string | null };
 
 /** Transcreve e grava o custo (spec 7B.2). Falha do fornecedor não é cobrada: só o aviso. Falha ao gravar o custo não perde o áudio. */
-async function transcrever(d: DepsProcessamento, conversa: Conversa, bytes: Uint8Array, mime: string, nome: string): Promise<string> {
+async function transcrever(d: DepsProcessamento, conversa: Conversa, custo: DestinoCusto, bytes: Uint8Array, mime: string, nome: string): Promise<string> {
   let r: Transcricao;
   try {
     r = await d.transcritor.transcrever(bytes, mime, nome);
@@ -42,7 +44,7 @@ async function transcrever(d: DepsProcessamento, conversa: Conversa, bytes: Uint
   try {
     const config = await d.repos.obterConfiguracoes();
     await d.repos.registrarUsoIa({
-      funcionalidade: 'transcricao_audio', usuarioId: null, conversaId: conversa.id, clienteId: conversa.cliente_em_foco,
+      funcionalidade: 'transcricao_audio', usuarioId: null, conversaId: custo.conversaId, clienteId: custo.clienteId,
       modelo: d.transcritor.modelo, provedor: d.transcritor.provedor, tokensEntrada: 0, tokensSaida: 0, tokensCacheLeitura: 0, tokensCacheEscrita: 0,
       segundosAudio: r.segundos, custoUsd: custoTranscricaoUsd(r.segundos, config.custoMinutoTranscricaoUsd),
     });
@@ -52,7 +54,7 @@ async function transcrever(d: DepsProcessamento, conversa: Conversa, bytes: Uint
   return r.texto;
 }
 
-async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: Mensagem[]): Promise<AnexoParaIa[]> {
+async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: Mensagem[], custo: DestinoCusto): Promise<AnexoParaIa[]> {
   const anexos: AnexoParaIa[] = [];
   for (const m of novas) {
     const nome = m.arquivo_nome ?? (m.tipo === 'audio' ? 'audio.ogg' : m.tipo === 'imagem' ? 'imagem.jpg' : 'arquivo');
@@ -70,7 +72,7 @@ async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: M
       const salvo = await d.midia.baixarESalvar(m.midia_url_origem, conversa.id, nome, m.arquivo_mime);
       const patch: Partial<Mensagem> = { arquivo_path: salvo.path, arquivo_mime: salvo.mime };
       if (m.tipo === 'audio') {
-        patch.transcricao = await transcrever(d, conversa, salvo.bytes, salvo.mime.split(';')[0]!, nome);
+        patch.transcricao = await transcrever(d, conversa, custo, salvo.bytes, salvo.mime.split(';')[0]!, nome);
         m.transcricao = patch.transcricao;
       } else {
         const anexo = anexoParaIa(m, salvo.bytes, salvo.mime, nome);
@@ -122,11 +124,17 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
   if (novas.length === 0) return 'sem-mensagens';
   const ids = novas.map((m) => m.id);
   let conversa = await d.repos.obterConversa(conversaId);
-  const anexos = await prepararMidias(d, conversa, novas);
+  // Quem fala decide o custo da transcrição (revisão final, I1/I3): áudio da equipe ou de telefone interno entra só no total
+  // (sem conversa, empresa nem pessoa: não é atendimento nem ação de alguém); de cliente, a conversa e a empresa da regra única.
+  const usuario = await d.repos.usuarioDoAssistente(conversa.telefone);
+  const interno = !usuario && (await d.repos.ehTelefoneInterno(conversa.telefone));
+  const contato = usuario || interno ? null : await d.repos.buscarContato(conversa.telefone);
+  const custoAudio: DestinoCusto = usuario || interno ? { conversaId: null, clienteId: null }
+    : { conversaId: conversa.id, clienteId: empresaDoUso(conversa.cliente_em_foco, contato?.empresas ?? []) };
+  const anexos = await prepararMidias(d, conversa, novas, custoAudio);
 
   // WhatsApp de alguém da equipe com o assistente ligado: vira pergunta ao assistente interno (pedido do dono, 2026-09-29).
   // `prepararMidias` já preencheu `transcricao` nas linhas em memória (e em nova tentativa ela vem do banco).
-  const usuario = await d.repos.usuarioDoAssistente(conversa.telefone);
   if (usuario) {
     for (const m of novas) {
       const texto = m.tipo === 'audio' ? m.transcricao ?? '[áudio sem transcrição]'
@@ -141,7 +149,7 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
     return 'assistente';
   }
 
-  if (await d.repos.ehTelefoneInterno(conversa.telefone)) {
+  if (interno) {
     await d.repos.marcarProcessadas(ids);
     return 'interno';
   }
@@ -151,7 +159,6 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
   }
 
   const config = await d.repos.obterConfiguracoes();
-  const contato = await d.repos.buscarContato(conversa.telefone);
 
   if (!conversa.aviso_lgpd_enviado_em) {
     // O texto é do dono (Configurações → Mensagens automáticas); vazio = não enviar aviso.

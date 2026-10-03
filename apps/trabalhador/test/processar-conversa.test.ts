@@ -8,6 +8,7 @@ import { processarConversa, type DepsProcessamento } from '../src/processar-conv
 import { contatoComEmpresas, db, repos } from './apoio/cenario';
 import { FilaFalsa } from './apoio/fila-falsa';
 import { IaRoteirizada, fim, usarFerramentas } from './apoio/ia-roteirizada';
+import { criarUsuarioTeste } from './apoio/usuario';
 
 const SEGUNDA_10H = new Date('2026-09-28T13:00:00Z');
 let canal: CanalFalso;
@@ -201,6 +202,62 @@ describe('processarConversa', () => {
       .eq('funcionalidade', 'transcricao_audio').single()).data!;
     expect(t).toEqual({ funcionalidade: 'transcricao_audio', provedor: 'groq', segundos_audio: 30, custo_usd: 0.001,
       conversa_id: conversa.id, cliente_id: empresas[0]!.id, usuario_id: null, modelo: 'whisper-large-v3-turbo' });
+  });
+
+  // Revisão final (I1): empresa do custo da transcrição pela regra única (empresaDoUso), antes de o foco ser gravado.
+  it('transcrição com uma empresa só e nenhuma em foco: o custo vai para essa empresa', async () => {
+    const { conversa, empresas } = await contatoComEmpresas(['Indústria X']);
+    await receber(conversa.id, 'M1', '', 'audio');
+    await processarConversa(deps(respondeOi()), conversa.id, false);
+    const t = (await db.from('uso_ia').select('cliente_id, conversa_id').eq('funcionalidade', 'transcricao_audio').single()).data!;
+    expect(t).toEqual({ cliente_id: empresas[0]!.id, conversa_id: conversa.id });
+  });
+
+  it('transcrição com várias empresas e nenhuma em foco: sem empresa', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X', 'Comércio Y']);
+    await receber(conversa.id, 'M1', '', 'audio');
+    await processarConversa(deps(respondeOi()), conversa.id, false);
+    const t = (await db.from('uso_ia').select('cliente_id, conversa_id').eq('funcionalidade', 'transcricao_audio').single()).data!;
+    expect(t).toEqual({ cliente_id: null, conversa_id: conversa.id });
+  });
+
+  // Revisão final (I3): áudio da equipe ou de telefone interno entra só no total (sem conversa, empresa nem pessoa).
+  const transcricoes = async () =>
+    (await db.from('uso_ia').select('conversa_id, cliente_id, usuario_id').eq('funcionalidade', 'transcricao_audio')).data!;
+
+  it('áudio de alguém da equipe com o assistente pelo WhatsApp: custo sem conversa, sem empresa e sem pessoa', async () => {
+    await criarUsuarioTeste({ email: 'ana@transcricao.local', permissoes: ['assistente_whatsapp'], telefone: '5531988887777' });
+    const conversa = await repos.obterOuCriarConversa('5531988887777', null);
+    await receber(conversa.id, 'M1', '', 'audio');
+    expect(await processarConversa(deps(respondeOi()), conversa.id, false)).toBe('assistente');
+    expect(await transcricoes()).toEqual([{ conversa_id: null, cliente_id: null, usuario_id: null }]);
+  });
+
+  it('áudio de telefone interno: custo sem conversa, sem empresa e sem pessoa', async () => {
+    await db.from('configuracoes').update({ telefone_dono: '5531977770000' }).eq('id', 1);
+    const conversa = await repos.obterOuCriarConversa('5531977770000', null);
+    await receber(conversa.id, 'M1', '', 'audio');
+    expect(await processarConversa(deps(respondeOi()), conversa.id, false)).toBe('interno');
+    expect(await transcricoes()).toEqual([{ conversa_id: null, cliente_id: null, usuario_id: null }]);
+  });
+
+  // Revisão final (M5): falha ao gravar o custo não perde o áudio.
+  it('transcrição dá certo mas gravar o custo falha: a mensagem fica com a transcrição', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    await receber(conversa.id, 'M1', '', 'audio');
+    const reposQueFalha: typeof repos = {
+      ...repos,
+      registrarUsoIa: async (u) => {
+        if (u.funcionalidade === 'transcricao_audio') throw new Error('banco fora do ar');
+        return repos.registrarUsoIa(u);
+      },
+    };
+    const ia = respondeOi();
+    await processarConversa(deps(ia, { repos: reposQueFalha }), conversa.id, false);
+    expect((await db.from('mensagens').select('transcricao').eq('id_provedor', 'M1').single()).data!.transcricao).toBe('preciso do holerite');
+    expect(await transcricoes()).toEqual([]);
+    const texto = (ia.recebidos[0]!.messages[0]!.content as { text: string }[])[0]!.text;
+    expect(texto).toContain('[áudio transcrito] preciso do holerite');
   });
 
   it('transcrição que falha não grava uso (o fornecedor não cobra) e o agente recebe o aviso', async () => {
