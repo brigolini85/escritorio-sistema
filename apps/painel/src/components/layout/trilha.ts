@@ -6,7 +6,7 @@ type Secao = { prefixo: string; trilha: PassoTrilha[]; detalhe?: string };
 const SECOES: Secao[] = [
   { prefixo: '/inicio', trilha: [{ rotulo: 'Início' }] },
   { prefixo: '/atendimento', trilha: [{ rotulo: 'Atendimento' }], detalhe: 'Conversa' },
-  { prefixo: '/demandas', trilha: [{ rotulo: 'Demandas' }] },
+  { prefixo: '/demandas', trilha: [{ rotulo: 'Gestão das demandas' }] },
   { prefixo: '/clientes', trilha: [{ rotulo: 'Cadastros' }, { rotulo: 'Clientes' }], detalhe: 'Empresa' },
   // Rota fixa mais longa que /clientes/[id]: sem esta linha, /clientes/novo viraria "Empresa".
   { prefixo: '/clientes/novo', trilha: [{ rotulo: 'Cadastros' }, { rotulo: 'Clientes', href: '/clientes' }, { rotulo: 'Novo cliente' }] },

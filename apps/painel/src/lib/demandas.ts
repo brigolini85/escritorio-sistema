@@ -7,6 +7,7 @@
  * - responsavel: eu | sem | id; prioridade; tipo: venda | outras; periodo: hoje | 7d | 30d (pela abertura);
  * - q: busca (nº, empresa, título ou descrição); demanda: id aberto no painel lateral; nova: 1 abre a nova demanda.
  */
+import { interpretarBusca } from './busca';
 import { valorParam, type Ordem, type ParamsBusca } from './tabela-url';
 
 export type StatusFiltro = 'aberto' | 'em_andamento' | 'aguardando_cliente' | 'concluido';
@@ -122,7 +123,7 @@ export function statusAoAlternar(atual: StatusFiltro[], s: StatusFiltro): string
 /** Algum filtro além do padrão? (O estado vazio oferece "Limpar filtros".) */
 export function temFiltro(f: FiltrosDemandas): boolean {
   return f.setor !== 'todos' || !ehStatusPadrao(f.status)
-    || Boolean(f.origem || f.vencidas || f.prazoHoje || f.responsavel || f.prioridade || f.tipo || f.periodo || f.q);
+    || Boolean(f.origem || f.vencidas || f.prazoHoje || f.responsavel || f.prioridade || f.tipo || f.periodo || interpretarBusca(f.q));
 }
 
 /** Etiquetas removíveis dos filtros avançados (imagem 03: "Setor: Fiscal ×"). `param` é o que o × tira da URL. */

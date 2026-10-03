@@ -7,6 +7,12 @@ const HORA = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, hour: '2-digit',
 const UM_DIA_MS = 24 * 60 * 60 * 1000;
 
 const diaSP = (d: Date) => DIA.format(d);
+/** Data válida ou null: um texto estranho no banco não pode derrubar a tela. */
+const lerData = (iso: string | null | undefined): Date | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
 
 export type TomPrazo = 'vencido' | 'hoje' | 'pausado' | 'normal' | 'sem' | 'no-prazo';
 
@@ -18,19 +24,20 @@ export function horaCurta(d: Date): string {
 
 /** "13/10 18h": o prazo nos eventos da linha do tempo (fixo, não muda com o dia em que se lê). */
 export function prazoAbsoluto(iso: string): string {
-  const d = new Date(iso);
-  return `${DIA_MES.format(d)} ${horaCurta(d)}`;
+  const d = lerData(iso);
+  return d ? `${DIA_MES.format(d)} ${horaCurta(d)}` : 'sem prazo';
 }
 
 /** Prazo na tabela e no quadro: hoje 18h, amanhã, 13/10, venceu…, pausado, no prazo. */
 export function descreverPrazo(p: { prazo: string | null; pausadoDesde: string | null; concluidaEm: string | null }, agora: Date): { texto: string; tom: TomPrazo } {
+  const prazo = lerData(p.prazo);
+  const concluida = lerData(p.concluidaEm);
   if (p.concluidaEm) {
-    if (!p.prazo) return { texto: 'concluída', tom: 'normal' };
-    return new Date(p.concluidaEm) <= new Date(p.prazo) ? { texto: 'no prazo', tom: 'no-prazo' } : { texto: 'fora do prazo', tom: 'vencido' };
+    if (!prazo || !concluida) return { texto: 'concluída', tom: 'normal' };
+    return concluida <= prazo ? { texto: 'no prazo', tom: 'no-prazo' } : { texto: 'fora do prazo', tom: 'vencido' };
   }
   if (p.pausadoDesde) return { texto: 'pausado', tom: 'pausado' };
-  if (!p.prazo) return { texto: 'sem prazo', tom: 'sem' };
-  const prazo = new Date(p.prazo);
+  if (!prazo) return { texto: 'sem prazo', tom: 'sem' };
   const mesmoDia = diaSP(prazo) === diaSP(agora);
   if (prazo < agora) return { texto: mesmoDia ? `venceu ${horaCurta(prazo)}` : `venceu ${DIA_MES.format(prazo)}`, tom: 'vencido' };
   if (mesmoDia) return { texto: `hoje ${horaCurta(prazo)}`, tom: 'hoje' };
@@ -40,8 +47,8 @@ export function descreverPrazo(p: { prazo: string | null; pausadoDesde: string |
 
 /** Valor do <input type="datetime-local"> no horário de Brasília. */
 export function paraCampoDataHora(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
+  const d = lerData(iso);
+  if (!d) return '';
   return `${diaSP(d)}T${HORA.format(d)}`;
 }
 

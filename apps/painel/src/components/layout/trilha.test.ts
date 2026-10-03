@@ -6,7 +6,7 @@ describe('trilha da barra do topo (ícone › Seção › Tela)', () => {
     ['/inicio', [{ rotulo: 'Início' }]],
     ['/atendimento/abc', [{ rotulo: 'Atendimento', href: '/atendimento' }, { rotulo: 'Conversa' }]],
     ['/atendimento', [{ rotulo: 'Atendimento' }]],
-    ['/demandas', [{ rotulo: 'Demandas' }]],
+    ['/demandas', [{ rotulo: 'Gestão das demandas' }]],
     ['/clientes', [{ rotulo: 'Cadastros' }, { rotulo: 'Clientes' }]],
     ['/clientes/123', [{ rotulo: 'Cadastros' }, { rotulo: 'Clientes', href: '/clientes' }, { rotulo: 'Empresa' }]],
     ['/clientes/novo', [{ rotulo: 'Cadastros' }, { rotulo: 'Clientes', href: '/clientes' }, { rotulo: 'Novo cliente' }]],

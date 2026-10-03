@@ -51,6 +51,8 @@ type Props<T> = {
   aoClicarLinha?: (linha: T) => void;
   /** Linha aberta no Sheet ao lado (destaque). */
   linhaAtiva?: string | null;
+  /** Faixa vermelha à esquerda da linha (Demandas: urgente ou vencida). O motivo também está escrito na linha. */
+  faixa?: (linha: T) => boolean;
   /** Estado vazio (EmptyState com ação). */
   vazio?: ReactNode;
   /** Falha ao carregar: mensagem humana; o botão "Tentar de novo" recarrega os dados. */
@@ -79,7 +81,7 @@ function Cabecalho<T>({ coluna, params, ordem }: { coluna: ColunaTabela<T>; para
 
 export function DataTable<T>({
   rotulo, linhas, colunas, chave, params = {}, ordem = null, paginacao, selecionavel = false, rotuloSelecao, acoesEmMassa,
-  aoMudarSelecao, acoesLinha, hrefLinha, aoClicarLinha, linhaAtiva = null, vazio, erro, className,
+  aoMudarSelecao, acoesLinha, hrefLinha, aoClicarLinha, linhaAtiva = null, faixa, vazio, erro, className,
 }: Props<T>) {
   const ids = linhas.map(chave);
   // Linha clicável: um texto só para leitor de tela diz que Enter abre (id estável a partir do rótulo).
@@ -119,6 +121,7 @@ export function DataTable<T>({
             ) : (
               linhas.map((l, i) => {
                 const id = ids[i]!;
+                const comFaixa = faixa?.(l) ? 'border-l-4 border-l-danger' : undefined;
                 return (
                   <LinhaTabela
                     key={id}
@@ -128,9 +131,9 @@ export function DataTable<T>({
                     ativa={linhaAtiva === id}
                     dica={idDica}
                   >
-                    {selecionavel && <TableCell className="w-10"><CaixaSelecaoLinha id={id} rotulo={rotuloSelecao?.(l) ?? 'Selecionar linha'} /></TableCell>}
-                    {colunas.map((c) => (
-                      <TableCell key={c.id} className={cn(!c.quebrar && 'whitespace-nowrap', c.alinhar === 'direita' && 'text-right', c.className)}>{c.celula(l)}</TableCell>
+                    {selecionavel && <TableCell className={cn('w-10', comFaixa)}><CaixaSelecaoLinha id={id} rotulo={rotuloSelecao?.(l) ?? 'Selecionar linha'} /></TableCell>}
+                    {colunas.map((c, j) => (
+                      <TableCell key={c.id} className={cn(!c.quebrar && 'whitespace-nowrap', c.alinhar === 'direita' && 'text-right', c.className, j === 0 && !selecionavel && comFaixa)}>{c.celula(l)}</TableCell>
                     ))}
                     {acoesLinha && <TableCell className="w-12 py-0 text-right">{acoesLinha(l)}</TableCell>}
                   </LinhaTabela>

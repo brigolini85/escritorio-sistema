@@ -256,7 +256,7 @@ test('teclado: ? lista os atalhos só fora de campos, Esc devolve o foco e o sal
   await semear();
   await entrar(page, EMAIL, SENHA);
   await page.goto('/demandas');
-  await expect(page.getByRole('heading', { name: 'Demandas' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Gestão das demandas/ })).toBeVisible();
   const janela = page.getByRole('dialog', { name: 'Atalhos do teclado' });
 
   // Primeiro Tab: link para pular o menu; Enter leva o foco ao conteúdo.

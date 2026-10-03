@@ -47,6 +47,10 @@ describe('botões de status', () => {
     expect(temFiltro(lerFiltrosDemandas({ status: 'concluido' }))).toBe(true);
     expect(temFiltro(lerFiltrosDemandas({ q: 'guia' }))).toBe(true);
   });
+  it('temFiltro: busca curta demais (a consulta ignora) não conta', () => {
+    expect(temFiltro(lerFiltrosDemandas({ q: 'a' }))).toBe(false);
+    expect(temFiltro(lerFiltrosDemandas({ q: 'ab' }))).toBe(true);
+  });
 });
 
 describe('etiquetasFiltros (imagem 03: "Setor: Fiscal ×")', () => {

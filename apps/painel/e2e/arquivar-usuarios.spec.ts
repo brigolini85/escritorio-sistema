@@ -96,9 +96,9 @@ test('Demandas: pessoa arquivada só aparece no filtro quando já está nele, co
   await db.from('usuarios').update({ ativo: false }).eq('id', ze);
   await entrar(page, 'admin@teste.com', SENHA);
   await page.goto(`/demandas?responsavel=${ze}`);
-  await expect(page.getByLabel('Responsável')).toContainText('Zé Arquivo (arquivado)');
+  await expect(page.getByRole('link', { name: 'Tirar filtro Responsável: Zé Arquivo (arquivado)' })).toBeVisible();
   await expect(page.getByText(/\(inativo\)/)).toHaveCount(0);
   await page.goto('/demandas');
-  await page.getByLabel('Responsável').click();
-  await expect(page.getByRole('option', { name: /Zé Arquivo/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Filtrar' }).click();
+  await expect(page.getByLabel('Responsável').locator('option', { hasText: 'Zé Arquivo' })).toHaveCount(0);
 });

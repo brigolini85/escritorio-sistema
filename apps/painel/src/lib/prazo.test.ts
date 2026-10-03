@@ -39,3 +39,15 @@ describe('formatos do prazo', () => {
     expect(doCampoDataHora('')).toBeNull();
   });
 });
+
+describe('prazo inválido não quebra a tela', () => {
+  it('descreverPrazo devolve "sem prazo"', () => {
+    expect(aberta('lixo')).toEqual({ texto: 'sem prazo', tom: 'sem' });
+    expect(descreverPrazo({ prazo: 'lixo', pausadoDesde: null, concluidaEm: '2026-10-08T12:00:00Z' }, AGORA)).toEqual({ texto: 'concluída', tom: 'normal' });
+    expect(descreverPrazo({ prazo: '2026-10-08T12:00:00Z', pausadoDesde: null, concluidaEm: 'lixo' }, AGORA)).toEqual({ texto: 'concluída', tom: 'normal' });
+  });
+  it('prazoAbsoluto e paraCampoDataHora não lançam', () => {
+    expect(prazoAbsoluto('lixo')).toBe('sem prazo');
+    expect(paraCampoDataHora('lixo')).toBe('');
+  });
+});
