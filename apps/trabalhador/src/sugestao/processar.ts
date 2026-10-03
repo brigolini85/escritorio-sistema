@@ -13,6 +13,9 @@ export const SUGESTAO_FORA_DO_HORARIO = 'Fora do seu horário de acesso.';
 export const SUGESTAO_TETO = 'Limite mensal de gasto com IA atingido. Fale com o administrador.';
 export const SUGESTAO_FALHA = 'Não consegui sugerir agora. Tente de novo em alguns minutos.';
 export const SUGESTAO_VAZIA = 'Não consegui montar uma sugestão. Escreva a resposta ou tente de novo.';
+/** O mesmo texto do banco (pedir_sugestao_resposta) e do painel, que desistem do pedido depois de 2 minutos. */
+export const SUGESTAO_DEMOROU = 'Demorou demais. Tente de novo.';
+const VALIDADE_PEDIDO_MS = 2 * 60_000;
 /** Rodadas com a IA (spec 7A.2): na última, ela é obrigada a entregar o rascunho. */
 export const MAX_RODADAS = 3;
 const LIMITE_TEXTO = 4000;
@@ -30,6 +33,8 @@ export async function processarSugestao(d: DepsAssistente, sugestaoId: string, u
     await d.repos.concluirSugestao(s.id, { status: 'falhou', erro: erro.slice(0, LIMITE_ERRO) });
     return 'falhou' as const;
   };
+  // Pedido velho (fila do trabalhador antigo, ou o painel já desistiu): ninguém espera mais; não gasta IA com ele.
+  if (Date.now() - new Date(s.criado_em).getTime() > VALIDADE_PEDIDO_MS) return falhar(SUGESTAO_DEMOROU);
 
   const usuario = await d.repos.obterUsuarioAssistente(s.usuario_id);
   if (!usuario || !usaAssistentePor(usuario, 'site')) return falhar(SUGESTAO_SEM_ASSISTENTE);
