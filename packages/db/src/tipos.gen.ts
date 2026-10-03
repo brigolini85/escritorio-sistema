@@ -104,6 +104,12 @@ isOneToOne: false
       referencedRelation: "chamados"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "chamado_eventos_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "demandas_lista"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "chamado_eventos_cliente_id_fkey"
       columns: ["cliente_id"]
 isOneToOne: false
@@ -756,13 +762,13 @@ isOneToOne: false
                   ]
                 },"usuarios": {
                   Row: {
-                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"criado_em": string,"email": string,"id": string,"nome": string,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null
+                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"criado_em": string,"email": string,"id": string,"nome": string,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null,"visao_demandas": string
                   }
                   Insert: {
-                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"email": string,"id": string,"nome": string,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"email": string,"id": string,"nome": string,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"visao_demandas"?: string
                   }
                   Update: {
-                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"email"?: string,"id"?: string,"nome"?: string,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"email"?: string,"id"?: string,"nome"?: string,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"visao_demandas"?: string
                   }
                   Relationships: [
                     {
@@ -789,6 +795,49 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"demandas_lista": {
+                  Row: {
+                    "atualizado_em": string | null,"cliente_id": string | null,"concluido_em": string | null,"contato": string | null,"contato_id": string | null,"conversa_id": string | null,"criado_em": string | null,"criado_por": string | null,"criado_por_nome": string | null,"empresa": string | null,"fora_do_contrato": boolean | null,"id": string | null,"numero": number | null,"origem": string | null,"pedido_venda": Json | null,"prazo_em": string | null,"prazo_pausado_desde": string | null,"prioridade": Database["public"]['Enums']["prioridade_demanda"] | null,"responsavel": string | null,"responsavel_id": string | null,"resumo": string | null,"setor": string | null,"setor_id": string | null,"status": Database["public"]['Enums']["status_chamado"] | null,"tem_pedido": boolean | null,"titulo": string | null,"vencida": boolean | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "chamados_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chamados_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chamados_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "caixa_entrada"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chamados_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "conversas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chamados_responsavel_id_fkey"
+      columns: ["responsavel_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chamados_setor_id_fkey"
+      columns: ["setor_id"]
+isOneToOne: false
+      referencedRelation: "setores"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Functions: {
@@ -806,6 +855,9 @@ isOneToOne: false
                            },
 "assumir_conversa":
 { Args: { "p_conversa": string }; Returns: undefined
+                           },
+"assumir_demanda":
+{ Args: { "p_chamado": string }; Returns: undefined
                            },
 "aviso_login":
 { Args: Record<PropertyKey, never>; Returns: string
@@ -825,6 +877,12 @@ isOneToOne: false
 "contato_arquivado_do_telefone":
 { Args: { "p_telefone": string }; Returns: Json
                            },
+"contato_da_empresa":
+{ Args: { "p_cliente": string,"p_contato": string }; Returns: boolean
+                           },
+"criar_demanda":
+{ Args: { "p_cliente": string,"p_contato"?: string,"p_descricao": string,"p_prazo"?: string,"p_prioridade"?: Database["public"]['Enums']["prioridade_demanda"],"p_responsavel"?: string,"p_setor": string,"p_titulo": string }; Returns: Json
+                           },
 "criar_simulacao":
 { Args: { "p_cliente_id"?: string,"p_mensagem": string,"p_rascunho"?: Json }; Returns: string
                            },
@@ -837,11 +895,54 @@ isOneToOne: false
 "definir_preco_agente":
 { Args: { "p_contato": string,"p_grupo": string,"p_produto": string,"p_valor": number }; Returns: string
                            },
+"definir_prioridade_prazo":
+{ Args: { "p_chamado": string,"p_prazo"?: string,"p_prioridade"?: Database["public"]['Enums']["prioridade_demanda"] }; Returns: Json
+                           },
+"definir_responsavel":
+{ Args: { "p_chamado": string,"p_responsavel": string }; Returns: undefined
+                           },
 "definir_tamanho_letra":
 { Args: { "p_tamanho": string }; Returns: undefined
                            },
+"definir_visao_demandas":
+{ Args: { "p_visao": string }; Returns: undefined
+                           },
+"demanda_para_agir":
+{ Args: { "p_aberta"?: boolean,"p_chamado": string }; Returns: {
+              "alertado_fila_em": string | null,
+"alertado_vencimento_em": string | null,
+"atualizado_em": string,
+"cliente_id": string | null,
+"concluido_em": string | null,
+"contato_id": string | null,
+"conversa_id": string | null,
+"criado_em": string,
+"criado_por": string | null,
+"fora_do_contrato": boolean,
+"id": string,
+"numero": number,
+"origem": string,
+"pedido_venda": Json | null,
+"prazo_em": string | null,
+"prazo_pausado_desde": string | null,
+"prioridade": Database["public"]['Enums']["prioridade_demanda"],
+"responsavel_id": string | null,
+"resumo": string,
+"setor_id": string | null,
+"status": Database["public"]['Enums']["status_chamado"],
+"titulo": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "chamados"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "devolver_ao_agente":
 { Args: { "p_conversa": string }; Returns: undefined
+                           },
+"editar_demanda":
+{ Args: { "p_chamado": string,"p_contato"?: string,"p_descricao": string,"p_titulo": string }; Returns: undefined
                            },
 "eh_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
@@ -870,6 +971,9 @@ isOneToOne: false
 "nota_interna":
 { Args: { "p_chamado": string,"p_texto": string }; Returns: undefined
                            },
+"pode_ser_responsavel":
+{ Args: { "p_setor": string,"p_usuario": string }; Returns: boolean
+                           },
 "pode_ver_chamado":
 { Args: { "p_chamado": string }; Returns: boolean
                            },
@@ -878,6 +982,9 @@ isOneToOne: false
                            },
 "proximo_dia_util":
 { Args: { "p_dia": string }; Returns: string
+                           },
+"reabrir_demanda":
+{ Args: { "p_chamado": string }; Returns: undefined
                            },
 "registrar_resposta":
 { Args: { "p_arquivo_mime": string,"p_arquivo_nome": string,"p_arquivo_path": string,"p_conversa": string,"p_texto": string }; Returns: string
