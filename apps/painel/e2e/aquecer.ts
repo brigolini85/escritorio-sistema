@@ -6,6 +6,8 @@ import { criarUsuarioTeste, db, entrar } from './apoio';
 // estourava a espera dos testes na primeira rodada a frio. Aqui as telas compilam uma vez, antes dos specs.
 // É só ajuda: uma falha aqui vira aviso e os testes seguem; a pessoa de aquecimento sempre é apagada no fim.
 const EMAIL = 'aquecer@teste.com';
+// /fora-do-horario só abre para quem não é administrador e está fora do horário: uma segunda pessoa, também apagada.
+const EMAIL_HORARIO = 'aquecer-horario@teste.com';
 const SENHA = 'senha-forte-123';
 const ROTAS = [
   '/inicio', '/atendimento', '/demandas', '/demandas?nova=1', '/demandas?vencidas=1', '/demandas?prazo=hoje',
@@ -38,27 +40,39 @@ export default async function aquecer(config: FullConfig) {
     } catch (e) {
       console.warn(`[aquecer] quadro não abriu (os testes seguem): ${texto(e)}`);
     }
+    // Fora do horário: entra liberada, o horário é bloqueado e a próxima visita compila a página.
+    try {
+      const pessoa = await criarUsuarioTeste({ email: EMAIL_HORARIO, senha: SENHA, nome: 'Aquecimento Horário', papel: 'atendente' });
+      const outra = await (await navegador.newContext({ baseURL, locale: 'pt-BR' })).newPage();
+      outra.setDefaultTimeout(120_000);
+      await entrar(outra, EMAIL_HORARIO, SENHA);
+      await db.from('usuarios').update({ horario_acesso: { semana: null, sabado: null, domingo: null } }).eq('id', pessoa);
+      await outra.goto('/fora-do-horario', { waitUntil: 'load' });
+    } catch (e) {
+      console.warn(`[aquecer] /fora-do-horario não abriu (os testes seguem): ${texto(e)}`);
+    }
   } catch (e) {
     console.warn(`[aquecer] aquecimento interrompido (os testes seguem): ${texto(e)}`);
   } finally {
     await navegador?.close().catch((e) => console.warn(`[aquecer] navegador não fechou: ${texto(e)}`));
-    await apagarPessoaDeAquecimento();
+    await apagarPessoaDeAquecimento(EMAIL);
+    await apagarPessoaDeAquecimento(EMAIL_HORARIO);
   }
 }
 
 /** Pelo e-mail, não pelo id: apaga também o login que ficou se a criação parou no meio. */
-async function apagarPessoaDeAquecimento() {
+async function apagarPessoaDeAquecimento(email: string) {
   try {
     const { data, error } = await db.auth.admin.listUsers();
     if (error) throw error;
-    for (const u of data.users.filter((x) => x.email === EMAIL)) {
+    for (const u of data.users.filter((x) => x.email === email)) {
       // Apagar o login apaga também a pessoa em usuarios (cascata).
       const { error: erro } = await db.auth.admin.deleteUser(u.id);
-      if (erro) console.error(`[aquecer] não apagou o login ${EMAIL}: ${erro.message}`);
+      if (erro) console.error(`[aquecer] não apagou o login ${email}: ${erro.message}`);
     }
-    const { error: erroPessoa } = await db.from('usuarios').delete().eq('email', EMAIL);
-    if (erroPessoa) console.error(`[aquecer] não apagou a pessoa ${EMAIL}: ${erroPessoa.message}`);
+    const { error: erroPessoa } = await db.from('usuarios').delete().eq('email', email);
+    if (erroPessoa) console.error(`[aquecer] não apagou a pessoa ${email}: ${erroPessoa.message}`);
   } catch (e) {
-    console.error(`[aquecer] limpeza falhou; apague ${EMAIL} à mão no banco local: ${texto(e)}`);
+    console.error(`[aquecer] limpeza falhou; apague ${email} à mão no banco local: ${texto(e)}`);
   }
 }

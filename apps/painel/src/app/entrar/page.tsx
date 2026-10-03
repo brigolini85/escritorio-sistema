@@ -13,6 +13,7 @@ const ERROS: Record<string, string> = {
   inativo: 'Seu acesso está desativado. Fale com o administrador.',
   link: 'O link expirou ou já foi usado. Peça outro em "Esqueci a senha".',
   fora_do_horario: 'Fora do seu horário de acesso. Fale com o administrador se precisar entrar agora.',
+  indisponivel: 'Não consegui conferir seu acesso agora. Tente de novo em instantes.',
 };
 
 /** O recado do administrador nunca derruba a tela: qualquer falha vira "sem recado". */

@@ -2,7 +2,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { COOKIE_LETRA, OPCOES_COOKIE_LETRA, tamanhoDoValor } from '@/components/layout/tamanho-letra';
-import { situacaoDe } from '@/lib/horario-acesso';
+import { lerSituacao } from '@/lib/situacao-acesso';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
 export async function entrar(formData: FormData) {
@@ -13,8 +13,9 @@ export async function entrar(formData: FormData) {
   });
   if (error) redirect('/entrar?erro=credenciais');
   // Arquivada, sem cadastro ou fora do horário não entra; a mesma função do middleware decide (e marca o último acesso).
-  const { data: s } = await sb.rpc('situacao_acesso');
-  const situacao = situacaoDe(s);
+  const situacao = lerSituacao(await sb.rpc('situacao_acesso'), 'entrar');
+  // Erro do banco não é "acesso desativado": pede para tentar de novo e não desloga quem pode estar ativo.
+  if (situacao === 'indisponivel') redirect('/entrar?erro=indisponivel');
   if (situacao !== 'liberado') {
     await sb.auth.signOut();
     redirect(situacao === 'fora_do_horario' ? '/entrar?erro=fora_do_horario' : '/entrar?erro=inativo');

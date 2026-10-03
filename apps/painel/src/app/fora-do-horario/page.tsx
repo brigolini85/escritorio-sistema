@@ -1,7 +1,8 @@
 import { Clock } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { descreverHorario, lerHorarioDoBanco, situacaoDe } from '@/lib/horario-acesso';
+import { descreverHorario, lerHorarioDoBanco } from '@/lib/horario-acesso';
+import { destinoSemAcesso, lerSituacao } from '@/lib/situacao-acesso';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { sair } from '../entrar/acoes';
 
@@ -12,11 +13,12 @@ export default async function ForaDoHorario() {
   const sb = await supabaseServidor();
   const { data: auth } = await sb.auth.getUser();
   if (!auth.user) redirect('/entrar');
-  const { data: s } = await sb.rpc('situacao_acesso');
-  const situacao = situacaoDe(s);
+  const resposta = await sb.rpc('situacao_acesso');
+  const situacao = lerSituacao(resposta, 'fora-do-horario');
   if (situacao === 'liberado') redirect('/inicio');
-  if (situacao !== 'fora_do_horario') redirect('/entrar?erro=inativo');
-  const horario = lerHorarioDoBanco((s as { horario?: unknown }).horario ?? null);
+  // Erro do banco leva a "tente de novo", não a "acesso desativado".
+  if (situacao !== 'fora_do_horario') redirect(destinoSemAcesso(situacao));
+  const horario = lerHorarioDoBanco((resposta.data as { horario?: unknown }).horario ?? null);
   return (
     <main className="grid min-h-dvh place-items-center bg-surface px-4">
       <section aria-labelledby="fora-titulo" className="flex max-w-md flex-col gap-4 rounded-lg border border-border bg-surface p-6">
