@@ -98,3 +98,22 @@ describe('arquivo: banco e Auth', () => {
     expect(await excluirCadastroDeVez('usuario', ID)).toEqual({ ok: false, erro: 'Saiu do painel, mas o login não foi removido: User not found' });
   });
 });
+
+describe('restaurar unidade', () => {
+  it('rede arquivada: devolve a pergunta e não atualiza as telas', async () => {
+    falso.rpc.mockResolvedValueOnce({ data: { restaurada: false, rede_arquivada: { id: 'r1', nome: 'Rede A', tipo: 'cliente' } }, error: null });
+    expect(await restaurarCadastro('unidade', ID)).toEqual({ ok: false, redeArquivada: { id: 'r1', nome: 'Rede A', tipo: 'cliente' } });
+    expect(falso.rpc).toHaveBeenCalledWith('restaurar_unidade', { p_id: ID, p_com_rede: false });
+    expect(falso.revalidatePath).not.toHaveBeenCalled();
+  });
+  it('com o sim, restaura as duas e atualiza a ficha', async () => {
+    falso.rpc.mockResolvedValueOnce({ data: { restaurada: true, rede_restaurada: true }, error: null });
+    expect(await restaurarCadastro('unidade', ID, { comRede: true })).toEqual({ ok: true });
+    expect(falso.rpc).toHaveBeenCalledWith('restaurar_unidade', { p_id: ID, p_com_rede: true });
+    expect(falso.revalidatePath).toHaveBeenCalledWith('/clientes', 'layout');
+  });
+  it('os outros tipos restauram como antes', async () => {
+    expect(await restaurarCadastro('rede', ID, { comRede: true })).toEqual({ ok: true });
+    expect(falso.rpc).toHaveBeenCalledWith('restaurar_cadastro', { p_tipo: 'rede', p_id: ID });
+  });
+});

@@ -1,6 +1,6 @@
 // apps/painel/src/lib/arquivo.test.ts
 import { describe, expect, it } from 'vitest';
-import { avisoAbertas, descreverArquivamento, ehTipoCadastro, fraseDoUso, lerUso, modoDaExclusao, temHistorico, textosDaJanela } from './arquivo';
+import { avisoAbertas, descreverArquivamento, ehTipoCadastro, fraseDoUso, lerRestauroUnidade, lerUso, modoDaExclusao, temHistorico, textosDaJanela, textosRestaurarComRede } from './arquivo';
 
 const uso = (contagens: Record<string, number>, abertas: number[] = []) => ({ contagens, abertas });
 
@@ -75,5 +75,24 @@ describe('textos da janela (spec 4.6 e 5.1)', () => {
     expect(descreverArquivamento('2026-10-02T15:00:00Z', 'Ana')).toBe('Arquivado em 02/10/2026 por Ana.');
     expect(descreverArquivamento('2026-10-02T15:00:00Z', null)).toBe('Arquivado em 02/10/2026.');
     expect(descreverArquivamento(null, null)).toBe('Arquivado antes do registro de datas.');
+  });
+});
+
+describe('restaurar unidade de rede arquivada (sobra 3)', () => {
+  const rede = { id: 'r1', nome: 'Rede Arquivo', tipo: 'cliente' as const };
+  it('lê a resposta do banco', () => {
+    expect(lerRestauroUnidade({ restaurada: true, rede_restaurada: true })).toEqual({ restaurada: true, redeRestaurada: true });
+    expect(lerRestauroUnidade({ restaurada: false, rede_arquivada: rede })).toEqual({ restaurada: false, rede });
+    expect(() => lerRestauroUnidade({ restaurada: false })).toThrow('Resposta inválida do banco.');
+  });
+  it('textos da pergunta, para rede e para fornecedor', () => {
+    expect(textosRestaurarComRede(rede, 'Unidade Usada')).toEqual({
+      artigo: 'a rede', confirmar: 'Restaurar as duas',
+      descricao: 'A rede Rede Arquivo está arquivada. Sem ela, Unidade Usada volta mas não aparece na ficha.',
+    });
+    expect(textosRestaurarComRede({ ...rede, nome: 'Frigorífico', tipo: 'fornecedor' }, 'Filial 2')).toEqual({
+      artigo: 'o fornecedor', confirmar: 'Restaurar os dois',
+      descricao: 'O fornecedor Frigorífico está arquivado. Sem ele, Filial 2 volta mas não aparece na ficha.',
+    });
   });
 });

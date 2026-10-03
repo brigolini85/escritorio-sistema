@@ -105,3 +105,27 @@ export function descreverArquivamento(arquivadoEm: string | null, arquivadoPor: 
   if (!arquivadoEm) return 'Arquivado antes do registro de datas.';
   return `Arquivado em ${formatarData(arquivadoEm)}${arquivadoPor ? ` por ${arquivadoPor}` : ''}.`;
 }
+
+/** Rede (ou fornecedor) arquivada de uma unidade que a pessoa quer restaurar (sobra 3 da Parte B). */
+export type RedeArquivada = { id: string; nome: string; tipo: 'cliente' | 'fornecedor' };
+export type RestauroUnidade = { restaurada: true; redeRestaurada: boolean } | { restaurada: false; rede: RedeArquivada };
+
+export function lerRestauroUnidade(v: unknown): RestauroUnidade {
+  const o = v as { restaurada?: unknown; rede_restaurada?: unknown; rede_arquivada?: { id?: unknown; nome?: unknown; tipo?: unknown } } | null;
+  if (o?.restaurada === true) return { restaurada: true, redeRestaurada: o.rede_restaurada === true };
+  const r = o?.rede_arquivada;
+  if (o?.restaurada === false && r && typeof r.id === 'string' && typeof r.nome === 'string' && (r.tipo === 'cliente' || r.tipo === 'fornecedor')) {
+    return { restaurada: false, rede: { id: r.id, nome: r.nome, tipo: r.tipo } };
+  }
+  throw new Error('Resposta inválida do banco.');
+}
+
+/** Pergunta "Restaurar a rede X também?": sem a rede, a unidade voltaria e ficaria invisível na ficha. */
+export function textosRestaurarComRede(rede: RedeArquivada, unidade: string): { artigo: string; descricao: string; confirmar: string } {
+  const rede_ = rede.tipo === 'cliente';
+  return {
+    artigo: rede_ ? 'a rede' : 'o fornecedor',
+    descricao: `${rede_ ? 'A rede' : 'O fornecedor'} ${rede.nome} está ${rede_ ? 'arquivada' : 'arquivado'}. Sem ${rede_ ? 'ela' : 'ele'}, ${unidade} volta mas não aparece na ficha.`,
+    confirmar: rede_ ? 'Restaurar as duas' : 'Restaurar os dois',
+  };
+}

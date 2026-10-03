@@ -873,6 +873,9 @@ isOneToOne: false
 "restaurar_orientacao":
 { Args: { "p_versao_id": string }; Returns: string
                            },
+"restaurar_unidade":
+{ Args: { "p_com_rede"?: boolean,"p_id": string }; Returns: Json
+                           },
 "salvar_orientacao":
 { Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
                            },

@@ -5,7 +5,7 @@ import { unstable_rethrow, useRouter } from 'next/navigation';
 import { useRef, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toaster';
-import { AJUDA_EXCLUIR, textosDaJanela, type TextosJanela, type TipoCadastro } from '@/lib/arquivo';
+import { AJUDA_EXCLUIR, textosDaJanela, textosRestaurarComRede, type RedeArquivada, type TextosJanela, type TipoCadastro } from '@/lib/arquivo';
 import { arquivarCadastro, consultarUso, excluirCadastroDeVez, restaurarCadastro } from '@/lib/arquivo-acoes';
 import { ConfirmDialog } from './confirm-dialog';
 
@@ -97,14 +97,24 @@ export function ExcluirCadastro({ tipo, id, nome, variante = 'icone', voltarPara
   );
 }
 
-/** Restaurar não é destrutivo: volta na hora, sem janela. */
+/**
+ * Restaurar não é destrutivo: volta na hora, sem janela. A exceção é a unidade de rede arquivada: o banco devolve a
+ * pergunta, porque sem a rede a unidade voltaria invisível (sobra 3 da Parte B).
+ */
 export function BotaoRestaurar({ tipo, id, nome }: { tipo: TipoCadastro; id: string; nome: string }) {
   const router = useRouter();
   const [enviando, iniciar] = useTransition();
-  const restaurar = () => iniciar(async () => {
+  const [rede, setRede] = useState<RedeArquivada | null>(null);
+  const [aberto, setAberto] = useState(false);
+  const botaoRef = useRef<HTMLButtonElement>(null);
+
+  const restaurar = () => !enviando && iniciar(async () => {
     try {
       const r = await restaurarCadastro(tipo, id);
-      if (!r.ok) { toast.error(r.erro); return; }
+      if (!r.ok) {
+        if ('redeArquivada' in r) { setRede(r.redeArquivada); setAberto(true); } else toast.error(r.erro);
+        return;
+      }
       toast.success(`Restaurado: ${nome}.`);
       router.refresh();
     } catch (e) {
@@ -113,10 +123,43 @@ export function BotaoRestaurar({ tipo, id, nome }: { tipo: TipoCadastro; id: str
       toast.error(FALHA);
     }
   });
+
+  const restaurarComRede = async () => {
+    if (!rede) return;
+    try {
+      const r = await restaurarCadastro(tipo, id, { comRede: true });
+      if (!r.ok) { toast.error('redeArquivada' in r ? FALHA : r.erro); return; }
+      toast.success(`Restaurados: ${rede.nome} e ${nome}.`);
+      router.refresh();
+    } catch (e) {
+      unstable_rethrow(e);
+      console.error('[arquivo] falha ao restaurar com a rede', e);
+      toast.error(FALHA);
+    }
+  };
+
+  const textos = rede ? textosRestaurarComRede(rede, nome) : null;
   return (
-    <Button type="button" variant="outline" size="sm" onClick={restaurar} disabled={enviando} aria-label={`Restaurar ${nome}`}>
-      <ArchiveRestore aria-hidden size={16} strokeWidth={1.75} />
-      {enviando ? 'Restaurando…' : 'Restaurar'}
-    </Button>
+    <>
+      {/* Sem "disabled": desabilitar tira o foco, e a janela precisa devolvê-lo ao botão quando fechar. */}
+      <Button ref={botaoRef} type="button" variant="outline" size="sm" onClick={restaurar} aria-busy={enviando} aria-label={`Restaurar ${nome}`}>
+        <ArchiveRestore aria-hidden size={16} strokeWidth={1.75} />
+        {enviando ? 'Restaurando…' : 'Restaurar'}
+      </Button>
+      {rede && textos && (
+        <ConfirmDialog
+          aberto={aberto}
+          aoMudarAberto={setAberto}
+          focoAoFechar={botaoRef}
+          tipo="neutro"
+          variante="primary"
+          titulo={<>Restaurar {textos.artigo} <strong className="font-extrabold">{rede.nome}</strong> também?</>}
+          descricao={textos.descricao}
+          confirmar={textos.confirmar}
+          enviando="Restaurando…"
+          acao={restaurarComRede}
+        />
+      )}
+    </>
   );
 }

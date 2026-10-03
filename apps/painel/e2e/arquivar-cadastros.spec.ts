@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { criarUsuarioTeste, db, entrar } from './apoio';
 
 // Parte B do painel v2: produtos, redes e unidades da ficha com Excluir…, Arquivados e Restaurar.
@@ -76,4 +77,44 @@ test('salvar produto e rede sem a caixa Ativo mantém o cadastro ativo', async (
   await page.getByLabel('Nome de Rede Arquivo').press('Enter');
   await expect.poll(async () => (await db.from('parceiros_grupos').select('nome, ativo').eq('id', s.rede).single()).data)
     .toEqual({ nome: 'Rede Arquivo Nova', ativo: true });
+});
+
+async function abrirArquivados(page: Page) {
+  for (const resumo of await page.locator('summary').filter({ hasText: /^Arquivados \(\d+\)$/ }).all()) await resumo.click();
+}
+
+test('restaurar unidade de rede arquivada pergunta; cancelar não muda nada; o sim restaura as duas', async ({ page }) => {
+  const s = await semear();
+  await db.from('parceiros_unidades').update({ ativo: false }).eq('id', s.usada);
+  await db.from('parceiros_grupos').update({ ativo: false }).eq('id', s.rede);
+  await comoAdmin(page);
+  await page.goto(`/clientes/${s.cliente}?aba=clientes`);
+  await abrirArquivados(page);
+  const unidades = page.getByRole('table', { name: 'Unidades arquivadas' });
+  await unidades.getByRole('button', { name: 'Restaurar Unidade Usada' }).click();
+  const janela = page.getByRole('dialog', { name: 'Restaurar a rede Rede Arquivo também?' });
+  await expect(janela).toContainText('A rede Rede Arquivo está arquivada. Sem ela, Unidade Usada volta mas não aparece na ficha.');
+  const axe = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
+  await janela.getByRole('button', { name: 'Cancelar' }).click();
+  expect((await db.from('parceiros_unidades').select('ativo').eq('id', s.usada).single()).data!.ativo).toBe(false);
+  expect((await db.from('parceiros_grupos').select('ativo').eq('id', s.rede).single()).data!.ativo).toBe(false);
+
+  await unidades.getByRole('button', { name: 'Restaurar Unidade Usada' }).click();
+  await janela.getByRole('button', { name: 'Restaurar as duas' }).click();
+  await expect(page.getByText('Restaurados: Rede Arquivo e Unidade Usada.')).toBeVisible();
+  await expect(page.getByLabel('Nome de Rede Arquivo')).toBeVisible();
+  await expect(page.locator('summary').filter({ hasText: 'Unidade Usada' })).toHaveCount(1);
+});
+
+test('unidade de rede ativa volta sem pergunta', async ({ page }) => {
+  const s = await semear();
+  await db.from('parceiros_unidades').update({ ativo: false }).eq('id', s.usada);
+  await comoAdmin(page);
+  await page.goto(`/clientes/${s.cliente}?aba=clientes`);
+  await abrirArquivados(page);
+  await page.getByRole('table', { name: 'Unidades arquivadas' }).getByRole('button', { name: 'Restaurar Unidade Usada' }).click();
+  await expect(page.getByText('Restaurado: Unidade Usada.')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect.poll(async () => (await db.from('parceiros_unidades').select('ativo').eq('id', s.usada).single()).data!.ativo).toBe(true);
 });

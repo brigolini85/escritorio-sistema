@@ -4,9 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { obterUsuario, temPermissao, type UsuarioPainel } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { ehTipoCadastro, lerUso, ROTAS_DO_TIPO, type TipoCadastro, type UsoDoCadastro } from './arquivo';
+import { ehTipoCadastro, lerRestauroUnidade, lerUso, ROTAS_DO_TIPO, type RedeArquivada, type TipoCadastro, type UsoDoCadastro } from './arquivo';
 
 export type ResultadoArquivo = { ok: true } | { ok: false; erro: string };
+/** Restaurar unidade de rede arquivada devolve a pergunta em vez de restaurar (a tela confirma e chama com comRede). */
+export type ResultadoRestaurar = ResultadoArquivo | { ok: false; redeArquivada: RedeArquivada };
 type Conferido = { u: UsuarioPainel; tipo: TipoCadastro; id: string } | { erro: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -59,11 +61,25 @@ export async function arquivarCadastro(tipo: TipoCadastro, id: string): Promise<
   return { ok: true };
 }
 
-export async function restaurarCadastro(tipo: TipoCadastro, id: string): Promise<ResultadoArquivo> {
+export async function restaurarCadastro(tipo: TipoCadastro, id: string, opcoes: { comRede?: boolean } = {}): Promise<ResultadoRestaurar> {
   const c = await conferir(tipo, id);
   if ('erro' in c) return { ok: false, erro: c.erro };
   const motivo = motivoSemPermissao(c.u, c.tipo);
   if (motivo) return { ok: false, erro: motivo };
+  if (c.tipo === 'unidade') {
+    const sb = await supabaseServidor();
+    const { data, error } = await sb.rpc('restaurar_unidade', { p_id: c.id, p_com_rede: opcoes.comRede === true });
+    if (error) return { ok: false, erro: error.message };
+    let r: ReturnType<typeof lerRestauroUnidade>;
+    try {
+      r = lerRestauroUnidade(data);
+    } catch (e) {
+      return { ok: false, erro: (e as Error).message };
+    }
+    if (!r.restaurada) return { ok: false, redeArquivada: r.rede };
+    revalidar(c.tipo);
+    return { ok: true };
+  }
   const erro = await chamar('restaurar_cadastro', c.tipo, c.id);
   if (erro) return { ok: false, erro };
   revalidar(c.tipo);
