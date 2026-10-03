@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { dividirPedidosBling, montarCsvVendaBling, nomeArquivoVendaBling } from '@escritorio/core';
 import { registrarAuditoria } from '@/lib/auditoria';
-import { carregarPedidosBling, type FiltroBling } from '@/lib/bling';
+import { carregarPedidosBling, escolherParte, type FiltroBling } from '@/lib/bling';
 import { lerFiltrosDemandas } from '@/lib/demandas';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -61,7 +61,9 @@ export async function GET(req: NextRequest) {
   if (problemas.length) return aviso('Complete os dados abaixo antes de gerar o arquivo:', problemas);
 
   const partes = dividirPedidosBling(pedidos);
-  const parte = Math.min(Math.max(Number(q.get('parte') ?? 1) || 1, 1), partes.length);
+  const parte = escolherParte(q.get('parte'), partes.length);
+  // Parte além da última: o filtro mudou desde que a tela contou as partes; baixar outra parte no lugar duplicaria pedidos no Bling.
+  if (parte === null) return aviso('Esta parte do arquivo não existe.', [`Este filtro tem ${partes.length} ${partes.length === 1 ? 'parte' : 'partes'}. Volte e baixe de novo pela tela Demandas.`], 400);
   const nome = nomeArquivoVendaBling(new Date(), partes.length > 1 ? parte : undefined);
   await registrarAuditoria(u.id, 'download', 'csv_bling', id ?? (mensagemId ? `assistente:${mensagemId}` : ids ? ids.join(',') : `exportacao:${q.toString()}`), { pedidos: partes[parte - 1]!.map((p) => p.numero), arquivo: nome });
   return new NextResponse(montarCsvVendaBling(partes[parte - 1]!), {
