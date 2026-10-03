@@ -3,6 +3,7 @@ import { criarUsuarioTeste, db, entrar } from './apoio';
 
 const SENHA = 'senha-forte-123';
 const TEL = '5531970020001';
+const HIDRATADA = 'data-conversa-hidratada';
 const TURNO = '22222222-2222-4222-8222-222222222222';
 
 async function cenario() {
@@ -46,10 +47,9 @@ test('faixa de passagem, por quê, cartão de decisão, marco e link do document
   await expect(faixa).toContainText('Motivo: não entendeu o pedido duas vezes');
   const log = page.getByRole('log', { name: 'Histórico da conversa' });
   // De 1024 a 1535 px o painel da direita fica por cima do histórico (a coluna própria é da Task 12): fecha para clicar.
-  await expect(async () => {
-    await page.getByRole('button', { name: 'Esconder painel lateral' }).click({ timeout: 2000 });
-    await expect(page.locator('#painel-conversa')).toBeHidden({ timeout: 2000 });
-  }).toPass({ timeout: 20_000 });
+  await expect(page.locator('body')).toHaveAttribute(HIDRATADA, '', { timeout: 30_000 });
+  await page.getByRole('button', { name: 'Esconder painel lateral' }).click();
+  await expect(page.locator('#painel-conversa')).toBeHidden();
   await log.getByText('por quê?').click();
   await expect(log.getByText('Buscou produtos', { exact: true })).toBeVisible();
   await expect(log.getByText(`Abriu uma demanda (#${s.numero} no Fiscal)`)).toBeVisible();
@@ -65,11 +65,9 @@ test('assumir limpa a faixa e marca; devolver e concluir; atalho A', async ({ pa
   await entrar(page, 'ana-conversa@e2e.local', SENHA);
   await page.goto(`/atendimento/${s.conversa}`);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  // A tecla só vale depois da hidratação da tela: repete até o botão mudar.
-  await expect(async () => {
-    await page.keyboard.press('a');
-    await expect(page.getByRole('button', { name: 'Devolver ao agente' })).toBeVisible({ timeout: 2000 });
-  }).toPass({ timeout: 20_000 });
+  await expect(page.locator('body')).toHaveAttribute(HIDRATADA, '', { timeout: 30_000 });
+  await page.keyboard.press('a');
+  await expect(page.getByRole('button', { name: 'Devolver ao agente' })).toBeVisible();
   await expect(page.getByRole('note', { name: 'Passagem para pessoa' })).toHaveCount(0);
   await expect(page.getByRole('log', { name: 'Histórico da conversa' }).getByText('Ana Conversa assumiu')).toBeVisible();
   // N e Esc continuam (spec 7A.3): N vai para a nota interna (há demanda aberta); Esc fecha o painel da direita.
@@ -122,4 +120,23 @@ test('não lidas zeram ao abrir e são de cada pessoa (foco da revisão 2)', asy
   await entrar(caio, 'caio-conversa@e2e.local', SENHA);
   await caio.goto('/atendimento');
   await expect(caio.locator(`a[href^="/atendimento/${s.conversa}"]`).getByLabel('1 mensagem não lida')).toBeVisible();
+});
+
+test('sem acesso a pedidos de nota, o por quê mostra o aviso e nunca o conteúdo do pedido (P11)', async ({ page }) => {
+  const ana = await criarUsuarioTeste({ email: 'ana-conversa@e2e.local', senha: SENHA, nome: 'Ana Conversa', papel: 'atendente', setores: ['Fiscal'] });
+  const s = await cenario();
+  await db.from('decisoes_agente').insert({
+    conversa_id: s.conversa, etapa: 'abrir_pedido_nota', entrada: { texto: 'SEGREDO-DO-PEDIDO 10 caixas' }, saida: { itens: 'SEGREDO-DO-PEDIDO' },
+    turno: TURNO, criado_em: new Date(Date.now() - 29.3 * 60_000).toISOString(),
+  });
+  await db.from('usuario_permissoes').update({ nivel: 'sem_acesso' }).eq('usuario_id', ana).eq('modulo', 'notas');
+  await entrar(page, 'ana-conversa@e2e.local', SENHA);
+  await page.goto(`/atendimento/${s.conversa}`);
+  const log = page.getByRole('log', { name: 'Histórico da conversa' });
+  await expect(page.locator('body')).toHaveAttribute(HIDRATADA, '', { timeout: 30_000 });
+  await page.getByRole('button', { name: 'Esconder painel lateral' }).click();
+  await log.getByText('por quê?').click();
+  await expect(log.getByText('Só quem tem acesso a pedidos de nota vê a descrição, os itens e as correções deste pedido.')).toBeVisible();
+  await expect(page.getByText('SEGREDO-DO-PEDIDO')).toHaveCount(0);
+  expect(await page.content()).not.toContain('SEGREDO-DO-PEDIDO');
 });

@@ -10,7 +10,7 @@ import { MessageBubble, type AutorMensagem } from '@/components/patterns/message
 import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { iniciais } from '@/lib/atendimento';
 import { consultaCaixa } from '@/lib/caixa';
-import { cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, ultimoTurnoAntes, type CartaoDecisao, type DecisaoBruta } from '@/lib/conversa-itens';
+import { cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, turnoDaPassagem, documentosAbertos as documentosAbertosDe, type CartaoDecisao, type DecisaoBruta } from '@/lib/conversa-itens';
 import { mascararTelefone } from '@/lib/formatos';
 import { linhaDoTempo } from '@/lib/historico';
 import { AVISO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
@@ -93,7 +93,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     demandas: (todasDemandas ?? []).map((c) => ({ id: c.id, numero: c.numero, setor: c.setores?.nome ?? null, prioridade: c.prioridade, criado_em: c.criado_em, concluido_em: c.concluido_em })),
     transferencias: (transferencias ?? []).map((t) => ({ id: t.id, numero: t.chamados.numero, setor: t.texto, criado_em: t.criado_em })),
   });
-  const turnoDaPassagem = ultimoTurnoAntes(decisoesTela, conversa.aguardando_pessoa_desde);
+  const turnoDoBotao = turnoDaPassagem(decisoesTela, mensagens ?? [], conversa.aguardando_pessoa_desde);
   const ultimaMensagemEm = (mensagens ?? []).at(-1)?.criado_em ?? null;
 
   // Cadastro da unidade compradora dos pedidos de nota (o mesmo que o CSV do Bling usa).
@@ -110,8 +110,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   const { data: documentosVisiveis } = idsDocumentos.length
     ? await sb.from('documentos_empresa').select('id, cliente_id').in('id', idsDocumentos)
     : { data: [] as { id: string; cliente_id: string }[] };
-  const empresasDaConversa = new Set([conversa.cliente_em_foco, ...(vinculos ?? []).map((v) => v.clientes?.id)].filter(Boolean));
-  const documentosAbertos = new Set((documentosVisiveis ?? []).filter((x) => empresasDaConversa.has(x.cliente_id)).map((x) => x.id));
+  const documentosAbertos = documentosAbertosDe(documentosVisiveis ?? [], conversa.cliente_em_foco, (vinculos ?? []).map((v) => v.clientes?.id));
 
   const podeAssistente = usaAssistente(u);
   const podeCsv = temNivel(u, 'notas', 'corrigir');
@@ -245,11 +244,6 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
           </AcoesConversa>
         </header>
 
-        {conversa.aguardando_pessoa_desde && (
-          <div className="lg:col-start-1 lg:row-start-2 lg:self-start lg:z-10">
-            <FaixaPassagem desde={conversa.aguardando_pessoa_desde} motivo={conversa.motivo_pessoa} turno={turnoDaPassagem} />
-          </div>
-        )}
         <MarcarLida conversaId={id} ate={ultimaMensagemEm} />
         <HistoricoRolante
           ultima={historico.at(-1)?.chave ?? ''}
@@ -259,6 +253,11 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
           className="min-h-0 flex-1 lg:col-start-1 lg:row-start-2"
           classNameLista="h-full"
         >
+          {conversa.aguardando_pessoa_desde && (
+            <div className="sticky top-0 z-10">
+              <FaixaPassagem desde={conversa.aguardando_pessoa_desde} motivo={conversa.motivo_pessoa} turno={turnoDoBotao} />
+            </div>
+          )}
           <div className="p-4">
             <Realce chave={`historico-${id}`} lembrar={false} className="flex flex-col gap-2">
               {historico.length === 0 && <p className="py-10 text-center text-sm text-muted">Nenhuma mensagem nesta conversa ainda.</p>}

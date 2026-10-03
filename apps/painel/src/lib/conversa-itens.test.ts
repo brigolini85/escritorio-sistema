@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  agruparPorTurno, cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, resumoPorQue, ultimoTurnoAntes, type DecisaoBruta,
+  agruparPorTurno, cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, resumoPorQue, turnoDaPassagem, ultimoTurnoAntes, documentosAbertos, type DecisaoBruta,
 } from './conversa-itens';
 import { AVISO_SEM_ACESSO_PEDIDO } from './pedido-nota';
 
@@ -85,5 +85,31 @@ describe('turnos', () => {
     expect(ultimoTurnoAntes(DECISOES, '2026-10-05T14:32:30Z')).toBe('T2');
     expect(ultimoTurnoAntes(DECISOES, '2026-10-05T14:31:30Z')).toBe('T1');
     expect(ultimoTurnoAntes(DECISOES, null)).toBeNull();
+  });
+});
+
+describe('Ver decisão da passagem', () => {
+  const msgs = [
+    { autor: 'cliente', criado_em: '2026-10-05T14:30:00Z' },
+    { autor: 'cliente', criado_em: '2026-10-05T14:31:59Z' },
+  ];
+  it('escalação: aponta o turno que passou para pessoa', () => {
+    expect(turnoDaPassagem(DECISOES, msgs, '2026-10-05T14:32:30Z')).toBe('T2');
+  });
+  it('pausa ou teto (agente não rodou depois da última mensagem do cliente): sem turno, sem botão', () => {
+    const depois = [...msgs, { autor: 'cliente', criado_em: '2026-10-05T15:00:00Z' }];
+    expect(turnoDaPassagem(DECISOES, depois, '2026-10-05T15:00:01Z')).toBeNull();
+  });
+  it('turno sem ação (só consulta) não vira alvo; sem passagem, null', () => {
+    expect(turnoDaPassagem(DECISOES.filter((x) => x.turno !== 'T2'), msgs, '2026-10-05T14:32:30Z')).toBeNull();
+    expect(turnoDaPassagem(DECISOES, msgs, null)).toBeNull();
+  });
+});
+
+describe('link do documento', () => {
+  const docs = [{ id: 'a', cliente_id: 'E1' }, { id: 'b', cliente_id: 'E2' }, { id: 'c', cliente_id: 'E3' }];
+  it('só da empresa da conversa ou de outra empresa ativa do contato', () => {
+    expect([...documentosAbertos(docs, 'E1', ['E2', null])].sort()).toEqual(['a', 'b']);
+    expect([...documentosAbertos(docs, null, [])]).toEqual([]);
   });
 });

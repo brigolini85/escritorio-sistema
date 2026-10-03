@@ -114,3 +114,30 @@ export function ultimoTurnoAntes(decisoes: DecisaoBruta[], ate: string | null): 
   const antes = decisoes.filter((d) => d.turno && tempo(d.criado_em) <= tempo(ate)).sort((a, b) => tempo(b.criado_em) - tempo(a.criado_em));
   return antes[0]?.turno ?? null;
 }
+
+/**
+ * "Ver decisão" da faixa de passagem: o turno com cartão que veio depois da última mensagem do cliente e até a passagem,
+ * ou seja, o que causou a passagem. Pausa e teto passam sem rodar o agente: sem turno, sem botão.
+ */
+export function turnoDaPassagem(
+  decisoes: DecisaoBruta[],
+  mensagens: { autor: string; criado_em: string }[],
+  ate: string | null,
+): string | null {
+  if (!ate) return null;
+  const fim = tempo(ate);
+  const clientes = mensagens.filter((m) => m.autor === 'cliente' && tempo(m.criado_em) <= fim).map((m) => tempo(m.criado_em));
+  const inicio = clientes.length ? Math.max(...clientes) : -Infinity;
+  const candidatos = cartoesDeDecisao(decisoes).filter((c) => tempo(c.criado_em) >= inicio && tempo(c.criado_em) <= fim);
+  return candidatos.sort((a, b) => tempo(b.criado_em) - tempo(a.criado_em))[0]?.turno ?? null;
+}
+
+/** Documentos que a pessoa pode abrir pelo link da conversa: visíveis pela RLS e da empresa da conversa ou de outra empresa ativa do contato. */
+export function documentosAbertos(
+  visiveis: { id: string; cliente_id: string }[],
+  empresaEmFoco: string | null,
+  empresasDoContato: (string | null | undefined)[],
+): Set<string> {
+  const empresas = new Set([empresaEmFoco, ...empresasDoContato].filter(Boolean));
+  return new Set(visiveis.filter((d) => empresas.has(d.cliente_id)).map((d) => d.id));
+}

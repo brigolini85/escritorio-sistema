@@ -101,10 +101,13 @@ export function AcoesConversa({
         </form>
       )}
       {!d && (
-        <Button size="sm" variant="outline" disabled title="Esta conversa não tem demanda aberta para transferir.">
-          <ArrowRightLeft aria-hidden size={16} strokeWidth={1.75} />
-          <span className="@max-3xl:sr-only">Transferir</span>
-        </Button>
+        <>
+          <Button size="sm" variant="outline" disabled aria-describedby="sem-demanda-transferir" title="Esta conversa não tem demanda aberta para transferir.">
+            <ArrowRightLeft aria-hidden size={16} strokeWidth={1.75} />
+            <span className="@max-3xl:sr-only">Transferir</span>
+          </Button>
+          <span id="sem-demanda-transferir" className="sr-only">Esta conversa não tem demanda aberta para transferir.</span>
+        </>
       )}
 
       {d && (

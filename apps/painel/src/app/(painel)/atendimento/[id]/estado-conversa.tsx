@@ -89,6 +89,12 @@ export function EstadoConversa({
     tirarErroDaUrl();
   }, [aviso, abaInicial, tirarErroDaUrl]);
 
+  // Marca a tela como hidratada (atalhos e botões já respondem): os e2e esperam por isto em vez de repetir teclas.
+  useEffect(() => {
+    document.body.dataset.conversaHidratada = '';
+    return () => { delete document.body.dataset.conversaHidratada; };
+  }, []);
+
   useEffect(() => {
     const aoTeclar = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {

@@ -43,6 +43,7 @@ export async function trocarEmpresa(conversaId: string, clienteId: string): Prom
   const { data, error } = await sb.rpc('trocar_empresa_conversa', { p_conversa: conversaId, p_cliente: clienteId });
   if (error) return { ok: false, erro: mensagemDoBanco(error.message) };
   revalidatePath(`/atendimento/${conversaId}`);
+  revalidatePath('/atendimento');
   return { ok: true, mensagem: `Conversa agora em ${(data as { empresa: string }).empresa}.` };
 }
 
@@ -51,6 +52,7 @@ export async function marcarLida(conversaId: string, ate: string): Promise<boole
   await obterUsuario();
   const sb = await supabaseServidor();
   const { data, error } = await sb.rpc('marcar_conversa_lida', { p_conversa: conversaId, p_ate: ate });
+  if (error) console.error('marcar_conversa_lida falhou:', error.message);
   return !error && Boolean(data);
 }
 
