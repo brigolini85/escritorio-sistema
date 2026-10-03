@@ -1084,6 +1084,9 @@ isOneToOne: false
 "salvar_orientacao":
 { Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
                            },
+"salvar_usuario":
+{ Args: { "p_dados": Json,"p_id": string }; Returns: undefined
+                           },
 "situacao_acesso":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
