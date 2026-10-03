@@ -25,6 +25,23 @@ async function abrirNova(page: Page) {
   return janela;
 }
 
+test('nova demanda: os quatro rótulos de prioridade aparecem inteiros em 1366x768', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  const janela = await abrirNova(page);
+  const grupo = await janela.locator('fieldset').boundingBox();
+  // folga: o grupo ocupa a linha inteira (mais largo que o campo Prazo ao lado), não só meia coluna
+  const prazoCx = await janela.getByLabel('Prazo').boundingBox();
+  expect(grupo!.width).toBeGreaterThan(prazoCx!.width * 1.5);
+  for (const nome of ['Baixa', 'Normal', 'Alta', 'Urgente']) {
+    const opcao = janela.locator('fieldset label').filter({ hasText: new RegExp(`^${nome}$`) });
+    await expect(opcao).toBeVisible();
+    const cabe = await opcao.evaluate((el) => el.scrollWidth <= el.clientWidth);
+    expect(cabe, `${nome} cortado`).toBe(true);
+    const caixa = await opcao.boundingBox();
+    expect(caixa!.x + caixa!.width).toBeLessThanOrEqual(grupo!.x + grupo!.width + 1);
+  }
+});
+
 test('nova demanda: prazo sugerido acompanha a prioridade, responsável só do setor, abre no painel', async ({ page }) => {
   const janela = await abrirNova(page);
   await expect(janela.getByLabel('Responsável').locator('option', { hasText: 'Bia C11' })).toHaveCount(0);

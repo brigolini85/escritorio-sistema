@@ -134,7 +134,7 @@ export function NovaDemanda({ empresas, setores, pessoas, sugeridos, podePrazo, 
           {aviso('descricao')}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <fieldset className="grid gap-1">
+          <fieldset className="grid gap-1 sm:col-span-2">
             <legend className={cn(rotulo, 'mb-1')}>Prioridade</legend>
             <div className="grid grid-cols-4 overflow-hidden rounded-md border border-input">
               {OPCOES_PRIORIDADE.map((o) => (
