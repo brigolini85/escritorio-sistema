@@ -32,9 +32,9 @@ export type DepsEnvio = { repos: Repos; canal: CanalWhatsApp; limitador: Limitad
  */
 export async function enviarDoSistema(
   d: DepsEnvio,
-  p: { conversaId: string; telefone: string; clienteId: string | null; autor: 'agente' | 'sistema'; texto: string },
+  p: { conversaId: string; telefone: string; clienteId: string | null; autor: 'agente' | 'sistema'; texto: string; turnoAgente?: string | null },
 ): Promise<string> {
-  const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: p.autor, conteudo: p.texto });
+  const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: p.autor, conteudo: p.texto, turnoAgente: p.turnoAgente ?? null });
   if (p.autor === 'sistema') await d.limitador.aguardar();
   try {
     const { idProvedor } = await d.canal.enviarTexto(p.telefone, p.texto);
@@ -58,9 +58,11 @@ async function arquivoEmBase64(d: DepsEnvio, path: string, mime: string, bucket?
 /** Documento da empresa (bucket "documentos"): registra antes, como em enviarDoSistema, e envia o conteúdo. */
 export async function enviarDocumentoDoSistema(
   d: DepsEnvio,
-  p: { conversaId: string; telefone: string; clienteId: string; documento: DocumentoEmpresa },
+  p: { conversaId: string; telefone: string; clienteId: string; documento: DocumentoEmpresa; turnoAgente?: string | null },
 ): Promise<string> {
-  const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: 'agente', conteudo: `📎 ${p.documento.nome}` });
+  // O painel mostra o documento com link (download auditado pelo id), não só o nome.
+  const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: 'agente', conteudo: `📎 ${p.documento.nome}`,
+    turnoAgente: p.turnoAgente ?? null, documentoId: p.documento.id });
   try {
     const url = await arquivoEmBase64(d, p.documento.arquivoPath, p.documento.arquivoMime, 'documentos');
     const { idProvedor } = await d.canal.enviarArquivo(p.telefone, { url, nome: p.documento.arquivoNome });
@@ -112,6 +114,7 @@ export async function verificarEnviadaPorMim(d: DepsEnvio, m: MensagemRecebida):
     }
   }
   await d.repos.inserirSaidaExterna({ conversaId: conversa.id, clienteId: conversa.cliente_em_foco, idProvedor: m.idProvedor, conteudo: m.texto });
-  await d.repos.atualizarConversa(conversa.id, { estado: 'humano' });
+  // Como assumir pelo painel: limpa a espera e grava o marco "assumida" (sem pessoa: o celular não diz quem respondeu).
+  await d.repos.assumirPeloCelular(conversa.id);
   return 'humano';
 }

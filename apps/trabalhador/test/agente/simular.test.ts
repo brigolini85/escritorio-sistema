@@ -351,6 +351,22 @@ describe('processarSimulacao', () => {
     await processarSimulacao(deps(new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi' } }), fim()])), id, false);
     expect((await simulacao(id)).respostas!.observacoes).toEqual([expect.stringContaining('nenhuma empresa foi escolhida')]);
   });
+
+  it('passar_para_pessoa é fingida no teste: nada é marcado nem aberto', async () => {
+    const { empresas } = await contatoComEmpresas(['Indústria X']);
+    const id = await novaSimulacao({ clienteId: empresas[0]!.id, mensagem: 'quero falar com uma pessoa' });
+    const antes = await contagens();
+    const ia = new IaRoteirizada([
+      usarFerramentas({ nome: 'passar_para_pessoa', entrada: { motivo: 'quer falar com alguém' } }),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Já chamei alguém da equipe.' } }),
+      fim(),
+    ]);
+    expect(await processarSimulacao(deps(ia), id, false)).toBe('pronta');
+    expect(await contagens()).toEqual(antes);
+    expect((await simulacao(id)).respostas!.acoes).toEqual([
+      expect.objectContaining({ ferramenta: 'passar_para_pessoa', resumo: 'Passaria o atendimento para uma pessoa da equipe: quer falar com alguém' }),
+    ]);
+  });
 });
 
 describe('reposDaSimulacao', () => {

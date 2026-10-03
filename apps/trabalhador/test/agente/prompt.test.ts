@@ -98,6 +98,12 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
     expect(s).toContain('Se já há mensagens em <historico>, não se apresente de novo');
   });
 
+  it('regra do pedido de pessoa (Parte E)', () => {
+    const texto = montarBlocosSistema({ setores: [], respostasProntas: [], orientacoes: [], empresaEmFoco: null } as never).system.map((b) => b.text).join('\n');
+    expect(texto).toContain('passar_para_pessoa');
+    expect(texto).toContain('falar com uma pessoa');
+  });
+
   it('regra 2: só as explicações gerais da skill, quando perguntarem, sem números do caso', () => {
     const regra2 = s.slice(s.indexOf('\n2. '), s.indexOf('\n3. '));
     expect(regra2).toContain('só quando o cliente perguntar o que é aquilo');

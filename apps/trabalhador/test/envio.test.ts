@@ -114,8 +114,11 @@ describe('arquivo vai com o conteúdo (Base64), não como link', () => {
     const pdf = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55, 10]);
     await db.storage.from('documentos').upload(path, pdf, { contentType: 'application/pdf', upsert: true });
     const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    // Documento de verdade: a mensagem guarda o id dele (link auditado no painel, Parte E).
+    const { data: doc } = await db.from('documentos_empresa').insert({ cliente_id: cli!.id, nome: 'Contrato social', arquivo_path: path,
+      arquivo_nome: 'contrato.pdf', ia_pode_enviar: true }).select('id').single();
     await enviarDocumentoDoSistema(d, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: cli!.id,
-      documento: { id: 'x', nome: 'Contrato social', arquivoPath: path, arquivoNome: 'contrato.pdf', arquivoMime: 'application/pdf', iaPodeEnviar: true } });
+      documento: { id: doc!.id, nome: 'Contrato social', arquivoPath: path, arquivoNome: 'contrato.pdf', arquivoMime: 'application/pdf', iaPodeEnviar: true } });
     expect(canal.arquivosEnviados).toEqual([{ nome: 'contrato.pdf', url: `data:application/pdf;base64,${Buffer.from(pdf).toString('base64')}` }]);
   });
 
@@ -148,6 +151,17 @@ describe('verificarEnviadaPorMim', () => {
     expect(await verificarEnviadaPorMim(d, canal.interpretarWebhook(f.enviadaPorMim)!)).toBe('humano');
     expect((await repos.obterConversa(conversa.id)).estado).toBe('humano');
     expect((await repos.mensagemPorIdProvedor('MSG-EU-1'))?.conteudo).toBe('Já envio');
+  });
+  it('resposta pelo celular limpa a espera e grava o marco "assumida" uma vez só (Parte E)', async () => {
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    expect(await repos.marcarAguardandoPessoa(conversa.id, 'pediu para falar com pessoa')).toBe(true);
+    const msg = canal.interpretarWebhook(f.enviadaPorMim)!;
+    expect(await verificarEnviadaPorMim(d, msg)).toBe('humano');
+    expect(await verificarEnviadaPorMim(d, { ...msg, idProvedor: 'MSG-EU-2', texto: 'Mais uma' })).toBe('humano');
+    const c = await repos.obterConversa(conversa.id);
+    expect([c.estado, c.aguardando_pessoa_desde, c.motivo_pessoa]).toEqual(['humano', null, null]);
+    const eventos = (await db.from('conversa_eventos').select('tipo, usuario_id').eq('conversa_id', conversa.id).order('criado_em')).data!;
+    expect(eventos).toEqual([{ tipo: 'passou_para_pessoa', usuario_id: null }, { tipo: 'assumida', usuario_id: null }]);
   });
   it('resposta do assistente ao usuário da equipe não vira mensagem nem muda o estado da conversa', async () => {
     const msg = canal.interpretarWebhook(f.enviadaPorMim)!;

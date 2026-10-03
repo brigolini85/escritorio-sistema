@@ -274,6 +274,11 @@ async function simularGravacao(d: DepsAgente, estado: EstadoExecucao, nome: Nome
       return ok({ cadastrado: true, codigo: entrada.codigo, descricao: entrada.descricao, unidade });
     }
 
+    case 'passar_para_pessoa': {
+      acao(r, nome, `Passaria o atendimento para uma pessoa da equipe: ${entrada.motivo}`);
+      return ok({ instrucao: AVISOS.instrucaoPessoaChamada });
+    }
+
     default:
       // Leituras não chegam aqui; uma ferramenta nova sem versão simulada não pode gravar de verdade.
       return falha(`Ferramenta indisponível no teste: ${nome}`);

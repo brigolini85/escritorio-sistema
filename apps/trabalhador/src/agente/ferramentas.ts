@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { escolherResponsavel, formatarMensagem } from '@escritorio/core';
+import { MOTIVOS_PASSAGEM, escolherResponsavel, formatarMensagem } from '@escritorio/core';
 import type { Repos, UnidadeParceiro } from '@escritorio/db';
 import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
 import { buscarParceiros, buscarProdutos } from './cadastros';
@@ -9,7 +9,7 @@ import { acharResumoConferido, chaveConferencia, cnpjFormatado, formatarReais, m
 import type { ContextoAgente } from './contexto';
 
 export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
-export type EstadoExecucao = { ctx: ContextoAgente; respondeu: boolean };
+export type EstadoExecucao = { ctx: ContextoAgente; respondeu: boolean; /** Execução atual (executarAgente); liga decisões e mensagens. */ turno?: string };
 
 const TRIAGEM = 'triagem';
 const MAX_PARTES_RESPOSTA = 3;
@@ -80,6 +80,11 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
     name: 'sinalizar_nao_entendido',
     description: 'Use quando não conseguir entender o que o cliente quer.',
     input_schema: objeto({}, []),
+  },
+  {
+    name: 'passar_para_pessoa',
+    description: 'Use só quando o cliente pedir para falar com uma pessoa da equipe (atendente, alguém do escritório). A equipe é avisada; depois diga ao cliente, curto, que já chamou alguém.',
+    input_schema: objeto({ motivo: { type: 'string', description: 'Em poucas palavras, o que o cliente quer tratar com a pessoa.' } }, ['motivo']),
   },
   {
     name: 'buscar_parceiros',
@@ -183,6 +188,7 @@ const Entradas = {
   }),
   consultar_chamados: z.object({}),
   sinalizar_nao_entendido: z.object({}),
+  passar_para_pessoa: z.object({ motivo: z.string().trim().min(1).max(200) }),
   buscar_parceiros: z.object({ texto: z.string().min(1).max(200), tipo: z.enum(['cliente', 'fornecedor']) }),
   buscar_produtos: z.object({ textos: z.array(z.string().min(1).max(200)).min(1).max(30) }),
   resumir_pedido_nota: PedidoNota,
@@ -219,6 +225,7 @@ export const AVISOS = {
   textoVazio: 'Texto vazio: escreva a resposta em palavras, sem emoji.',
   instrucaoExplicarDeNovo: 'Peça gentilmente para o cliente explicar de outra forma.',
   instrucaoEquipeContinua: 'Diga ao cliente que uma pessoa da equipe vai continuar o atendimento.',
+  instrucaoPessoaChamada: 'A equipe já foi avisada. Diga ao cliente, curto, que já chamou alguém da equipe para continuar.',
   instrucaoResumo: 'O resumo já chegou ao cliente. Se for a última nota a resumir agora, pergunte numa mensagem curta se está tudo certo e se tem mais alguma nota. Não repita o resumo.',
 };
 
@@ -351,11 +358,24 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
           titulo: 'Mensagem não compreendida pelo agente', resumo: 'O agente não entendeu o pedido duas vezes seguidas.',
           foraDoContrato: false, origem: 'agente',
         });
+        await d.repos.marcarAguardandoPessoa(ctx.conversa.id, MOTIVOS_PASSAGEM.naoEntendeu);
         await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: 0 });
         return ok({ instrucao: AVISOS.instrucaoEquipeContinua });
       }
       await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: tentativas });
       return ok({ instrucao: AVISOS.instrucaoExplicarDeNovo });
+    }
+
+    case 'passar_para_pessoa': {
+      // Sem nenhuma demanda aberta, só o administrador veria a espera: abre uma na Triagem com o que o cliente quer (P4).
+      if ((await d.repos.chamadosAbertosDaConversa(ctx.conversa.id)).length === 0) {
+        await d.repos.abrirChamado({
+          clienteId: ctx.empresaEmFoco?.id ?? null, conversaId: ctx.conversa.id, setorId: null, responsavelId: null,
+          titulo: 'Cliente pediu para falar com uma pessoa', resumo: entrada.motivo, foraDoContrato: false, origem: 'agente',
+        });
+      }
+      await d.repos.marcarAguardandoPessoa(ctx.conversa.id, MOTIVOS_PASSAGEM.pedidoCliente);
+      return ok({ instrucao: AVISOS.instrucaoPessoaChamada });
     }
 
     case 'buscar_parceiros': {
@@ -380,6 +400,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       await enviarDoSistema(d.envio, {
         conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: e.clienteId, autor: 'agente',
         texto: montarResumoParaCliente({ tipo: entrada.tipo, destino: p.destino, textoDestinatario: entrada.texto_destinatario, itens: p.itens, extras: entrada }),
+        turnoAgente: estado.turno ?? null,
       });
       estado.respondeu = true;
       return ok({
@@ -446,7 +467,8 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       if (!doc.iaPodeEnviar) return falha(AVISOS.documentoNaoLiberado);
       const atual = await d.repos.obterConversa(ctx.conversa.id);
       if (atual.estado === 'humano') return falha('Um atendente assumiu esta conversa. Não envie nada.');
-      await enviarDocumentoDoSistema(d.envio, { conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: e.clienteId, documento: doc });
+      await enviarDocumentoDoSistema(d.envio, { conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: e.clienteId, documento: doc,
+        turnoAgente: estado.turno ?? null });
       estado.respondeu = true;
       return ok({ enviado: true, documento: doc.nome });
     }
@@ -518,7 +540,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
         if (atual.estado === 'humano') break;
         await enviarDoSistema(d.envio, {
           conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: ctx.empresaEmFoco?.id ?? null,
-          autor: 'agente', texto: parte,
+          autor: 'agente', texto: parte, turnoAgente: estado.turno ?? null,
         });
         enviadas++;
       }
@@ -549,7 +571,7 @@ export async function executarFerramenta(d: DepsAgente, estado: EstadoExecucao, 
   const r = 'erro' in v ? v : await executarValidada(d, estado, v.nome, v.dados);
   await d.repos.registrarDecisao({
     conversaId: estado.ctx.conversa.id, clienteId: estado.ctx.empresaEmFoco?.id ?? null,
-    etapa: nome, entrada, saida: JSON.parse(r.resultado),
+    etapa: nome, entrada, saida: JSON.parse(r.resultado), turno: estado.turno ?? null,
   });
   return r;
 }

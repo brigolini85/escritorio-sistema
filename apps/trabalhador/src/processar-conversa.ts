@@ -1,4 +1,4 @@
-import { mesReferencia } from '@escritorio/core';
+import { MOTIVOS_PASSAGEM, mesReferencia, motivoDaEscalada } from '@escritorio/core';
 import type { Conversa, Mensagem } from '@escritorio/db';
 import type { Alertas } from './alertas';
 import { erroTemporarioIa } from './agente/cliente-ia';
@@ -90,6 +90,11 @@ async function assumidaPorHumano(d: DepsProcessamento, conversaId: string): Prom
   return (await d.repos.obterConversa(conversaId)).estado === 'humano';
 }
 
+/** O agente passou para uma pessoa (spec 7A.2). Falha ao marcar não refaz o atendimento (relançar repetiria ferramentas). */
+async function marcarPassagem(d: DepsProcessamento, conversaId: string, motivo: string): Promise<void> {
+  await d.repos.marcarAguardandoPessoa(conversaId, motivo).catch((e) => console.error('[passagem] não marcada', conversaId, e));
+}
+
 export async function processarConversa(d: DepsProcessamento, conversaId: string, ultimaTentativa: boolean): Promise<DesfechoProcessamento> {
   const novas = await d.repos.mensagensNaoProcessadas(conversaId);
   if (novas.length === 0) return 'sem-mensagens';
@@ -143,6 +148,9 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
     // Pausado não manda nada ao cliente (decisão do dono, 2026-09-28): a equipe vê a mensagem e a triagem no painel.
     const motivo = contato?.agentePausado ? 'Agente desligado para este contato: atender manualmente' : 'Agente pausado: atender manualmente';
     await encaminharParaHumano(d, conversa, motivo, null);
+    const empresaPausada = ctx.empresaEmFoco?.agentePausado === true || (empresas.length > 0 && empresas.every((e) => e.agentePausado));
+    await marcarPassagem(d, conversa.id, contato?.agentePausado ? MOTIVOS_PASSAGEM.pausaContato
+      : empresaPausada ? MOTIVOS_PASSAGEM.pausaEmpresa : MOTIVOS_PASSAGEM.pausaGeral);
     await d.repos.marcarProcessadas(ids);
     return 'pausado';
   }
@@ -150,6 +158,7 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
   const mes = mesReferencia(d.relogio());
   if ((await d.repos.custoIaDoMes(mes)) >= config.tetoIaUsd) {
     await encaminharParaHumano(d, conversa, 'Limite mensal de gasto com IA atingido', config.mensagens.ia_indisponivel ?? null);
+    await marcarPassagem(d, conversa.id, MOTIVOS_PASSAGEM.teto);
     await d.repos.marcarProcessadas(ids);
     return 'teto';
   }
@@ -167,6 +176,7 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
       } else {
         // Só conta resposta deste turno: uma mensagem antiga do agente no histórico não é resposta ao pedido novo.
         await encaminharParaHumano(d, conversa, `Agente encaminhou: ${r.motivo}`, r.respondeu ? null : config.mensagens.ia_indisponivel ?? null);
+        await marcarPassagem(d, conversa.id, motivoDaEscalada(r.motivo));
         desfecho = 'escalado';
       }
     }
@@ -178,6 +188,7 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
       desfecho = 'humano';
     } else {
       await encaminharParaHumano(d, conversa, 'Falha no agente de IA', config.mensagens.ia_indisponivel ?? null);
+      await marcarPassagem(d, conversa.id, MOTIVOS_PASSAGEM.falha);
       desfecho = 'escalado';
     }
   }

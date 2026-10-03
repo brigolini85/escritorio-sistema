@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type Anthropic from '@anthropic-ai/sdk';
 import { calcularCustoUsd } from '@escritorio/core';
 import type { ContextoAgente } from './contexto';
@@ -43,7 +44,8 @@ export async function executarAgente(
 ): Promise<ResultadoAgente> {
   let cortesVerificados = false;
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: conteudo }];
-  const estado: EstadoExecucao = { ctx, respondeu: false };
+  // Um turno por execução: liga as decisões às mensagens que o agente mandou (o "por quê?" do painel).
+  const estado: EstadoExecucao = { ctx, respondeu: false, turno: randomUUID() };
   let lembrado = false;
 
   for (let i = 0; i < MAX_ITERACOES; i++) {

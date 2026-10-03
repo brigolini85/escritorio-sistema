@@ -166,6 +166,22 @@ export function criarRepos(db: Db) {
       return Boolean(checar(await db.rpc('marcar_aguardando_pessoa', { p_conversa: conversaId, p_motivo: motivo }), 'marcarAguardandoPessoa'));
     },
 
+    /**
+     * A equipe respondeu pelo celular: o mesmo que assumir_conversa faz (estado humano, espera limpa, marco "assumida"),
+     * sem pessoa (o celular não diz quem foi). O filtro no próprio update evita marco repetido a cada resposta.
+     */
+    async assumirPeloCelular(conversaId: string): Promise<void> {
+      const mudou = checar(await db.from('conversas').update({ estado: 'humano', aguardando_pessoa_desde: null, motivo_pessoa: null,
+        concluida_em: null, atualizado_em: new Date().toISOString() }).eq('id', conversaId).neq('estado', 'humano').select('id'), 'assumirPeloCelular');
+      if (mudou.length > 0) {
+        checar(await db.from('conversa_eventos').insert({ conversa_id: conversaId, tipo: 'assumida' }), 'assumirPeloCelular');
+        return;
+      }
+      // Já estava com a equipe: só garante que não sobrou espera de antes (não grava outro marco).
+      checar(await db.from('conversas').update({ aguardando_pessoa_desde: null, motivo_pessoa: null }).eq('id', conversaId)
+        .not('aguardando_pessoa_desde', 'is', null), 'assumirPeloCelular');
+    },
+
     async inserirMensagemEntrada(m: NovaMensagemEntrada): Promise<{ id: string; duplicada: boolean }> {
       const r = await db.from('mensagens').upsert({
         conversa_id: m.conversaId, cliente_id: m.clienteId, direcao: 'entrada', autor: 'cliente', tipo: m.tipo,
