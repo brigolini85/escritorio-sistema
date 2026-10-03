@@ -135,6 +135,8 @@ for (const tema of ['claro', 'escuro'] as const) {
       const erros: string[] = [];
       for (const rota of rotas) {
         await page.goto(rota);
+        // Painel da demanda: espera o conteúdo de verdade (não o esqueleto) antes do axe.
+        if (rota.includes('demanda=')) await expect(page.getByRole('dialog', { name: /Nº [0-9]+/ }).getByLabel('Responsável')).toBeVisible({ timeout: 30_000 });
         erros.push(...(await auditar(page, rota, tema)));
       }
       expect(erros, erros.join('\n')).toEqual([]);

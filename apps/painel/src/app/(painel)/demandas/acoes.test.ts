@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // As ações do painel lateral só repassam ao banco; aqui: validação antes do banco e mensagem do banco na língua da tela.
 const falso = vi.hoisted(() => ({
   chamadas: [] as { nome: string; args: unknown }[], erro: null as string | null,
+  leituras: [] as { tabela: string; coluna: string; valor: unknown }[], falhaLeitura: false,
   atual: { titulo: 'Título do banco', resumo: 'Texto do banco', contato_id: '33333333-3333-4333-8333-333333333333' } as { titulo: string; resumo: string; contato_id: string | null } | null,
 }));
 vi.mock('server-only', () => ({}));
@@ -10,7 +11,10 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/lib/sessao', () => ({ obterUsuario: async () => ({ id: 'u1' }) }));
 vi.mock('@/lib/supabase/servidor', () => ({
   supabaseServidor: async () => ({
-    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: falso.atual, error: null }) }) }) }),
+    from: (tabela: string) => ({ select: () => ({ eq: (coluna: string, valor: unknown) => {
+      falso.leituras.push({ tabela, coluna, valor });
+      return { maybeSingle: async () => (falso.falhaLeitura ? { data: null, error: { message: 'fetch failed' } } : { data: falso.atual, error: null }) };
+    } }) }),
     rpc: async (nome: string, args: unknown) => {
       falso.chamadas.push({ nome, args });
       return { data: null, error: falso.erro ? { message: falso.erro } : null };
@@ -21,7 +25,10 @@ vi.mock('@/lib/supabase/servidor', () => ({
 import { alterarStatusDemanda, definirPrazo, editarDemanda, definirPrioridade, notaInternaDemanda, transferirDemanda } from './acoes';
 
 const ID = '22222222-2222-4222-8222-222222222222';
-beforeEach(() => { falso.chamadas = []; falso.erro = null; });
+beforeEach(() => {
+  falso.chamadas = []; falso.erro = null; falso.leituras = []; falso.falhaLeitura = false;
+  falso.atual = { titulo: 'Título do banco', resumo: 'Texto do banco', contato_id: '33333333-3333-4333-8333-333333333333' };
+});
 
 describe('ações da demanda', () => {
   it('status e prioridade: aviso com o nome da tela', async () => {
@@ -60,7 +67,13 @@ describe('ações da demanda', () => {
     falso.atual = null;
     expect(await editarDemanda(ID, { titulo: 'X' })).toEqual({ ok: false, erro: 'Você não tem acesso a esta demanda.' });
     expect(falso.chamadas).toEqual([]);
-    falso.atual = { titulo: 'Título do banco', resumo: 'Texto do banco', contato_id: null };
+    expect(falso.leituras).toEqual([{ tabela: 'chamados', coluna: 'id', valor: ID }]);
+  });
+  it('falha ao ler a demanda não vira "sem acesso"', async () => {
+    falso.falhaLeitura = true;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await editarDemanda(ID, { titulo: 'X' })).toEqual({ ok: false, erro: 'Não consegui salvar agora. Tente de novo.' });
+    expect(falso.chamadas).toEqual([]);
   });
   it('erro do banco volta na língua da tela', async () => {
     falso.erro = 'sem acesso a este chamado';

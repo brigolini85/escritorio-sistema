@@ -21,7 +21,7 @@ export type DemandaAberta = {
   id: string; numero: number; titulo: string; descricao: string; status: StatusDemanda; prioridade: Prioridade;
   prazo: string | null; pausadoDesde: string | null; concluidaEm: string | null; criadoEm: string; origem: string; criadoPorNome: string | null;
   conversaId: string | null; foraDoContrato: boolean; pedidoVenda: unknown;
-  setorId: string | null; setor: string | null; responsavelId: string | null; contatoId: string | null;
+  setorId: string | null; setor: string | null; responsavelId: string | null; responsavelNome: string | null; contatoId: string | null;
   empresa: { id: string; nome: string; cnpj: string } | null;
   eventos: EventoDemanda[];
 };
@@ -55,7 +55,7 @@ export function DetalheDemanda({ demanda: d, comprador, podeCsv, pessoas, setore
   }
   const controles = {
     id: d.id, numero: d.numero, titulo: d.titulo, descricao: d.descricao, status: d.status, prioridade: d.prioridade, prazo: d.prazo,
-    pausadoDesde: d.pausadoDesde, concluidaEm: d.concluidaEm, setorId: d.setorId, responsavelId: d.responsavelId, contatoId: d.contatoId,
+    pausadoDesde: d.pausadoDesde, concluidaEm: d.concluidaEm, setorId: d.setorId, responsavelId: d.responsavelId, responsavelNome: d.responsavelNome, contatoId: d.contatoId,
   };
   const quem = abertaPor(d);
   const problemas = pendenciasCsvBling(d.numero, d.pedidoVenda, comprador);
@@ -66,7 +66,7 @@ export function DetalheDemanda({ demanda: d, comprador, podeCsv, pessoas, setore
         <SheetTitle className="text-sm font-normal uppercase tracking-wide text-muted"><span className="tabular">Nº {d.numero}</span> · {d.setor ?? 'Triagem'}</SheetTitle>
         <EditarTitulo d={controles} />
         <SheetDescription className="text-base">
-          {d.empresa ? <Link href={`/clientes/${d.empresa.id}`} className="text-brand underline-offset-4 hover:underline">{d.empresa.nome}</Link> : 'Empresa não identificada'}
+          {d.empresa ? <Link href={`/clientes/${d.empresa.id}`} className="text-brand underline underline-offset-4">{d.empresa.nome}</Link> : 'Empresa não identificada'}
           {' · '}aberta {quem === 'Agente' ? 'pelo agente' : `por ${quem}`} <RelativeTime data={d.criadoEm} />
           {d.pedidoVenda ? <Badge variant="brand" className="ml-2">Pedido de nota</Badge> : null}
           {d.foraDoContrato && <Badge variant="warning" className="ml-2">Fora do contrato</Badge>}

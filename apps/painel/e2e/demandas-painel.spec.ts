@@ -99,3 +99,16 @@ test('Assumir na linha da tabela, e a segunda pessoa recebe o aviso', async ({ p
   await expect(page.getByText('Demanda assumida.')).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(`${P} Guia DAS`) })).toContainText('Ana C9');
 });
+
+test('administrador que assumiu demanda do Fiscal aparece como responsável (mesmo fora do setor)', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'adm-c9@e2e.local', senha: SENHA, nome: 'Adm C9', papel: 'admin' });
+  const d = await demandaE2e({ titulo: `${P} Guia FGTS`, setor: 'Fiscal' });
+  numero = d.numero;
+  await entrar(page, 'adm-c9@e2e.local', SENHA);
+  await page.goto(`/demandas?demanda=${d.id}`);
+  await expect(painel(page)).toContainText(`${P} Guia FGTS`, { timeout: 30_000 });
+  await painel(page).getByRole('button', { name: 'Assumir' }).click();
+  await expect(page.getByText('Demanda assumida.')).toBeVisible();
+  await expect(painel(page).getByLabel('Responsável').locator('option:checked')).toHaveText('Adm C9');
+  await expect(painel(page).getByRole('button', { name: 'Assumir' })).toHaveCount(0);
+});

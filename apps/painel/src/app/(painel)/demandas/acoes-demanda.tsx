@@ -22,7 +22,7 @@ import {
 export type PessoaSetor = { id: string; nome: string; setores: string[] };
 type DemandaControles = {
   id: string; numero: number; titulo: string; descricao: string; status: StatusDemanda; prioridade: Prioridade; prazo: string | null; pausadoDesde: string | null; concluidaEm: string | null;
-  setorId: string | null; responsavelId: string | null; contatoId: string | null;
+  setorId: string | null; responsavelId: string | null; responsavelNome: string | null; contatoId: string | null;
 };
 
 const rotulo = 'text-xs font-bold uppercase tracking-wide text-brand';
@@ -37,7 +37,7 @@ export function avisar(r: Resultado): boolean {
 const doSetor = (pessoas: PessoaSetor[], setorId: string | null) => pessoas.filter((p) => !setorId || p.setores.includes(setorId));
 
 /** ASSUMIR: no painel ocupa a largura toda (imagem 05); na linha da tabela é um link de texto (imagem 03). */
-export function BotaoAssumir({ id, cheio = false }: { id: string; cheio?: boolean }) {
+export function BotaoAssumir({ id, numero, cheio = false }: { id: string; numero?: number; cheio?: boolean }) {
   const [pendente, iniciar] = useTransition();
   return (
     <Button
@@ -45,6 +45,7 @@ export function BotaoAssumir({ id, cheio = false }: { id: string; cheio?: boolea
       variant={cheio ? 'primary' : 'link'}
       className={cn(cheio && 'w-full', !cheio && 'h-auto font-bold')}
       disabled={pendente}
+      aria-label={numero ? `Assumir a demanda #${numero}` : undefined}
       onClick={() => iniciar(async () => { avisar(await assumirDemanda(id)); })}
     >
       {cheio && <UserRoundCheck aria-hidden size={16} strokeWidth={1.75} />}
@@ -64,6 +65,9 @@ export function CamposDemanda({ d, pessoas, agora }: { d: DemandaControles; pess
   }, [d.responsavelId, d.status, d.prioridade, d.prazo]);
   const concluida = d.status === 'concluido';
   const opcoesPessoas = doSetor(pessoas, d.setorId);
+  // Dono que não está na lista do setor (administrador, ou pessoa arquivada depois): continua escolhido, com o nome dele.
+  const donoForaDaLista = d.responsavelId && !opcoesPessoas.some((p) => p.id === d.responsavelId)
+    ? `${d.responsavelNome ?? 'Responsável'}${pessoas.some((p) => p.id === d.responsavelId) ? '' : ' (arquivado)'}` : null;
 
   const gravar = (campo: keyof typeof valores, valor: string, chamar: () => Promise<Resultado>) => {
     const antes = valores[campo];
@@ -78,6 +82,7 @@ export function CamposDemanda({ d, pessoas, agora }: { d: DemandaControles; pess
         <select id={`${id}-resp`} className={classeSelect} value={valores.responsavel} disabled={concluida}
           onChange={(e) => gravar('responsavel', e.target.value, () => definirResponsavel(d.id, e.target.value || null))}>
           <option value="">Ninguém</option>
+          {donoForaDaLista && <option value={d.responsavelId!}>{donoForaDaLista}</option>}
           {opcoesPessoas.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
         </select>
       </div>

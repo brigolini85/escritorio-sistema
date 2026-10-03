@@ -71,7 +71,11 @@ export async function reabrirDemanda(id: string): Promise<Resultado> {
 export async function editarDemanda(id: string, dados: { titulo?: string; descricao?: string; contato?: string | null }): Promise<Resultado> {
   await obterUsuario();
   const sb = await supabaseServidor();
-  const { data: atual } = await sb.from('chamados').select('titulo, resumo, contato_id').eq('id', id).maybeSingle();
+  const { data: atual, error: erroLeitura } = await sb.from('chamados').select('titulo, resumo, contato_id').eq('id', id).maybeSingle();
+  if (erroLeitura) {
+    console.error('[demandas] falha ao ler a demanda para editar', erroLeitura);
+    return { ok: false, erro: 'Não consegui salvar agora. Tente de novo.' };
+  }
   if (!atual) return { ok: false, erro: mensagemDoBanco('sem acesso a este chamado') };
   const args = {
     p_chamado: id,
@@ -79,8 +83,5 @@ export async function editarDemanda(id: string, dados: { titulo?: string; descri
     p_descricao: dados.descricao ?? atual.resumo,
     p_contato: dados.contato === undefined ? atual.contato_id : dados.contato,
   };
-  const { error } = await sb.rpc('editar_demanda' as never, args as never);
-  if (error) return { ok: false, erro: mensagemDoBanco(error.message) };
-  revalidatePath('/demandas');
-  return { ok: true, mensagem: 'Demanda alterada.' };
+  return acao('editar_demanda', args, 'Demanda alterada.');
 }

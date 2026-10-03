@@ -100,7 +100,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
       <DataTable
         rotulo="Demandas"
         linhas={linhas}
-        colunas={colunasDemandas(agora, (d) => (!d.responsavelId && d.status !== 'concluido' ? <BotaoAssumir id={d.id} /> : null))}
+        colunas={colunasDemandas(agora, (d) => (!d.responsavelId && d.status !== 'concluido' ? <BotaoAssumir id={d.id} numero={d.numero} /> : null))}
         chave={(d) => d.id}
         params={params}
         paginacao={paginacao}
@@ -181,7 +181,7 @@ async function lerDemanda(sb: Sb, id: string): Promise<{ demanda: DemandaAberta;
       prioridade: (d.prioridade ?? 'normal') as Prioridade, prazo: d.prazo_em, pausadoDesde: d.prazo_pausado_desde, concluidaEm: d.concluido_em,
       criadoEm: d.criado_em!, origem: d.origem ?? 'agente', criadoPorNome: d.criado_por_nome, conversaId: d.conversa_id,
       foraDoContrato: Boolean(d.fora_do_contrato), pedidoVenda: d.pedido_venda, setorId: d.setor_id, setor: d.setor,
-      responsavelId: d.responsavel_id, contatoId: d.contato_id,
+      responsavelId: d.responsavel_id, responsavelNome: d.responsavel, contatoId: d.contato_id,
       empresa: cliente ? { id: cliente.id, nome: cliente.nome_fantasia ?? cliente.razao_social, cnpj: cliente.cnpj } : null,
       eventos: (eventos ?? []).map((e) => ({ tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null })),
     },
