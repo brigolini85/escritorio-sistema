@@ -806,13 +806,13 @@ isOneToOne: false
                   ]
                 },"usuarios": {
                   Row: {
-                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cargo": string | null,"criado_em": string,"email": string,"id": string,"nome": string,"observacoes": string | null,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null,"ultimo_acesso_em": string | null,"visao_demandas": string
+                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cargo": string | null,"criado_em": string,"email": string,"horario_acesso": Json | null,"id": string,"nome": string,"observacoes": string | null,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null,"ultimo_acesso_em": string | null,"visao_demandas": string
                   }
                   Insert: {
-                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email": string,"id": string,"nome": string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"visao_demandas"?: string
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email": string,"horario_acesso"?: Json | null,"id": string,"nome": string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"visao_demandas"?: string
                   }
                   Update: {
-                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email"?: string,"id"?: string,"nome"?: string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"visao_demandas"?: string
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email"?: string,"horario_acesso"?: Json | null,"id"?: string,"nome"?: string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"visao_demandas"?: string
                   }
                   Relationships: [
                     {
@@ -1006,8 +1006,17 @@ isOneToOne: false
 "excluir_cadastro_definitivo":
 { Args: { "p_id": string,"p_tipo": string }; Returns: undefined
                            },
+"exigir_acesso":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "exigir_arquivar":
 { Args: { "p_tipo": string }; Returns: string
+                           },
+"horario_permite":
+{ Args: { "p_quando"?: string,"p_usuario": string }; Returns: boolean
+                           },
+"horario_valido":
+{ Args: { "h": Json }; Returns: boolean
                            },
 "marcar_alerta_lido":
 { Args: { "p_alerta": string }; Returns: undefined
@@ -1035,6 +1044,9 @@ isOneToOne: false
                            },
 "permissoes_dos_niveis":
 { Args: { "n": Json }; Returns: (string)[]
+                           },
+"pode_acessar_agora":
+{ Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "pode_ser_responsavel":
 { Args: { "p_setor": string,"p_usuario": string }; Returns: boolean
@@ -1071,6 +1083,9 @@ isOneToOne: false
                            },
 "salvar_orientacao":
 { Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
+                           },
+"situacao_acesso":
+{ Args: Record<PropertyKey, never>; Returns: Json
                            },
 "somar_tempo_util":
 { Args: { "p_de": string,"p_tempo": string }; Returns: string
