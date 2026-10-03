@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { linhasCsvGastos } from './gastos-csv';
+import { describe, expect, it, vi } from 'vitest';
+import { LIMITE_EXPORTAR, lerTodasChamadas, linhasCsvGastos } from './gastos-csv';
 
 const linha = {
   id: '1', criado_em: '2026-09-26T13:05:00Z', funcionalidade: 'testar_agente', usuario_id: 'u', pessoa: 'Thiago', cliente_id: null, empresa: null,
@@ -43,5 +43,41 @@ describe('linhasCsvGastos', () => {
   });
   it('sem linhas: só o cabeçalho', () => {
     expect(linhasCsvGastos([], null).slice(1).trimEnd().split('\r\n')).toHaveLength(1);
+  });
+  it('no limite de 100.000 chamadas o corte aparece na última linha; abaixo dele, não', () => {
+    const cheio = Array.from({ length: LIMITE_EXPORTAR }, () => linha);
+    const linhas = linhasCsvGastos(cheio, null).slice(1).trimEnd().split('\r\n');
+    expect(linhas).toHaveLength(LIMITE_EXPORTAR + 2);
+    expect(linhas.at(-1)).toBe('Arquivo cortado em 100.000 chamadas. Escolha um período menor.');
+    expect(linhasCsvGastos(cheio.slice(1), null)).not.toContain('Arquivo cortado');
+  });
+});
+
+describe('lerTodasChamadas', () => {
+  const paginaDe = (total: number) => vi.fn(async (inicio: number, fim: number) => ({
+    data: Array.from({ length: Math.max(0, Math.min(fim, total - 1) - inicio + 1) }, (_, i) => ({ ...linha, id: String(inicio + i) })), error: null,
+  }));
+  it('pede de 1000 em 1000 até vir uma página incompleta', async () => {
+    const pagina = paginaDe(2205);
+    const r = await lerTodasChamadas(pagina);
+    expect(r.error).toBeNull();
+    expect(r.linhas).toHaveLength(2205);
+    expect(new Set(r.linhas.map((l) => l.id)).size).toBe(2205);
+    expect(pagina.mock.calls).toEqual([[0, 999], [1000, 1999], [2000, 2999]]);
+  });
+  it('múltiplo exato de 1000: uma página vazia encerra', async () => {
+    const pagina = paginaDe(2000);
+    expect((await lerTodasChamadas(pagina)).linhas).toHaveLength(2000);
+    expect(pagina).toHaveBeenCalledTimes(3);
+  });
+  it('para no limite de 100.000', async () => {
+    const pagina = paginaDe(150_000);
+    expect((await lerTodasChamadas(pagina)).linhas).toHaveLength(LIMITE_EXPORTAR);
+    expect(pagina).toHaveBeenCalledTimes(100);
+  });
+  it('erro numa página: devolve o erro (nada de arquivo pela metade)', async () => {
+    const pagina = vi.fn().mockResolvedValueOnce({ data: Array.from({ length: 1000 }, () => linha), error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: 'x' } });
+    expect(await lerTodasChamadas(pagina)).toEqual({ linhas: [], error: { message: 'x' } });
   });
 });

@@ -96,11 +96,14 @@ const paraData = (d: Data) => (d instanceof Date ? d : new Date(d));
 type Partes = Record<'day' | 'month' | 'year' | 'hour' | 'minute', string>;
 
 /** Partes da data em Brasília; data inválida → null (dado ruim não derruba a tela). */
+// Um formatador só: criar Intl.DateTimeFormat a cada data custa caro (o CSV de gastos formata até 100.000 datas).
+const FORMATADOR_PARTES = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: FUSO, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
 function partes(d: Date): Partes | null {
   if (Number.isNaN(d.getTime())) return null;
-  const p = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: FUSO, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).formatToParts(d);
+  const p = FORMATADOR_PARTES.formatToParts(d);
   const valor = (t: Intl.DateTimeFormatPartTypes) => p.find((x) => x.type === t)?.value ?? '';
   return { day: valor('day'), month: valor('month'), year: valor('year'), hour: valor('hour'), minute: valor('minute') };
 }

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { entrar } from './apoio';
+import { db, entrar } from './apoio';
 import { limparGastos, semearGastos } from './apoio-gastos';
 
 let dados: Awaited<ReturnType<typeof semearGastos>>;
@@ -128,4 +128,25 @@ test('Início: atendente não vê o cartão do gasto', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.getByText('Gasto com IA no mês')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Ver gastos' })).toHaveCount(0);
+});
+
+test('exportar mais de 1000 chamadas: o arquivo traz todas (páginas de 1000 do PostgREST)', async ({ page }) => {
+  // Março de 2021: nenhum outro teste olha esse período. Grupos de 5 no mesmo horário: a ordem desempata pelo id.
+  const extras = Array.from({ length: 1205 }, (_, i) => ({
+    modelo: 'e2e-gastos', provedor: 'anthropic', funcionalidade: 'agente_clientes', tokens_entrada: i + 1, tokens_saida: 0, custo_usd: 0.001,
+    criado_em: new Date(Date.UTC(2021, 2, 10, 12, Math.floor(i / 5))).toISOString(),
+  }));
+  const { error } = await db.from('uso_ia').insert(extras);
+  expect(error).toBeNull();
+  try {
+    await entrar(page, dados.admin.email, dados.admin.senha);
+    const resposta = await page.request.get('/gastos-ia/exportar?p=periodo&de=2021-03-01&ate=2021-03-31');
+    expect(resposta.status()).toBe(200);
+    const linhas = (await resposta.text()).trimEnd().split('\r\n');
+    expect(linhas).toHaveLength(1206);                                   // cabeçalho + 1205
+    expect(new Set(linhas.slice(1).map((l) => l.split(';')[6])).size).toBe(1205); // nenhuma repetida nem pulada
+    expect(linhas.at(-1)).not.toContain('Arquivo cortado');
+  } finally {
+    await db.from('uso_ia').delete().eq('modelo', 'e2e-gastos').lt('criado_em', '2022-01-01');
+  }
 });

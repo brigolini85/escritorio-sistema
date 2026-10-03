@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { lerPeriodo, lerPessoaAberta } from '@/lib/gastos';
-import { linhasCsvGastos, type LinhaChamada } from '@/lib/gastos-csv';
+import { lerTodasChamadas, linhasCsvGastos, type LinhaChamada } from '@/lib/gastos-csv';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
@@ -18,17 +18,22 @@ export async function GET(req: NextRequest) {
   const pessoa = q.has('pessoa') ? lerPessoaAberta(q.get('pessoa') ?? undefined) : null;
   if (q.has('pessoa') && !pessoa) return texto('Pessoa inválida.', 400);
   const sb = await supabaseServidor();
-  const [{ data, error }, { data: cfg }] = await Promise.all([
-    sb.rpc('gastos_chamadas', { p_de: periodo.de, p_ate: periodo.ate, p_usuario: pessoa ?? undefined, p_limite: 100000 }),
+  // O PostgREST corta cada resposta em max_rows (1000): páginas por .range; p_limite só até o fim da página pedida.
+  const [{ linhas, error }, { data: cfg }] = await Promise.all([
+    lerTodasChamadas(async (inicio, fim) => {
+      const r = await sb.rpc('gastos_chamadas', { p_de: periodo.de, p_ate: periodo.ate, p_usuario: pessoa ?? undefined, p_limite: fim + 1 }).range(inicio, fim);
+      return { data: r.data as LinhaChamada[] | null, error: r.error };
+    }),
     sb.from('configuracoes').select('cotacao_usd_brl').eq('id', 1).single(),
   ]);
   if (error) {
     if (error.message.includes('Só o administrador')) return texto(RECUSA, 403);
+    if (error.message.includes('Período inválido')) return texto('Período inválido.', 400);
     console.error('[gastos-ia/exportar]', error.message);
     return texto('Não consegui exportar agora. Tente de novo.', 500);
   }
   const cotacao = cfg?.cotacao_usd_brl ? Number(cfg.cotacao_usd_brl) : null;
-  const csv = linhasCsvGastos((data ?? []) as LinhaChamada[], cotacao);
+  const csv = linhasCsvGastos(linhas, cotacao);
   return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',

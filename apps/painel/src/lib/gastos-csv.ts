@@ -9,6 +9,29 @@ export type LinhaChamada = {
   tokens_cache_escrita: number; segundos_audio: number | null; custo_usd: number;
 };
 
+/** Teto do arquivo (P13): o mesmo limite que gastos_chamadas aceita. */
+export const LIMITE_EXPORTAR = 100_000;
+/** O PostgREST devolve no máximo max_rows (1000) por pedido, mesmo com p_limite maior: o arquivo é lido em páginas. */
+const POR_PAGINA = 1000;
+const AVISO_CORTE = 'Arquivo cortado em 100.000 chamadas. Escolha um período menor.';
+
+type Pagina = { data: LinhaChamada[] | null; error: { message: string } | null };
+/**
+ * Lê todas as chamadas do período em páginas [inicio, fim] (inclusive) até vir uma página incompleta ou chegar ao limite.
+ * A ordem da função (criado_em desc, id) é estável: páginas não pulam nem repetem linha. Erro numa página devolve só o erro.
+ */
+export async function lerTodasChamadas(pagina: (inicio: number, fim: number) => PromiseLike<Pagina>): Promise<{ linhas: LinhaChamada[]; error: { message: string } | null }> {
+  const linhas: LinhaChamada[] = [];
+  while (linhas.length < LIMITE_EXPORTAR) {
+    const inicio = linhas.length;
+    const { data, error } = await pagina(inicio, Math.min(inicio + POR_PAGINA, LIMITE_EXPORTAR) - 1);
+    if (error) return { linhas: [], error };
+    linhas.push(...(data ?? []));
+    if ((data ?? []).length < POR_PAGINA) break;
+  }
+  return { linhas: linhas.slice(0, LIMITE_EXPORTAR), error: null };
+}
+
 /** Célula do CSV: texto que começa com = + - @ (ou tab/CR) ganha ' na frente: a planilha não executa fórmula vinda do banco. */
 function campo(v: string | number | null): string {
   if (v === null || v === undefined) return '';
@@ -29,5 +52,7 @@ export function linhasCsvGastos(linhas: LinhaChamada[], cotacao: number | null):
     campo(Number(l.tokens_cache_leitura)), campo(Number(l.tokens_cache_escrita)), l.segundos_audio === null ? '' : decimal(Number(l.segundos_audio), 2),
     decimal(Number(l.custo_usd), 6), ...(comReais ? [decimal(Number(l.custo_usd) * cotacao, 2)] : []),
   ].join(';'));
-  return `﻿${[cab.join(';'), ...corpo].join('\r\n')}\r\n`;
+  // No limite pode haver mais chamadas no período: o corte fica escrito no arquivo, nunca em silêncio.
+  const corte = linhas.length >= LIMITE_EXPORTAR ? [AVISO_CORTE] : [];
+  return `﻿${[cab.join(';'), ...corpo, ...corte].join('\r\n')}\r\n`;
 }
