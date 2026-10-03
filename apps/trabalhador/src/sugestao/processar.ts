@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import { calcularCustoUsd, mesReferencia } from '@escritorio/core';
+import { calcularCustoUsd, mesReferencia, usoDaResposta } from '@escritorio/core';
 import { erroTemporarioIa } from '../agente/cliente-ia';
 import { carregarContextoAssistente, podeVerConversa } from '../assistente/contexto';
 import { novoEstado, type DepsAssistente } from '../assistente/ferramentas';
@@ -50,7 +50,7 @@ export async function processarSugestao(d: DepsAssistente, sugestaoId: string, u
     const ctx = await carregarContextoAssistente(repos, usuario, 'site', s.conversa_id, new Date());
     if (!ctx.conversa) return falhar(SUGESTAO_SEM_ACESSO);
     const estado: EstadoSugestao = { ...novoEstado(ctx), rascunho: null };
-    const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: montarSistemaSugestao(ctx) }];
+    const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: montarSistemaSugestao(ctx), cache_control: { type: 'ephemeral' } }];
     const messages: Anthropic.MessageParam[] = [{ role: 'user', content: 'Sugira a próxima resposta da equipe a este cliente.' }];
     const preco = config.precosModelos[config.modeloConversa] ?? { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
 
@@ -62,8 +62,8 @@ export async function processarSugestao(d: DepsAssistente, sugestaoId: string, u
         model: config.modeloConversa, max_tokens: 4000, system, tools: FERRAMENTAS_SUGESTAO, messages,
         ...(ultima ? { tool_choice: { type: 'tool' as const, name: ENTREGAR_RASCUNHO.name } } : {}),
       });
-      const uso = { entrada: r.usage.input_tokens, saida: r.usage.output_tokens, cacheLeitura: r.usage.cache_read_input_tokens ?? 0, cacheEscrita: r.usage.cache_creation_input_tokens ?? 0 };
-      await repos.registrarUsoIa({ conversaId: s.conversa_id, modelo: config.modeloConversa, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
+      const uso = usoDaResposta(r.usage);
+      await repos.registrarUsoIa({ funcionalidade: 'sugerir_resposta', usuarioId: s.usuario_id, conversaId: s.conversa_id, clienteId: ctx.conversa.empresa?.id ?? null, modelo: config.modeloConversa, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
         tokensCacheLeitura: uso.cacheLeitura, tokensCacheEscrita: uso.cacheEscrita, custoUsd: calcularCustoUsd(uso, preco) });
       const usos = r.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
       if (r.stop_reason !== 'tool_use' || usos.length === 0) {

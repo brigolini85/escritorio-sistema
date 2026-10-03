@@ -129,6 +129,14 @@ describe('processarAssistente: fila, entrega e registros', () => {
     expect(await repos.perguntasPendentes(dono, 'whatsapp', null)).toEqual([]);
   });
 
+  it('o bloco de sistema vai com cache_control (spec 7B.2)', async () => {
+    await repos.registrarMensagemAssistente({ usuarioId: dono, canal: 'site', conversaId: null, papel: 'usuario', conteudo: 'oi' });
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'ok' } }), fim()]);
+    await processarAssistente({ repos, ia, canal }, { usuarioId: dono, canal: 'site', conversaId: null, telefone: null }, true);
+    const sistema = ia.recebidos[0]!.system as { cache_control?: unknown }[];
+    expect(sistema.some((b) => JSON.stringify(b.cache_control) === '{"type":"ephemeral"}')).toBe(true);
+  });
+
   it('uso e decisões do assistente ficam sem conversa, mesmo com contexto de conversa', async () => {
     const { conversa } = await contatoComEmpresas(['Empresa Y'], '5531999990002');
     await repos.registrarMensagemAssistente({ usuarioId: dono, canal: 'site', conversaId: conversa.id, papel: 'usuario', conteudo: 'oi' });

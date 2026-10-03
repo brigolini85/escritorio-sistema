@@ -372,7 +372,8 @@ describe('processarSimulacao', () => {
 describe('reposDaSimulacao', () => {
   it('só leituras: gravações lançam erro, decisões não gravam e o uso da IA vai sem conversa', async () => {
     const conversa = { id: '00000000-0000-0000-0000-000000000001' } as never;
-    const r = reposDaSimulacao(repos, conversa, null);
+    const quemPediu = await criarUsuarioTeste({ email: 'repos-sim@gastos.local', permissoes: ['treinar_agente'] });
+    const r = reposDaSimulacao(repos, conversa, null, quemPediu);
     expect(() => r.abrirChamado({} as never)).toThrow('A simulação não grava nem envia nada');
     // Lista branca exata: nada herdado de Object.prototype passa.
     expect(() => (r as unknown as { toString: () => string }).toString()).toThrow('A simulação não grava nem envia nada');
@@ -380,10 +381,11 @@ describe('reposDaSimulacao', () => {
     expect(() => r.criarSaidaPendente({} as never)).toThrow();
     expect(() => r.atualizarConversa('x', {})).toThrow();
     await r.registrarDecisao({ conversaId: 'x', clienteId: null, etapa: 'responder', entrada: {}, saida: {} });
-    await r.registrarUsoIa({ conversaId: 'x', modelo: 'm', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd: 0.01 });
+    await r.registrarUsoIa({ funcionalidade: 'agente_clientes', usuarioId: null, conversaId: 'x', clienteId: 'x', modelo: 'm', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd: 0.01 });
     expect(await r.obterConversa('qualquer')).toBe(conversa);
     expect((await db.from('decisoes_agente').select('id')).data).toEqual([]);
-    expect((await db.from('uso_ia').select('conversa_id')).data).toEqual([{ conversa_id: null }]);
+    expect((await db.from('uso_ia').select('conversa_id, cliente_id, usuario_id, funcionalidade')).data)
+      .toEqual([{ conversa_id: null, cliente_id: null, usuario_id: quemPediu, funcionalidade: 'testar_agente' }]);
     expect((await r.setoresAtivos()).length).toBeGreaterThan(0);
   });
 });

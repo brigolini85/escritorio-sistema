@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type Anthropic from '@anthropic-ai/sdk';
-import { calcularCustoUsd } from '@escritorio/core';
+import { calcularCustoUsd, usoDaResposta } from '@escritorio/core';
 import type { ContextoAgente } from './contexto';
 import { FERRAMENTAS, executarFerramenta, type DepsAgente, type EstadoExecucao, type ExecutorFerramentas } from './ferramentas';
 import { LIMITE_ORIENTACOES } from './orientacoes';
@@ -14,14 +14,10 @@ export type ResultadoAgente = { status: 'ok' } | { status: 'escalar'; motivo: st
 
 async function registrarUso(d: DepsAgente, ctx: ContextoAgente, r: Anthropic.Message): Promise<void> {
   const preco = ctx.config.precosModelos[ctx.config.modeloConversa] ?? { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
-  const uso = {
-    entrada: r.usage.input_tokens,
-    saida: r.usage.output_tokens,
-    cacheLeitura: r.usage.cache_read_input_tokens ?? 0,
-    cacheEscrita: r.usage.cache_creation_input_tokens ?? 0,
-  };
+  const uso = usoDaResposta(r.usage);
+  // A simulação troca o repositório e grava como testar_agente (agente/simular.ts).
   await d.repos.registrarUsoIa({
-    conversaId: ctx.conversa.id, modelo: ctx.config.modeloConversa, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
+    funcionalidade: 'agente_clientes', usuarioId: null, conversaId: ctx.conversa.id, clienteId: ctx.empresaEmFoco?.id ?? null, modelo: ctx.config.modeloConversa, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
     tokensCacheLeitura: uso.cacheLeitura, tokensCacheEscrita: uso.cacheEscrita, custoUsd: calcularCustoUsd(uso, preco),
   });
 }

@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import type { FuncionalidadeIa } from '@escritorio/core';
+import type { FuncionalidadeGravavel } from '@escritorio/core';
 import type { Repos, SugestaoResposta } from '@escritorio/db';
 import type { CanalWhatsApp } from '../canal/tipos';
 import { FERRAMENTAS_ASSISTENTE, executarConsultaAssistente, falha, objeto, ok, type DepsAssistente, type EstadoAssistente, type Resultado } from '../assistente/ferramentas';
@@ -46,7 +46,7 @@ export function canalDaSugestao(): CanalWhatsApp {
   };
 }
 
-const FUNCIONALIDADE: FuncionalidadeIa = 'sugerir_resposta';
+const FUNCIONALIDADE: FuncionalidadeGravavel = 'sugerir_resposta';
 
 /** Repositório da sugestão: só leituras; o custo vai com a funcionalidade, a pessoa e a conversa (spec 3.1). */
 export function reposDaSugestao(repos: Repos, s: Pick<SugestaoResposta, 'usuario_id' | 'conversa_id'>): Repos {

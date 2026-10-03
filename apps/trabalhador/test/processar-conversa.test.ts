@@ -31,7 +31,7 @@ async function receber(conversaId: string, idProvedor: string, conteudo: string,
 }
 // Uso de IA gravado no mês do relógio do teste (o banco grava now(); sem isto o teste quebra quando o mês real muda).
 async function registrarUsoNoMesDoRelogio(custoUsd: number) {
-  await repos.registrarUsoIa({ conversaId: null, modelo: 'claude-sonnet-5', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd });
+  await repos.registrarUsoIa({ funcionalidade: 'testar_agente', usuarioId: null, conversaId: null, clienteId: null, modelo: 'claude-sonnet-5', tokensEntrada: 1, tokensSaida: 1, tokensCacheLeitura: 0, tokensCacheEscrita: 0, custoUsd });
   const { error } = await db.from('uso_ia').update({ criado_em: SEGUNDA_10H.toISOString() }).is('conversa_id', null);
   if (error) throw error;
 }

@@ -67,11 +67,13 @@ class PrazoEsgotado extends Error {}
  * Chamados da empresa: só os que a pessoa que pediu o teste vê no painel (admin: todos; os demais: setores dela e os que
  * ela é responsável), para o teste não mostrar chamados que ela não pode ler.
  */
-export function reposDaSimulacao(repos: Repos, conversa: Conversa, usuario: UsuarioAssistente | null): Repos {
+export function reposDaSimulacao(repos: Repos, conversa: Conversa, usuario: UsuarioAssistente | null, usuarioId: string): Repos {
   const liberados: Record<string, unknown> = {};
   for (const nome of LEITURAS_REPOS) liberados[nome] = (repos[nome] as (...a: unknown[]) => unknown).bind(repos);
   Object.assign(liberados, {
-    registrarUsoIa: (u: Parameters<Repos['registrarUsoIa']>[0]) => repos.registrarUsoIa({ ...u, conversaId: null }),
+    // Treino, não gasto do cliente (P7): quem pediu o teste, sem conversa e sem empresa.
+    registrarUsoIa: (u: Parameters<Repos['registrarUsoIa']>[0]) =>
+      repos.registrarUsoIa({ ...u, funcionalidade: 'testar_agente', usuarioId, conversaId: null, clienteId: null }),
     registrarDecisao: async () => {},
     ultimasOrientacoesCortadas: async () => null,
     obterConversa: async () => conversa,
@@ -359,7 +361,7 @@ async function simular(
     atendente_id: null, aviso_lgpd_enviado_em: agoraIso, tentativas_nao_entendido: 0, criado_em: agoraIso, atualizado_em: agoraIso,
     aguardando_pessoa_desde: null, motivo_pessoa: null, concluida_em: null,
   } satisfies Conversa;
-  const repos = reposDaSimulacao(d.repos, conversa, await d.repos.obterUsuarioAssistente(sim.usuario_id));
+  const repos = reposDaSimulacao(d.repos, conversa, await d.repos.obterUsuarioAssistente(sim.usuario_id), sim.usuario_id);
   const deps: DepsAgente = {
     repos,
     ia: iaComPrazo(d.ia, prazoEm),

@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import { calcularCustoUsd } from '@escritorio/core';
+import { calcularCustoUsd, usoDaResposta } from '@escritorio/core';
 import type { MensagemAssistente } from '@escritorio/db';
 import type { ContextoAssistente } from './contexto';
 import { FERRAMENTAS_ASSISTENTE, executarFerramentaAssistente, novoEstado, type DepsAssistente, type EstadoAssistente } from './ferramentas';
@@ -11,7 +11,7 @@ export const MENSAGEM_VAZIA = 'Não consegui concluir. Pode pedir de outro jeito
 
 export async function executarAssistente(d: DepsAssistente, ctx: ContextoAssistente, historico: MensagemAssistente[]): Promise<EstadoAssistente> {
   const estado = novoEstado(ctx);
-  const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: montarSistemaAssistente(ctx) }];
+  const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: montarSistemaAssistente(ctx), cache_control: { type: 'ephemeral' } }];
   const messages = mensagensDoHistorico(historico);
   const preco = ctx.config.precosModelos[ctx.config.modeloConversa] ?? { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
   let lembrado = false;
@@ -37,8 +37,10 @@ export async function executarAssistente(d: DepsAssistente, ctx: ContextoAssiste
 
   for (let i = 0; i < MAX_VOLTAS; i++) {
     const r = await d.ia.criar({ model: ctx.config.modeloConversa, max_tokens: 16000, system, tools: FERRAMENTAS_ASSISTENTE, messages, output_config: { effort: 'medium' } });
-    const uso = { entrada: r.usage.input_tokens, saida: r.usage.output_tokens, cacheLeitura: r.usage.cache_read_input_tokens ?? 0, cacheEscrita: r.usage.cache_creation_input_tokens ?? 0 };
-    await d.repos.registrarUsoIa({ conversaId: null, modelo: ctx.config.modeloConversa, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
+    const uso = usoDaResposta(r.usage);
+    // Uso da equipe (P6): a pessoa e o canal; nunca a conversa nem a empresa, mesmo aberto numa conversa.
+    await d.repos.registrarUsoIa({ funcionalidade: ctx.canal === 'whatsapp' ? 'assistente_whatsapp' : 'assistente_site', usuarioId: ctx.usuario.id,
+      conversaId: null, clienteId: null, modelo: ctx.config.modeloConversa, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
       tokensCacheLeitura: uso.cacheLeitura, tokensCacheEscrita: uso.cacheEscrita, custoUsd: calcularCustoUsd(uso, preco) });
     const blocosTexto = r.content.filter((b): b is Anthropic.TextBlock => b.type === 'text' && b.text.trim() !== '');
     const texto = blocosTexto.map((b) => b.text.trim()).join('\n');

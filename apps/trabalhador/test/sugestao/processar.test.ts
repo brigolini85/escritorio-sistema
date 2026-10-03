@@ -45,6 +45,14 @@ beforeEach(async () => {
 });
 
 describe('Sugerir resposta (spec 7A.1): só lê, nunca envia nem grava', () => {
+  it('o bloco de sistema vai com cache_control (spec 7B.2)', async () => {
+    const id = await novaSugestao();
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'entregar_rascunho', entrada: { texto: 'Oi!' } })]);
+    await processarSugestao({ repos, ia, canal }, id, true);
+    const sistema = ia.recebidos[0]!.system as { cache_control?: unknown }[];
+    expect(sistema.some((b) => JSON.stringify(b.cache_control) === '{"type":"ephemeral"}')).toBe(true);
+  });
+
   it('pronta: consulta, entrega o rascunho, grava só o resultado e o custo da pessoa', async () => {
     const id = await novaSugestao();
     const antes = await contagens();
