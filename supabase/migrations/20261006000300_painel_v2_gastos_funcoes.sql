@@ -12,16 +12,19 @@ begin
 end $$;
 revoke execute on function public.gastos_checar(timestamptz, timestamptz) from public, anon, authenticated;
 
--- Base interna: um atendimento por (conversa, dia, empresa). Passou para pessoa: resposta humana ou assumir no dia.
+-- Base interna: um atendimento por (conversa, dia), como no resumo. A empresa é a da chamada mais recente do dia que tem
+-- empresa (sem nenhuma, "sem empresa"): o mesmo atendimento não se divide entre empresas. Passou para pessoa: resposta
+-- humana ou assumir no dia.
 create function public.gastos_atendimentos_base(p_de timestamptz, p_ate timestamptz)
 returns table (conversa_id uuid, dia date, cliente_id uuid, custo_usd numeric, chamadas bigint, passou_para_pessoa boolean)
 language sql stable security definer set search_path = '' as $$
   with a as (
-    select u.conversa_id, (u.criado_em at time zone 'America/Sao_Paulo')::date as dia, u.cliente_id,
+    select u.conversa_id, (u.criado_em at time zone 'America/Sao_Paulo')::date as dia,
+           (array_agg(u.cliente_id order by u.criado_em desc, u.id desc) filter (where u.cliente_id is not null))[1] as cliente_id,
            sum(u.custo_usd) as custo_usd, count(*) as chamadas
     from public.uso_ia u
     where u.conversa_id is not null and u.criado_em >= p_de and u.criado_em < p_ate
-    group by 1, 2, 3
+    group by 1, 2
   )
   select a.conversa_id, a.dia, a.cliente_id, a.custo_usd, a.chamadas,
          exists (select 1 from public.mensagens m

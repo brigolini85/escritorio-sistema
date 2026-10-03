@@ -2,7 +2,7 @@
 -- "passou para pessoa" quando houve assumir ou resposta humana naquele dia.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(38);
 
 insert into auth.users (id, email) values
   ('fd000000-0000-0000-0000-00000000000a', 'admin@gastos3.local'),
@@ -41,6 +41,15 @@ insert into public.uso_ia (conversa_id, cliente_id, usuario_id, funcionalidade, 
   (null, null, 'fd000000-0000-0000-0000-00000000000a', 'testar_agente', 'claude-sonnet-5', 100, 10, 0, 0.90, null, 'anthropic', '2026-09-23 13:00-03'),
   (null, null, null, 'nao_identificado', 'claude-sonnet-5', 1, 1, 0, 0.04, null, 'anthropic', '2026-09-24 09:00-03');
 
+-- Revisão final (I2): conversa 3 em 10/08 com uma chamada da Mercado Central (10:00) e uma sem empresa depois (10:30):
+-- um atendimento só, da empresa da chamada mais recente que tem empresa.
+insert into public.conversas (id, telefone, contato_id) values ('f0000000-0000-0000-0000-000000000003', '5531955550003', null);
+insert into public.uso_ia (conversa_id, cliente_id, usuario_id, funcionalidade, modelo, tokens_entrada, tokens_saida, custo_usd, provedor, criado_em) values
+  ('f0000000-0000-0000-0000-000000000003', 'fe000000-0000-0000-0000-000000000002', null, 'agente_clientes', 'claude-sonnet-5', 100, 10, 0.07, 'anthropic', '2026-08-10 10:00-03'),
+  ('f0000000-0000-0000-0000-000000000003', null, null, 'transcricao_audio', 'whisper', 0, 0, 0.02, 'groq', '2026-08-10 10:30-03');
+create temp table p2 as select '2026-08-10 00:00-03'::timestamptz as de, '2026-08-11 00:00-03'::timestamptz as ate;
+grant select on p2 to authenticated;
+
 -- Período: 20/09 00:00 a 25/09 00:00 de Brasília (5 dias).
 create temp table p as select '2026-09-20 00:00-03'::timestamptz as de, '2026-09-25 00:00-03'::timestamptz as ate;
 grant select on p to authenticated;
@@ -61,6 +70,9 @@ select throws_ok($$ select public.gastos_resumo(de, ate) from p $$, 'P0001', 'S�
 
 -- 10: anon nem executa
 select ok(not has_function_privilege('anon', 'public.gastos_resumo(timestamptz, timestamptz)', 'execute'), 'anon sem execução');
+-- Revisão final (M4): as internas nem o authenticated executa (só as funções do administrador as chamam).
+select ok(not has_function_privilege('authenticated', 'public.gastos_checar(timestamptz, timestamptz)', 'execute'), 'authenticated sem execução de gastos_checar');
+select ok(not has_function_privilege('authenticated', 'public.gastos_atendimentos_base(timestamptz, timestamptz)', 'execute'), 'authenticated sem execução de gastos_atendimentos_base');
 
 -- 11–31: administrador
 select set_config('request.jwt.claims', '{"sub":"fd000000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
@@ -96,6 +108,17 @@ select results_eq($$ select dia, contato, mensagens, resultado from public.gasto
   'atendimentos: mensagens sem as do sistema; resposta humana ou assumir = passou para pessoa');
 select is((select count(*) from public.gastos_chamadas((select de from p), (select ate from p), p_usuario => 'fd000000-0000-0000-0000-00000000000b')), 2::bigint, 'chamadas de uma pessoa');
 select is((select count(*) from public.gastos_chamadas((select de from p), (select ate from p), p_limite => 3)), 3::bigint, 'limite');
+-- Revisão final (M4): busca que acha (sem diferença de maiúsculas) e filtro por funcionalidade.
+select results_eq($$ select nome, atendimentos from public.gastos_por_cliente((select de from p), (select ate from p), '  BOM preço ') $$,
+  $$ values ('Rede Bom Preço Ltda'::text, 4::bigint) $$, 'busca acha pelo nome, sem diferença de maiúsculas');
+select is((select count(*) from public.gastos_chamadas((select de from p), (select ate from p), p_funcionalidade => 'agente_clientes')), 4::bigint, 'chamadas de uma funcionalidade');
+-- Revisão final (I2): um atendimento por (conversa, dia); a empresa é a da chamada mais recente do dia que tem empresa.
+select results_eq($$ select nome, atendimentos, custo_usd from public.gastos_por_cliente((select de from p2), (select ate from p2)) $$,
+  $$ values ('Mercado Central'::text, 1::bigint, 0.09::numeric) $$, 'chamada sem empresa e chamada da empresa no mesmo dia = um atendimento da empresa');
+select is((select sum(atendimentos) from public.gastos_por_cliente((select de from p), (select ate from p))),
+  (select (public.gastos_resumo(de, ate) ->> 'atendimentos')::numeric from p), 'soma dos atendimentos por cliente = atendimentos do resumo');
+select is((select sum(atendimentos) from public.gastos_por_cliente((select de from p2), (select ate from p2))),
+  (select (public.gastos_resumo(de, ate) ->> 'atendimentos')::numeric from p2), 'soma por cliente = resumo, também com chamada sem empresa no dia');
 
 select * from finish();
 rollback;
