@@ -3,7 +3,7 @@ import { limparBanco } from '@escritorio/db/teste';
 import { CanalFalso } from '../src/canal/falso';
 import { LimitadorEnvio } from '../src/envio';
 import { criarArmazenamento } from '../src/midia/armazenamento';
-import { MSG_WHATSAPP_DESCONECTADO, alertaFila, batimento, inicioDoDiaSP, montarResumo, resumoDiario, type DepsTarefas } from '../src/tarefas';
+import { MSG_WHATSAPP_DESCONECTADO, alertaFila, alertaVencimento, batimento, inicioDoDiaSP, montarResumo, resumoDiario, type DepsTarefas } from '../src/tarefas';
 import { db, repos, setorId } from './apoio/cenario';
 import { EmailFalso } from './apoio/email-falso';
 import { FilaFalsa } from './apoio/fila-falsa';
@@ -11,7 +11,7 @@ import { criarUsuarioTeste } from './apoio/usuario';
 
 let canal: CanalFalso;
 let email: EmailFalso;
-let alertados: { nivel: string; mensagem: string; setorId?: string | null }[];
+let alertados: { nivel: string; mensagem: string; setorId?: string | null; usuarioId?: string | null }[];
 
 let fila: FilaFalsa;
 
@@ -80,7 +80,46 @@ describe('alertaFila', () => {
     expect(await alertaFila(deps())).toBe(1);
     expect(await alertaFila(deps())).toBe(0);
     expect(alertados[0]).toMatchObject({ nivel: 'aviso', setorId: fiscal });
-    expect(alertados[0]!.mensagem).toContain('Guia DAS');
+    expect(alertados[0]!.mensagem).toMatch(/^Demanda #\d+ "Guia DAS" está sem responsável há mais de 5 minutos\.$/);
+  });
+});
+
+describe('alertaVencimento', () => {
+  const ontem = () => new Date(Date.now() - 24 * 3600_000).toISOString();
+  async function demanda(titulo: string, extra: object = {}) {
+    const fiscal = await setorId('Fiscal');
+    const { data } = await db.from('chamados').insert({ setor_id: fiscal, titulo, prazo_em: ontem(), ...extra }).select('id, numero').single();
+    return { id: data!.id, numero: Number(data!.numero), fiscal };
+  }
+
+  it('avisa o responsável, ou o setor sem responsável, uma vez por prazo; pausada e concluída não vencem', async () => {
+    const ana = await criarUsuarioTeste({ email: 'ana@teste-vencimento.local', nome: 'Ana', papel: 'atendente', setores: ['Fiscal'] });
+    const comAna = await demanda('Guia DAS', { responsavel_id: ana });
+    const semNinguem = await demanda('Certidão');
+    await demanda('Pausada', { status: 'aguardando_cliente' });
+    await demanda('Concluída', { status: 'concluido' });
+    await db.from('chamados').insert({ setor_id: comAna.fiscal, titulo: 'No prazo' });
+    expect(await alertaVencimento(deps())).toBe(2);
+    expect(alertados).toEqual(expect.arrayContaining([
+      { nivel: 'aviso', usuarioId: ana, setorId: null, mensagem: `Demanda #${comAna.numero} "Guia DAS" venceu o prazo.` },
+      { nivel: 'aviso', usuarioId: null, setorId: comAna.fiscal, mensagem: `Demanda #${semNinguem.numero} "Certidão" venceu o prazo.` },
+    ]));
+    expect(await alertaVencimento(deps())).toBe(0);
+  });
+
+  it('prazo novo libera um aviso novo', async () => {
+    const d = await demanda('Guia DAS');
+    expect(await alertaVencimento(deps())).toBe(1);
+    await db.from('chamados').update({ prazo_em: new Date(Date.now() - 3600_000).toISOString() }).eq('id', d.id);
+    expect(await alertaVencimento(deps())).toBe(1);
+  });
+
+  it('responsável arquivado: o aviso vai para o setor', async () => {
+    const ze = await criarUsuarioTeste({ email: 'ze@teste-vencimento.local', nome: 'Zé', papel: 'atendente', setores: ['Fiscal'] });
+    const d = await demanda('Guia DAS', { responsavel_id: ze });
+    await db.from('usuarios').update({ ativo: false }).eq('id', ze);
+    await alertaVencimento(deps());
+    expect(alertados).toEqual([{ nivel: 'aviso', usuarioId: null, setorId: d.fiscal, mensagem: `Demanda #${d.numero} "Guia DAS" venceu o prazo.` }]);
   });
 });
 

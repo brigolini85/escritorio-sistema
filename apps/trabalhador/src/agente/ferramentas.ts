@@ -179,7 +179,7 @@ const Entradas = {
   selecionar_empresa: z.object({ cliente_id: z.string() }),
   abrir_chamado: z.object({
     setor_id: z.string(), titulo: z.string().min(3).max(120), resumo: z.string().min(1).max(4000), fora_do_contrato: z.boolean(),
-    prioridade: z.enum(PRIORIDADES).default('normal'),
+    prioridade: z.enum(PRIORIDADES).catch('normal'),
   }),
   consultar_chamados: z.object({}),
   sinalizar_nao_entendido: z.object({}),
@@ -187,7 +187,7 @@ const Entradas = {
   buscar_produtos: z.object({ textos: z.array(z.string().min(1).max(200)).min(1).max(30) }),
   resumir_pedido_nota: PedidoNota,
   abrir_pedido_nota: PedidoNota.extend({
-    pedido_original: z.string().min(1).max(4000), cliente_confirmou_resumo: z.boolean(), prioridade: z.enum(PRIORIDADES).default('normal'),
+    pedido_original: z.string().min(1).max(4000), cliente_confirmou_resumo: z.boolean(), prioridade: z.enum(PRIORIDADES).catch('normal'),
   }),
   listar_documentos: z.object({}),
   enviar_documento: z.object({ documento_id: z.string() }),

@@ -36,11 +36,26 @@ export async function alertaFila(d: DepsTarefas): Promise<number> {
   for (const c of chamados) {
     await d.alertas.alertar({
       nivel: 'aviso', setorId: c.setor_id,
-      mensagem: `Chamado #${c.numero} "${c.titulo}" está sem responsável há mais de ${cfg.minutosAlertaFila} minutos.`,
+      mensagem: `Demanda #${c.numero} "${c.titulo}" está sem responsável há mais de ${cfg.minutosAlertaFila} minutos.`,
     });
   }
   await d.repos.marcarAlertadoFila(chamados.map((c) => c.id));
   return chamados.length;
+}
+
+/** Demanda vencida: avisa o responsável (sem responsável, o setor), uma vez por prazo (spec 6.5). */
+export async function alertaVencimento(d: DepsTarefas): Promise<number> {
+  const vencidas = await d.repos.demandasVencidasParaAlertar(d.relogio());
+  for (const c of vencidas) {
+    await d.alertas.alertar({
+      nivel: 'aviso',
+      usuarioId: c.responsavelId,
+      setorId: c.responsavelId ? null : c.setorId,
+      mensagem: `Demanda #${c.numero} "${c.titulo}" venceu o prazo.`,
+    });
+  }
+  await d.repos.marcarAlertadoVencimento(vencidas.map((c) => c.id));
+  return vencidas.length;
 }
 
 export function inicioDoDiaSP(agora: Date): Date {

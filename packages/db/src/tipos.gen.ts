@@ -25,13 +25,13 @@ export type Database = {
           Tables: {
             "alertas": {
                   Row: {
-                    "criado_em": string,"id": string,"lido_em": string | null,"mensagem": string,"nivel": string,"setor_id": string | null
+                    "criado_em": string,"id": string,"lido_em": string | null,"mensagem": string,"nivel": string,"setor_id": string | null,"usuario_id": string | null
                   }
                   Insert: {
-                    "criado_em"?: string,"id"?: string,"lido_em"?: string | null,"mensagem": string,"nivel": string,"setor_id"?: string | null
+                    "criado_em"?: string,"id"?: string,"lido_em"?: string | null,"mensagem": string,"nivel": string,"setor_id"?: string | null,"usuario_id"?: string | null
                   }
                   Update: {
-                    "criado_em"?: string,"id"?: string,"lido_em"?: string | null,"mensagem"?: string,"nivel"?: string,"setor_id"?: string | null
+                    "criado_em"?: string,"id"?: string,"lido_em"?: string | null,"mensagem"?: string,"nivel"?: string,"setor_id"?: string | null,"usuario_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -39,6 +39,12 @@ export type Database = {
       columns: ["setor_id"]
 isOneToOne: false
       referencedRelation: "setores"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "alertas_usuario_id_fkey"
+      columns: ["usuario_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
       referencedColumns: ["id"]
     }
                   ]

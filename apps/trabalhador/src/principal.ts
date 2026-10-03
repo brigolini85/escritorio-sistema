@@ -14,7 +14,7 @@ import { criarTranscritor } from './midia/transcritor';
 import { processarConversa } from './processar-conversa';
 import { limparRetencao } from './retencao';
 import { criarServidor } from './servidor';
-import { alertaFila, batimento, resumoDiario } from './tarefas';
+import { alertaFila, alertaVencimento, batimento, resumoDiario } from './tarefas';
 
 const FUSO = { tz: 'America/Sao_Paulo' };
 
@@ -62,7 +62,8 @@ async function principal() {
     await verificarEnviadaPorMim(envio, job!.data);
   });
   await boss.work(FILAS.batimento, async () => batimento(depsTarefas));
-  await boss.work(FILAS.alertaFila, async () => { await alertaFila(depsTarefas); });
+  // A cada 5 minutos: demanda sem responsável e demanda vencida.
+  await boss.work(FILAS.alertaFila, async () => { await alertaFila(depsTarefas); await alertaVencimento(depsTarefas); });
   await boss.work(FILAS.resumoDiario, async () => resumoDiario(depsTarefas));
   await boss.schedule(FILAS.batimento, '* * * * *');
   await boss.schedule(FILAS.alertaFila, '*/5 * * * *');

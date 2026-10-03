@@ -82,6 +82,12 @@ describe('pedido de nota: resumo para o cliente e demanda no Fiscal', () => {
     expect(data!.every((c) => c.prazo_em !== null)).toBe(true);
   });
 
+  it('prioridade inválida do modelo na nota cai para normal', async () => {
+    await usar('resumir_pedido_nota', base());
+    expect((await abrir({ prioridade: 'enorme' }))._erro).toBe(false);
+    expect((await db.from('chamados').select('prioridade').single()).data!.prioridade).toBe('normal');
+  });
+
   /** O cliente confere o resumo e confirma: só então a demanda abre. */
   const conferirEAbrir = async (extra: object = {}) => {
     const r = await usar('resumir_pedido_nota', base(extra));

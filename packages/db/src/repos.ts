@@ -349,8 +349,8 @@ export function criarRepos(db: Db) {
       return linhas.map((l) => l.servicos?.nome).filter((n): n is string => Boolean(n));
     },
 
-    async registrarAlerta(a: { nivel: 'critico' | 'operacional' | 'aviso'; mensagem: string; setorId?: string | null }): Promise<void> {
-      checar(await db.from('alertas').insert({ nivel: a.nivel, mensagem: a.mensagem, setor_id: a.setorId ?? null }), 'registrarAlerta');
+    async registrarAlerta(a: { nivel: 'critico' | 'operacional' | 'aviso'; mensagem: string; setorId?: string | null; usuarioId?: string | null }): Promise<void> {
+      checar(await db.from('alertas').insert({ nivel: a.nivel, mensagem: a.mensagem, setor_id: a.setorId ?? null, usuario_id: a.usuarioId ?? null }), 'registrarAlerta');
     },
 
     async alertaRecente(mensagem: string, minutos: number): Promise<boolean> {
@@ -392,6 +392,23 @@ export function criarRepos(db: Db) {
     async marcarAlertadoFila(ids: string[]): Promise<void> {
       if (ids.length === 0) return;
       checar(await db.from('chamados').update({ alertado_fila_em: new Date().toISOString() }).in('id', ids), 'marcarAlertadoFila');
+    },
+
+    /** Demandas que passaram do prazo e ainda não foram avisadas. Pausadas em "Com o cliente" não vencem (spec 6.5). */
+    async demandasVencidasParaAlertar(agora: Date): Promise<{ id: string; numero: number; titulo: string; setorId: string | null; responsavelId: string | null }[]> {
+      const linhas = checar(await db.from('chamados').select('id, numero, titulo, setor_id, responsavel_id, usuarios(ativo)')
+        .neq('status', 'concluido').is('prazo_pausado_desde', null).is('alertado_vencimento_em', null)
+        .lt('prazo_em', agora.toISOString()), 'demandasVencidasParaAlertar');
+      // Responsável arquivado não entra mais no painel: o aviso vai para o setor.
+      return linhas.map((c) => ({
+        id: c.id, numero: Number(c.numero), titulo: c.titulo, setorId: c.setor_id,
+        responsavelId: c.responsavel_id && c.usuarios?.ativo ? c.responsavel_id : null,
+      }));
+    },
+
+    async marcarAlertadoVencimento(ids: string[]): Promise<void> {
+      if (ids.length === 0) return;
+      checar(await db.from('chamados').update({ alertado_vencimento_em: new Date().toISOString() }).in('id', ids), 'marcarAlertadoVencimento');
     },
 
     /** Com `incluirInativos`, traz também unidades e redes desativadas (para descrever um pedido que já as usa). */

@@ -5,7 +5,8 @@ import { enviarDoSistema, type DepsEnvio } from './envio';
 export type NivelAlerta = 'critico' | 'operacional' | 'aviso';
 
 export interface Alertas {
-  alertar(a: { nivel: NivelAlerta; mensagem: string; setorId?: string | null }): Promise<void>;
+  /** usuarioId: só aquela pessoa (e o administrador) vê no Início; sem ela, o setor. */
+  alertar(a: { nivel: NivelAlerta; mensagem: string; setorId?: string | null; usuarioId?: string | null }): Promise<void>;
 }
 
 export function criarAlertas(d: { repos: Repos; email: Email; envio: DepsEnvio }): Alertas {

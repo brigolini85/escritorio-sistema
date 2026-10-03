@@ -54,6 +54,20 @@ describe('executarAgente', () => {
     expect((await db.from('chamados').select('prioridade').single()).data!.prioridade).toBe('normal');
   });
 
+  it('prioridade inválida ou nula do modelo cai para normal, nas duas ferramentas de demanda', async () => {
+    for (const prioridade of ['enorme', null]) {
+      await limparBanco();
+      const { conversa } = await contatoComEmpresas(['Indústria X']);
+      const ia = new IaRoteirizada([
+        usarFerramentas({ nome: 'abrir_chamado', entrada: { setor_id: await setorId('Fiscal'), titulo: 'Guia DAS', resumo: 'x', fora_do_contrato: false, prioridade } }),
+        usarFerramentas({ nome: 'responder', entrada: { texto: 'Já passei para a equipe.' } }),
+        fim(),
+      ]);
+      await executarAgente(deps(ia), await contexto(conversa.id), conteudo);
+      expect((await db.from('chamados').select('prioridade').single()).data!.prioridade).toBe('normal');
+    }
+  });
+
   it('responde uma saudação e registra uso e decisão', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Olá, João! Como posso ajudar?' } }), fim()]);
