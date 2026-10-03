@@ -145,12 +145,12 @@ export default async function Inicio() {
         <h2 id="numeros-do-dia" className="text-lg font-semibold text-foreground">Números do dia</h2>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Numero
-            titulo="Conversas aguardando humano"
+            titulo="Esperando você"
             valor={aguardando}
             destaque={(aguardando ?? 0) > 0 ? 'atencao' : undefined}
             // "Atendimento: Sem acesso" (Parte D): a tela não abre, então o atalho não aparece.
             rodape={temNivel(u, 'atendimento', 'meus_setores')
-              ? <Link href="/atendimento?filtro=sem_responsavel" className="text-brand underline-offset-4 hover:underline">Ver no Atendimento</Link>
+              ? <Link href="/atendimento" className="text-brand underline-offset-4 hover:underline">Ver no Atendimento</Link>
               : undefined}
           />
           <Numero titulo="Demandas abertas" valor={abertas}>

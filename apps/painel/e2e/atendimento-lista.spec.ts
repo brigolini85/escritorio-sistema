@@ -50,6 +50,9 @@ test('grupos, ordem por espera, cronômetro colorido, não lidas e o título "es
   // Não lidas: 3 na Carla (nenhuma resposta ainda, P8). Zerar ao abrir é da Task 10.
   const itemCarla = page.locator(`a[href^="/atendimento/${carla}"]`);
   await expect(itemCarla.getByLabel('3 mensagens não lidas')).toBeVisible();
+  // O número do cartão do Início é o mesmo do título do Atendimento (P2).
+  await page.goto('/inicio');
+  await expect(page.getByText('Esperando você', { exact: true }).locator('xpath=following-sibling::p[1]')).toHaveText('2', { timeout: 30_000 });
 });
 
 test('o menu abre recolhido no Atendimento sem mudar a preferência; J/K continuam', async ({ page }) => {

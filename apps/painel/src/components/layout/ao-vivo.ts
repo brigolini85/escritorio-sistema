@@ -36,7 +36,7 @@ export function useAoVivo(inicial: { contadores: Contadores; estadoAgente: Estad
   const avisarSeNova = (antes: number | null, depois: number | null) => {
     if (!deveAvisarNovaConversa(antes, depois, Date.now() - ultimaAcao.current)) return;
     toast('Nova conversa aguardando atendimento', {
-      action: { label: 'Abrir', onClick: () => router.push('/atendimento?filtro=sem_responsavel') },
+      action: { label: 'Abrir', onClick: () => router.push('/atendimento') },
     });
   };
 
