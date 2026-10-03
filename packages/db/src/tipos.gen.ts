@@ -255,13 +255,13 @@ isOneToOne: false
                   ]
                 },"configuracoes": {
                   Row: {
-                    "agente_pausado": boolean,"alerta_ia_80_mes": string | null,"aviso_login": string,"cotacao_usd_brl": number | null,"custo_minuto_transcricao_usd": number | null,"dias_uteis": (number)[],"email_alertas": string | null,"espera_ambar_min": number,"espera_verde_min": number,"horario_fim": string,"horario_inicio": string,"id": number,"mensagens": NonNullable<Json>,"minutos_alerta_fila": number,"modelo_conversa": string,"modelo_rapido": string,"prazo_alta_dias": number,"prazo_baixa_dias": number,"prazo_normal_dias": number,"prazo_urgente_dias": number,"precos_modelos": NonNullable<Json>,"telefone_dono": string | null,"teto_ia_usd": number
+                    "agente_pausado": boolean,"alerta_ia_80_mes": string | null,"aviso_login": string,"cargos": (string)[],"cotacao_usd_brl": number | null,"custo_minuto_transcricao_usd": number | null,"dias_uteis": (number)[],"email_alertas": string | null,"espera_ambar_min": number,"espera_verde_min": number,"horario_fim": string,"horario_inicio": string,"id": number,"mensagens": NonNullable<Json>,"minutos_alerta_fila": number,"modelo_conversa": string,"modelo_rapido": string,"prazo_alta_dias": number,"prazo_baixa_dias": number,"prazo_normal_dias": number,"prazo_urgente_dias": number,"precos_modelos": NonNullable<Json>,"telefone_dono": string | null,"teto_ia_usd": number
                   }
                   Insert: {
-                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
+                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"cargos"?: (string)[],"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
                   }
                   Update: {
-                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
+                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"cargos"?: (string)[],"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
                   }
                   Relationships: [
                     
@@ -1017,6 +1017,9 @@ isOneToOne: false
 "anonimizar_contato":
 { Args: { "p_contato": string }; Returns: (string)[]
                            },
+"aplicar_prazo_abertas":
+{ Args: { "p_dias": number,"p_prioridade": Database["public"]['Enums']["prioridade_demanda"] }; Returns: number
+                           },
 "arquivar_cadastro":
 { Args: { "p_id": string,"p_tipo": string }; Returns: undefined
                            },
@@ -1037,6 +1040,12 @@ isOneToOne: false
                            },
 "calcular_prazo":
 { Args: { "p_inicio"?: string,"p_prioridade": Database["public"]['Enums']["prioridade_demanda"] }; Returns: string
+                           },
+"calcular_prazo_dias":
+{ Args: { "p_dias": number,"p_inicio": string }; Returns: string
+                           },
+"cargos_validos":
+{ Args: { "p": (string)[] }; Returns: boolean
                            },
 "concluir_chamado":
 { Args: { "p_chamado": string }; Returns: undefined
@@ -1110,8 +1119,14 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"deslocar_dias_uteis":
+{ Args: { "p_dias": number,"p_prazo": string }; Returns: string
+                           },
 "devolver_ao_agente":
 { Args: { "p_conversa": string }; Returns: undefined
+                           },
+"dia_util_anterior":
+{ Args: { "p_dia": string }; Returns: string
                            },
 "editar_demanda":
 { Args: { "p_chamado": string,"p_contato"?: string,"p_descricao": string,"p_titulo": string }; Returns: undefined
@@ -1249,6 +1264,12 @@ isOneToOne: false
 "pode_ver_conversa_de":
 { Args: { "p_conversa": string,"p_usuario": string }; Returns: boolean
                            },
+"prazo_segue_regra":
+{ Args: { "p_chamado": string }; Returns: boolean
+                           },
+"prazos_resumo":
+{ Args: { "p_inicio"?: string }; Returns: Json
+                           },
 "proximo_dia_util":
 { Args: { "p_dia": string }; Returns: string
                            },
@@ -1272,6 +1293,9 @@ isOneToOne: false
                            },
 "salvar_usuario":
 { Args: { "p_dados": Json,"p_id": string }; Returns: undefined
+                           },
+"simular_mudanca_prazo":
+{ Args: { "p_dias": number,"p_prioridade": Database["public"]['Enums']["prioridade_demanda"] }; Returns: Json
                            },
 "situacao_acesso":
 { Args: Record<PropertyKey, never>; Returns: Json
