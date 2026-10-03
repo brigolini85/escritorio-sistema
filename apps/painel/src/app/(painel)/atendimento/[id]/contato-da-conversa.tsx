@@ -2,7 +2,7 @@ import { Bot, CirclePause, UserRoundPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato, cadastrarContatoDaConversa } from '../acoes';
-import { FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
+import { BotaoCadastrarContato, FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
 
 const campo = 'mt-1 h-8 w-full rounded-md border border-input bg-surface px-2 text-base text-foreground shadow-sm';
 
@@ -54,7 +54,7 @@ export async function ContatoDaConversa({ conversaId, contato, pode }: {
           </label>
           <label className="flex items-center gap-2"><input type="checkbox" name="pode_pedir_nota" className="size-4 accent-brand" /> Pode pedir nota</label>
           <label className="flex items-center gap-2"><input type="checkbox" name="agente_atende" defaultChecked className="size-4 accent-brand" /> O agente atende este contato</label>
-          <Button size="sm" className="self-start">Cadastrar contato</Button>
+          <BotaoCadastrarContato size="sm" className="self-start">Cadastrar contato</BotaoCadastrarContato>
         </FormCadastroContato>
       )}
     </div>

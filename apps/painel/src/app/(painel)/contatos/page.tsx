@@ -9,8 +9,8 @@ import { FilterBar } from '@/components/patterns/filter-bar';
 import { LinkArquivados, TelaArquivados } from '@/components/patterns/lista-arquivados';
 import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
 import { SwitchAgenteContato } from '@/components/patterns/switch-agente-contato';
-import { Button, variantesBotao } from '@/components/ui/button';
-import { FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
+import { variantesBotao } from '@/components/ui/button';
+import { BotaoCadastrarContato, FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { contarArquivados } from '@/lib/arquivados';
@@ -192,7 +192,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
                 <input type="checkbox" name="agente_atende" defaultChecked className="size-4 shrink-0 accent-brand" />
                 O agente atende
               </label>
-              <Button type="submit" size="sm" className="sm:ml-auto">Cadastrar contato</Button>
+              <BotaoCadastrarContato size="sm" className="sm:ml-auto">Cadastrar contato</BotaoCadastrarContato>
             </CardContent>
           </FormCadastroContato>
         </Card>

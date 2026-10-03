@@ -10,7 +10,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato } from '../../atendimento/acoes';
 import { adicionarContato, anonimizarContato, removerContato, vincularContatoExistente } from '../acoes';
 import { classeCaixa, classeSelect } from '../estilos';
-import { FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
+import { BotaoCadastrarContato, FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
 import { LinhaContato } from './linha-contato';
 
 /**
@@ -85,7 +85,7 @@ export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPai
                 <label className="flex items-center gap-2 text-base text-foreground"><input type="checkbox" name="pode_pedir_nota" className={classeCaixa} />Pode pedir nota</label>
                 <label className="flex items-center gap-2 text-base text-foreground"><input type="checkbox" name="pode_atualizar_preco" className={classeCaixa} />Pode mudar preço e cadastrar produto</label>
               </CardContent>
-              <div className="flex justify-end border-t border-border px-4 py-3"><Button type="submit" size="sm">Adicionar contato</Button></div>
+              <div className="flex justify-end border-t border-border px-4 py-3"><BotaoCadastrarContato size="sm">Adicionar contato</BotaoCadastrarContato></div>
             </FormCadastroContato>
           </Card>
 

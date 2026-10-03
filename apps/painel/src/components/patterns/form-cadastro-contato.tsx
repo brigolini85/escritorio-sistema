@@ -1,14 +1,23 @@
 'use client';
 
 import { unstable_rethrow } from 'next/navigation';
-import { useId, useRef, useState, useTransition, type FormEvent, type ReactNode } from 'react';
+import { createContext, useContext, useId, useRef, useState, useTransition, type ComponentProps, type FormEvent, type ReactNode } from 'react';
 import { toast } from '@/components/ui/toaster';
 import { marcacoesDoVinculo, TEXTO_LGPD, type ConsultaContatoArquivado } from '@/lib/contato-arquivado';
 import { consultarContatoArquivado } from '@/lib/contato-arquivado-acoes';
 import { ConfirmDialog } from './confirm-dialog';
+import { BotaoSalvar } from './formulario-alteravel';
 
 type Pergunta = Extract<ConsultaContatoArquivado, { situacao: 'arquivado' }>;
 const FALHA = 'Não consegui conferir o telefone agora. Tente de novo.';
+
+/** Diz aos botões do formulário que o telefone está sendo conferido (o botão vem de páginas de servidor, como filho). */
+export const ContextoCadastroContato = createContext({ verificando: false });
+
+/** Botão de enviar do cadastro de contato: trava e mostra o ícone girando enquanto o telefone é conferido. */
+export function BotaoCadastrarContato(props: Omit<ComponentProps<typeof BotaoSalvar>, 'enviando'>) {
+  return <BotaoSalvar {...props} enviando={useContext(ContextoCadastroContato).verificando} />;
+}
 
 /**
  * Formulário que cadastra contato (aba Contatos, ficha da empresa e conversa). Antes de enviar, confere se o telefone
@@ -28,7 +37,8 @@ export function FormCadastroContato({ action, clienteId, conversaId, className, 
   const [pergunta, setPergunta] = useState<Pergunta | null>(null);
   const [aberto, setAberto] = useState(false);
   const seguir = useRef(false);
-  const [, iniciar] = useTransition();
+  // Conferir o telefone pode demorar: o pending trava o botão e barra o segundo envio.
+  const [verificando, iniciar] = useTransition();
 
   const aoEnviar = (e: FormEvent<HTMLFormElement>) => {
     // Envio que já passou pela conferência (ou o "Trazer de volta" da janela): segue para a ação.
@@ -37,6 +47,7 @@ export function FormCadastroContato({ action, clienteId, conversaId, className, 
       return;
     }
     e.preventDefault();
+    if (verificando) return;
     const form = e.currentTarget;
     const dados = new FormData(form);
     iniciar(async () => {
@@ -65,7 +76,9 @@ export function FormCadastroContato({ action, clienteId, conversaId, className, 
 
   return (
     <>
-      <form id={id} action={action} onSubmit={aoEnviar} className={className}>{children}</form>
+      <form id={id} action={action} onSubmit={aoEnviar} className={className}>
+        <ContextoCadastroContato.Provider value={{ verificando }}>{children}</ContextoCadastroContato.Provider>
+      </form>
       {pergunta && (
         <ConfirmDialog
           aberto={aberto}
