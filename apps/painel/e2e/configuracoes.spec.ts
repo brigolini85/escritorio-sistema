@@ -79,3 +79,35 @@ test('administrador muda o prazo de uma prioridade em Configurações › Prazos
   await expect.poll(async () => (await db.from('configuracoes').select('prazo_normal_dias').eq('id', 1).single()).data?.prazo_normal_dias).toBe(3);
   await db.from('configuracoes').update({ prazo_normal_dias: 2 }).eq('id', 1);
 });
+
+test('administrador salva a cotação do dólar e o custo por minuto em Configurações › Teto de IA', async ({ page }) => {
+  await db.from('configuracoes').update({ cotacao_usd_brl: null, custo_minuto_transcricao_usd: null }).eq('id', 1);
+  await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
+  try {
+    await entrar(page, 'admin@teste.com', 'senha-forte-123');
+    await page.goto('/configuracoes#teto-ia');
+    const secao = page.getByRole('region', { name: 'Teto de IA e alertas' });
+    await expect(secao).toBeVisible({ timeout: 30_000 });
+    await expect(secao.getByRole('link', { name: 'Ver gastos com IA' })).toHaveAttribute('href', '/gastos-ia');
+    await secao.getByLabel('Cotação do dólar (R$ por US$ 1)').fill('5,55');
+    await secao.getByLabel('Custo por minuto da transcrição de áudio (US$)').fill('0,000667');
+    await secao.getByRole('button', { name: 'Salvar' }).click();
+    await expect.poll(async () => (await db.from('configuracoes').select('cotacao_usd_brl').eq('id', 1).single()).data?.cotacao_usd_brl).toBe(5.55);
+    expect((await db.from('configuracoes').select('custo_minuto_transcricao_usd').eq('id', 1).single()).data?.custo_minuto_transcricao_usd).toBe(0.000667);
+    await page.reload();
+    await expect(page.getByLabel('Cotação do dólar (R$ por US$ 1)')).toHaveValue('5,55', { timeout: 30_000 });
+    await expect(page.getByLabel('Custo por minuto da transcrição de áudio (US$)')).toHaveValue('0,000667');
+  } finally {
+    await db.from('configuracoes').update({ cotacao_usd_brl: null, custo_minuto_transcricao_usd: null }).eq('id', 1);
+  }
+});
+
+test('Configurações "Sim" sem ser administrador: não vê a cotação nem o custo por minuto', async ({ page }) => {
+  const ana = await criarUsuarioTeste({ email: 'ana-cotacao@e2e.local', senha: 'senha-forte-123', nome: 'Ana Cotação', papel: 'atendente', setores: ['Fiscal'] });
+  await db.from('usuario_permissoes').update({ nivel: 'sim' }).eq('usuario_id', ana).eq('modulo', 'configuracoes');
+  await entrar(page, 'ana-cotacao@e2e.local', 'senha-forte-123');
+  await page.goto('/configuracoes');
+  await expect(page.getByRole('heading', { name: 'Expediente' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel('Cotação do dólar (R$ por US$ 1)')).toHaveCount(0);
+  await expect(page.getByLabel('Custo por minuto da transcrição de áudio (US$)')).toHaveCount(0);
+});

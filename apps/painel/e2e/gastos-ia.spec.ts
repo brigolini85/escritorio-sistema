@@ -77,3 +77,55 @@ test('gastos por cliente: abrir a empresa mostra os atendimentos e "abrir" leva 
   await expect(page).toHaveURL(new RegExp(`/atendimento/${dados.conversa}\\?data=\\d{4}-\\d{2}-\\d{2}`));
   await expect(page.locator('[data-dia-alvo="true"]')).toBeInViewport();
 });
+
+test('atendente: a exportação recusa (403)', async ({ page }) => {
+  await entrar(page, dados.ana.email, dados.ana.senha);
+  const resposta = await page.request.get('/gastos-ia/exportar?p=mes');
+  expect(resposta.status()).toBe(403);
+  expect(await resposta.text()).not.toContain('Data e hora');
+  const daPessoa = await page.request.get(`/gastos-ia/exportar?p=mes&pessoa=${dados.ana.id}`);
+  expect(daPessoa.status()).toBe(403);
+});
+
+test('exportar CSV do período', async ({ page }) => {
+  await entrar(page, dados.admin.email, dados.admin.senha);
+  await page.goto('/gastos-ia');
+  const baixando = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Exportar' }).click();
+  const arquivo = await baixando;
+  expect(arquivo.suggestedFilename()).toMatch(/^gastos-ia-\d{4}-\d{2}-\d{2}-a-\d{4}-\d{2}-\d{2}\.csv$/);
+  const texto = await (await import('node:fs/promises')).readFile(await arquivo.path(), 'utf8');
+  expect(texto.split('\r\n')[0]).toContain('Data e hora;Funcionalidade;Pessoa');
+  expect(texto).toContain('Sugerir resposta');
+  expect(texto).not.toContain('5531');   // nenhum telefone sai no arquivo
+  expect(texto.trimEnd().split('\r\n')).toHaveLength(7);   // cabeçalho + as 6 chamadas do mês
+  expect(texto).toContain('Rede Bom Preço Gastos');
+});
+
+test('exportar só desta pessoa: o arquivo tem só as chamadas dela; pessoa inválida recusa', async ({ page }) => {
+  await entrar(page, dados.admin.email, dados.admin.senha);
+  await page.goto(`/gastos-ia?pessoa=${dados.ana.id}`);
+  const painel = page.getByRole('dialog', { name: /Ana Gastos/ });
+  const baixando = page.waitForEvent('download');
+  await painel.getByRole('link', { name: 'Exportar só desta pessoa' }).click();
+  const texto = await (await import('node:fs/promises')).readFile(await (await baixando).path(), 'utf8');
+  const linhas = texto.trimEnd().split('\r\n');
+  expect(linhas).toHaveLength(3);                                  // cabeçalho + sugestão + assistente
+  expect(linhas.slice(1).every((l) => l.includes(';Ana Gastos;'))).toBe(true);
+  expect((await page.request.get('/gastos-ia/exportar?p=mes&pessoa=nao-e-uuid')).status()).toBe(400);
+});
+
+test('Início: o cartão do gasto do mês lê a gastos_resumo e leva a Gastos com IA', async ({ page }) => {
+  await entrar(page, dados.admin.email, dados.admin.senha);
+  const cartao = page.getByText('Gasto com IA no mês').locator('..');
+  await expect(cartao).toContainText('2,31');                      // 0,4 + 0,2 + 0,01 + 0,3 + 0,5 + 0,9
+  await cartao.getByRole('link', { name: 'Ver gastos' }).click();
+  await expect(page).toHaveURL(/\/gastos-ia$/);
+});
+
+test('Início: atendente não vê o cartão do gasto', async ({ page }) => {
+  await entrar(page, dados.ana.email, dados.ana.senha);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByText('Gasto com IA no mês')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Ver gastos' })).toHaveCount(0);
+});

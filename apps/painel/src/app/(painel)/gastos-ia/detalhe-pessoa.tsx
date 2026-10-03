@@ -70,7 +70,7 @@ export async function DetalhePessoa({ pessoa, periodo, hrefExportar }: { pessoa:
           {linhas.length === LIMITE_CHAMADAS_PESSOA ? `Mostrando as ${LIMITE_CHAMADAS_PESSOA} chamadas mais recentes do período` : null}
         </span>
         {/* Download pela rota de exportar (Task 10): link simples, sem navegação do Next. */}
-        <a href={hrefExportar} className="inline-flex items-center gap-1.5 text-sm font-bold text-brand underline-offset-4 hover:underline">
+        <a href={hrefExportar} download className="inline-flex items-center gap-1.5 text-sm font-bold text-brand underline-offset-4 hover:underline">
           <Download aria-hidden size={14} strokeWidth={1.75} />
           Exportar só desta pessoa
         </a>

@@ -28,6 +28,9 @@ import { FormularioEspera } from './formulario-espera';
 import { HorarioExpediente } from './horario-expediente';
 import { NavegacaoSecoes, type SecaoConfiguracao } from './navegacao-secoes';
 
+/** Decimal do banco na grafia daqui (5,55); vazio quando não configurado. O esquema aceita vírgula ou ponto. */
+const decimalBr = (v: number | null | undefined) => (v === null || v === undefined ? '' : String(Number(v)).replace('.', ','));
+
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const DIAS_EXTENSO = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 
@@ -140,9 +143,24 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
                   <FormField
                     id="teto_ia_usd"
                     rotulo="Teto mensal de gasto com IA (US$)"
-                    ajuda={teto ? `Gasto neste mês: ${formatarUSD(teto.gasto)} (${Math.round(teto.fracao * 100)}% do teto)${gasto?.parcial ? ', valor parcial' : ''}.` : undefined}
+                    ajuda={
+                      <>
+                        {teto && `Gasto neste mês: ${formatarUSD(teto.gasto)} (${Math.round(teto.fracao * 100)}% do teto)${gasto?.parcial ? ', valor parcial' : ''}. `}
+                        <Link href="/gastos-ia" className="text-brand underline-offset-4 hover:underline">Ver gastos com IA</Link>
+                      </>
+                    }
                   >
                     <Input name="teto_ia_usd" type="number" step="1" min="1" required defaultValue={Number(cfg?.teto_ia_usd)} className="tabular sm:w-40" />
+                  </FormField>
+                  <FormField id="cotacao_usd_brl" rotulo="Cotação do dólar (R$ por US$ 1)" ajuda="Só para mostrar os gastos em reais. Vazio: tudo em US$.">
+                    <Input name="cotacao_usd_brl" inputMode="decimal" defaultValue={decimalBr(cfg?.cotacao_usd_brl)} className="tabular sm:w-40" />
+                  </FormField>
+                  <FormField
+                    id="custo_minuto_transcricao_usd"
+                    rotulo="Custo por minuto da transcrição de áudio (US$)"
+                    ajuda="Veja no painel do fornecedor (Groq). Vazio: a transcrição fica sem custo em Gastos com IA."
+                  >
+                    <Input name="custo_minuto_transcricao_usd" inputMode="decimal" defaultValue={decimalBr(cfg?.custo_minuto_transcricao_usd)} className="tabular sm:w-40" />
                   </FormField>
                   <FormField id="minutos_alerta_fila" rotulo="Avisar demanda sem responsável após (minutos)">
                     <Input name="minutos_alerta_fila" type="number" step="1" min="5" required defaultValue={cfg?.minutos_alerta_fila} className="tabular sm:w-40" />

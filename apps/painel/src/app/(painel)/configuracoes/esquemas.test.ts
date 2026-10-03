@@ -15,7 +15,39 @@ describe('ExpedienteForm e TetoAlertasForm (separados na Parte D: teto e alertas
   it('teto e alertas', () => {
     const f = new FormData();
     f.set('teto_ia_usd', '80'); f.set('minutos_alerta_fila', '30'); f.set('email_alertas', 'dono@escritorio.com'); f.set('telefone_dono', '(31) 97777-0000');
-    expect(TetoAlertasForm.parse(f)).toEqual({ teto_ia_usd: 80, minutos_alerta_fila: 30, email_alertas: 'dono@escritorio.com', telefone_dono: '5531977770000' });
+    expect(TetoAlertasForm.parse(f)).toEqual({
+      teto_ia_usd: 80, minutos_alerta_fila: 30, email_alertas: 'dono@escritorio.com', telefone_dono: '5531977770000',
+      cotacao_usd_brl: null, custo_minuto_transcricao_usd: null,
+    });
+  });
+});
+
+describe('TetoAlertasForm: cotação do dólar e custo por minuto da transcrição (Parte F)', () => {
+  const form = (extra: Record<string, string>) => {
+    const f = new FormData();
+    f.set('teto_ia_usd', '80'); f.set('minutos_alerta_fila', '30');
+    for (const [k, v] of Object.entries(extra)) f.set(k, v);
+    return f;
+  };
+  const erros = (extra: Record<string, string>) => {
+    const r = TetoAlertasForm.safeParse(form(extra));
+    return r.success ? [] : r.error.issues.map((i) => i.message);
+  };
+  it('cotação: vazio vira null; vírgula ou ponto viram número', () => {
+    expect(TetoAlertasForm.parse(form({ cotacao_usd_brl: '' })).cotacao_usd_brl).toBeNull();
+    expect(TetoAlertasForm.parse(form({ cotacao_usd_brl: '5,55' })).cotacao_usd_brl).toBe(5.55);
+    expect(TetoAlertasForm.parse(form({ cotacao_usd_brl: '5.55' })).cotacao_usd_brl).toBe(5.55);
+  });
+  it('cotação zero, negativa ou texto é recusada', () => {
+    expect(erros({ cotacao_usd_brl: '0' })).toEqual(['A cotação precisa ser maior que zero.']);
+    expect(erros({ cotacao_usd_brl: '-1' })).toEqual(['A cotação precisa ser maior que zero.']);
+    expect(erros({ cotacao_usd_brl: 'abc' })).toEqual(['A cotação precisa ser maior que zero.']);
+  });
+  it('custo por minuto: vazio vira null; "0,000667" vira 0.000667; zero vale; negativo recusado', () => {
+    expect(TetoAlertasForm.parse(form({ custo_minuto_transcricao_usd: '' })).custo_minuto_transcricao_usd).toBeNull();
+    expect(TetoAlertasForm.parse(form({ custo_minuto_transcricao_usd: '0,000667' })).custo_minuto_transcricao_usd).toBe(0.000667);
+    expect(TetoAlertasForm.parse(form({ custo_minuto_transcricao_usd: '0' })).custo_minuto_transcricao_usd).toBe(0);
+    expect(erros({ custo_minuto_transcricao_usd: '-0,01' })).toEqual(['O custo por minuto não pode ser negativo.']);
   });
 });
 

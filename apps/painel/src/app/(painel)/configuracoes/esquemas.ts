@@ -13,18 +13,27 @@ export const ExpedienteForm = z.preprocess((v) => {
   dias_uteis: z.array(z.number().int().min(0).max(6)),
 }).refine((g) => g.horario_fim > g.horario_inicio, { message: 'O fim do expediente precisa ser depois do início', path: ['horario_fim'] }));
 
+/** Decimal opcional digitado com vírgula ou ponto: vazio vira null (Gastos com IA mostra só US$ / transcrição sem custo). */
+const decimalOpcional = (msg: string, minimoExclusivo: boolean) => z.preprocess(
+  (v) => (v === null || v === undefined || String(v).trim() === '' ? null : Number(String(v).trim().replace(',', '.'))),
+  z.number({ invalid_type_error: msg }).refine((n) => Number.isFinite(n) && (minimoExclusivo ? n > 0 : n >= 0), msg).nullable(),
+);
+
 /** Teto de IA e alertas: só o administrador (P12; o banco também segura essas colunas). */
 export const TetoAlertasForm = z.preprocess((v) => {
   const f = v as FormData;
   return {
     teto_ia_usd: f.get('teto_ia_usd'), minutos_alerta_fila: f.get('minutos_alerta_fila'),
     email_alertas: f.get('email_alertas') || null, telefone_dono: f.get('telefone_dono') || null,
+    cotacao_usd_brl: f.get('cotacao_usd_brl') || null, custo_minuto_transcricao_usd: f.get('custo_minuto_transcricao_usd') || null,
   };
 }, z.object({
   teto_ia_usd: z.coerce.number().positive(),
   minutos_alerta_fila: z.coerce.number().int().min(5),
   email_alertas: z.string().email().nullable(),
   telefone_dono: telefoneOpcional,
+  cotacao_usd_brl: decimalOpcional('A cotação precisa ser maior que zero.', true),
+  custo_minuto_transcricao_usd: decimalOpcional('O custo por minuto não pode ser negativo.', false),
 }));
 
 /** Recado na tela de entrada: aparado, pode ficar vazio, até 200 caracteres; o CRLF do textarea vira LF antes de contar (senão 200 visíveis passariam do limite). */

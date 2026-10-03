@@ -1,5 +1,5 @@
 // Leituras e regras do Início (D1): sinais de vida, gasto de IA do mês vs. teto e a faixa de alertas.
-// Tudo pelo cliente do usuário: uso_ia, sinais_vida e configuracoes só o administrador lê (RLS);
+// Tudo pelo cliente do usuário: gastos_resumo, sinais_vida e configuracoes só o administrador lê (banco e RLS);
 // para as outras pessoas as leituras voltam null e os cartões correspondentes não aparecem.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@escritorio/db';
@@ -35,36 +35,15 @@ export function situacaoTeto(gasto: number, teto: number): SituacaoTeto {
   return { gasto, teto, fracao, nivel };
 }
 
-const POR_PAGINA = 1000;
-/** Páginas pedidas ao mesmo tempo. */
-const EM_PARALELO = 8;
-/** Acima disto a soma para e é marcada como parcial (200 idas ao banco). */
-export const LINHAS_MAX_GASTO = 200_000;
+/** `parcial` fica até a Parte G redesenhar o Início: com a gastos_resumo (uma soma no banco) é sempre false. */
+export type GastoDoMes = { total: number; parcial: boolean };
 
-export type GastoDoMes = { total: number; /** true: o mês tem mais linhas que LINHAS_MAX_GASTO e a soma é menor que a real. */ parcial: boolean };
-
-/**
- * Soma de uso_ia.custo_usd no mês corrente (Brasília). Sem agregação no PostgREST (desligada) e sem a RPC
- * custo_ia_periodo (revogada para o painel): conta as linhas (head) e lê as páginas de 1000 em paralelo, em ordem de id.
- * null: sem acesso (RLS) ou erro.
- */
+/** Gasto de IA do mês corrente (Brasília) pela gastos_resumo (só o administrador; os outros recebem null). */
 export async function lerGastoIaDoMes(sb: Cliente, agora: Date): Promise<GastoDoMes | null> {
   const { inicio, fim } = mesCorrenteSP(agora);
-  const { count, error } = await sb.from('uso_ia').select('id', { count: 'exact', head: true }).gte('criado_em', inicio).lt('criado_em', fim);
-  if (error || count === null) return null;
-  const paginas = Math.ceil(Math.min(count, LINHAS_MAX_GASTO) / POR_PAGINA);
-  let total = 0;
-  for (let i = 0; i < paginas; i += EM_PARALELO) {
-    const lote = await Promise.all(Array.from({ length: Math.min(EM_PARALELO, paginas - i) }, (_, j) => {
-      const de = (i + j) * POR_PAGINA;
-      return sb.from('uso_ia').select('custo_usd').gte('criado_em', inicio).lt('criado_em', fim).order('id').range(de, de + POR_PAGINA - 1);
-    }));
-    for (const r of lote) {
-      if (r.error) return null;
-      for (const l of r.data ?? []) total += Number(l.custo_usd) || 0;
-    }
-  }
-  return { total, parcial: count > LINHAS_MAX_GASTO };
+  const { data, error } = await sb.rpc('gastos_resumo', { p_de: inicio, p_ate: fim });
+  if (error || !data) return null;
+  return { total: Number((data as { total_usd: number }).total_usd) || 0, parcial: false };
 }
 
 export type SinaisVida = { fila: string | null; whatsapp: string | null; ultimo: string | null };

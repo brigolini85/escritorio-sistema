@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/cn';
@@ -15,6 +15,13 @@ const FILTROS: { filtro: FiltroPeriodo; rotulo: string }[] = [
 const botao = 'inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-sm font-bold transition-colors duration-150 ease-out';
 const ligado = 'border-grafite bg-grafite text-grafite-foreground';
 const desligado = 'border-border bg-surface text-foreground hover:bg-surface-muted';
+
+/** Mesmos p/de/ate da tela: período inválido já virou "Este mês" em lerPeriodo, e o arquivo segue o que a tela mostra. */
+function hrefExportar(periodo: Periodo): string {
+  const q = new URLSearchParams({ p: periodo.filtro });
+  if (periodo.filtro === 'periodo') { q.set('de', periodo.deDia); q.set('ate', periodo.ateDia); }
+  return `/gastos-ia/exportar?${q.toString()}`;
+}
 
 /** Filtros de período (spec 7B.3): links simples (a tela recarrega no servidor) e o período livre num formulário GET. */
 export function FiltrosPeriodo({ periodo }: { periodo: Periodo }) {
@@ -48,7 +55,10 @@ export function FiltrosPeriodo({ periodo }: { periodo: Periodo }) {
           <button type="submit" className={cn(botao, ligado, 'justify-center uppercase')}>Ver</button>
         </form>
       </details>
-      {/* Task 10: o link Exportar (CSV do período) entra aqui, ao lado do Período. */}
+      {/* CSV do mesmo período (P13): link simples, o navegador baixa o arquivo da rota. */}
+      <a href={hrefExportar(periodo)} download className={cn(botao, desligado)}>
+        <Download aria-hidden size={14} strokeWidth={1.75} /> Exportar
+      </a>
     </nav>
   );
 }

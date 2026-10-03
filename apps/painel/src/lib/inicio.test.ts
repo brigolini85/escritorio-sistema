@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { alertasDaFaixa, LINHAS_MAX_GASTO, lerGastoIaDoMes, lerSinaisVida, mesCorrenteSP, situacaoTeto } from './inicio';
+import { describe, expect, it, vi } from 'vitest';
+import { alertasDaFaixa, lerGastoIaDoMes, lerSinaisVida, mesCorrenteSP, situacaoTeto } from './inicio';
 
 /** Cliente falso: cada `await` da cadeia devolve a próxima resposta da lista. */
 function falso(respostas: unknown[]) {
@@ -30,28 +30,18 @@ describe('situacaoTeto', () => {
 });
 
 describe('lerGastoIaDoMes', () => {
-  it('conta as linhas e soma as páginas de 1000', async () => {
-    const cheia = Array.from({ length: 1000 }, () => ({ custo_usd: '0.01' }));
-    const { sb, chamadas } = falso([{ count: 1001, error: null }, { data: cheia, error: null }, { data: [{ custo_usd: 2.5 }], error: null }]);
-    const r = await lerGastoIaDoMes(sb, new Date('2026-09-30T12:00:00Z'));
-    expect(r!.total).toBeCloseTo(12.5);
-    expect(r!.parcial).toBe(false);
-    expect(chamadas).toContainEqual(['range', 0, 999]);
-    expect(chamadas).toContainEqual(['range', 1000, 1999]);
-    expect(chamadas).toContainEqual(['gte', 'criado_em', '2026-09-01T00:00:00-03:00']);
+  it('lê o total do mês pela gastos_resumo', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { total_usd: 41.2 }, error: null });
+    expect(await lerGastoIaDoMes({ rpc } as never, new Date('2026-10-15T15:00:00Z'))).toEqual({ total: 41.2, parcial: false });
+    expect(rpc).toHaveBeenCalledWith('gastos_resumo', { p_de: '2026-10-01T00:00:00-03:00', p_ate: '2026-11-01T00:00:00-03:00' });
   });
-  it('mês sem uso: zero, sem ler páginas', async () => {
-    const { sb, chamadas } = falso([{ count: 0, error: null }]);
-    expect(await lerGastoIaDoMes(sb, new Date())).toEqual({ total: 0, parcial: false });
-    expect(chamadas.some((c) => c[0] === 'range')).toBe(false);
+  it('total em texto (numeric do PostgREST) vira número', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { total_usd: '12.5' }, error: null });
+    expect(await lerGastoIaDoMes({ rpc } as never, new Date())).toEqual({ total: 12.5, parcial: false });
   });
-  it('acima do limite de linhas a soma é marcada como parcial', async () => {
-    const respostas = [{ count: LINHAS_MAX_GASTO + 5, error: null }, ...Array.from({ length: LINHAS_MAX_GASTO / 1000 }, () => ({ data: [{ custo_usd: 1 }], error: null }))];
-    expect(await lerGastoIaDoMes(falso(respostas).sb, new Date())).toEqual({ total: LINHAS_MAX_GASTO / 1000, parcial: true });
-  });
-  it('erro (ou RLS) vira null', async () => {
-    expect(await lerGastoIaDoMes(falso([{ count: null, error: { message: 'x' } }]).sb, new Date())).toBeNull();
-    expect(await lerGastoIaDoMes(falso([{ count: 5, error: null }, { data: null, error: { message: 'x' } }]).sb, new Date())).toBeNull();
+  it('quem não é administrador: null', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'Só o administrador vê os gastos com IA.' } });
+    expect(await lerGastoIaDoMes({ rpc } as never, new Date())).toBeNull();
   });
 });
 
