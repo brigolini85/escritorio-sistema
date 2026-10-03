@@ -21,3 +21,20 @@ export async function cadastrarContato(formData: FormData) {
   revalidatePath('/contatos');
   if (aviso) redirect(comAvisoNaUrl('/contatos', aviso));
 }
+
+export type ResultadoNome = { ok: true } | { ok: false; erro: string };
+
+/** Nome do contato, pelo painel lateral (lápis da lista). Arquivado não se edita: volta pelo Restaurar. */
+export async function renomearContato(id: string, formData: FormData): Promise<ResultadoNome> {
+  const u = await obterUsuario();
+  if (!temPermissao(u, 'editar_clientes')) return { ok: false, erro: 'Você não tem permissão para editar contatos.' };
+  const nome = String(formData.get('nome') ?? '').trim();
+  if (nome.length < 2) return { ok: false, erro: 'Informe o nome do contato.' };
+  const sb = await supabaseServidor();
+  const { data, error } = await sb.from('contatos').update({ nome }).eq('id', id).eq('ativo', true).select('id');
+  if (error) return { ok: false, erro: error.message };
+  if (!data?.length) return { ok: false, erro: 'Contato não encontrado.' };
+  revalidatePath('/contatos');
+  revalidatePath('/clientes', 'layout');
+  return { ok: true };
+}

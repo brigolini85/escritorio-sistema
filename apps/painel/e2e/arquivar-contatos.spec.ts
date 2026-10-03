@@ -225,3 +225,22 @@ test('telefone de contato apagado pela LGPD: avisa e não cadastra', async ({ pa
   expect((await db.from('contatos').select('nome, ativo').eq('id', apagado!.id).single()).data).toEqual({ nome: 'Contato removido', ativo: false });
   await db.from('auditoria_acessos').delete().eq('acao', 'anonimizar').eq('entidade_id', apagado!.id);
 });
+
+test('lápis abre o contato e o nome muda ali; sem permissão não há lápis', async ({ page }) => {
+  await db.from('contatos').insert({ nome: 'Maria Arquivo', telefone: TEL_MARIA });
+  await comoAdmin(page);
+  await page.goto('/contatos');
+  await linha(page, 'Maria Arquivo').getByRole('link', { name: 'Editar Maria Arquivo' }).click();
+  const painel = page.getByRole('dialog');
+  await painel.getByLabel('Nome', { exact: true }).fill('Maria Souza');
+  await painel.getByRole('button', { name: 'Salvar nome' }).click();
+  await expect(page.getByText('Salvo: Maria Souza.')).toBeVisible();
+  await expect.poll(async () => (await db.from('contatos').select('nome').eq('telefone', TEL_MARIA).single()).data!.nome).toBe('Maria Souza');
+
+  await page.context().clearCookies();
+  await criarUsuarioTeste({ email: 'ana-contatos@teste.com', senha: SENHA, nome: 'Ana', papel: 'atendente' });
+  await entrar(page, 'ana-contatos@teste.com', SENHA);
+  await page.goto('/contatos');
+  await expect(linha(page, 'Maria Souza')).toHaveCount(1);
+  await expect(page.getByRole('link', { name: /^Editar / })).toHaveCount(0);
+});

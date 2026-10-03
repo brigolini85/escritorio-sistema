@@ -76,3 +76,15 @@ test('salvar a pessoa sem a chave Ativo não a desativa', async ({ page }) => {
   await expect.poll(async () => (await db.from('usuarios').select('nome, ativo').eq('id', bia).single()).data)
     .toEqual({ nome: 'Bia Arquivo Souza', ativo: true });
 });
+
+test('lápis de editar em cada linha; na própria linha tem lápis e não tem arquivar', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'admin@teste.com', senha: SENHA, nome: 'Admin Arquivo', papel: 'admin' });
+  const bia = await criarUsuarioTeste({ email: 'bia@teste.com', senha: SENHA, nome: 'Bia Arquivo', papel: 'atendente' });
+  await entrar(page, 'admin@teste.com', SENHA);
+  await page.goto('/usuarios');
+  await expect(linha(page, 'Admin Arquivo').getByRole('link', { name: 'Editar Admin Arquivo' })).toBeVisible();
+  await expect(linha(page, 'Admin Arquivo').getByRole('button', { name: /Arquivar ou excluir/ })).toHaveCount(0);
+  await linha(page, 'Bia Arquivo').getByRole('link', { name: 'Editar Bia Arquivo' }).click();
+  await expect(page).toHaveURL(new RegExp(`usuario=${bia}`));
+  await expect(page.getByRole('dialog').getByPlaceholder('Nome')).toHaveValue('Bia Arquivo');
+});

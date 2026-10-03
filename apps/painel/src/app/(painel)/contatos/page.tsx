@@ -1,4 +1,4 @@
-import { FilterX, UserPlus, UsersRound } from 'lucide-react';
+import { FilterX, Pencil, UserPlus, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -154,7 +154,15 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
         params={params}
         ordem={ordem}
         paginacao={paginacao}
-        acoesLinha={pode ? (c) => <ExcluirCadastro tipo="contato" id={c.id} nome={c.nome} /> : undefined}
+        acoesLinha={pode ? (c) => (
+          // Lápis e arquivar, como em Clientes (imagem 01): o lápis abre o painel do contato.
+          <span className="flex items-center justify-end gap-1">
+            <Link href={hrefContato(c.id)} scroll={false} aria-label={`Editar ${c.nome}`} className={variantesBotao({ variant: 'outline', size: 'icon' })}>
+              <Pencil aria-hidden size={16} strokeWidth={1.75} />
+            </Link>
+            <ExcluirCadastro tipo="contato" id={c.id} nome={c.nome} />
+          </span>
+        ) : undefined}
         hrefLinha={(c) => hrefContato(c.id)}
         linhaAtiva={contatoAberto}
         erro={resultado.error ? 'Não consegui carregar os contatos agora.' : undefined}

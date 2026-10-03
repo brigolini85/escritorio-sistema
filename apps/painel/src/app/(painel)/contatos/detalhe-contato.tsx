@@ -14,6 +14,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato } from '../atendimento/acoes';
 import { anonimizarContato } from '../clientes/acoes';
+import { renomearContato } from './acoes';
+import { EditarNomeContato } from './editar-nome-contato';
 import { MarcacoesContato, nomeEmpresa, type Vinculo } from './marcacoes';
 
 function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
@@ -61,6 +63,12 @@ export async function DetalheContato({ id, pode, admin }: { id: string; pode: bo
       <SheetBody>
         {!c.ativo && !anonimizado && (
           <div className="py-4"><AvisoArquivado tipo="contato" id={c.id} nome={c.nome} arquivadoEm={c.arquivado_em} arquivadoPor={arquivadoPor} pode={pode} /></div>
+        )}
+        {pode && c.ativo && (
+          <Secao titulo="Dados">
+            {/* key: depois de salvar, o campo recomeça com o nome novo. */}
+            <EditarNomeContato key={c.nome} nome={c.nome} acao={renomearContato.bind(null, c.id)} />
+          </Secao>
         )}
         <Secao titulo="Agente">
           <SwitchAgenteContato

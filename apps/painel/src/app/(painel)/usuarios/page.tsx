@@ -1,5 +1,6 @@
 import { variantesTelefone } from '@escritorio/core';
-import { SearchX, TriangleAlert, UsersRound } from 'lucide-react';
+import { Pencil, SearchX, TriangleAlert, UsersRound } from 'lucide-react';
+import Link from 'next/link';
 import { PageHeader } from '@/components/layout/page-header';
 import { DataTable, type ColunaTabela } from '@/components/patterns/data-table';
 import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
@@ -8,6 +9,7 @@ import { EmptyState } from '@/components/patterns/empty-state';
 import { AvisoArquivado, LinkArquivados, TelaArquivados } from '@/components/patterns/lista-arquivados';
 import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
 import { Badge } from '@/components/ui/badge';
+import { variantesBotao } from '@/components/ui/button';
 import { SheetBody, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { exigirAdmin } from '@/lib/sessao';
@@ -178,8 +180,15 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
         params={params}
         ordem={ordem}
         hrefLinha={(u) => hrefUsuario(u.id)}
-        // Ninguém arquiva nem exclui o próprio acesso.
-        acoesLinha={(u) => (u.id === eu.id ? null : <ExcluirCadastro tipo="usuario" id={u.id} nome={u.nome} />)}
+        // Lápis abre o painel da pessoa; ninguém arquiva nem exclui o próprio acesso.
+        acoesLinha={(u) => (
+          <span className="flex items-center justify-end gap-1">
+            <Link href={hrefUsuario(u.id)} scroll={false} aria-label={`Editar ${u.nome}`} className={variantesBotao({ variant: 'outline', size: 'icon' })}>
+              <Pencil aria-hidden size={16} strokeWidth={1.75} />
+            </Link>
+            {u.id !== eu.id && <ExcluirCadastro tipo="usuario" id={u.id} nome={u.nome} />}
+          </span>
+        )}
         linhaAtiva={usuarioAberto}
         erro={erroLista ? 'Não consegui carregar as pessoas agora.' : undefined}
         vazio={<EmptyState icone={UsersRound} titulo="Nenhuma pessoa cadastrada." descricao="Convide a equipe pelo botão Convidar pessoa." />}
