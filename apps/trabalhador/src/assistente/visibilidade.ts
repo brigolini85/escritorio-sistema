@@ -40,3 +40,11 @@ export function podeCorrigirPedidos(u: UsuarioAssistente): boolean {
 export function usaAssistentePor(u: UsuarioAssistente, canal: 'site' | 'whatsapp'): boolean {
   return u.ativo && nivelAtinge('assistente', u.niveis.assistente, canal === 'site' ? 'site' : 'site_whatsapp');
 }
+
+/** Demanda de pedido de nota (P11): tem pedido salvo ou o título "NF de ..." (o mesmo critério do filtro so_notas). */
+export function ehPedidoDeNota(c: { titulo: string; pedido_venda?: unknown }): boolean {
+  return (c.pedido_venda !== null && c.pedido_venda !== undefined) || c.titulo.startsWith('NF de ');
+}
+
+/** Título que não nomeia o pedido para quem tem "Pedidos de nota: Sem acesso". */
+export const TITULO_SEM_ACESSO_PEDIDO = 'Pedido de nota (sem acesso)';

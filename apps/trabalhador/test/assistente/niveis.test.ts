@@ -44,6 +44,11 @@ describe('a regra do trabalhador é a do banco, pessoa a pessoa (foco da revisã
       arquivada: await criar('arq', 'atendente', ['Fiscal']),
       // Colega com o assistente pelo WhatsApp: a conversa dele é interna e fica fora de "Todas as conversas" (ruling da Task 3).
       interno: await criarUsuarioTeste({ email: 'interno@niveis-assistente.local', papel: 'atendente', setores: ['Fiscal'], permissoes: ['assistente_whatsapp'], telefone: '5531999990009' }),
+      // Telefone guardado, mas assistente só no site: a conversa desse número é de cliente, não interna.
+      soSite: await criarUsuarioTeste({ email: 'sosite@niveis-assistente.local', papel: 'atendente', setores: ['Pessoal'], permissoes: ['assistente_site'], telefone: '5531999990008' }),
+      // "Atendimento: Sem acesso" não lê nem a conversa que ele mesmo assumiu.
+      semAtendimentoAssumiu: await criar('sem-assumiu', 'atendente', ['Fiscal']),
+      adminArquivado: await criar('admin-arq', 'admin', []),
     };
     const nivel = (id: string, modulo: string, n: string) =>
       db.from('usuario_permissoes').update({ nivel: n }).eq('usuario_id', id).eq('modulo', modulo);
@@ -51,14 +56,15 @@ describe('a regra do trabalhador é a do banco, pessoa a pessoa (foco da revisã
     await nivel(p.todas, 'demandas', 'todas');
     await nivel(p.semAtendimento, 'atendimento', 'sem_acesso');
     await nivel(p.todasConversas, 'atendimento', 'todas');
-    await db.from('usuarios').update({ ativo: false }).eq('id', p.arquivada);
+    await nivel(p.semAtendimentoAssumiu, 'atendimento', 'sem_acesso');
+    await db.from('usuarios').update({ ativo: false }).in('id', [p.arquivada, p.adminArquivado]);
 
     // Mesmas colunas em todas as linhas: no insert em lote, a coluna que falta vai como null (e estado não aceita null).
     const conversa = (telefone: string, atendente: string | null = null) =>
       ({ telefone, estado: atendente ? 'humano' as const : 'agente' as const, atendente_id: atendente });
     const conversas = (await db.from('conversas').insert([
       conversa('5531933330001'), conversa('5531933330002'), conversa('5531933330003', p.setor),
-      conversa('553199990009'),
+      conversa('553199990009'), conversa('553199990008'), conversa('5531933330004', p.semAtendimentoAssumiu),
     ]).select('id')).data!.map((c) => c.id);
     const demandas = (await db.from('chamados').insert([
       { titulo: 'N1 Fiscal', setor_id: fiscal, conversa_id: conversas[0] },
@@ -80,5 +86,13 @@ describe('a regra do trabalhador é a do banco, pessoa a pessoa (foco da revisã
         expect(podeVerConversaPelo(u, conversa, daConversa, interna), `${u.id} × conversa ${conversaId}`).toBe(banco);
       }
     }
+
+    // Os casos de borda dão o resultado esperado (a comparação acima não pode passar por "todos false").
+    const conversaVe = async (pessoaId: string, i: number) => (await db.rpc('pode_ver_conversa_de', { p_usuario: pessoaId, p_conversa: conversas[i]! })).data;
+    expect(await conversaVe(p.todasConversas, 4)).toBe(true);
+    expect(await conversaVe(p.todasConversas, 3)).toBe(false);
+    expect(await conversaVe(p.semAtendimentoAssumiu, 5)).toBe(false);
+    expect(await conversaVe(p.admin, 3)).toBe(true);
+    expect(await conversaVe(p.adminArquivado, 0)).toBe(false);
   });
 });

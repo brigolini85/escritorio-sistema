@@ -532,3 +532,56 @@ describe('resposta final verdadeira (pedido do dono, 2026-09-29; revisão final,
     expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
   });
 });
+
+describe('Parte D: pedidos de nota pelo nível e trava na hora de gravar', () => {
+  const ferramenta = async (estado: EstadoAssistente, nome: string, entrada: object) => {
+    const r = await executarFerramentaAssistente({ repos, ia: new IaRoteirizada([]), canal: new CanalFalso() }, estado, nome, entrada);
+    return { ...JSON.parse(r.resultado), _erro: r.erro };
+  };
+  const atendente = async (email: string, notas: 'sem_acesso' | 'ver' | 'corrigir') => {
+    const id = await criarUsuarioTeste({ email, papel: 'atendente', setores: ['Fiscal'] });
+    await db.from('usuario_permissoes').update({ nivel: notas }).eq('usuario_id', id).eq('modulo', 'notas');
+    return id;
+  };
+  const bloquearHorario = (id: string) => db.from('usuarios').update({ horario_acesso: { semana: null, sabado: null, domingo: null } }).eq('id', id);
+
+  it('"Sem acesso" não recebe itens, preços nem o antes/depois da correção; quem tem "Ver" recebe (P11)', async () => {
+    const dono = await criarUsuarioTeste({ email: 'dono@teste-corrigir.local', nome: 'Thiago' });
+    expect((await confirmar(dono, { numero: pedido.numero, itens: itens15() }))._erro).toBe(false);
+
+    const sem = await estadoDe(await atendente('sem@teste-corrigir.local', 'sem_acesso'));
+    const v = await ferramenta(sem, 'ver_demanda', { numero: pedido.numero });
+    expect(v._erro).toBe(false);
+    expect(v).toMatchObject({ pedido: null, resumo: 'Pedido de nota: sem acesso.', titulo: 'Pedido de nota (sem acesso)' });
+    const texto = JSON.stringify(v);
+    for (const vazado of ['Costela', 'R$', 'Antes:', 'Depois:', 'Santa Efigênia']) expect(texto).not.toContain(vazado);
+    const l = await ferramenta(sem, 'listar_demandas', { so_notas: true });
+    expect(l.demandas).toEqual([expect.objectContaining({ numero: pedido.numero, titulo: 'Pedido de nota (sem acesso)', total_pedido: null })]);
+    expect(JSON.stringify(l)).not.toContain('Santa Efigênia');
+
+    const ver = await estadoDe(await atendente('ver@teste-corrigir.local', 'ver'));
+    const t = JSON.stringify(await ferramenta(ver, 'ver_demanda', { numero: pedido.numero }));
+    for (const visto of ['Costela', 'R$ 142,50', 'Antes:', 'Depois:', 'Santa Efigênia']) expect(t).toContain(visto);
+  });
+
+  it('horário que termina entre a prévia e o "sim": não grava', async () => {
+    const ana = await atendente('ana@teste-corrigir.local', 'corrigir');
+    await previa(ana, { numero: pedido.numero, itens: itens15(), confirmado: false });
+    const sim = await estadoDoSim(ana);
+    await bloquearHorario(ana);
+    const r = await usar(sim, { numero: pedido.numero, confirmado: true });
+    expect(r._erro).toBe(true);
+    expect(JSON.stringify(r)).toContain('Fora do seu horário');
+    expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
+  });
+
+  it('nível rebaixado entre a prévia e o "sim": não grava', async () => {
+    const ana = await atendente('ana@teste-corrigir.local', 'corrigir');
+    await previa(ana, { numero: pedido.numero, itens: itens15(), confirmado: false });
+    const sim = await estadoDoSim(ana);
+    await db.from('usuario_permissoes').update({ nivel: 'ver' }).eq('usuario_id', ana).eq('modulo', 'notas');
+    const r = await usar(sim, { numero: pedido.numero, confirmado: true });
+    expect(r._erro).toBe(true);
+    expect((await salvo()).pedido_venda).toMatchObject({ itens: [{ quantidade: 10 }] });
+  });
+});

@@ -1,5 +1,5 @@
 import type { CanalAssistente, Configuracoes, Repos, UsuarioAssistente } from '@escritorio/db';
-import { podeVerChamado, podeVerConversaPelo } from './visibilidade';
+import { TITULO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, podeVerChamado, podeVerConversaPelo, podeVerPedidos } from './visibilidade';
 
 export type ConversaDoContexto = {
   telefone: string; contato: string | null; empresa: { id: string; nome: string } | null;
@@ -36,7 +36,7 @@ export async function carregarContextoAssistente(
     const mensagens = (await repos.historico(conversaId, 20)).map((m) => `${m.autor === 'cliente' ? 'Cliente' : 'Escritório'}: ${m.conteudo ?? m.transcricao ?? `[${m.tipo}]`}`);
     conversa = {
       telefone: c.telefone, contato: contato?.nome ?? null, empresa: empresa ? { id: empresa.id, nome: empresa.nome } : null,
-      demandas: abertas.map((x) => ({ numero: Number(x.numero), titulo: x.titulo, status: x.status })), mensagens,
+      demandas: abertas.map((x) => ({ numero: Number(x.numero), titulo: !podeVerPedidos(usuario) && ehPedidoDeNota(x) ? TITULO_SEM_ACESSO_PEDIDO : x.titulo, status: x.status })), mensagens,
     };
   }
   return { usuario, canal, conversaId, agora, config, setores: setores.map((s) => ({ id: s.id, nome: s.nome })), conversa };

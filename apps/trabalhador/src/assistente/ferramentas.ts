@@ -12,9 +12,10 @@ import { contextoDoAssistente, type ContextoAssistente } from './contexto';
 import { neutro } from './prompt';
 import { itensSemPreco, periodoEmIso, totaisDeVendas, totalDoPedido } from './vendas';
 import { corrigirPedido, descreverPedido, pedidoOriginalDoResumo } from './pedido';
-import { podeCorrigirPedidos, podeVerChamado, podeVerPedidos } from './visibilidade';
+import { TITULO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, podeCorrigirPedidos, podeVerChamado, podeVerPedidos } from './visibilidade';
 
 const SEM_PEDIDOS = 'Você não tem acesso aos pedidos de nota. Peça ao administrador na tela Usuários.';
+const RESUMO_SEM_ACESSO_PEDIDO = 'Pedido de nota: sem acesso.';
 
 export type DepsAssistente = { repos: Repos; ia: ClienteIa; canal: CanalWhatsApp };
 export type EstadoAssistente = { ctx: ContextoAssistente; resposta: string[]; arquivo: ArquivoAssistente | null; csvs: { nome: string; conteudo: string }[];
@@ -49,7 +50,7 @@ export const FERRAMENTAS_ASSISTENTE: Anthropic.Tool[] = [
       so_notas: { type: 'boolean', description: 'true = só pedidos de nota fiscal.' },
     }, []),
   },
-  { name: 'ver_demanda', description: 'Detalhes de uma demanda pelo número: resumo, status, setor, responsável, eventos e o pedido de venda (itens, valores, total e pendências para o CSV do Bling).',
+  { name: 'ver_demanda', description: 'Detalhes de uma demanda pelo número: resumo, status, setor, responsável, eventos e, para quem tem acesso a pedidos de nota, o pedido de venda (itens, valores, total e pendências para o CSV do Bling).',
     input_schema: objeto({ numero: { type: 'integer' } }, ['numero']) },
   { name: 'buscar_empresas', description: 'Procura empresas clientes do escritório pelo nome ou CNPJ. Devolve id, nome e CNPJ.',
     input_schema: objeto({ texto: { type: 'string' } }, ['texto']) },
@@ -163,10 +164,11 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       }
       const setorId = entrada.setor ? estado.ctx.setores.find((s) => s.nome.toLowerCase() === entrada.setor.toLowerCase())?.id ?? null : undefined;
       if (entrada.setor && !setorId) return falha(`Setor não encontrado. Setores: ${estado.ctx.setores.map((s) => s.nome).join(', ')}.`);
-      const lista = (await d.repos.chamadosRecentes({ status: entrada.status, abertas: entrada.abertas, ...periodoEmIso(entrada.de, entrada.ate), clienteIds, soNotas: entrada.so_notas, setorId: setorId ?? undefined, visivelPara, limite: 30 }))
+      const lista = (await d.repos.chamadosRecentes({ status: entrada.status, abertas: entrada.abertas, ...periodoEmIso(entrada.de, entrada.ate), clienteIds, soNotas: verPedidos ? entrada.so_notas : undefined, setorId: setorId ?? undefined, visivelPara, limite: 30 }))
         .filter((c) => podeVerChamado(u, c));
+      // "Sem acesso" (P11): so_notas é ignorado e o título do pedido de nota não nomeia o destinatário.
       return ok({ demandas: lista.map((c) => ({
-        numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor ?? 'Triagem', empresa: c.empresa, criada_em: dataCurta(c.criado_em),
+        numero: c.numero, titulo: !verPedidos && ehPedidoDeNota(c) ? TITULO_SEM_ACESSO_PEDIDO : c.titulo, status: c.status, setor: c.setor ?? 'Triagem', empresa: c.empresa, criada_em: dataCurta(c.criado_em),
         responsavel: c.responsavel, total_pedido: verPedidos && c.pedido_venda ? formatarReais(totalDoPedido(c.pedido_venda)) : null,
         ...(verPedidos && c.pedido_venda ? { itens_sem_preco: itensSemPreco(c.pedido_venda) } : {}),
       })) });
@@ -189,11 +191,13 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       }
       // Resumo e textos dos eventos podem trazer o que o cliente escreveu: vão como dado, nunca como instrução.
       const doCliente = (t: string) => `<texto_do_cliente>${neutro(t)}</texto_do_cliente>`;
+      // "Sem acesso" (P11): resumo e textos dos eventos de um pedido de nota trazem itens, preços e o antes/depois das correções.
+      const semPedido = !verPedidos && ehPedidoDeNota(c);
       return {
         ...ok({
-          numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor ?? 'Triagem', responsavel: c.responsavel, empresa: c.empresa, cliente_id: c.cliente_id,
-          criada_em: dataCurta(c.criado_em), resumo: doCliente(c.resumo),
-          eventos: eventos.map((e) => `${dataCurta(e.criado_em)} ${e.tipo}${e.usuario ? ` (${e.usuario})` : ''}${e.texto ? `: ${doCliente(e.texto)}` : ''}`), pedido,
+          numero: c.numero, titulo: semPedido ? TITULO_SEM_ACESSO_PEDIDO : c.titulo, status: c.status, setor: c.setor ?? 'Triagem', responsavel: c.responsavel, empresa: c.empresa, cliente_id: c.cliente_id,
+          criada_em: dataCurta(c.criado_em), resumo: semPedido ? RESUMO_SEM_ACESSO_PEDIDO : doCliente(c.resumo),
+          eventos: eventos.map((e) => `${dataCurta(e.criado_em)} ${e.tipo}${e.usuario ? ` (${e.usuario})` : ''}${e.texto && !semPedido ? `: ${doCliente(e.texto)}` : ''}`), pedido,
         }),
         // LGPD: o registro não guarda resumo, eventos nem pedido (dados do cliente que a anonimização não alcançaria).
         registro: { numero: c.numero, status: c.status },
@@ -356,6 +360,10 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       });
       const { titulo, resumo } = montarPedidoNota({ tipo: 'venda', destino, textoDestinatario: novo.texto_destinatario, itens: itensResumo,
         pedidoOriginal: pedidoOriginalDoResumo(c.resumo), semPermissao: c.resumo.includes('Observação: contato sem permissão para pedir nota.') });
+      // O trabalhador grava com a chave de serviço: confere de novo, na hora de gravar, o nível e o horário (podem ter mudado desde a prévia).
+      const agoraMesmo = await d.repos.obterUsuarioAssistente(u.id);
+      if (!agoraMesmo || !agoraMesmo.ativo || !podeCorrigirPedidos(agoraMesmo)) return falha('Você não tem mais permissão para corrigir pedidos de nota. Nada foi gravado.');
+      if (!(await d.repos.horarioPermite(u.id, new Date()))) return falha('Fora do seu horário de acesso. Nada foi gravado.');
       await d.repos.atualizarPedidoVenda(c.id, { pedido: novo, resumo, ...(trocou ? { titulo } : {}) });
       await d.repos.registrarNotaInterna(c.id, c.cliente_id, u.id, `Pedido alterado pelo assistente a pedido de ${u.nome}.\nAntes:\n${antes}\nDepois:\n${depois}`);
       await d.repos.registrarAuditoria({ usuarioId: u.id, acao: 'assistente', entidade: 'pedido_venda', entidadeId: c.id, detalhes: { canal: estado.ctx.canal, antes: c.pedido_venda, depois: novo } });
