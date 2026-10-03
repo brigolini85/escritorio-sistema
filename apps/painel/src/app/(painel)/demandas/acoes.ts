@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { ROTULO_PRIORIDADE, ROTULO_STATUS, type Prioridade, type Visao } from '@/lib/demandas';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
+import { campoDoErro, validarNovaDemanda, type CampoNova } from '@/lib/nova-demanda';
 import { doCampoDataHora } from '@/lib/prazo';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -89,4 +90,39 @@ export async function editarDemanda(id: string, dados: { titulo?: string; descri
 /** Tabela ou Quadro fica no perfil da pessoa (decisão 16). */
 export async function definirVisaoDemandas(visao: Visao): Promise<Resultado> {
   return acao('definir_visao_demandas', { p_visao: visao }, visao === 'quadro' ? 'Quadro.' : 'Tabela.');
+}
+
+export type NovaDemandaDados = {
+  cliente: string; setor: string; titulo: string; descricao: string; prioridade: Prioridade;
+  /** Valor do datetime-local; vazio = o prazo sugerido pelo banco. */
+  prazo: string; responsavel: string; contato: string;
+};
+
+/** Nova demanda pela equipe (origem equipe). Erro volta com o campo, para aparecer nele sem perder o que foi digitado. */
+export async function criarDemanda(d: NovaDemandaDados): Promise<{ ok: true; mensagem: string; id: string } | { ok: false; erro: string; campo?: CampoNova }> {
+  const v = validarNovaDemanda(d);
+  if (!v.ok) return v;
+  const prazo = d.prazo ? doCampoDataHora(d.prazo) : null;
+  if (d.prazo && !prazo) return { ok: false, erro: 'Escolha a data e a hora do prazo.', campo: 'prazo' };
+  await obterUsuario();
+  const sb = await supabaseServidor();
+  const { data, error } = await sb.rpc('criar_demanda' as never, {
+    p_cliente: d.cliente, p_setor: d.setor, p_titulo: d.titulo, p_descricao: d.descricao, p_prioridade: d.prioridade,
+    p_prazo: prazo, p_responsavel: d.responsavel || null, p_contato: d.contato || null,
+  } as never);
+  if (error) {
+    const erro = mensagemDoBanco(error.message);
+    return { ok: false, erro, campo: campoDoErro(erro) };
+  }
+  const nova = data as unknown as { id: string; numero: number };
+  revalidatePath('/demandas');
+  return { ok: true, mensagem: `Demanda #${nova.numero} aberta.`, id: nova.id };
+}
+
+/** Contatos ativos da empresa escolhida na nova demanda (RLS: qualquer pessoa ativa lê contatos). */
+export async function contatosDaEmpresa(clienteId: string): Promise<{ id: string; nome: string }[]> {
+  await obterUsuario();
+  const sb = await supabaseServidor();
+  const { data } = await sb.from('contato_clientes').select('contatos!inner(id, nome, ativo)').eq('cliente_id', clienteId).eq('contatos.ativo', true);
+  return (data ?? []).map((v) => ({ id: v.contatos.id, nome: v.contatos.nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
