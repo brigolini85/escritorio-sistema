@@ -147,6 +147,16 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
     expect(r13).toContain('Diga ao cliente: "Já cobrei a equipe."; se marcou URGENTE: "Já cobrei a equipe e marquei como prioridade."');
   });
 
+  it('regra 14: prioridade da demanda nos casos do spec (Parte C)', () => {
+    const r14 = s.slice(s.indexOf('\n14. '), s.indexOf('\nSETORES:'));
+    expect(r14).toContain('campo prioridade de abrir_chamado e abrir_pedido_nota');
+    expect(r14).toContain('- urgente: o cliente diz que é urgente ou para hoje');
+    expect(r14).toContain('- alta: assunto sensível (regra 11) e cobrança do cliente sobre assunto em aberto (regra 13).');
+    expect(r14).toContain('- normal: todo o resto, inclusive pedido de nota (regra 3a) e dúvida técnica simples');
+    expect(r14).toContain('- baixa: só quando o cliente diz que não tem pressa.');
+    expect(r14).toContain('nunca informe esse prazo ao cliente');
+  });
+
   it('regra 3: assunto fora da contabilidade não vira demanda, salvo se o cliente insistir', () => {
     const r3 = s.slice(s.indexOf('\n3. '), s.indexOf('\n3a. '));
     expect(r3).toContain('assunto fora da contabilidade');

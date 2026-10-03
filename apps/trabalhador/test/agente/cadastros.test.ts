@@ -72,6 +72,16 @@ describe('pedido de nota: resumo para o cliente e demanda no Fiscal', () => {
   const abrir = (extra: object = {}) => usar('abrir_pedido_nota', {
     ...base(extra), pedido_original: 'Tira NF pro Brasil Santa Efigênia: 20 PAC costela e 3 lasanha', cliente_confirmou_resumo: true,
   });
+  it('a nota leva a prioridade que o agente mandou (regra 14); sem ela, normal', async () => {
+    await usar('resumir_pedido_nota', base());
+    expect((await abrir({ prioridade: 'urgente' }))._erro).toBe(false);
+    await usar('resumir_pedido_nota', base({ observacoes: 'segunda nota' }));
+    expect((await abrir({ observacoes: 'segunda nota' }))._erro).toBe(false);
+    const { data } = await db.from('chamados').select('prioridade, prazo_em').order('numero');
+    expect(data!.map((c) => c.prioridade)).toEqual(['urgente', 'normal']);
+    expect(data!.every((c) => c.prazo_em !== null)).toBe(true);
+  });
+
   /** O cliente confere o resumo e confirma: só então a demanda abre. */
   const conferirEAbrir = async (extra: object = {}) => {
     const r = await usar('resumir_pedido_nota', base(extra));

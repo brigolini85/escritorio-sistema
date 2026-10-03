@@ -47,6 +47,12 @@ const CAMPOS_PEDIDO = {
   },
 };
 const OBRIGATORIOS_PEDIDO = ['tipo', 'unidade_id', 'texto_destinatario', 'itens'];
+const PRIORIDADES = ['baixa', 'normal', 'alta', 'urgente'] as const;
+/** Prioridade da demanda (regra 14 do prompt). O prazo é calculado pelo banco e não volta para o modelo. */
+const CAMPO_PRIORIDADE = {
+  type: 'string', enum: [...PRIORIDADES],
+  description: 'Regra 14: normal na maioria dos casos; alta em assunto sensível e cobrança; urgente quando o cliente diz que é urgente ou há prejuízo imediato; baixa só quando o cliente diz que não tem pressa.',
+};
 
 export const FERRAMENTAS: Anthropic.Tool[] = [
   {
@@ -62,7 +68,8 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
       titulo: { type: 'string', description: 'Título curto, por exemplo "Guia DAS de setembro".' },
       resumo: { type: 'string', description: 'O que o cliente pediu, com todos os detalhes informados.' },
       fora_do_contrato: { type: 'boolean' },
-    }, ['setor_id', 'titulo', 'resumo', 'fora_do_contrato']),
+      prioridade: CAMPO_PRIORIDADE,
+    }, ['setor_id', 'titulo', 'resumo', 'fora_do_contrato', 'prioridade']),
   },
   {
     name: 'consultar_chamados',
@@ -99,7 +106,8 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
       ...CAMPOS_PEDIDO,
       pedido_original: { type: 'string', description: 'Texto do pedido do cliente, copiado sem alterar.' },
       cliente_confirmou_resumo: { type: 'boolean', description: 'true só depois de o cliente confirmar o resumo e dizer que não tem mais nota para pedir agora.' },
-    }, [...OBRIGATORIOS_PEDIDO, 'pedido_original', 'cliente_confirmou_resumo']),
+      prioridade: CAMPO_PRIORIDADE,
+    }, [...OBRIGATORIOS_PEDIDO, 'pedido_original', 'cliente_confirmou_resumo', 'prioridade']),
   },
   {
     name: 'listar_documentos',
@@ -169,13 +177,18 @@ export const PedidoNota = z.object({
 
 const Entradas = {
   selecionar_empresa: z.object({ cliente_id: z.string() }),
-  abrir_chamado: z.object({ setor_id: z.string(), titulo: z.string().min(3).max(120), resumo: z.string().min(1).max(4000), fora_do_contrato: z.boolean() }),
+  abrir_chamado: z.object({
+    setor_id: z.string(), titulo: z.string().min(3).max(120), resumo: z.string().min(1).max(4000), fora_do_contrato: z.boolean(),
+    prioridade: z.enum(PRIORIDADES).default('normal'),
+  }),
   consultar_chamados: z.object({}),
   sinalizar_nao_entendido: z.object({}),
   buscar_parceiros: z.object({ texto: z.string().min(1).max(200), tipo: z.enum(['cliente', 'fornecedor']) }),
   buscar_produtos: z.object({ textos: z.array(z.string().min(1).max(200)).min(1).max(30) }),
   resumir_pedido_nota: PedidoNota,
-  abrir_pedido_nota: PedidoNota.extend({ pedido_original: z.string().min(1).max(4000), cliente_confirmou_resumo: z.boolean() }),
+  abrir_pedido_nota: PedidoNota.extend({
+    pedido_original: z.string().min(1).max(4000), cliente_confirmou_resumo: z.boolean(), prioridade: z.enum(PRIORIDADES).default('normal'),
+  }),
   listar_documentos: z.object({}),
   enviar_documento: z.object({ documento_id: z.string() }),
   consultar_cadastro: z.object({ unidade_id: z.string().optional() }),
@@ -312,6 +325,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
         ({ numero } = await d.repos.abrirChamado({
           clienteId, conversaId: ctx.conversa.id, setorId, responsavelId,
           titulo: entrada.titulo, resumo: entrada.resumo, foraDoContrato: entrada.fora_do_contrato, origem: 'agente',
+          prioridade: entrada.prioridade,
         }));
       }
       await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: 0 });
@@ -402,7 +416,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       const responsavelId = escolherResponsavel(setorId, await d.repos.responsaveisDoCliente(e.clienteId));
       const { id: chamadoId, numero } = await d.repos.abrirChamado({
         clienteId: e.clienteId, conversaId: ctx.conversa.id, setorId, responsavelId,
-        titulo, resumo, foraDoContrato: false, origem: 'agente',
+        titulo, resumo, foraDoContrato: false, origem: 'agente', prioridade: entrada.prioridade,
       });
       // Pedido de venda para a equipe baixar no painel como arquivo do Bling (o cliente nunca recebe).
       if (conferido.tipo === 'venda') {

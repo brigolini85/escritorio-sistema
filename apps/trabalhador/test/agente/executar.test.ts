@@ -27,6 +27,33 @@ beforeEach(async () => {
 });
 
 describe('executarAgente', () => {
+  it('abrir_chamado grava a prioridade do agente; o prazo é do banco e não volta para o modelo (Parte C)', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    const ia = new IaRoteirizada([
+      usarFerramentas({ nome: 'abrir_chamado', entrada: { setor_id: await setorId('Fiscal'), titulo: 'URGENTE: nota errada', resumo: 'A nota de ontem saiu errada',
+        fora_do_contrato: false, prioridade: 'urgente' } }),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Já passei para a equipe.' } }),
+      fim(),
+    ]);
+    await executarAgente(deps(ia), await contexto(conversa.id), conteudo);
+    const { data } = await db.from('chamados').select('prioridade, prazo_em').single();
+    expect(data!.prioridade).toBe('urgente');
+    expect(data!.prazo_em).not.toBeNull();
+    const resultado = JSON.stringify(ia.recebidos[1]!.messages);
+    expect(resultado).not.toContain('prazo');
+  });
+
+  it('sem prioridade na entrada, a demanda abre como normal', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    const ia = new IaRoteirizada([
+      usarFerramentas({ nome: 'abrir_chamado', entrada: { setor_id: await setorId('Fiscal'), titulo: 'Guia DAS', resumo: 'x', fora_do_contrato: false } }),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Já passei para a equipe.' } }),
+      fim(),
+    ]);
+    await executarAgente(deps(ia), await contexto(conversa.id), conteudo);
+    expect((await db.from('chamados').select('prioridade').single()).data!.prioridade).toBe('normal');
+  });
+
   it('responde uma saudação e registra uso e decisão', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Olá, João! Como posso ajudar?' } }), fim()]);
