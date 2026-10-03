@@ -8,10 +8,16 @@ export const ExpedienteForm = z.preprocess((v) => {
   const f = v as FormData;
   return { horario_inicio: f.get('horario_inicio'), horario_fim: f.get('horario_fim'), dias_uteis: f.getAll('dia').map(Number) };
 }, z.object({
-  horario_inicio: z.string().regex(/^\d{2}:\d{2}$/),
-  horario_fim: z.string().regex(/^\d{2}:\d{2}$/),
+  horario_inicio: z.string().regex(/^\d{2}:\d{2}$/, 'Informe o horário (hh:mm).'),
+  horario_fim: z.string().regex(/^\d{2}:\d{2}$/, 'Informe o horário (hh:mm).'),
   dias_uteis: z.array(z.number().int().min(0).max(6)),
 }).refine((g) => g.horario_fim > g.horario_inicio, { message: 'O fim do expediente precisa ser depois do início', path: ['horario_fim'] }));
+
+/** Feriado novo (Configurações: Sim). */
+export const FeriadoForm = z.object({
+  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Escolha a data do feriado.'),
+  descricao: z.string().trim().min(1, 'Escreva o nome do feriado.').max(80, 'Até 80 letras.'),
+});
 
 /** Decimal opcional digitado com vírgula ou ponto: vazio vira null (Gastos com IA mostra só US$ / transcrição sem custo). */
 const decimalOpcional = (msg: string, minimoExclusivo: boolean) => z.preprocess(

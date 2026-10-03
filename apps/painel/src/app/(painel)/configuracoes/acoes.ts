@@ -5,7 +5,23 @@ import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { exigirAdmin, exigirConfiguracoes } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { EsperaForm, esquemaAvisoLogin, ExpedienteForm, PrazosForm, TetoAlertasForm } from './esquemas';
+import type { z } from 'zod';
+import { COLUNA_PRAZO, PRIORIDADES, type Resultado } from '@/lib/configuracoes';
+import { EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, PrazosForm, TetoAlertasForm } from './esquemas';
+
+// Respostas dos cartões (D21): nada de redirect com ?erro=; o cartão mostra o erro e mantém o que foi digitado.
+const ok = (mensagem: string): Resultado => ({ ok: true, mensagem });
+const falha = (erro: string): Resultado => ({ ok: false, erro });
+/** Só o "raise exception" do banco (P0001) é frase para a pessoa; o resto do Postgres fica no log do servidor. */
+const doBanco = (e: { message: string; code?: string }): Resultado => {
+  if (e.code === 'P0001') return falha(mensagemDoBanco(e.message));
+  console.error('configuracoes: erro do banco', e.code, e.message);
+  if (e.code === '42501') return falha('Você não tem permissão para mudar isto.');
+  if (e.code === '23514') return falha('Algum valor está fora do permitido. Confira os campos.');
+  return falha('Não consegui salvar. Tente de novo.');
+};
+const primeiroErro = (e: z.ZodError): Resultado => falha(e.issues[0]?.message ?? 'Confira os campos.');
+const lerPrazos = (f: FormData) => Object.fromEntries(PRIORIDADES.map((p) => [COLUNA_PRAZO[p], String(f.get(COLUNA_PRAZO[p]) ?? '')]));
 
 const recarregar = () => revalidatePath('/configuracoes');
 function checar(r: { error: { message: string } | null }) {
@@ -41,10 +57,14 @@ export async function removerResposta(id: string) {
   recarregar();
 }
 
-export async function salvarExpediente(formData: FormData) {
+export async function salvarExpediente(formData: FormData): Promise<Resultado> {
   await exigirConfiguracoes();
-  checar(await (await supabaseServidor()).from('configuracoes').update(ExpedienteForm.parse(formData)).eq('id', 1));
+  const v = ExpedienteForm.safeParse(formData);
+  if (!v.success) return primeiroErro(v.error);
+  const { error } = await (await supabaseServidor()).from('configuracoes').update(v.data).eq('id', 1);
+  if (error) return doBanco(error);
   recarregar();
+  return ok('Expediente salvo.');
 }
 
 /** Teto de IA e alertas: só o administrador (P12); o gatilho configuracoes_so_admin recusa de novo no banco. */
@@ -54,10 +74,14 @@ export async function salvarTetoAlertas(formData: FormData) {
   recarregar();
 }
 
-export async function adicionarFeriado(formData: FormData) {
+export async function adicionarFeriado(formData: FormData): Promise<Resultado> {
   await exigirConfiguracoes();
-  checar(await (await supabaseServidor()).from('feriados').upsert({ data: String(formData.get('data')), descricao: String(formData.get('descricao')).trim() }));
+  const v = FeriadoForm.safeParse({ data: String(formData.get('data') ?? ''), descricao: String(formData.get('descricao') ?? '') });
+  if (!v.success) return primeiroErro(v.error);
+  const { error } = await (await supabaseServidor()).from('feriados').upsert(v.data);
+  if (error) return doBanco(error);
   recarregar();
+  return ok('Feriado adicionado.');
 }
 
 export async function removerFeriado(data: string) {
@@ -83,13 +107,15 @@ export async function salvarAvisoLogin(formData: FormData) {
   recarregar();
 }
 
-export async function salvarPrazos(formData: FormData) {
+/** Prazos por prioridade, só para as demandas novas (a janela de impacto entra na Task 6). */
+export async function salvarPrazos(formData: FormData): Promise<Resultado> {
   await exigirConfiguracoes();
-  const dados = PrazosForm.safeParse(Object.fromEntries(['prazo_urgente_dias', 'prazo_alta_dias', 'prazo_normal_dias', 'prazo_baixa_dias']
-    .map((k) => [k, String(formData.get(k) ?? '')])));
-  if (!dados.success) redirect('/configuracoes?erro=prazos#prazos');
-  checar(await (await supabaseServidor()).from('configuracoes').update(dados.data).eq('id', 1));
+  const v = PrazosForm.safeParse(lerPrazos(formData));
+  if (!v.success) return falha('Cada prazo vai de 0 a 30 dias úteis.');
+  const { error } = await (await supabaseServidor()).from('configuracoes').update(v.data).eq('id', 1);
+  if (error) return doBanco(error);
   recarregar();
+  return ok('Prazos salvos. Valem para as demandas novas.');
 }
 
 /** Limites do cronômetro de espera (P18): "Configurações: Sim" como as outras seções; o banco valida de novo (check das colunas). */

@@ -1,4 +1,4 @@
-import { CalendarOff, MessageSquareText, Trash2 } from 'lucide-react';
+import { MessageSquareText, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -13,26 +13,25 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/cn';
-import { formatarData, formatarUSD } from '@/lib/formatos';
+import { formatarUSD } from '@/lib/formatos';
 import { LIMITES_BATIMENTO, situacaoTeto } from '@/lib/inicio';
+import { hojeSP } from '@/lib/configuracoes';
 import { exigirConfiguracoes } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { classeCaixa, classeSelect } from '../clientes/estilos';
 import { gastoDoMes } from '../inicio/gasto-do-mes';
 import {
-  adicionarFeriado, removerFeriado, removerResposta, salvarAvisoLogin, salvarExpediente, salvarMensagens,
-  salvarPrazos, salvarResposta, salvarServico, salvarSetor, salvarTetoAlertas,
+  removerResposta, salvarAvisoLogin, salvarMensagens, salvarResposta, salvarServico, salvarSetor, salvarTetoAlertas,
 } from './acoes';
 import { CampoEmail, CampoNomeUnico } from './campos-validados';
 import { FormularioEspera } from './formulario-espera';
-import { HorarioExpediente } from './horario-expediente';
 import { NavegacaoSecoes, type SecaoConfiguracao } from './navegacao-secoes';
+import { SecaoExpediente } from './secoes/expediente';
+import { SecaoFeriados } from './secoes/feriados';
+import { SecaoPrazos } from './secoes/prazos';
 
 /** Decimal do banco na grafia daqui (5,55); vazio quando não configurado. O esquema aceita vírgula ou ponto. */
 const decimalBr = (v: number | null | undefined) => (v === null || v === undefined ? '' : String(Number(v)).replace('.', ','));
-
-const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const DIAS_EXTENSO = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 
 const SECOES: SecaoConfiguracao[] = [
   { id: 'expediente', rotulo: 'Expediente' },
@@ -93,6 +92,8 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
     admin ? sb.from('sinais_vida').select('*') : Promise.resolve({ data: null }),
     admin ? gastoDoMes(sb, u.id, agora) : Promise.resolve(null),
   ]);
+  if (!cfg) throw new Error('Não consegui ler as configurações.');
+  const hoje = hojeSP(agora);
   const mensagens = (cfg?.mensagens ?? {}) as Record<string, string>;
   const sinal = (c: string) => sinais?.find((s) => s.componente === c)?.visto_em ?? null;
   const teto = cfg && gasto ? situacaoTeto(gasto.total, Number(cfg.teto_ia_usd)) : null;
@@ -113,28 +114,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
 
         <div className="flex min-w-0 max-w-3xl flex-1 flex-col gap-6">
           {/* Expediente e Teto de IA são formulários separados (Parte D): o teto e os alertas são só do administrador. */}
-          <FormularioAlteravel action={salvarExpediente}>
-            <Secao id="expediente" titulo="Expediente" descricao="Horário e dias em que o escritório atende. Os feriados cadastrados abaixo contam como fora do expediente." escopo>
-              <CardContent className="flex flex-col gap-4">
-                <HorarioExpediente inicio={cfg?.horario_inicio.slice(0, 5)} fim={cfg?.horario_fim.slice(0, 5)} />
-                <fieldset className="flex flex-col gap-1.5">
-                  <legend className="mb-1.5 text-sm font-medium text-foreground">Dias úteis</legend>
-                  <div className="flex flex-wrap gap-2">
-                    {DIAS.map((d, i) => (
-                      <label
-                        key={d}
-                        className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-input bg-surface px-3 text-base text-foreground has-checked:border-brand has-checked:bg-brand-soft"
-                      >
-                        <input type="checkbox" name="dia" value={i} defaultChecked={cfg?.dias_uteis.includes(i)} aria-label={DIAS_EXTENSO[i]} className={classeCaixa} />
-                        <span aria-hidden>{d}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-              </CardContent>
-              <RodapeSalvar />
-            </Secao>
-          </FormularioAlteravel>
+          <SecaoExpediente cfg={cfg} />
 
           {admin && (
             <FormularioAlteravel action={salvarTetoAlertas}>
@@ -177,20 +157,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
             </FormularioAlteravel>
           )}
 
-          <FormularioAlteravel action={salvarPrazos}>
-            <Secao id="prazos" titulo="Prazos por prioridade" descricao="Dias úteis até o prazo de cada demanda nova, contando o expediente e os feriados. 0 = no mesmo dia, até o fim do expediente.">
-              <CardContent className="grid gap-4 sm:grid-cols-4">
-                {([
-                  ['prazo_urgente_dias', 'Urgente'], ['prazo_alta_dias', 'Alta'], ['prazo_normal_dias', 'Normal'], ['prazo_baixa_dias', 'Baixa'],
-                ] as const).map(([campo, nome]) => (
-                  <FormField key={campo} id={campo} rotulo={`${nome} (dias úteis)`} erro={erro === 'prazos' ? 'De 0 a 30.' : undefined}>
-                    <Input name={campo} type="number" step="1" min="0" max="30" required defaultValue={cfg?.[campo]} className="tabular" />
-                  </FormField>
-                ))}
-              </CardContent>
-              <RodapeSalvar rotulo="Salvar prazos" />
-            </Secao>
-          </FormularioAlteravel>
+          <SecaoPrazos cfg={cfg} feriados={feriados ?? []} hoje={hoje} admin={admin} agora={agora} />
 
           <FormularioEspera>
             <Secao id="atendimento" titulo="Atendimento" descricao="Cores do cronômetro de espera na lista do Atendimento.">
@@ -326,44 +293,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
             </CardFooter>
           </Secao>
 
-          <Secao id="feriados" titulo="Feriados" descricao="Dias sem expediente.">
-            <CardContent>
-              {(feriados ?? []).length === 0 ? (
-                <EmptyState icone={CalendarOff} titulo="Nenhum feriado cadastrado." className="py-6" />
-              ) : (
-                <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
-                  {(feriados ?? []).map((f) => {
-                    const data = formatarData(`${f.data}T12:00:00-03:00`);
-                    return (
-                      <li key={f.data} className="flex items-center gap-3 px-3 py-2">
-                        <span className="tabular w-24 shrink-0 text-muted">{data}</span>
-                        <span className="min-w-0 flex-1 truncate text-foreground">{f.descricao}</span>
-                        <ConfirmDialog
-                          gatilho={(
-                            <Button type="button" variant="ghost" size="icon" aria-label={`Remover o feriado ${data}`} className="size-8 text-muted hover:text-danger">
-                              <Trash2 aria-hidden size={16} strokeWidth={1.75} />
-                            </Button>
-                          )}
-                          titulo="Remover feriado?"
-                          descricao={`${data} · ${f.descricao} volta a ser dia normal de expediente.`}
-                          confirmar="Remover"
-                          enviando="Removendo…"
-                          acao={removerFeriado.bind(null, f.data)}
-                        />
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </CardContent>
-            <CardFooter>
-              <form action={adicionarFeriado} className="flex w-full flex-col gap-2 sm:flex-row">
-                <Input type="date" name="data" aria-label="Data do feriado" required className="tabular sm:w-44" />
-                <Input name="descricao" placeholder="Descrição" aria-label="Descrição do feriado" required className="sm:flex-1" />
-                <Button type="submit" size="sm" variant="outline">Adicionar</Button>
-              </form>
-            </CardFooter>
-          </Secao>
+          <SecaoFeriados feriados={feriados ?? []} hoje={hoje} />
 
           {admin && (
             <Secao id="integracoes" titulo="Integrações" descricao="Último sinal de cada serviço. Sem sinal há mais de 5 minutos, algo parou.">

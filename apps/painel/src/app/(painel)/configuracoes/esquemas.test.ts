@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EsperaForm, esquemaAvisoLogin, ExpedienteForm, PrazosForm, TetoAlertasForm } from './esquemas';
+import { EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, PrazosForm, TetoAlertasForm } from './esquemas';
 
 describe('ExpedienteForm e TetoAlertasForm (separados na Parte D: teto e alertas são só do administrador)', () => {
   it('expediente: horários e dias úteis', () => {
@@ -83,5 +83,22 @@ describe('EsperaForm', () => {
     for (const [v, a] of [['5.5', '15'], ['', '15'], ['5', ''], ['x', '15'], ['5', '481'], ['241', '300']]) {
       expect(EsperaForm.safeParse({ espera_verde_min: v, espera_ambar_min: a }).success).toBe(false);
     }
+  });
+});
+
+describe('FeriadoForm (Parte G1)', () => {
+  it('data e descrição aparada', () => {
+    expect(FeriadoForm.parse({ data: '2026-12-24', descricao: '  Véspera ' })).toEqual({ data: '2026-12-24', descricao: 'Véspera' });
+  });
+  it('sem data ou sem nome: recusa com a frase da tela', () => {
+    expect(FeriadoForm.safeParse({ data: '', descricao: 'X' }).error?.issues[0]?.message).toBe('Escolha a data do feriado.');
+    expect(FeriadoForm.safeParse({ data: '2026-12-24', descricao: ' ' }).error?.issues[0]?.message).toBe('Escreva o nome do feriado.');
+  });
+});
+describe('ExpedienteForm (Parte G1): mensagens em português', () => {
+  it('horário vazio', () => {
+    const f = new FormData();
+    f.set('horario_inicio', ''); f.set('horario_fim', '18:00');
+    expect(ExpedienteForm.safeParse(f).error?.issues[0]?.message).toBe('Informe o horário (hh:mm).');
   });
 });
