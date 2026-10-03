@@ -16,9 +16,9 @@ export type TipoOrientacaoSelo = TipoOrientacao;
 type Aparencia = { rotulo: string; Icone: LucideIcon; variant: NonNullable<BadgeProps['variant']>; cor: string };
 
 export const STATUS_DEMANDA: Record<StatusDemanda, Aparencia> = {
-  aberto: { rotulo: 'Aberta', Icone: CircleDot, variant: 'info', cor: 'text-info' },
-  em_andamento: { rotulo: 'Em andamento', Icone: CircleDashed, variant: 'brand', cor: 'text-brand' },
-  aguardando_cliente: { rotulo: 'Aguardando cliente', Icone: Clock, variant: 'warning', cor: 'text-warning' },
+  aberto: { rotulo: 'Nova', Icone: CircleDot, variant: 'info', cor: 'text-info' },
+  em_andamento: { rotulo: 'Resolvendo', Icone: CircleDashed, variant: 'brand', cor: 'text-brand' },
+  aguardando_cliente: { rotulo: 'Com o cliente', Icone: Clock, variant: 'warning', cor: 'text-warning' },
   concluido: { rotulo: 'Concluída', Icone: CircleCheck, variant: 'success', cor: 'text-success' },
 };
 

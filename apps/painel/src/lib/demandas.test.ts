@@ -1,30 +1,78 @@
 import { describe, expect, it } from 'vitest';
-import { inicioDoDiaSP, inicioDoPeriodo, lerFiltrosDemandas, opcoesResponsavel, temFiltroAlemDoSetor } from './demandas';
+import {
+  STATUS_PADRAO, etiquetasFiltros, iniciais, inicioDoDiaSP, inicioDoPeriodo, lerFiltrosDemandas, opcoesResponsavel, statusAoAlternar, temFiltro,
+} from './demandas';
 
 const ID = '3f2b8c1e-5d4a-4e7b-9c1f-2a3b4c5d6e7f';
 
 describe('lerFiltrosDemandas', () => {
-  it('sem parâmetros: todos os setores, só não concluídas (nenhum filtro novo)', () => {
-    expect(lerFiltrosDemandas({})).toEqual({ setor: 'todos', status: null, responsavel: null, tipo: null, periodo: null, demanda: null });
+  it('sem parâmetros: todos os setores, as três abertas, nenhum outro filtro', () => {
+    expect(lerFiltrosDemandas({})).toEqual({
+      setor: 'todos', status: STATUS_PADRAO, origem: null, vencidas: false, prazoHoje: false, responsavel: null,
+      prioridade: null, tipo: null, periodo: null, q: null, demanda: null, nova: false,
+    });
   });
   it('setor mantém a semântica antiga (todos | triagem | id)', () => {
     expect(lerFiltrosDemandas({ setor: 'triagem' }).setor).toBe('triagem');
     expect(lerFiltrosDemandas({ setor: ID }).setor).toBe(ID);
-    expect(lerFiltrosDemandas({ setor: 'todos' }).setor).toBe('todos');
     expect(lerFiltrosDemandas({ setor: "x' or 1=1" }).setor).toBe('todos');
   });
-  it('lê os filtros novos e ignora valores estranhos', () => {
-    const f = lerFiltrosDemandas({ status: 'concluido', responsavel: 'sem', tipo: 'venda', periodo: '7d', demanda: ID });
-    expect(f).toMatchObject({ status: 'concluido', responsavel: 'sem', tipo: 'venda', periodo: '7d', demanda: ID });
-    expect(lerFiltrosDemandas({ status: 'fechado', responsavel: 'fulano', tipo: 'x', periodo: '1a', demanda: '12' }))
-      .toMatchObject({ status: null, responsavel: null, tipo: null, periodo: null, demanda: null });
-    expect(lerFiltrosDemandas({ responsavel: ['eu', 'sem'] }).responsavel).toBe('eu');
-    expect(lerFiltrosDemandas({ responsavel: ID }).responsavel).toBe(ID);
-    expect(lerFiltrosDemandas({ responsavel: ID }, ID).responsavel).toBe('eu'); // o próprio id vira Comigo
+  it('status em lista, na ordem dos botões; lixo ou vazio volta ao padrão; ?status=concluido antigo continua valendo', () => {
+    expect(lerFiltrosDemandas({ status: 'aguardando_cliente,aberto' }).status).toEqual(['aberto', 'aguardando_cliente']);
+    expect(lerFiltrosDemandas({ status: 'concluido' }).status).toEqual(['concluido']);
+    expect(lerFiltrosDemandas({ status: 'fechado' }).status).toEqual(STATUS_PADRAO);
+    expect(lerFiltrosDemandas({ status: '' }).status).toEqual(STATUS_PADRAO);
   });
-  it('temFiltroAlemDoSetor', () => {
-    expect(temFiltroAlemDoSetor(lerFiltrosDemandas({ setor: 'triagem' }))).toBe(false);
-    expect(temFiltroAlemDoSetor(lerFiltrosDemandas({ tipo: 'outras' }))).toBe(true);
+  it('lê os outros filtros e ignora valores estranhos', () => {
+    const f = lerFiltrosDemandas({ origem: 'equipe', vencidas: '1', prazo: 'hoje', responsavel: 'sem', prioridade: 'urgente', tipo: 'venda',
+      periodo: '7d', q: '  guia  ', demanda: ID, nova: '1' });
+    expect(f).toMatchObject({ origem: 'equipe', vencidas: true, prazoHoje: true, responsavel: 'sem', prioridade: 'urgente', tipo: 'venda',
+      periodo: '7d', q: 'guia', demanda: ID, nova: true });
+    expect(lerFiltrosDemandas({ origem: 'x', vencidas: 'sim', prazo: 'ontem', responsavel: 'fulano', prioridade: 'maxima', q: '   ' }))
+      .toMatchObject({ origem: null, vencidas: false, prazoHoje: false, responsavel: null, prioridade: null, q: null });
+    expect(lerFiltrosDemandas({ responsavel: ID }, ID).responsavel).toBe('eu');
+    expect(lerFiltrosDemandas({ q: 'x'.repeat(200) }).q).toHaveLength(80);
+  });
+});
+
+describe('botões de status', () => {
+  it('alternar um status monta a lista; voltar ao padrão ou esvaziar tira o parâmetro', () => {
+    expect(statusAoAlternar(STATUS_PADRAO, 'concluido')).toBe('aberto,em_andamento,aguardando_cliente,concluido');
+    expect(statusAoAlternar(STATUS_PADRAO, 'aberto')).toBe('em_andamento,aguardando_cliente');
+    expect(statusAoAlternar(['em_andamento', 'aguardando_cliente'], 'aberto')).toBeNull();
+    expect(statusAoAlternar(['concluido'], 'concluido')).toBeNull();
+  });
+  it('temFiltro: só o padrão não conta', () => {
+    expect(temFiltro(lerFiltrosDemandas({}))).toBe(false);
+    expect(temFiltro(lerFiltrosDemandas({ status: 'concluido' }))).toBe(true);
+    expect(temFiltro(lerFiltrosDemandas({ q: 'guia' }))).toBe(true);
+  });
+});
+
+describe('etiquetasFiltros (imagem 03: "Setor: Fiscal ×")', () => {
+  it('uma etiqueta por filtro avançado, com o nome legível', () => {
+    const f = lerFiltrosDemandas({ setor: ID, responsavel: 'eu', prioridade: 'alta', tipo: 'venda', periodo: '30d', prazo: 'hoje' });
+    expect(etiquetasFiltros(f, { setores: [{ id: ID, nome: 'Fiscal' }], pessoas: [] })).toEqual([
+      { param: 'setor', rotulo: 'Setor: Fiscal' },
+      { param: 'responsavel', rotulo: 'Responsável: eu' },
+      { param: 'prioridade', rotulo: 'Prioridade: Alta' },
+      { param: 'tipo', rotulo: 'Tipo: Pedido de nota (venda)' },
+      { param: 'periodo', rotulo: 'Aberta: Últimos 30 dias' },
+      { param: 'prazo', rotulo: 'Prazo: vence hoje' },
+    ]);
+  });
+  it('pessoa arquivada aparece como "(arquivado)"; sem responsável, "ninguém"', () => {
+    const pessoas = [{ id: ID, nome: 'Zé', ativo: false }];
+    expect(etiquetasFiltros(lerFiltrosDemandas({ responsavel: ID }), { setores: [], pessoas })).toEqual([{ param: 'responsavel', rotulo: 'Responsável: Zé (arquivado)' }]);
+    expect(etiquetasFiltros(lerFiltrosDemandas({ responsavel: 'sem' }), { setores: [], pessoas })).toEqual([{ param: 'responsavel', rotulo: 'Responsável: ninguém' }]);
+  });
+});
+
+describe('iniciais (avatar do quadro)', () => {
+  it('primeira e última palavra; uma palavra só, duas letras', () => {
+    expect(iniciais('Ana Paula Nunes')).toBe('AN');
+    expect(iniciais('Ana')).toBe('AN');
+    expect(iniciais('  ')).toBe('?');
   });
 });
 
@@ -34,7 +82,6 @@ describe('período', () => {
   it('hoje começa à meia-noite de Brasília', () => {
     expect(inicioDoDiaSP(agora).toISOString()).toBe('2026-09-30T03:00:00.000Z');
     expect(inicioDoPeriodo('hoje', agora)).toBe('2026-09-30T03:00:00.000Z');
-    // 23:30 do dia 29 em Brasília (02:30 UTC do dia 30) ainda é dia 29
     expect(inicioDoDiaSP(new Date('2026-09-30T02:30:00Z')).toISOString()).toBe('2026-09-29T03:00:00.000Z');
   });
   it('7 e 30 dias contam para trás a partir de agora; sem período, null', () => {
@@ -45,11 +92,7 @@ describe('período', () => {
 });
 
 describe('opcoesResponsavel', () => {
-  const pessoas = [
-    { id: 'eu', nome: 'Ana', ativo: true },
-    { id: 'bia', nome: 'Bia', ativo: true },
-    { id: 'ze', nome: 'Zé', ativo: false },
-  ];
+  const pessoas = [{ id: 'eu', nome: 'Ana', ativo: true }, { id: 'bia', nome: 'Bia', ativo: true }, { id: 'ze', nome: 'Zé', ativo: false }];
   it('arquivado sai da seleção (spec 5.1); eu viro "Comigo" à parte', () => {
     expect(opcoesResponsavel(pessoas, 'eu', null)).toEqual([{ valor: 'bia', rotulo: 'Bia' }]);
   });

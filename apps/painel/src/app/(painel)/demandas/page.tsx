@@ -13,7 +13,7 @@ import { StatusBadge, type StatusDemanda } from '@/components/patterns/status-ba
 import { Badge } from '@/components/ui/badge';
 import { variantesBotao } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
-import { inicioDoPeriodo, lerFiltrosDemandas, OPCOES_PERIODO, OPCOES_STATUS, OPCOES_TIPO, opcoesResponsavel, temFiltroAlemDoSetor } from '@/lib/demandas';
+import { inicioDoPeriodo, lerFiltrosDemandas, OPCOES_PERIODO, OPCOES_TIPO, opcoesResponsavel, temFiltro } from '@/lib/demandas';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { pendenciasCsvBling } from '@/lib/resumo-pedido';
@@ -32,6 +32,7 @@ type Filtravel<Q> = {
   is(coluna: string, valor: null): Q;
   eq(coluna: string, valor: string): Q;
   neq(coluna: string, valor: string): Q;
+  in(coluna: string, valores: readonly string[]): Q;
   not(coluna: string, operador: string, valor: null): Q;
   gte(coluna: string, valor: string): Q;
 };
@@ -77,7 +78,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
     let r = q;
     if (setor === 'triagem') r = r.is('setor_id', null);
     else if (setor !== 'todos') r = r.eq('setor_id', setor);
-    r = f.status ? r.eq('status', f.status) : r.neq('status', 'concluido');
+    r = r.in('status', f.status);
     if (f.responsavel === 'sem') r = r.is('responsavel_id', null);
     else if (f.responsavel) r = r.eq('responsavel_id', f.responsavel === 'eu' ? u.id : f.responsavel);
     if (f.tipo === 'venda') r = r.not('pedido_venda', 'is', null);
@@ -173,7 +174,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
     { id: 'status', titulo: 'Status', celula: (d) => <StatusBadge tipo="demanda" status={d.status} /> },
   ];
 
-  const filtrosAtivos = temFiltroAlemDoSetor(f);
+  const filtrosAtivos = temFiltro(f);
 
   return (
     <section>
@@ -225,7 +226,6 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
         className="mb-3"
         total={total}
         filtros={[
-          { param: 'status', rotulo: 'Status', todos: 'Em aberto', opcoes: OPCOES_STATUS },
           { param: 'responsavel', rotulo: 'Responsável', todos: 'Qualquer um', opcoes: [
             { valor: 'eu', rotulo: 'Comigo' }, { valor: 'sem', rotulo: 'Sem responsável' },
             ...opcoesResponsavel(pessoas ?? [], u.id, f.responsavel),
@@ -262,7 +262,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
         vazio={(
           <EmptyState
             icone={FilterX}
-            titulo={f.status === 'concluido' ? 'Nenhuma demanda concluída neste filtro.' : 'Nenhuma demanda aberta neste filtro.'}
+            titulo={f.status.includes('concluido') ? 'Nenhuma demanda concluída neste filtro.' : 'Nenhuma demanda aberta neste filtro.'}
             descricao={filtrosAtivos || setor !== 'todos' ? 'Tente outro setor ou limpe os filtros.' : 'Quando o agente ou a equipe abrir uma demanda, ela aparece aqui.'}
             acao={filtrosAtivos || setor !== 'todos'
               ? <Link href="/demandas" className={variantesBotao({ variant: 'outline', size: 'sm' })}>Limpar filtros</Link>

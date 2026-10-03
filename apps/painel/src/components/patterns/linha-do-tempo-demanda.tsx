@@ -1,32 +1,27 @@
 import { cn } from '@/lib/cn';
 import { formatarDataHora } from '@/lib/formatos';
+import { fraseDoEvento, type EventoDemanda } from '@/lib/linha-do-tempo';
 
-/** Evento de chamado_eventos, com o nome de quem fez (usuarios.nome). */
-export type EventoDemanda = { tipo: string; texto: string | null; criado_em: string; usuario: string | null };
+export type { EventoDemanda };
 
-const EVENTO: Record<string, string> = {
-  criacao: 'Demanda aberta',
-  assumido: 'Assumida',
-  transferencia: 'Transferida',
-  nota_interna: 'Nota interna',
-  conclusao: 'Concluída',
-};
-
-/** Linha do tempo de uma demanda (painel da conversa e painel lateral de Demandas). */
-export function LinhaDoTempoDemanda({ numero, eventos, className }: { numero: number; eventos: EventoDemanda[]; className?: string }) {
+/** Linha do tempo de uma demanda (painel lateral de Demandas e painel da conversa): quem fez, o que fez e quando. */
+export function LinhaDoTempoDemanda({ numero, eventos, origem = 'agente', className }: {
+  numero: number; eventos: EventoDemanda[]; origem?: string; className?: string;
+}) {
   if (eventos.length === 0) return null;
   return (
-    <ol aria-label={`Linha do tempo da demanda #${numero}`} className={cn('ml-1 flex flex-col gap-2 border-l border-border pl-3', className)}>
-      {eventos.map((e, i) => (
-        <li key={i} className="relative text-xs">
-          <span aria-hidden className="absolute -left-4 top-1 size-2 rounded-full bg-border" />
-          <p className="text-muted">
-            <span className="font-medium text-foreground">{EVENTO[e.tipo] ?? e.tipo}</span>
-            {e.usuario ? ` por ${e.usuario}` : ''} · <time dateTime={e.criado_em} className="tabular">{formatarDataHora(e.criado_em)}</time>
-          </p>
-          {e.texto && <p className="whitespace-pre-wrap text-foreground">{e.texto}</p>}
-        </li>
-      ))}
+    <ol aria-label={`Linha do tempo da demanda #${numero}`} className={cn('ml-1 flex flex-col gap-2 border-l-2 border-border pl-3', className)}>
+      {eventos.map((e, i) => {
+        const f = fraseDoEvento(e, origem);
+        return (
+          <li key={i} className="text-sm">
+            <p className="text-muted">
+              <span className="font-semibold text-foreground">{f.ator}</span> {f.acao} · <time dateTime={e.criado_em} className="tabular">{formatarDataHora(e.criado_em)}</time>
+            </p>
+            {f.detalhe && <p className="whitespace-pre-wrap text-foreground">{f.detalhe}</p>}
+          </li>
+        );
+      })}
     </ol>
   );
 }
