@@ -80,7 +80,7 @@ describe('ensinarAgente', () => {
 
   it('mensagem do banco (raise exception) chega à pessoa; erro inesperado vira mensagem padrão e vai para o log', async () => {
     falso.rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0001', message: 'Esta empresa está inativa. Escolha outra empresa ou reative o cadastro.' } });
-    expect(await ensinarAgente(form(basico))).toEqual({ erro: 'Esta empresa está inativa. Escolha outra empresa ou reative o cadastro.' });
+    expect(await ensinarAgente(form(basico))).toEqual({ erro: 'Esta empresa está arquivada. Escolha outra empresa ou traga o cadastro de volta.' });
 
     const cru = { code: '23514', message: 'new row violates check constraint "orientacoes_agente_texto_check"' };
     falso.rpc.mockResolvedValueOnce({ data: null, error: cru });
@@ -105,7 +105,7 @@ describe('alternarOrientacao', () => {
 
   it('só a mensagem P0001 chega à pessoa; erro inesperado vira mensagem padrão e vai para o log', async () => {
     falso.rpc.mockResolvedValueOnce({ data: null, error: P0001 });
-    expect(await alternarOrientacao(NOVA, true)).toEqual({ erro: P0001.message });
+    expect(await alternarOrientacao(NOVA, true)).toEqual({ erro: 'Esta empresa está arquivada. Escolha outra empresa ou traga o cadastro de volta.' });
 
     falso.rpc.mockResolvedValueOnce({ data: null, error: CRU });
     expect(await alternarOrientacao(NOVA, true)).toEqual({ erro: 'Não foi possível mudar a orientação. Tente de novo em alguns minutos.' });
@@ -141,7 +141,7 @@ describe('restaurarVersao', () => {
 
   it('só a mensagem P0001 chega à pessoa; erro inesperado vira mensagem padrão e vai para o log', async () => {
     falso.rpc.mockResolvedValueOnce({ data: null, error: P0001 });
-    expect(await erroDe(restaurarVersao(SETOR, voltar))).toBe(P0001.message);
+    expect(await erroDe(restaurarVersao(SETOR, voltar))).toBe('Esta empresa está arquivada. Escolha outra empresa ou traga o cadastro de volta.');
 
     falso.rpc.mockResolvedValueOnce({ data: null, error: CRU });
     expect(await erroDe(restaurarVersao(SETOR, voltar))).toBe('Não foi possível restaurar a versão. Tente de novo em alguns minutos.');

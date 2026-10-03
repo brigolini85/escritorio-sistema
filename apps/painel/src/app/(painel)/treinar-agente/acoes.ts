@@ -4,6 +4,7 @@ import { redirect, unstable_rethrow } from 'next/navigation';
 import type { EmpresaOpcao } from '@/components/patterns/escolher-empresa';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { enfileirarSimulacao } from '@/lib/fila';
+import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { lerEmPaginas } from '@/lib/paginas';
 import { obterUsuario, temPermissao } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -28,7 +29,7 @@ class AvisoTreinar extends Error {}
  * para o log e vira a mensagem padrão da ação.
  */
 function avisoDoBanco(error: { code?: string; message: string }, log: string, padrao: string): AvisoTreinar {
-  if (error.code === 'P0001') return new AvisoTreinar(error.message);
+  if (error.code === 'P0001') return new AvisoTreinar(mensagemDoBanco(error.message));
   console.error(`[treinar-agente] ${log}`, error);
   return new AvisoTreinar(padrao);
 }
@@ -116,7 +117,7 @@ export async function ensinarAgente(formData: FormData): Promise<{ id: string } 
 
 /**
  * Chave da tabela. Devolve o motivo em vez de lançar (em produção o Next esconde a mensagem de um erro lançado):
- * a chave volta ao estado anterior e o aviso mostra o motivo (ex.: empresa inativa).
+ * a chave volta ao estado anterior e o aviso mostra o motivo (ex.: empresa arquivada).
  */
 export async function alternarOrientacao(id: string, ativo: boolean): Promise<{ erro: string | null }> {
   try {

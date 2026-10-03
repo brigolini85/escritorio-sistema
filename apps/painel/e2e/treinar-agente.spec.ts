@@ -116,7 +116,7 @@ test('erro do banco volta na tela: ligar orientação de empresa inativa mostra 
   const linha = page.getByRole('row', { name: /Boleto/ });
   await expect(linha.getByText('arquivada')).toBeVisible();
   await linha.getByRole('switch', { name: 'Ligar a orientação Boleto' }).click();
-  await expect(page.getByText(/Não consegui ligar a orientação "Boleto"\. Esta empresa está inativa/)).toBeVisible();
+  await expect(page.getByText(/Não consegui ligar a orientação "Boleto"\. Esta empresa está arquivada/)).toBeVisible();
   await expect(linha.getByRole('switch', { name: 'Ligar a orientação Boleto' })).toHaveAttribute('aria-checked', 'false');
   expect((await orientacao('Boleto'))?.ativo).toBe(false);
 
