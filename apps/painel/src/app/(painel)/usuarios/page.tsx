@@ -100,11 +100,11 @@ export default async function Usuarios({ searchParams }: { searchParams: Promise
     contatoDoTelefone: u.permissoes.includes('assistente_whatsapp') ? contatoDoTelefone(u.telefone) : null,
     arquivadoEm: u.arquivado_em, arquivadoPor: u.arquivado_por,
   }));
-  // A lista toda segue com todas as pessoas (o convite recusa e-mail repetido); a tabela mostra só quem está ativo.
+  // A lista traz todas as pessoas (arquivadas também: o convite e o telefone conferem contra elas); a tabela mostra só quem está ativo.
   const ativos = linhas.filter((l) => l.ativo);
   const arquivados = linhas.length - ativos.length;
   const aberto = usuarioAberto ? linhas.find((l) => l.id === usuarioAberto) ?? null : null;
-  // Abrir outra pessoa tira o ?erro= da tentativa anterior (o aviso era de outra pessoa ou já foi lido na página).
+  // Erro agora aparece no formulário; tirar o ?erro= só limpa link antigo guardado nos favoritos.
   const hrefUsuario = (id: string | null) => `/usuarios${hrefComParams(params, id ? { usuario: id, erro: null } : { usuario: null })}`;
 
   const colunas: ColunaTabela<Linha>[] = [
