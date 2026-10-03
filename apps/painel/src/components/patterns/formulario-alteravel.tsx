@@ -246,7 +246,7 @@ export function BotaoSalvar({ children, destacar = false, enviando = false, clas
 }) {
   const ancora = useRef<HTMLButtonElement>(null);
   const alterado = useAlterado(ancora);
-  const { pending } = useFormStatus();
+  const pending = useFormStatus().pending || enviando;
   return (
     <Button
       ref={ancora}

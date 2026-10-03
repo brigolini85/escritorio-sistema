@@ -31,14 +31,6 @@ const DESCRICAO_PERMISSAO: Record<(typeof PERMISSOES)[number]['valor'], string> 
 };
 const PERMISSOES_DE_EDICAO = new Set(['editar_clientes', 'editar_precos', 'emitir_notas', 'treinar_agente']);
 
-/**
- * Formulário da pessoa (editar no painel lateral ou convidar na janela). Os mesmos campos de antes:
- * nome, email, telefone, papel, setor (vários), permissao (várias). Switch e Checkbox
- * (Radix) enviam name=value quando marcados, como as caixas nativas enviavam.
- * O aviso de WhatsApp sem telefone aparece na hora, mas não impede o envio: quem decide é o servidor
- * ("Informe o telefone para usar o assistente pelo WhatsApp"). Os erros voltam da ação e aparecem no campo
- * (ou no aviso do formulário), sem fechar o painel nem perder o que foi digitado.
- */
 /** Erro sem campo (banco, convite recusado): dentro do formulário, no painel, não no topo da página. */
 function AvisoErro({ erro }: { erro: string }) {
   return (
@@ -49,6 +41,14 @@ function AvisoErro({ erro }: { erro: string }) {
   );
 }
 
+/**
+ * Formulário da pessoa (editar no painel lateral ou convidar na janela). Os mesmos campos de antes:
+ * nome, email, telefone, papel, setor (vários), permissao (várias). Switch e Checkbox
+ * (Radix) enviam name=value quando marcados, como as caixas nativas enviavam.
+ * O aviso de WhatsApp sem telefone aparece na hora, mas não impede o envio: quem decide é o servidor
+ * ("Informe o telefone para usar o assistente pelo WhatsApp"). Os erros voltam da ação e aparecem no campo
+ * (ou no aviso do formulário), sem fechar o painel nem perder o que foi digitado.
+ */
 export function FormularioUsuario({
   acao,
   usuario,
