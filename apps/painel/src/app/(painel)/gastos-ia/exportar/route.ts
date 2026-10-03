@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { lerPeriodo, lerPessoaAberta } from '@/lib/gastos';
-import { lerTodasChamadas, linhasCsvGastos, type LinhaChamada } from '@/lib/gastos-csv';
+import { ateCongelado, lerTodasChamadas, linhasCsvGastos, type LinhaChamada } from '@/lib/gastos-csv';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
@@ -19,9 +19,11 @@ export async function GET(req: NextRequest) {
   if (q.has('pessoa') && !pessoa) return texto('Pessoa inválida.', 400);
   const sb = await supabaseServidor();
   // O PostgREST corta cada resposta em max_rows (1000): páginas por .range; p_limite só até o fim da página pedida.
+  // O fim fica fixo desde o começo do pedido: chamada nova durante a leitura não desloca as páginas (nem repete linha).
+  const ate = ateCongelado(periodo, new Date());
   const [{ linhas, error }, { data: cfg }] = await Promise.all([
     lerTodasChamadas(async (inicio, fim) => {
-      const r = await sb.rpc('gastos_chamadas', { p_de: periodo.de, p_ate: periodo.ate, p_usuario: pessoa ?? undefined, p_limite: fim + 1 }).range(inicio, fim);
+      const r = await sb.rpc('gastos_chamadas', { p_de: periodo.de, p_ate: ate, p_usuario: pessoa ?? undefined, p_limite: fim + 1 }).range(inicio, fim);
       return { data: r.data as LinhaChamada[] | null, error: r.error };
     }),
     sb.from('configuracoes').select('cotacao_usd_brl').eq('id', 1).single(),

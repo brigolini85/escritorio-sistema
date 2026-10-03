@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LIMITE_EXPORTAR, lerTodasChamadas, linhasCsvGastos } from './gastos-csv';
+import { LIMITE_EXPORTAR, ateCongelado, lerTodasChamadas, linhasCsvGastos } from './gastos-csv';
 
 const linha = {
   id: '1', criado_em: '2026-09-26T13:05:00Z', funcionalidade: 'testar_agente', usuario_id: 'u', pessoa: 'Thiago', cliente_id: null, empresa: null,
@@ -79,5 +79,19 @@ describe('lerTodasChamadas', () => {
     const pagina = vi.fn().mockResolvedValueOnce({ data: Array.from({ length: 1000 }, () => linha), error: null })
       .mockResolvedValueOnce({ data: null, error: { message: 'x' } });
     expect(await lerTodasChamadas(pagina)).toEqual({ linhas: [], error: { message: 'x' } });
+  });
+});
+
+// Revisão final (M1): o fim do período é fixado uma vez antes das páginas; chamada nova no meio não empurra as páginas.
+describe('ateCongelado', () => {
+  const periodo = { de: '2026-10-01T00:00:00-03:00', ate: '2026-11-01T00:00:00-03:00' };
+  it('período que inclui agora: o fim vira o instante do pedido', () => {
+    expect(ateCongelado(periodo, new Date('2026-10-03T15:00:00Z'))).toBe('2026-10-03T15:00:00.000Z');
+  });
+  it('período todo no passado: o fim continua o do período', () => {
+    expect(ateCongelado(periodo, new Date('2026-12-01T00:00:00Z'))).toBe(periodo.ate);
+  });
+  it('período todo no futuro: não fica com o fim antes do começo (o banco recusaria)', () => {
+    expect(ateCongelado(periodo, new Date('2026-09-01T00:00:00Z'))).toBe(periodo.ate);
   });
 });

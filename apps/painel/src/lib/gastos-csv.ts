@@ -15,7 +15,17 @@ export const LIMITE_EXPORTAR = 100_000;
 const POR_PAGINA = 1000;
 const AVISO_CORTE = 'Arquivo cortado em 100.000 chamadas. Escolha um período menor.';
 
-type Pagina = { data: LinhaChamada[] | null; error: { message: string } | null };
+/**
+ * Fim do período para o arquivo, fixado uma vez antes das páginas: o menor entre o fim do período e o instante do pedido.
+ * Chamada gravada durante a leitura fica de fora e não empurra linhas de uma página para a outra. Período todo no futuro
+ * fica como está (nada a ler, e o banco recusaria o fim antes do começo).
+ */
+export function ateCongelado(periodo: { de: string; ate: string }, agora: Date): string {
+  const t = agora.getTime();
+  return t < Date.parse(periodo.ate) && t > Date.parse(periodo.de) ? agora.toISOString() : periodo.ate;
+}
+
+type Pagina ={ data: LinhaChamada[] | null; error: { message: string } | null };
 /**
  * Lê todas as chamadas do período em páginas [inicio, fim] (inclusive) até vir uma página incompleta ou chegar ao limite.
  * A ordem da função (criado_em desc, id) é estável: páginas não pulam nem repetem linha. Erro numa página devolve só o erro.
