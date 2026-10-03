@@ -1,6 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { MensagemAssistente } from '@escritorio/db';
 import type { ContextoAssistente } from './contexto';
+import { podeCorrigirPedidos, podeVerPedidos } from './visibilidade';
 
 /** Texto que veio do cliente não fecha nem abre blocos do prompt. */
 export const neutro = (t: string) => t.replace(/</g, '‹').replace(/>/g, '›');
@@ -10,8 +11,8 @@ const data = (d: Date) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/
 export function montarSistemaAssistente(ctx: ContextoAssistente): string {
   const u = ctx.usuario;
   const pode = [
-    'consultar demandas, pedidos, vendas, preços e cadastros',
-    u.papel === 'admin' || u.permissoes.includes('emitir_notas') ? 'corrigir pedidos de nota e gerar o CSV do Bling' : null,
+    podeVerPedidos(u) ? 'consultar demandas, pedidos, vendas, preços e cadastros' : 'consultar demandas, preços e cadastros',
+    podeCorrigirPedidos(u) ? 'corrigir pedidos de nota e gerar o CSV do Bling' : null,
   ].filter(Boolean).join('; ');
   const setores = u.papel === 'admin' ? 'todos (administrador)' : ctx.setores.filter((s) => u.setores.includes(s.id)).map((s) => s.nome).join(', ') || 'nenhum';
   const conversa = ctx.conversa

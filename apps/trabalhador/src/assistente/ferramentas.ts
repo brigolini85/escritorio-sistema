@@ -12,7 +12,9 @@ import { contextoDoAssistente, type ContextoAssistente } from './contexto';
 import { neutro } from './prompt';
 import { itensSemPreco, periodoEmIso, totaisDeVendas, totalDoPedido } from './vendas';
 import { corrigirPedido, descreverPedido, pedidoOriginalDoResumo } from './pedido';
-import { podeCorrigirPedidos, podeVerChamado } from './visibilidade';
+import { podeCorrigirPedidos, podeVerChamado, podeVerPedidos } from './visibilidade';
+
+const SEM_PEDIDOS = 'Você não tem acesso aos pedidos de nota. Peça ao administrador na tela Usuários.';
 
 export type DepsAssistente = { repos: Repos; ia: ClienteIa; canal: CanalWhatsApp };
 export type EstadoAssistente = { ctx: ContextoAssistente; resposta: string[]; arquivo: ArquivoAssistente | null; csvs: { nome: string; conteudo: string }[];
@@ -148,8 +150,10 @@ async function empresaExiste(d: DepsAssistente, clienteId: string): Promise<bool
 async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nome: keyof typeof Entradas, entrada: any): Promise<Resultado> {
   const u = estado.ctx.usuario;
   if ((nome === 'listar_demandas' || nome === 'resumo_vendas') && depoisDe(entrada.de, entrada.ate)) return falha('A data inicial é depois da final.');
-  // Admin vê tudo; os demais, só o que o banco deixa (setores deles e o que respondem).
-  const visivelPara = u.papel === 'admin' ? null : { usuarioId: u.id, setorIds: u.setores };
+  // Pelo nível de Demandas (Parte D): Todas = sem filtro; Só as minhas = onde é responsável; Do meu setor = o de antes.
+  const visivelPara = u.papel === 'admin' || u.niveis.demandas === 'todas' ? null
+    : { usuarioId: u.id, setorIds: u.niveis.demandas === 'meu_setor' ? u.setores : [] };
+  const verPedidos = podeVerPedidos(u);
   switch (nome) {
     case 'listar_demandas': {
       let clienteIds: string[] | undefined;
@@ -163,8 +167,8 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
         .filter((c) => podeVerChamado(u, c));
       return ok({ demandas: lista.map((c) => ({
         numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor ?? 'Triagem', empresa: c.empresa, criada_em: dataCurta(c.criado_em),
-        responsavel: c.responsavel, total_pedido: c.pedido_venda ? formatarReais(totalDoPedido(c.pedido_venda)) : null,
-        ...(c.pedido_venda ? { itens_sem_preco: itensSemPreco(c.pedido_venda) } : {}),
+        responsavel: c.responsavel, total_pedido: verPedidos && c.pedido_venda ? formatarReais(totalDoPedido(c.pedido_venda)) : null,
+        ...(verPedidos && c.pedido_venda ? { itens_sem_preco: itensSemPreco(c.pedido_venda) } : {}),
       })) });
     }
 
@@ -173,7 +177,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
       if (!c || !podeVerChamado(u, c)) return falha('Demanda não encontrada entre as que você pode ver.');
       const eventos = await d.repos.eventosDoChamado(c.id, 10);
       let pedido: object | null = null;
-      if (c.pedido_venda) {
+      if (c.pedido_venda && verPedidos) {
         const [bling] = await d.repos.pedidosVendaParaBling([c.id]);
         const produtosDaEmpresa = c.cliente_id ? await d.repos.produtosDaEmpresa(c.cliente_id) : [];
         pedido = {
@@ -230,6 +234,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
     }
 
     case 'resumo_vendas': {
+      if (!verPedidos) return falha(SEM_PEDIDOS);
       const lista = (await d.repos.chamadosRecentes({ ...periodoEmIso(entrada.de, entrada.ate), clienteIds: entrada.cliente_id ? [entrada.cliente_id] : undefined, comPedido: true, visivelPara }))
         .filter((c) => c.pedido_venda && podeVerChamado(u, c));
       const redes = await d.repos.nomesDasRedes([...new Set(lista.flatMap((c) => (c.pedido_venda!.unidade_id ? [c.pedido_venda!.unidade_id] : [])))]);
@@ -239,7 +244,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
     }
 
     case 'alterar_pedido_venda': {
-      if (!podeCorrigirPedidos(u)) return falha('Você não tem permissão para corrigir pedidos de nota. Peça ao administrador para marcar "Corrigir pedidos de nota e gerar CSV do Bling" na aba Usuários.');
+      if (!podeCorrigirPedidos(u)) return falha('Você não tem permissão para corrigir pedidos de nota. Peça ao administrador o nível "Corrigir e gerar" em Pedidos de nota, na tela Usuários.');
       const DE_NOVO = 'Mostre o antes e o depois de novo e espere a confirmação.';
       let conferenciaDaPrevia: string | null = null;
       let depoisDaPrevia: string | null = null;
@@ -361,7 +366,7 @@ async function executarValidada(d: DepsAssistente, estado: EstadoAssistente, nom
     }
 
     case 'gerar_csv_bling': {
-      if (!podeCorrigirPedidos(u)) return falha('Você não tem permissão para gerar o CSV do Bling. Peça ao administrador na aba Usuários.');
+      if (!podeCorrigirPedidos(u)) return falha('Você não tem permissão para gerar o CSV do Bling. Peça ao administrador o nível "Corrigir e gerar" em Pedidos de nota, na tela Usuários.');
       const numeros: number[] | null = entrada.numeros ? [...new Set<number>(entrada.numeros)] : null;
       const chamados = numeros
         ? (await Promise.all(numeros.map((n: number) => d.repos.chamadoPorNumero(n)))).filter((c): c is NonNullable<typeof c> => c !== null)

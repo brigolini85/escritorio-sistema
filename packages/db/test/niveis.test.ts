@@ -13,6 +13,8 @@ describe('níveis (Parte D)', () => {
   it('o catálogo do banco é o mesmo do código, na mesma ordem, com o mesmo padrão', async () => {
     const { data, error } = await db.from('permissao_niveis').select('modulo, nivel, ordem').order('modulo').order('ordem');
     expect(error).toBeNull();
+    // O conjunto de módulos vem do banco: um módulo que só o banco tem também falha.
+    expect([...new Set(data!.map((l) => l.modulo))].sort()).toEqual([...MODULOS].sort());
     const doBanco = Object.fromEntries(MODULOS.map((m) => [m, data!.filter((l) => l.modulo === m).map((l) => l.nivel)]));
     expect(doBanco).toEqual(NIVEIS);
     for (const m of MODULOS) expect((await db.rpc('nivel_padrao', { p_modulo: m })).data).toBe(NIVEIS_PADRAO[m]);

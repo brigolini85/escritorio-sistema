@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { limparBanco } from '@escritorio/db/teste';
-import { MENSAGEM_TETO, processarAssistente } from '../../src/assistente/processar';
+import { MENSAGEM_FORA_DO_HORARIO, MENSAGEM_TETO, processarAssistente } from '../../src/assistente/processar';
 import { CanalFalso } from '../../src/canal/falso';
 import { db, repos } from '../apoio/cenario';
 import { IaRoteirizada, fim, usarFerramentas } from '../apoio/ia-roteirizada';
@@ -66,5 +66,24 @@ describe('processarAssistente (pedido do dono, 2026-09-29)', () => {
     const ia = new IaRoteirizada([new Error('fora do ar')]);
     await expect(processarAssistente({ repos, ia, canal }, { usuarioId: dono, canal: 'site', conversaId: null, telefone: null }, false)).rejects.toThrow('fora do ar');
     expect(await repos.perguntasPendentes(dono, 'site', null)).toHaveLength(1);
+  });
+
+  it('fora do horário: avisa pelo WhatsApp e não chama a IA (P17)', async () => {
+    const ana = await criarUsuarioTeste({ email: 'ana@teste-horario.local', papel: 'atendente', permissoes: ['assistente_whatsapp'], telefone: '5531922220001' });
+    await db.from('usuarios').update({ horario_acesso: { semana: null, sabado: null, domingo: null } }).eq('id', ana);
+    await repos.registrarMensagemAssistente({ usuarioId: ana, canal: 'whatsapp', conversaId: null, papel: 'usuario', conteudo: 'quais notas?' });
+    const ia = new IaRoteirizada([]);
+    expect(await processarAssistente({ repos, ia, canal }, { usuarioId: ana, canal: 'whatsapp', conversaId: null, telefone: '5531922220001' }, true))
+      .toBe('fora-do-horario');
+    expect(ia.recebidos).toEqual([]);
+    expect(canal.enviados).toEqual([{ telefone: '5531922220001', texto: MENSAGEM_FORA_DO_HORARIO }]);
+    expect(await repos.perguntasPendentes(ana, 'whatsapp', null)).toEqual([]);
+  });
+
+  it('administrador com horário bloqueado é respondido normalmente', async () => {
+    await db.from('usuarios').update({ horario_acesso: { semana: null, sabado: null, domingo: null } }).eq('id', dono);
+    await perguntar('oi');
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi!' } }), fim()]);
+    expect(await processarAssistente({ repos, ia, canal }, { usuarioId: dono, canal: 'site', conversaId: null, telefone: null }, true)).toBe('respondido');
   });
 });

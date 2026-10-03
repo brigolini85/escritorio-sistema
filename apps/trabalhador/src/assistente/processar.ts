@@ -4,13 +4,15 @@ import type { JobAssistente } from '../fila';
 import { carregarContextoAssistente } from './contexto';
 import { MENSAGEM_VAZIA, executarAssistente } from './executar';
 import type { DepsAssistente } from './ferramentas';
+import { usaAssistentePor } from './visibilidade';
 
 export const MENSAGEM_TETO = 'Limite mensal de gasto com IA atingido. Fale com o administrador.';
 export const MENSAGEM_FALHA = 'Não consegui responder agora. Tente de novo em alguns minutos.';
+export const MENSAGEM_FORA_DO_HORARIO = 'Fora do seu horário de acesso. O assistente volta a responder quando o seu horário começar.';
 export const AVISO_ARQUIVO_FALHOU = 'Não consegui enviar o arquivo; peça de novo.';
 const MAX_PENDENTES = 100;
 
-export async function processarAssistente(d: DepsAssistente, j: JobAssistente, ultimaTentativa: boolean): Promise<'sem-perguntas' | 'sem-permissao' | 'teto' | 'respondido'> {
+export async function processarAssistente(d: DepsAssistente, j: JobAssistente, ultimaTentativa: boolean): Promise<'sem-perguntas' | 'sem-permissao' | 'fora-do-horario' | 'teto' | 'respondido'> {
   // Uma única leitura: perguntas que chegarem durante o processamento ficam para a próxima execução.
   // Todas as pendentes entram (não só as que cabem na janela do histórico), para nenhuma ficar esquecida.
   const [janela, pendentes] = await Promise.all([
@@ -24,8 +26,7 @@ export async function processarAssistente(d: DepsAssistente, j: JobAssistente, u
   const ids = perguntas.map((m) => m.id);
   if (ids.length === 0) return 'sem-perguntas';
   const usuario = await d.repos.obterUsuarioAssistente(j.usuarioId);
-  const permissao = j.canal === 'site' ? 'assistente_site' : 'assistente_whatsapp';
-  if (!usuario || !usuario.ativo || !usuario.permissoes.includes(permissao)) {
+  if (!usuario || !usaAssistentePor(usuario, j.canal)) {
     await d.repos.marcarPerguntasRespondidas(ids);
     return 'sem-permissao';
   }
@@ -56,6 +57,12 @@ export async function processarAssistente(d: DepsAssistente, j: JobAssistente, u
     await d.repos.registrarMensagemAssistente({ usuarioId: usuario.id, canal: j.canal, conversaId: j.conversaId, papel: 'assistente', conteudo: texto, arquivo, processada: true });
     await d.repos.marcarPerguntasRespondidas(ids);
   };
+
+  // Horário de acesso (spec 7.2, P17): avisa e não chama a IA. O banco decide (admin nunca é bloqueado).
+  if (!(await d.repos.horarioPermite(usuario.id, new Date()))) {
+    await responder(MENSAGEM_FORA_DO_HORARIO);
+    return 'fora-do-horario';
+  }
 
   const agora = new Date();
   const config = await d.repos.obterConfiguracoes();
