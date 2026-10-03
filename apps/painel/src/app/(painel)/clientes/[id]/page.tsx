@@ -6,7 +6,8 @@ import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
 import { AvisoArquivado } from '@/components/patterns/lista-arquivados';
 import { Badge } from '@/components/ui/badge';
 import { nomeDaPessoa } from '@/lib/arquivados';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ABAS, AbasCliente, EscolhaParceiros, type Aba } from './abas';
 import { SecaoContatos } from './secao-contatos';
@@ -27,7 +28,7 @@ export default async function FichaCliente({ params, searchParams }: {
   const { aba: pedida, historico, erro } = await searchParams;
   const aba: Aba = ABAS.some((a) => a.valor === pedida) ? (pedida as Aba) : 'dados';
   const u = await obterUsuario();
-  const pode = temPermissao(u, 'editar_clientes');
+  const pode = temNivel(u, 'clientes', 'editar');
   const sb = await supabaseServidor();
   const { data: c } = await sb.from('clientes').select('*').eq('id', id).maybeSingle();
   if (!c) notFound();
@@ -57,7 +58,7 @@ export default async function FichaCliente({ params, searchParams }: {
       {aba === 'clientes' && <SecaoParceiros id={id} tipo="cliente" pode={pode} />}
       {aba === 'fornecedores' && <SecaoParceiros id={id} tipo="fornecedor" pode={pode} />}
       {aba === 'produtos' && <SecaoProdutos id={id} pode={pode} />}
-      {aba === 'precos' && <SecaoPrecos id={id} podeEditar={temPermissao(u, 'editar_precos')} historico={historico} />}
+      {aba === 'precos' && <SecaoPrecos id={id} podeEditar={temNivel(u, 'precos', 'mudar')} historico={historico} />}
       {aba === 'documentos' && <SecaoDocumentos id={id} pode={pode} admin={u.papel === 'admin'} />}
       {aba === 'dados' && pode && c.ativo && <ExcluirCadastro tipo="cliente" id={c.id} nome={c.razao_social} variante="area" voltarPara="/clientes" />}
     </div>

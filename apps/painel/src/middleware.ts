@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { situacaoDe } from '@/lib/situacao-acesso';
 
 const PUBLICAS = ['/entrar', '/auth/confirm', '/definir-senha', '/esqueci-senha'];
 
@@ -15,9 +16,25 @@ export async function middleware(req: NextRequest) {
       },
     },
   });
+  // Redirecionar levando os cookies que o getUser possa ter renovado.
+  const redirecionar = (caminho: string) => {
+    const r = NextResponse.redirect(new URL(caminho, req.url));
+    for (const c of resposta.cookies.getAll()) r.cookies.set(c);
+    return r;
+  };
   const { data } = await sb.auth.getUser();
-  const publica = PUBLICAS.some((p) => req.nextUrl.pathname.startsWith(p));
+  const caminho = req.nextUrl.pathname;
+  const publica = PUBLICAS.some((p) => caminho.startsWith(p));
   if (!data.user && !publica) return NextResponse.redirect(new URL('/entrar', req.url));
+  if (data.user && !publica) {
+    // Horário de acesso (spec 7.2): o banco já recusa; aqui a pessoa vê o porquê. Erro na consulta não tranca ninguém.
+    const { data: s, error } = await sb.rpc('situacao_acesso');
+    if (error) console.error('[middleware] situação de acesso', error.message);
+    const situacao = error ? null : situacaoDe(s);
+    const naPagina = caminho.startsWith('/fora-do-horario');
+    if (situacao === 'fora_do_horario' && !naPagina) return redirecionar('/fora-do-horario');
+    if (situacao === 'liberado' && naPagina) return redirecionar('/inicio');
+  }
   return resposta;
 }
 

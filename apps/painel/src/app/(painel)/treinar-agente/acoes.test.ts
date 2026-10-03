@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Server action "Ensinar o agente" com a sessão e o cliente do Supabase falsos (sem banco).
 const falso = vi.hoisted(() => ({
-  usuario: { id: 'u1', nome: 'Ana', papel: 'atendente' as 'admin' | 'atendente', permissoes: ['treinar_agente'], setores: [] as string[] },
+  usuario: { id: 'u1', nome: 'Ana', papel: 'atendente' as 'admin' | 'atendente', niveis: { treinar: 'sim' as 'sim' | 'nao' }, setores: [] as string[] },
   rpc: vi.fn(),
   revalidatePath: vi.fn(),
 }));
@@ -17,7 +17,6 @@ vi.mock('@/lib/fila', () => ({ enfileirarSimulacao: vi.fn() }));
 vi.mock('@/lib/supabase/servidor', () => ({ supabaseServidor: async () => ({ rpc: falso.rpc }) }));
 vi.mock('@/lib/sessao', () => ({
   obterUsuario: async () => falso.usuario,
-  temPermissao: (u: { papel: string; permissoes: string[] }, p: string) => u.papel === 'admin' || u.permissoes.includes(p),
 }));
 
 import { alternarOrientacao, ensinarAgente, restaurarVersao } from './acoes';
@@ -34,7 +33,7 @@ function form(campos: Record<string, string>) {
 const basico = { situacao: 'Cliente: “Quero a 2ª via”', fazer: 'Mande pelo WhatsApp.', titulo: '2ª via', tipo: 'situacao', vale: 'empresa', cliente_id: EMPRESA };
 
 beforeEach(() => {
-  falso.usuario = { id: 'u1', nome: 'Ana', papel: 'atendente', permissoes: ['treinar_agente'], setores: [] };
+  falso.usuario = { id: 'u1', nome: 'Ana', papel: 'atendente', niveis: { treinar: 'sim' }, setores: [] };
   falso.rpc.mockReset().mockResolvedValue({ data: NOVA, error: null });
   falso.revalidatePath.mockReset();
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -56,13 +55,13 @@ describe('ensinarAgente', () => {
   });
 
   it('sem a permissão não chama o banco', async () => {
-    falso.usuario = { ...falso.usuario, permissoes: [] };
+    falso.usuario = { ...falso.usuario, niveis: { treinar: 'nao' } };
     expect(await ensinarAgente(form(basico))).toEqual({ erro: 'Você não tem permissão para treinar o agente.' });
     expect(falso.rpc).not.toHaveBeenCalled();
   });
 
   it('administrador pode mesmo sem a marcação', async () => {
-    falso.usuario = { ...falso.usuario, papel: 'admin', permissoes: [] };
+    falso.usuario = { ...falso.usuario, papel: 'admin', niveis: { treinar: 'nao' } };
     expect(await ensinarAgente(form(basico))).toEqual({ id: NOVA });
   });
 
@@ -118,7 +117,7 @@ describe('alternarOrientacao', () => {
 
   it('sem a permissão ou com id inválido: motivo claro, sem chamar o banco', async () => {
     expect(await alternarOrientacao('x', true)).toEqual({ erro: 'Orientação não encontrada.' });
-    falso.usuario = { ...falso.usuario, permissoes: [] };
+    falso.usuario = { ...falso.usuario, niveis: { treinar: 'nao' } };
     expect(await alternarOrientacao(NOVA, true)).toEqual({ erro: 'Você não tem permissão para treinar o agente.' });
     expect(falso.rpc).not.toHaveBeenCalled();
   });
@@ -153,7 +152,7 @@ describe('restaurarVersao', () => {
 
   it('id inválido ou sem a permissão: motivo claro, sem chamar o banco', async () => {
     expect(await erroDe(restaurarVersao('x', voltar))).toBe('Versão não encontrada.');
-    falso.usuario = { ...falso.usuario, permissoes: [] };
+    falso.usuario = { ...falso.usuario, niveis: { treinar: 'nao' } };
     expect(await erroDe(restaurarVersao(SETOR, voltar))).toBe('Você não tem permissão para treinar o agente.');
     expect(falso.rpc).not.toHaveBeenCalled();
   });

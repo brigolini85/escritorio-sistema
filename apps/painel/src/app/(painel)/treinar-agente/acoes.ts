@@ -6,7 +6,8 @@ import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { enfileirarSimulacao } from '@/lib/fila';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { lerEmPaginas } from '@/lib/paginas';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { hrefComParams } from '@/lib/tabela-url';
 import { comporTexto } from './ensinar';
@@ -37,7 +38,7 @@ function avisoDoBanco(error: { code?: string; message: string }, log: string, pa
 /** Sessão de quem pode treinar o agente (a pessoa e o cliente dela). O banco confere de novo nas funções. */
 async function sessaoTreinar() {
   const u = await obterUsuario();
-  if (!temPermissao(u, 'treinar_agente')) throw new AvisoTreinar(SEM_PERMISSAO);
+  if (!temNivel(u, 'treinar', 'sim')) throw new AvisoTreinar(SEM_PERMISSAO);
   return { u, sb: await supabaseServidor() };
 }
 

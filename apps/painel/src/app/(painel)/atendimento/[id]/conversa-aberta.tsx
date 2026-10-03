@@ -11,7 +11,8 @@ import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { consultaCaixa } from '@/lib/caixa';
 import { mascararTelefone } from '@/lib/formatos';
 import { linhaDoTempo } from '@/lib/historico';
-import { temPermissao, type UsuarioPainel } from '@/lib/sessao';
+import { temNivel, usaAssistente } from '@/lib/permissoes';
+import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ConversaAssistente } from '../../assistente/conversa-assistente';
 import { alterarStatus, assumir, concluir, devolverAoAgente, notaInterna, responder, transferir } from '../acoes';
@@ -79,9 +80,9 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     ? await sb.from('parceiros_unidades').select('id, razao_social, nome_unidade, cnpj, endereco, numero, complemento, bairro, cidade, uf, cep, telefone').in('id', unidades)
     : { data: [] };
 
-  const podeAssistente = u.permissoes.includes('assistente_site');
-  const podeCsv = temPermissao(u, 'emitir_notas');
-  const podeTreinar = temPermissao(u, 'treinar_agente');
+  const podeAssistente = usaAssistente(u);
+  const podeCsv = temNivel(u, 'notas', 'corrigir');
+  const podeTreinar = temNivel(u, 'treinar', 'sim');
   const loja = await cookies();
 
   const nomeContato = conversa.contatos?.nome ?? mascararTelefone(conversa.telefone);
@@ -149,7 +150,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
                 empresa={empresa}
                 outrasEmpresas={outrasEmpresas}
                 contato={conversa.contatos}
-                podeEditarContato={temPermissao(u, 'editar_clientes')}
+                podeEditarContato={temNivel(u, 'clientes', 'editar')}
                 demandas={demandasDetalhe}
                 compradores={new Map((compradores ?? []).map((c) => [c.id, c as CompradorCadastrado]))}
                 podeCsv={podeCsv}

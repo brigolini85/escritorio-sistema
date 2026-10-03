@@ -5,13 +5,14 @@ import { comAvisoNaUrl } from '@/lib/avisos';
 import { cadastrarContatoPeloTelefone, lerManter } from '@/lib/cadastro-contato';
 import { enfileirarRemocaoArquivos } from '@/lib/fila';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
-import { exigirAdmin, obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { exigirAdmin, obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ClienteForm, ContatoForm } from './esquemas';
 
 async function exigirEdicao() {
   const u = await obterUsuario();
-  if (!temPermissao(u, 'editar_clientes')) throw new Error('Você não tem permissão para editar clientes.');
+  if (!temNivel(u, 'clientes', 'editar')) throw new Error('Você não tem permissão para editar clientes.');
   return supabaseServidor();
 }
 const campos = (f: FormData) => Object.fromEntries(f.entries());

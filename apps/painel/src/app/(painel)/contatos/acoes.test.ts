@@ -5,7 +5,7 @@ const falso = vi.hoisted(() => ({ pode: true, atualizacoes: [] as Record<string,
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
-vi.mock('@/lib/sessao', () => ({ obterUsuario: async () => ({ id: 'u1' }), temPermissao: () => falso.pode }));
+vi.mock('@/lib/sessao', () => ({ obterUsuario: async () => ({ id: 'u1', papel: 'atendente', niveis: { clientes: falso.pode ? 'editar' : 'ver' } }) }));
 vi.mock('@/lib/supabase/servidor', () => ({
   supabaseServidor: async () => ({
     from: () => ({

@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { variantesBotao } from '@/components/ui/button';
 import { contarArquivados } from '@/lib/arquivados';
 import { termoSeguroPostgrest } from '@/lib/busca';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { faixaDaConsulta, lerOrdem, lerPagina, paginar, valorParam, type Paginacao, type ParamsBusca } from '@/lib/tabela-url';
 
@@ -27,7 +28,7 @@ type Filtravel<Q> = { or(filtro: string): Q; eq(coluna: string, valor: boolean):
 export default async function Clientes({ searchParams }: { searchParams: Promise<ParamsBusca> }) {
   const params = await searchParams;
   const u = await obterUsuario();
-  const pode = temPermissao(u, 'editar_clientes');
+  const pode = temNivel(u, 'clientes', 'editar');
   if (valorParam(params, 'ver') === 'arquivados') {
     return <TelaArquivados tipo="cliente" titulo="Clientes arquivados" voltar={{ rotulo: 'Clientes', href: '/clientes' }} pode={pode} />;
   }

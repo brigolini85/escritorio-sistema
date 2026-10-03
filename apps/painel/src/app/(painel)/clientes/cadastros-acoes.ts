@@ -1,13 +1,14 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { exigirAdmin, obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { exigirAdmin, obterUsuario } from '@/lib/sessao';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { GrupoForm, PrecoForm, ProdutoForm, UnidadeForm } from './cadastros-esquemas';
 
 async function exigirEdicao() {
   const u = await obterUsuario();
-  if (!temPermissao(u, 'editar_clientes')) throw new Error('Você não tem permissão para editar cadastros.');
+  if (!temNivel(u, 'clientes', 'editar')) throw new Error('Você não tem permissão para editar cadastros.');
   return { u, sb: await supabaseServidor() };
 }
 const campos = (f: FormData) => Object.fromEntries(f.entries());
@@ -55,7 +56,7 @@ export async function salvarProduto(clienteId: string, produtoId: string | null,
 export async function definirPreco(clienteId: string, grupoId: string, produtoId: string, formData: FormData) {
   await comAvisoDeErro(aba(clienteId, 'precos'), async () => {
     const u = await obterUsuario();
-    if (!temPermissao(u, 'editar_precos')) throw new Error('Você não tem permissão para editar preços.');
+    if (!temNivel(u, 'precos', 'mudar')) throw new Error('Você não tem permissão para editar preços.');
     const { valor } = PrecoForm.parse(campos(formData));
     const sb = await supabaseServidor();
     const { error } = await sb.rpc('definir_preco', { p_grupo: grupoId, p_produto: produtoId, p_valor: valor });

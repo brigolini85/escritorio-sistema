@@ -13,7 +13,8 @@ import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { COLUNA_DA_ORDEM, OPCOES_PRIORIDADE, ORDEM_PADRAO, ORDENS, lerFiltrosDemandas, temFiltro, type FiltrosDemandas, type Prioridade, type Visao } from '@/lib/demandas';
 import { filtrarConsulta } from '@/lib/demandas-consulta';
 import { pendenciasCsvBling } from '@/lib/resumo-pedido';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { faixaDaConsulta, hrefComParams, lerOrdem, lerPagina, paginar, PARAM_PAGINA, valorParam, type Paginacao, type ParamsBusca } from '@/lib/tabela-url';
 import { AtualizarAoVivo } from '../atendimento/atualizar-ao-vivo';
@@ -42,7 +43,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const u = await obterUsuario();
   // CSV do Bling só para quem pode "Corrigir pedidos de nota e gerar CSV do Bling" (o administrador sempre pode).
-  const podeCsv = temPermissao(u, 'emitir_notas');
+  const podeCsv = temNivel(u, 'notas', 'corrigir');
   // O próprio id em ?responsavel= vira "eu" também na URL, para a etiqueta dizer "Responsável: eu".
   if (valorParam(params, 'responsavel') === u.id) redirect(`/demandas${hrefComParams(params, { responsavel: 'eu', [PARAM_PAGINA]: valorParam(params, PARAM_PAGINA) })}`);
   const f = lerFiltrosDemandas(params, u.id);

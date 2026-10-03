@@ -3,7 +3,8 @@ import { dividirPedidosBling, montarCsvVendaBling, nomeArquivoVendaBling } from 
 import { registrarAuditoria } from '@/lib/auditoria';
 import { carregarPedidosBling, escolherParte, type FiltroBling } from '@/lib/bling';
 import { lerFiltrosDemandas } from '@/lib/demandas';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
 const escapar = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -27,7 +28,7 @@ const FALHA_AO_MONTAR = 'Não consegui montar o arquivo agora. Tente de novo.';
 export async function GET(req: NextRequest) {
   const u = await obterUsuario();
   // Vale para todos os caminhos (demanda, exportação e link do assistente); o administrador sempre pode.
-  if (!temPermissao(u, 'emitir_notas')) return aviso(SEM_PERMISSAO_CSV, [], 403);
+  if (!temNivel(u, 'notas', 'corrigir')) return aviso(SEM_PERMISSAO_CSV, [], 403);
   const q = req.nextUrl.searchParams;
   const id = q.get('id');
   const ids = q.get('ids')?.split(',').filter(Boolean) ?? null;

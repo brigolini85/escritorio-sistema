@@ -1,7 +1,8 @@
 // apps/painel/src/lib/contato-arquivado-acoes.ts
 'use server';
 import { normalizarTelefone } from '@escritorio/core';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { lerContatoArquivado, type ConsultaContatoArquivado } from './contato-arquivado';
 
@@ -16,7 +17,7 @@ export async function consultarContatoArquivado(dados: {
 }): Promise<ConsultaContatoArquivado> {
   const u = await obterUsuario();
   // Sem permissão a tela segue o caminho de sempre, e o cadastro recusa com a mensagem de hoje.
-  if (!temPermissao(u, 'editar_clientes')) return { situacao: 'livre' };
+  if (!temNivel(u, 'clientes', 'editar')) return { situacao: 'livre' };
   const sb = await supabaseServidor();
   let telefone: string | null;
   if (dados.conversaId !== undefined) {

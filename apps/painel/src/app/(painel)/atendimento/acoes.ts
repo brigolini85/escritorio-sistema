@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation';
 import { comAvisoNaUrl } from '@/lib/avisos';
 import { cadastrarContatoPeloTelefone, lerManter } from '@/lib/cadastro-contato';
 import { enfileirarEnvio } from '@/lib/fila';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
 async function rpc(nome: string, args: Record<string, unknown>) {
@@ -73,7 +74,7 @@ export async function concluir(chamadoId: string, conversaId: string) {
 
 async function exigirEdicaoClientes() {
   const u = await obterUsuario();
-  if (!temPermissao(u, 'editar_clientes')) throw new Error('Você não tem permissão para cadastrar contatos.');
+  if (!temNivel(u, 'clientes', 'editar')) throw new Error('Você não tem permissão para cadastrar contatos.');
   return supabaseServidor();
 }
 

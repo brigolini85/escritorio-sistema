@@ -2,6 +2,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { COOKIE_LETRA, OPCOES_COOKIE_LETRA, tamanhoDoValor } from '@/components/layout/tamanho-letra';
+import { situacaoDe } from '@/lib/horario-acesso';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
 export async function entrar(formData: FormData) {
@@ -11,14 +12,16 @@ export async function entrar(formData: FormData) {
     password: String(formData.get('senha') ?? ''),
   });
   if (error) redirect('/entrar?erro=credenciais');
-  // Pessoa arquivada (ou sem cadastro no painel) não entra: a RLS nem deixa ler a própria linha, então perfil vem vazio.
-  const { data: perfil } = await sb.from('usuarios').select('tamanho_letra, ativo').eq('id', data.user.id).maybeSingle();
-  if (!perfil?.ativo) {
+  // Arquivada, sem cadastro ou fora do horário não entra; a mesma função do middleware decide (e marca o último acesso).
+  const { data: s } = await sb.rpc('situacao_acesso');
+  const situacao = situacaoDe(s);
+  if (situacao !== 'liberado') {
     await sb.auth.signOut();
-    redirect('/entrar?erro=inativo');
+    redirect(situacao === 'fora_do_horario' ? '/entrar?erro=fora_do_horario' : '/entrar?erro=inativo');
   }
   // O tamanho da letra segue a pessoa, mesmo noutro computador.
-  (await cookies()).set(COOKIE_LETRA, tamanhoDoValor(perfil.tamanho_letra), OPCOES_COOKIE_LETRA);
+  const { data: perfil } = await sb.from('usuarios').select('tamanho_letra').eq('id', data.user.id).maybeSingle();
+  (await cookies()).set(COOKIE_LETRA, tamanhoDoValor(perfil?.tamanho_letra), OPCOES_COOKIE_LETRA);
   redirect('/inicio');
 }
 

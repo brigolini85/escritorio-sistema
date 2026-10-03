@@ -9,7 +9,7 @@ const falso = vi.hoisted(() => ({
   cliente: { razao_social: 'Indústria X Ltda', nome_fantasia: 'Indústria X' } as { razao_social: string; nome_fantasia: string | null } | null,
 }));
 vi.mock('server-only', () => ({}));
-vi.mock('@/lib/sessao', () => ({ obterUsuario: async () => ({ id: 'u1' }), temPermissao: () => falso.pode }));
+vi.mock('@/lib/sessao', () => ({ obterUsuario: async () => ({ id: 'u1', papel: 'atendente', niveis: { clientes: falso.pode ? 'editar' : 'ver' } }) }));
 const umaLinha = (dados: () => unknown) => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: dados(), error: null }) }) }) });
 vi.mock('@/lib/supabase/servidor', () => ({
   supabaseServidor: async () => ({

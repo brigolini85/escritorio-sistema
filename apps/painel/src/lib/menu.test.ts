@@ -1,32 +1,30 @@
+import { NIVEIS_PADRAO, type Niveis } from '@escritorio/core';
 import { describe, expect, it } from 'vitest';
 import { itensDoMenu } from './menu';
 
-describe('itensDoMenu', () => {
-  it('atendente não vê Usuários nem Configurações; sem a marcação não vê Assistente nem Treinar o agente', () => {
-    expect(itensDoMenu({ papel: 'atendente', permissoes: [] }).map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos']);
+const n = (x: Partial<Niveis> = {}): Niveis => ({ ...NIVEIS_PADRAO, ...x });
+const rotulos = (papel: 'admin' | 'atendente', niveis: Niveis) => itensDoMenu({ papel, niveis }).map((i) => i.rotulo);
+
+describe('menu pelos níveis (Parte D)', () => {
+  it('atendente com os níveis de sempre: o menu de antes', () => {
+    expect(rotulos('atendente', n())).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos']);
   });
-  it('quem tem assistente pelo site vê Assistente', () => {
-    expect(itensDoMenu({ papel: 'atendente', permissoes: ['assistente_site'] }).map((i) => i.rotulo))
-      .toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Assistente']);
+  it('assistente e treinar aparecem pelo nível', () => {
+    expect(rotulos('atendente', n({ assistente: 'site' }))).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Assistente']);
+    expect(rotulos('atendente', n({ treinar: 'sim', assistente: 'site_whatsapp' })))
+      .toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Assistente', 'Treinar o agente']);
   });
-  it('quem tem a marcação Treinar o agente vê o item depois do Assistente', () => {
-    expect(itensDoMenu({ papel: 'atendente', permissoes: ['treinar_agente'] }).map((i) => i.rotulo))
-      .toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Treinar o agente']);
-    expect(itensDoMenu({ papel: 'atendente', permissoes: ['treinar_agente', 'assistente_site'] }).map((i) => i.href))
-      .toEqual(['/inicio', '/atendimento', '/demandas', '/clientes', '/contatos', '/assistente', '/treinar-agente']);
+  it('Atendimento some com "Sem acesso"', () => {
+    expect(rotulos('atendente', n({ atendimento: 'sem_acesso' }))).toEqual(['Início', 'Demandas', 'Clientes', 'Contatos']);
   });
-  it('administrador vê Treinar o agente e Configurações; Usuários e permissões fica dentro de Configurações', () => {
-    const itens = itensDoMenu({ papel: 'admin', permissoes: [] });
+  it('Configurações para quem tem "Sim", sem Usuários e permissões', () => {
+    const conf = itensDoMenu({ papel: 'atendente', niveis: n({ configuracoes: 'sim' }) }).find((i) => i.rotulo === 'Configurações')!;
+    expect(conf.filhos!.map((f) => f.rotulo)).not.toContain('Usuários e permissões');
+  });
+  it('administrador: Treinar e Configurações completas; Assistente só com a marcação', () => {
+    const itens = itensDoMenu({ papel: 'admin', niveis: n() });
     expect(itens.map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Treinar o agente', 'Configurações']);
-    expect(itens.at(-1)!.filhos!.map((f) => [f.rotulo, f.href])).toEqual([
-      ['Usuários e permissões', '/usuarios'],
-      ['Setores', '/configuracoes#setores'],
-      ['Expediente e IA', '/configuracoes#expediente'],
-      ['Mensagens', '/configuracoes#mensagens'],
-      ['Respostas prontas', '/configuracoes#respostas'],
-      ['Feriados', '/configuracoes#feriados'],
-    ]);
-    expect(itensDoMenu({ papel: 'admin', permissoes: ['assistente_site'] }).map((i) => i.rotulo))
-      .toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Assistente', 'Treinar o agente', 'Configurações']);
+    expect(itens.at(-1)!.filhos!.map((f) => f.rotulo)).toContain('Usuários e permissões');
+    expect(rotulos('admin', n({ assistente: 'site' }))).toContain('Assistente');
   });
 });

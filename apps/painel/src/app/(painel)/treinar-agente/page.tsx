@@ -16,7 +16,8 @@ import { SheetBody, SheetDescription, SheetHeader, SheetTitle } from '@/componen
 import { Skeleton } from '@/components/ui/skeleton';
 import { medirOrientacoes, ROTULO_TIPO, TIPOS, type TipoOrientacao } from '@/lib/orientacoes';
 import { lerEmPaginas } from '@/lib/paginas';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { hrefComParams, lerOrdem, ordenarLinhas, valorParam, type ParamsBusca } from '@/lib/tabela-url';
 import { AbasOrientacao } from './abas-orientacao';
@@ -101,13 +102,13 @@ function SemPermissao() {
 
 /**
  * Treinar o agente: orientações em português que o agente de clientes segue no atendimento (spec 2026-09-30 §5).
- * Admin ou quem tem "treinar_agente". Filtros (?tipo, ?vale, ?ativo, ?q) e ordem na URL; ?orientacao=<id>|nova abre o
+ * Admin ou quem tem Treinar o agente. Filtros (?tipo, ?vale, ?ativo, ?q) e ordem na URL; ?orientacao=<id>|nova abre o
  * painel (formulário + histórico); ?modelo= preenche a nova com um exemplo; ?aba=historico abre no histórico.
  * Gravações pelas funções do banco (salvar/alternar/restaurar_orientacao) com a sessão da pessoa; erros em ?erro=.
  */
 export default async function TreinarAgente({ searchParams }: { searchParams: Promise<ParamsBusca> }) {
   const u = await obterUsuario();
-  if (!temPermissao(u, 'treinar_agente')) return <SemPermissao />;
+  if (!temNivel(u, 'treinar', 'sim')) return <SemPermissao />;
   const params = await searchParams;
   const erro = valorParam(params, 'erro');
   const f = lerFiltrosOrientacoes(params);

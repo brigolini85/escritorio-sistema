@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Server actions do arquivo com a sessão, o Supabase e o Auth falsos (sem banco). O banco confere de novo (pgTAP).
 const falso = vi.hoisted(() => ({
-  usuario: { id: 'u1', nome: 'Bia', papel: 'atendente' as 'admin' | 'atendente', permissoes: ['editar_clientes'], setores: [] as string[], tamanhoLetra: 'normal' },
+  usuario: { id: 'u1', nome: 'Bia', papel: 'atendente' as 'admin' | 'atendente', niveis: { clientes: 'arquivar' as 'ver' | 'editar' | 'arquivar' }, setores: [] as string[], tamanhoLetra: 'normal' },
   rpc: vi.fn(),
   deleteUser: vi.fn(),
   revalidatePath: vi.fn(),
@@ -15,16 +15,15 @@ vi.mock('@/lib/supabase/servidor', () => ({ supabaseServidor: async () => ({ rpc
 vi.mock('@/lib/supabase/servico', () => ({ supabaseServico: () => ({ auth: { admin: { deleteUser: falso.deleteUser } } }) }));
 vi.mock('@/lib/sessao', () => ({
   obterUsuario: async () => falso.usuario,
-  temPermissao: (u: { papel: string; permissoes: string[] }, p: string) => u.papel === 'admin' || u.permissoes.includes(p),
 }));
 
 import { arquivarCadastro, consultarUso, excluirCadastroDeVez, restaurarCadastro } from './arquivo-acoes';
 
 const ID = '11111111-1111-4111-8111-111111111111';
-const admin = () => { falso.usuario = { ...falso.usuario, papel: 'admin', permissoes: [] }; };
+const admin = () => { falso.usuario = { ...falso.usuario, papel: 'admin', niveis: { clientes: 'ver' } }; };
 
 beforeEach(() => {
-  falso.usuario = { id: 'u1', nome: 'Bia', papel: 'atendente', permissoes: ['editar_clientes'], setores: [], tamanhoLetra: 'normal' };
+  falso.usuario = { id: 'u1', nome: 'Bia', papel: 'atendente', niveis: { clientes: 'arquivar' }, setores: [], tamanhoLetra: 'normal' };
   falso.ordem = [];
   falso.rpc.mockReset().mockImplementation(async (nome: string) => { falso.ordem.push(nome); return { data: null, error: null }; });
   falso.deleteUser.mockReset().mockImplementation(async () => { falso.ordem.push('deleteUser'); return { error: null }; });
@@ -43,7 +42,7 @@ describe('arquivo: permissões antes do banco', () => {
   });
 
   it('sem Editar clientes não chama o banco', async () => {
-    falso.usuario = { ...falso.usuario, permissoes: [] };
+    falso.usuario = { ...falso.usuario, niveis: { clientes: 'ver' } };
     const recusa = { ok: false, erro: 'Sem permissão para arquivar cadastros.' };
     expect(await arquivarCadastro('cliente', ID)).toEqual(recusa);
     expect(await restaurarCadastro('produto', ID)).toEqual(recusa);

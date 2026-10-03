@@ -10,7 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
 import { agruparConversasAssistente, lerConversaAssistente, LIMITE_CONVERSAS_HISTORICO, LIMITE_MENSAGENS_HISTORICO } from '@/lib/conversas-assistente';
 import { mascararTelefone } from '@/lib/formatos';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel, usaAssistente } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { AtualizarAoVivo } from '../atendimento/atualizar-ao-vivo';
 import { ConversaAssistente } from './conversa-assistente';
@@ -65,7 +66,7 @@ function ItemHistorico({ href, ativo, icone: Icone, titulo, detalhe, texto, quan
 
 export default async function Assistente({ searchParams }: { searchParams: Promise<{ erro?: string; conversa?: string | string[] }> }) {
   const u = await obterUsuario();
-  if (!u.permissoes.includes('assistente_site')) redirect('/inicio');
+  if (!usaAssistente(u)) redirect('/inicio');
   const sp = await searchParams;
   const conversaId = lerConversaAssistente(sp.conversa);
   const sb = await supabaseServidor();
@@ -130,7 +131,7 @@ export default async function Assistente({ searchParams }: { searchParams: Promi
             />
           ) : (
             <Suspense key={conversaId ?? 'geral'} fallback={<EsqueletoConversa />}>
-              <ConversaAssistente usuarioId={u.id} conversaId={conversaId} podeCsv={temPermissao(u, 'emitir_notas')} />
+              <ConversaAssistente usuarioId={u.id} conversaId={conversaId} podeCsv={temNivel(u, 'notas', 'corrigir')} />
             </Suspense>
           )}
         </div>

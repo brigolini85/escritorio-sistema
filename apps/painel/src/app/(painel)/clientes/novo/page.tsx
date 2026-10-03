@@ -6,13 +6,14 @@ import { FormField } from '@/components/patterns/form-field';
 import { Button, variantesBotao } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { salvarCliente } from '../acoes';
 
 export default async function NovoCliente({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
   const { erro } = await searchParams;
   const u = await obterUsuario();
-  if (!temPermissao(u, 'editar_clientes')) redirect('/clientes');
+  if (!temNivel(u, 'clientes', 'editar')) redirect('/clientes');
   return (
     <section className="max-w-xl">
       <PageHeader

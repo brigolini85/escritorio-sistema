@@ -1,7 +1,8 @@
 // apps/painel/src/lib/arquivo-acoes.ts
 'use server';
 import { revalidatePath } from 'next/cache';
-import { obterUsuario, temPermissao, type UsuarioPainel } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario, type UsuarioPainel } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ehTipoCadastro, lerRestauroUnidade, lerUso, ROTAS_DO_TIPO, type RedeArquivada, type TipoCadastro, type UsoDoCadastro } from './arquivo';
@@ -16,7 +17,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Mesma regra do banco (exigir_arquivar): a tela recusa antes, o banco recusa de novo. */
 function motivoSemPermissao(u: UsuarioPainel, tipo: TipoCadastro): string | null {
   if (tipo === 'usuario') return u.papel === 'admin' ? null : 'Só o administrador arquiva pessoas.';
-  return temPermissao(u, 'editar_clientes') ? null : 'Sem permissão para arquivar cadastros.';
+  return temNivel(u, 'clientes', 'arquivar') ? null : 'Sem permissão para arquivar cadastros.';
 }
 
 async function conferir(tipo: unknown, id: unknown): Promise<Conferido> {

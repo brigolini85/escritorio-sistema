@@ -15,7 +15,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { contarArquivados } from '@/lib/arquivados';
 import { termoSeguroPostgrest } from '@/lib/busca';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { faixaDaConsulta, hrefComParams, lerOrdem, lerPagina, paginar, PARAM_PAGINA, valorParam, type Paginacao, type ParamsBusca } from '@/lib/tabela-url';
 import { alternarAgenteContato } from '../atendimento/acoes';
@@ -37,7 +38,7 @@ type Filtravel<Q> = { or(filtro: string): Q; eq(coluna: string, valor: boolean):
 export default async function Contatos({ searchParams }: { searchParams: Promise<ParamsBusca> }) {
   const params = await searchParams;
   const u = await obterUsuario();
-  const pode = temPermissao(u, 'editar_clientes');
+  const pode = temNivel(u, 'clientes', 'editar');
   if (valorParam(params, 'ver') === 'arquivados') {
     return <TelaArquivados tipo="contato" titulo="Contatos arquivados" voltar={{ rotulo: 'Contatos', href: '/contatos' }} pode={pode} />;
   }

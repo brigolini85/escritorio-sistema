@@ -4,13 +4,14 @@ import { redirect } from 'next/navigation';
 import { normalizarTelefone } from '@escritorio/core';
 import { comAvisoNaUrl } from '@/lib/avisos';
 import { cadastrarContatoPeloTelefone, lerManter } from '@/lib/cadastro-contato';
-import { obterUsuario, temPermissao } from '@/lib/sessao';
+import { temNivel } from '@/lib/permissoes';
+import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
 /** Cadastra um contato, com ou sem empresa (o vínculo com empresa é feito na ficha dela). */
 export async function cadastrarContato(formData: FormData) {
   const u = await obterUsuario();
-  if (!temPermissao(u, 'editar_clientes')) throw new Error('Você não tem permissão para cadastrar contatos.');
+  if (!temNivel(u, 'clientes', 'editar')) throw new Error('Você não tem permissão para cadastrar contatos.');
   const nome = String(formData.get('nome') ?? '').trim();
   const telefone = normalizarTelefone(String(formData.get('telefone') ?? ''));
   if (nome.length < 2) throw new Error('Informe o nome do contato.');
@@ -27,7 +28,7 @@ export type ResultadoNome = { ok: true } | { ok: false; erro: string };
 /** Nome do contato, pelo painel lateral (lápis da lista). Arquivado não se edita: volta pelo Restaurar. */
 export async function renomearContato(id: string, formData: FormData): Promise<ResultadoNome> {
   const u = await obterUsuario();
-  if (!temPermissao(u, 'editar_clientes')) return { ok: false, erro: 'Você não tem permissão para editar contatos.' };
+  if (!temNivel(u, 'clientes', 'editar')) return { ok: false, erro: 'Você não tem permissão para editar contatos.' };
   const nome = String(formData.get('nome') ?? '').trim();
   if (nome.length < 2) return { ok: false, erro: 'Informe o nome do contato.' };
   const sb = await supabaseServidor();

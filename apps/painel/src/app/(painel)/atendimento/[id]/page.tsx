@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { lerFiltroCaixa } from '@/lib/caixa';
 import { lerAgentePausado } from '@/lib/contadores';
+import { usaAssistente } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { AtalhosLista } from '../atalhos-lista';
@@ -33,7 +34,7 @@ export default async function Conversa({ params, searchParams }: {
 
   return (
     <div className="-m-6 flex flex-col lg:altura-trabalho lg:flex-row">
-      <AtualizarAoVivo conversaAberta={id} assistenteDe={u.permissoes.includes('assistente_site') ? u.id : undefined} />
+      <AtualizarAoVivo conversaAberta={id} assistenteDe={usaAssistente(u) ? u.id : undefined} />
       <AtalhosLista />
       <ListaConversas
         u={u}
