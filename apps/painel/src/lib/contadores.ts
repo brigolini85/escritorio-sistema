@@ -5,13 +5,9 @@ import type { Database } from '@escritorio/db';
 
 type Cliente = SupabaseClient<Database>;
 
-/**
- * Conversas aguardando atendimento humano: as que têm demanda aberta sem responsável
- * (coluna sem_responsavel da caixa_entrada, o mesmo filtro "Sem responsável" do Atendimento).
- * É assim que o agente encaminha para a equipe: abre uma demanda sem responsável; "Assumir" preenche o responsável.
- */
+/** "Esperando você" (spec 7A.1, P2): passou para pessoa ou assumida, sem ninguém ou comigo. */
 export async function contarConversasAguardando(sb: Cliente): Promise<number | null> {
-  const { count, error } = await sb.from('caixa_entrada').select('id', { count: 'exact', head: true }).eq('sem_responsavel', true);
+  const { count, error } = await sb.from('caixa_entrada').select('id', { count: 'exact', head: true }).eq('esperando_voce', true);
   return error ? null : count ?? 0;
 }
 
@@ -36,7 +32,7 @@ export function rotuloContador(n: number | null | undefined): string | null {
 
 /** Frase para leitor de tela ao lado do item do menu. */
 export function descricaoContador(tipo: 'atendimento' | 'demandas', n: number): string {
-  if (tipo === 'atendimento') return n === 1 ? '1 conversa aguardando atendimento' : `${n} conversas aguardando atendimento`;
+  if (tipo === 'atendimento') return n === 1 ? '1 conversa esperando você' : `${n} conversas esperando você`;
   return n === 1 ? '1 demanda aberta' : `${n} demandas abertas`;
 }
 

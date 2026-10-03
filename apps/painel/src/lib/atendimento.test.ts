@@ -41,6 +41,8 @@ describe('cronômetro (spec 7A.1)', () => {
   it('minutos, texto curto e texto do leitor de tela', () => {
     expect(minutosDeEspera('2026-10-05T13:42:10-03:00', AGORA.getTime())).toBe(17);
     expect(minutosDeEspera('2026-10-05T14:05:00-03:00', AGORA.getTime())).toBe(0);
+    // Data inválida não vira "NaN d" vermelho: conta como 0.
+    expect(minutosDeEspera('lixo', AGORA.getTime())).toBe(0);
     expect(textoEspera(0)).toBe('agora');
     expect(textoEspera(18)).toBe('18 min');
     expect(textoEspera(65)).toBe('1 h 05');
@@ -54,6 +56,9 @@ describe('cronômetro (spec 7A.1)', () => {
     expect(lerLimites({ verde: 3, ambar: 10 })).toEqual({ verde: 3, ambar: 10 });
     expect(lerLimites(null)).toEqual(LIMITES_PADRAO);
     expect(lerLimites({ verde: 'x' })).toEqual(LIMITES_PADRAO);
+    for (const ruim of [{ verde: -1, ambar: 10 }, { verde: 5, ambar: Infinity }, { verde: Number.NaN, ambar: 10 }, { verde: 5, ambar: Number.NaN }]) {
+      expect(lerLimites(ruim)).toEqual(LIMITES_PADRAO);
+    }
   });
 });
 

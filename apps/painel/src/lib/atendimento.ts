@@ -38,7 +38,8 @@ export function agruparConversas<T extends LinhaAtendimento>(linhas: T[], agora:
 }
 
 export function minutosDeEspera(desde: string, agora: number): number {
-  return Math.max(0, Math.floor((agora - new Date(desde).getTime()) / 60_000));
+  const min = Math.floor((agora - new Date(desde).getTime()) / 60_000);
+  return Number.isFinite(min) ? Math.max(0, min) : 0;
 }
 
 export function corDaEspera(min: number, l: LimitesEspera): 'verde' | 'ambar' | 'vermelho' {
@@ -68,7 +69,8 @@ export const textoNaoLidas = (n: number): string => (n > 9 ? '9+' : String(n));
 /** limites_espera() do banco; qualquer coisa estranha (ou fora do horário: null) vira o padrão. */
 export function lerLimites(v: unknown): LimitesEspera {
   const o = v as { verde?: unknown; ambar?: unknown } | null;
-  return o && typeof o.verde === 'number' && typeof o.ambar === 'number' && o.ambar > o.verde ? { verde: o.verde, ambar: o.ambar } : LIMITES_PADRAO;
+  const ok = o && typeof o.verde === 'number' && typeof o.ambar === 'number' && Number.isFinite(o.verde) && Number.isFinite(o.ambar) && o.verde >= 0 && o.ambar > o.verde;
+  return ok ? { verde: o.verde as number, ambar: o.ambar as number } : LIMITES_PADRAO;
 }
 
 export type TipoEstado = 'pessoa' | 'pausado' | 'pedido' | 'passou' | 'respondendo' | 'resolvido' | 'agente';

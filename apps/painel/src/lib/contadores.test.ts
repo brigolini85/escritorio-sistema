@@ -14,10 +14,10 @@ function falso(resposta: Record<string, unknown>) {
 }
 
 describe('contadores', () => {
-  it('conversas aguardando = caixa_entrada com demanda sem responsável', async () => {
+  it('conversas aguardando = caixa_entrada esperando você (P2)', async () => {
     const { sb, chamadas } = falso({ count: 3, error: null });
     expect(await contarConversasAguardando(sb)).toBe(3);
-    expect(chamadas).toEqual([['from', 'caixa_entrada'], ['select', 'id', { count: 'exact', head: true }], ['eq', 'sem_responsavel', true]]);
+    expect(chamadas).toEqual([['from', 'caixa_entrada'], ['select', 'id', { count: 'exact', head: true }], ['eq', 'esperando_voce', true]]);
   });
   it('demandas abertas = chamados não concluídos (RLS decide quais)', async () => {
     const { sb, chamadas } = falso({ count: 0, error: null });
@@ -34,8 +34,8 @@ describe('contadores', () => {
     expect(rotuloContador(null)).toBeNull();
     expect(rotuloContador(7)).toBe('7');
     expect(rotuloContador(120)).toBe('99+');
-    expect(descricaoContador('atendimento', 1)).toBe('1 conversa aguardando atendimento');
-    expect(descricaoContador('atendimento', 4)).toBe('4 conversas aguardando atendimento');
+    expect(descricaoContador('atendimento', 1)).toBe('1 conversa esperando você');
+    expect(descricaoContador('atendimento', 4)).toBe('4 conversas esperando você');
     expect(descricaoContador('demandas', 1)).toBe('1 demanda aberta');
     expect(descricaoContador('demandas', 2)).toBe('2 demandas abertas');
   });

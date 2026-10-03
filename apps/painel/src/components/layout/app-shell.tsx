@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { EstadoAgente } from '@/components/patterns/agent-state-indicator';
 import type { EscolhaTema } from '@/components/tema/tema';
@@ -13,6 +14,7 @@ import { AvisoDaUrl } from './aviso-da-url';
 import { FaixaAmbiente } from './faixa-ambiente';
 import { cookieDoMenu } from './preferencias';
 import type { TamanhoLetra } from './tamanho-letra';
+import { menuRecolhidoVisivel, telaComMenuRecolhido } from './menu-tela';
 import { ProvedorMenuUsuario } from './menu-usuario';
 import { Sidebar, type Contadores, type ItemMenu } from './sidebar';
 import { Topbar } from './topbar';
@@ -47,8 +49,18 @@ export function AppShell({
 }) {
   const [recolhido, setRecolhido] = useState(recolhidoInicial);
   const [gaveta, setGaveta] = useState(false);
+  const caminho = usePathname();
+  const [abertoNaTela, setAbertoNaTela] = useState(false);
+  // Sair do Atendimento esquece o "aberto aqui": ao voltar, abre recolhido de novo (P17).
+  useEffect(() => { if (!telaComMenuRecolhido(caminho)) setAbertoNaTela(false); }, [caminho]);
+  const recolhidoVisivel = menuRecolhidoVisivel(caminho, recolhido, abertoNaTela);
 
   function alternar() {
+    // No Atendimento, abrir ou recolher vale só nesta tela: a preferência guardada não muda.
+    if (telaComMenuRecolhido(caminho)) {
+      setAbertoNaTela(!abertoNaTela);
+      return;
+    }
     const novo = !recolhido;
     setRecolhido(novo);
     document.cookie = cookieDoMenu(novo);
@@ -79,12 +91,13 @@ export function AppShell({
           Pular para o conteúdo
         </a>
         <aside
+          data-recolhido={recolhidoVisivel ? '' : undefined}
           className={cn(
             'sticky top-0 hidden h-screen shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-150 ease-out print:hidden lg:block',
-            recolhido ? 'w-sidebar-recolhida' : 'w-sidebar',
+            recolhidoVisivel ? 'w-sidebar-recolhida' : 'w-sidebar',
           )}
         >
-          <Sidebar itens={itens} contadores={aoVivo.contadores} whatsapp={whatsapp} recolhido={recolhido} onAlternar={alternar} />
+          <Sidebar itens={itens} contadores={aoVivo.contadores} whatsapp={whatsapp} recolhido={recolhidoVisivel} onAlternar={alternar} />
         </aside>
 
         <Sheet open={gaveta} onOpenChange={setGaveta}>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { esquemaAvisoLogin, ExpedienteForm, PrazosForm, TetoAlertasForm } from './esquemas';
+import { EsperaForm, esquemaAvisoLogin, ExpedienteForm, PrazosForm, TetoAlertasForm } from './esquemas';
 
 describe('ExpedienteForm e TetoAlertasForm (separados na Parte D: teto e alertas são só do administrador)', () => {
   it('expediente: horários e dias úteis', () => {
@@ -37,6 +37,19 @@ describe('PrazosForm (Configurações › Prazos)', () => {
       .toEqual({ prazo_urgente_dias: 0, prazo_alta_dias: 1, prazo_normal_dias: 2, prazo_baixa_dias: 5 });
     for (const ruim of ['-1', '31', '1.5', '']) {
       expect(PrazosForm.safeParse({ prazo_urgente_dias: '0', prazo_alta_dias: ruim, prazo_normal_dias: '2', prazo_baixa_dias: '5' }).success).toBe(false);
+    }
+  });
+});
+
+describe('EsperaForm', () => {
+  it('aceita 5 e 15; recusa âmbar menor ou igual ao verde e verde fora da faixa', () => {
+    expect(EsperaForm.safeParse({ espera_verde_min: '5', espera_ambar_min: '15' }).success).toBe(true);
+    expect(EsperaForm.safeParse({ espera_verde_min: '10', espera_ambar_min: '10' }).success).toBe(false);
+    expect(EsperaForm.safeParse({ espera_verde_min: '0', espera_ambar_min: '10' }).success).toBe(false);
+  });
+  it('só inteiros: recusa decimal, vazio, texto e âmbar acima de 480', () => {
+    for (const [v, a] of [['5.5', '15'], ['', '15'], ['5', ''], ['x', '15'], ['5', '481'], ['241', '300']]) {
+      expect(EsperaForm.safeParse({ espera_verde_min: v, espera_ambar_min: a }).success).toBe(false);
     }
   });
 });

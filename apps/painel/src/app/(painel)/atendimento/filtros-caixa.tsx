@@ -13,55 +13,32 @@ import { cn } from '@/lib/cn';
 const ESPERA_BUSCA_MS = 300;
 
 /**
- * Filtros rápidos (Aguardando humano · Comigo · Com o agente · Concluídas), o menu "Mais" com os filtros
- * antigos (Todas, Do meu setor, Com o cliente) e a busca. Tudo na URL (?filtro=, ?q=), lido pela página no servidor.
+ * Busca e um único menu "Filtro" com todos os filtros (P7); o atual vem marcado. Tudo na URL (?filtro=, ?q=), lido pela
+ * página no servidor. O botão só diz qual é o filtro quando não é o padrão da pessoa.
  * `caminho`: a página atual (a lista ou a conversa aberta), para trocar o filtro sem fechar a conversa.
  */
-export function FiltrosCaixa({ caminho, filtro, q }: { caminho: string; filtro: FiltroCaixa; q: string }) {
-  const noMais = FILTROS_MAIS.some((f) => f.valor === filtro);
+export function FiltrosCaixa({ caminho, filtro, q, padrao }: { caminho: string; filtro: FiltroCaixa; q: string; padrao: FiltroCaixa }) {
   return (
-    <div className="flex flex-col gap-2">
-      <BuscaCaixa caminho={caminho} filtro={filtro} q={q} />
-      <nav aria-label="Filtros da caixa" className="flex flex-wrap items-center gap-1">
-        {FILTROS_RAPIDOS.map((f) => (
-          <Link
-            key={f.valor}
-            href={`${caminho}${consultaCaixa({ filtro: f.valor, q })}`}
-            aria-current={f.valor === filtro ? 'true' : undefined}
-            scroll={false}
-            className={cn(
-              'inline-flex h-7 items-center rounded-full border px-2.5 text-sm font-medium transition-colors duration-150 ease-out',
-              f.valor === filtro
-                ? 'border-brand bg-brand-soft text-brand'
-                : 'border-border bg-surface text-muted hover:bg-surface-muted hover:text-foreground',
-            )}
-          >
-            {f.rotulo}
-          </Link>
-        ))}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn('h-7 rounded-full px-2.5', noMais ? 'bg-brand-soft text-brand hover:bg-brand-soft' : 'text-muted')}
-            >
-              {noMais ? rotuloFiltroCaixa(filtro) : 'Mais'}
-              <ChevronDown aria-hidden size={14} strokeWidth={1.75} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {FILTROS_MAIS.map((f) => (
-              <DropdownMenuItem key={f.valor} asChild>
-                <Link href={`${caminho}${consultaCaixa({ filtro: f.valor, q })}`} scroll={false} aria-current={f.valor === filtro ? 'true' : undefined}>
-                  <Check aria-hidden size={16} strokeWidth={1.75} className={cn(f.valor === filtro ? 'opacity-100' : 'opacity-0')} />
-                  {f.rotulo}
-                </Link>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </nav>
+    <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1"><BuscaCaixa caminho={caminho} filtro={filtro} q={q} /></div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className={cn('h-8 shrink-0', filtro !== padrao && 'border-brand bg-brand-soft text-brand hover:bg-brand-soft')}>
+            {filtro === padrao ? 'Filtro' : `Filtro: ${rotuloFiltroCaixa(filtro)}`}
+            <ChevronDown aria-hidden size={14} strokeWidth={1.75} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {[...FILTROS_RAPIDOS, ...FILTROS_MAIS].map((f) => (
+            <DropdownMenuItem key={f.valor} asChild>
+              <Link href={`${caminho}${consultaCaixa({ filtro: f.valor, q })}`} scroll={false} aria-current={f.valor === filtro ? 'true' : undefined}>
+                <Check aria-hidden size={16} strokeWidth={1.75} className={cn(f.valor === filtro ? 'opacity-100' : 'opacity-0')} />
+                {f.rotulo}
+              </Link>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -94,7 +71,7 @@ function BuscaCaixa({ caminho, filtro, q }: { caminho: string; filtro: FiltroCai
         id={id}
         type="search"
         value={texto}
-        placeholder="Nome, empresa ou telefone"
+        placeholder="Contato, empresa ou telefone"
         className="h-8 pl-8"
         autoComplete="off"
         onChange={(e) => {

@@ -1,10 +1,11 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { exigirAdmin, exigirConfiguracoes } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { esquemaAvisoLogin, ExpedienteForm, PrazosForm, TetoAlertasForm } from './esquemas';
+import { EsperaForm, esquemaAvisoLogin, ExpedienteForm, PrazosForm, TetoAlertasForm } from './esquemas';
 
 const recarregar = () => revalidatePath('/configuracoes');
 function checar(r: { error: { message: string } | null }) {
@@ -89,4 +90,16 @@ export async function salvarPrazos(formData: FormData) {
   if (!dados.success) redirect('/configuracoes?erro=prazos#prazos');
   checar(await (await supabaseServidor()).from('configuracoes').update(dados.data).eq('id', 1));
   recarregar();
+}
+
+/** Limites do cronômetro de espera (P18): "Configurações: Sim" como as outras seções; o banco valida de novo (check das colunas). */
+export async function salvarLimitesEspera(formData: FormData) {
+  await exigirConfiguracoes();
+  const v = EsperaForm.safeParse({ espera_verde_min: String(formData.get('espera_verde_min') ?? ''), espera_ambar_min: String(formData.get('espera_ambar_min') ?? '') });
+  if (!v.success) return { ok: false as const, erro: v.error.issues[0]!.message };
+  const { error } = await (await supabaseServidor()).from('configuracoes').update(v.data).eq('id', 1);
+  if (error) return { ok: false as const, erro: mensagemDoBanco(error.message) };
+  recarregar();
+  revalidatePath('/atendimento');
+  return { ok: true as const, mensagem: 'Limites de espera salvos.' };
 }

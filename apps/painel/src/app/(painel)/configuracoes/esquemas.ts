@@ -40,3 +40,9 @@ export const PrazosForm = z.object({
   prazo_normal_dias: z.string().min(1).pipe(dias),
   prazo_baixa_dias: z.string().min(1).pipe(dias),
 });
+
+/** Limites do cronômetro do Atendimento (spec 7A.1): verde até X minutos, âmbar até Y; depois, vermelho. */
+export const EsperaForm = z.object({
+  espera_verde_min: z.coerce.number().int().min(1, 'De 1 a 240 minutos.').max(240, 'De 1 a 240 minutos.'),
+  espera_ambar_min: z.coerce.number().int().max(480, 'Até 480 minutos.'),
+}).refine((v) => v.espera_ambar_min > v.espera_verde_min, { message: 'O âmbar precisa ser maior que o verde.', path: ['espera_ambar_min'] });

@@ -24,6 +24,7 @@ import {
   salvarPrazos, salvarResposta, salvarServico, salvarSetor, salvarTetoAlertas,
 } from './acoes';
 import { CampoEmail, CampoNomeUnico } from './campos-validados';
+import { FormularioEspera } from './formulario-espera';
 import { HorarioExpediente } from './horario-expediente';
 import { NavegacaoSecoes, type SecaoConfiguracao } from './navegacao-secoes';
 
@@ -33,6 +34,7 @@ const DIAS_EXTENSO = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira'
 const SECOES: SecaoConfiguracao[] = [
   { id: 'expediente', rotulo: 'Expediente' },
   { id: 'prazos', rotulo: 'Prazos' },
+  { id: 'atendimento', rotulo: 'Atendimento' },
   { id: 'teto-ia', rotulo: 'Teto de IA' },
   { id: 'mensagens', rotulo: 'Mensagens automáticas' },
   { id: 'setores', rotulo: 'Setores' },
@@ -171,6 +173,20 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
               <RodapeSalvar rotulo="Salvar prazos" />
             </Secao>
           </FormularioAlteravel>
+
+          <FormularioEspera>
+            <Secao id="atendimento" titulo="Atendimento" descricao="Cores do cronômetro de espera na lista do Atendimento.">
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                <FormField id="espera_verde_min" rotulo="Verde até (minutos)">
+                  <Input name="espera_verde_min" type="number" step="1" min="1" max="240" required defaultValue={cfg?.espera_verde_min} className="tabular" />
+                </FormField>
+                <FormField id="espera_ambar_min" rotulo="Âmbar até (minutos)" ajuda="Depois disso, vermelho.">
+                  <Input name="espera_ambar_min" type="number" step="1" min="2" max="480" required defaultValue={cfg?.espera_ambar_min} className="tabular" />
+                </FormField>
+              </CardContent>
+              <RodapeSalvar rotulo="Salvar limites" />
+            </Secao>
+          </FormularioEspera>
 
           <FormularioAlteravel action={salvarMensagens}>
             <Secao id="mensagens" titulo="Mensagens automáticas" descricao="O que o agente manda sozinho ao cliente nestas situações.">

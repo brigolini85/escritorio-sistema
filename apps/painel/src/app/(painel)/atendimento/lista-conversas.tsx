@@ -1,19 +1,17 @@
 import { Inbox, SearchX } from 'lucide-react';
 import Link from 'next/link';
-import { AgentStateIndicator, type EstadoAgente } from '@/components/patterns/agent-state-indicator';
-import { estadoDaConversa } from '@/components/patterns/estado-agente';
+import type { ReactNode } from 'react';
 import { BotaoTentarDeNovo } from '@/components/patterns/data-table-cliente';
 import { EmptyState } from '@/components/patterns/empty-state';
-import { RelativeTime } from '@/components/patterns/relative-time';
-import { StatusBadge } from '@/components/patterns/status-badge';
+import { agruparConversas, lerLimites, type LinhaAtendimento } from '@/lib/atendimento';
 import { interpretarBusca } from '@/lib/busca';
 import { lerAgentePausado } from '@/lib/contadores';
-import { consultaCaixa, ordenarCaixa, passaNoFiltro, rotuloFiltroCaixa, type FiltroCaixa } from '@/lib/caixa';
+import { consultaCaixa, filtroPadrao, passaNoFiltro, rotuloFiltroCaixa, type FiltroCaixa } from '@/lib/caixa';
 import { cn } from '@/lib/cn';
-import { mascararTelefone } from '@/lib/formatos';
 import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { FiltrosCaixa } from './filtros-caixa';
+import { ItemConversa } from './item-conversa';
 import { Realce } from './realce';
 
 /**
@@ -60,34 +58,40 @@ export async function ListaConversas({
   if (busca) {
     consulta = consulta.or(`nome_contato.ilike.%${busca.termo}%,empresa.ilike.%${busca.termo}%,telefone.ilike.%${busca.digitos || busca.termo}%`);
   }
-  const [{ data, error }, { data: pessoas }, pausaGeral] = await Promise.all([
+  const [{ data, error }, { data: pessoas }, pausaGeral, { data: limitesBrutos }] = await Promise.all([
     consulta.order('ultima_em', { ascending: false, nullsFirst: false }).limit(200),
     nomesProntos ? Promise.resolve({ data: null }) : sb.from('usuarios').select('id, nome'),
     pausaPronta !== undefined ? Promise.resolve(pausaPronta) : lerAgentePausado(sb),
+    sb.rpc('limites_espera'),
   ]);
   const nomes = nomesProntos ?? new Map((pessoas ?? []).map((p) => [p.id, p.nome]));
-  const linhas = ordenarCaixa((data ?? []).filter((l) => passaNoFiltro({
+  const linhas = (data ?? []).filter((l) => passaNoFiltro({
     id: l.id!, atendente_id: l.atendente_id, setores_abertos: l.setores_abertos ?? [],
     sem_responsavel: Boolean(l.sem_responsavel), aguardando_cliente: Boolean(l.aguardando_cliente),
     estado: l.estado, chamados_abertos: l.chamados_abertos,
-  }, filtro, u)));
+  }, filtro, u));
   const sufixo = consultaCaixa({ filtro: filtroNaUrl, q });
+  const limites = lerLimites(limitesBrutos);
+  const grupos = agruparConversas(linhas as unknown as LinhaAtendimento[], new Date());
+  const esperandoVoce = linhas.filter((l) => l.esperando_voce).length;
+  const estadoCtx = { usuarioId: u.id, nomes, pausaGeral };
+  const item = (l: LinhaAtendimento) => (
+    <li key={l.id}>
+      <ItemConversa l={l} href={`/atendimento/${l.id}${sufixo}`} ativa={l.id === selecionada} limites={limites} estadoCtx={estadoCtx} />
+    </li>
+  );
   const Titulo = titulo;
 
   return (
     <section aria-labelledby="titulo-lista-conversas" className={cn('flex min-h-0 flex-col bg-surface', className)}>
       <div className="flex flex-col gap-3 border-b border-border p-3">
         <div className="flex items-baseline justify-between gap-2">
-          <Titulo id="titulo-lista-conversas" className={cn('font-semibold text-foreground', titulo === 'h1' ? 'text-xl' : 'text-lg')}>
-            {titulo === 'h1' ? 'Atendimento' : 'Conversas'}
+          <Titulo id="titulo-lista-conversas" className={cn('font-light text-foreground', titulo === 'h1' ? 'text-xl' : 'text-lg')}>
+            Atendimento <span className="tabular font-extrabold text-brand">{esperandoVoce}</span>{' '}
+            <span className="text-sm font-normal text-muted">esperando você</span>
           </Titulo>
-          {!error && (
-            <p aria-live="polite" className="tabular text-xs text-subtle">
-              {linhas.length === 1 ? '1 conversa' : `${linhas.length} conversas`}
-            </p>
-          )}
         </div>
-        <FiltrosCaixa caminho={caminho} filtro={filtro} q={q} />
+        <FiltrosCaixa caminho={caminho} filtro={filtro} q={q} padrao={filtroPadrao(u)} />
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-y-auto">
@@ -107,49 +111,36 @@ export async function ListaConversas({
           )
         ) : (
           <Realce chave="lista-conversas">
-          <ul className="divide-y divide-border">
-            {linhas.map((l) => {
-              const ativa = l.id === selecionada;
-              const aguardando = Boolean(l.sem_responsavel);
-              // A view não traz a pausa do contato nem da empresa: aqui só assumida, pausa geral ou ativo.
-              const estado: EstadoAgente = estadoDaConversa({
-                assumidaPor: l.estado === 'humano' ? (l.atendente_id && nomes.get(l.atendente_id)) || 'equipe' : null,
-                pausaGeral,
-              });
-              const nome = l.nome_contato && l.nome_contato !== l.telefone ? l.nome_contato : mascararTelefone(l.telefone ?? '');
-              return (
-                <li key={l.id}>
-                  <Link
-                    href={`/atendimento/${l.id}${sufixo}`}
-                    data-conversa-item=""
-                    data-realce={l.ultima_em ?? undefined}
-                    data-realce-proprio={ativa ? '' : undefined}
-                    aria-current={ativa ? 'page' : undefined}
-                    scroll={false}
-                    className={cn(
-                      'relative flex flex-col gap-1 border-l-2 px-3 py-2.5 transition-colors duration-150 ease-out',
-                      ativa ? 'border-l-brand bg-brand-soft' : aguardando ? 'border-l-warning bg-warning-soft/40 hover:bg-warning-soft' : 'border-l-transparent hover:bg-surface-muted',
-                    )}
-                  >
-                    <span className="flex items-baseline justify-between gap-2">
-                      <span className="truncate font-medium text-foreground">{nome}</span>
-                      {l.ultima_em && <RelativeTime data={l.ultima_em} className="shrink-0 text-xs text-subtle" />}
-                    </span>
-                    <span className="truncate text-sm text-muted">{l.empresa ?? 'Empresa não definida'}</span>
-                    <span className="line-clamp-1 text-sm text-subtle">{l.ultima_mensagem ?? (l.ultima_em ? 'Anexo ou áudio' : 'Sem mensagens')}</span>
-                    <span className="mt-0.5 flex flex-wrap items-center gap-1">
-                      {aguardando && <StatusBadge tipo="conversa" status="aguardando_atendente" />}
-                      <AgentStateIndicator estado={estado} className="h-5 px-1.5" />
-                      {l.aguardando_cliente && <StatusBadge tipo="demanda" status="aguardando_cliente" />}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+            <GrupoConversas id="grupo-esperando" titulo="Esperando pessoa" total={grupos.esperando.length}>
+              {grupos.esperando.map(item)}
+            </GrupoConversas>
+            <GrupoConversas id="grupo-agente" titulo="Com o agente" total={grupos.comAgente.length}>
+              {grupos.comAgente.map(item)}
+            </GrupoConversas>
+            {grupos.concluidasHoje.length > 0 && (
+              <details className="group border-t border-border">
+                <summary className="flex cursor-pointer items-center justify-between bg-surface-muted px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted">
+                  Concluídas hoje <span className="tabular">{grupos.concluidasHoje.length}</span>
+                </summary>
+                <ul className="divide-y divide-border">{grupos.concluidasHoje.map(item)}</ul>
+              </details>
+            )}
           </Realce>
         )}
       </div>
+    </section>
+  );
+}
+
+/** Grupo da lista com cabeçalho em caixa alta e a contagem; região nomeada para o leitor de tela e para os testes. */
+function GrupoConversas({ id, titulo, total, children }: { id: string; titulo: string; total: number; children: ReactNode }) {
+  if (total === 0) return null;
+  return (
+    <section aria-labelledby={id}>
+      <h3 id={id} className="flex items-center justify-between border-b border-border bg-surface-muted px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted">
+        {titulo} <span className="tabular">{total}</span>
+      </h3>
+      <ul className="divide-y divide-border">{children}</ul>
     </section>
   );
 }
