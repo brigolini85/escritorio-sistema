@@ -24,7 +24,9 @@ create function public.pode_ver_conversa_de(p_usuario uuid, p_conversa uuid) ret
 language sql stable security definer set search_path = '' as $$
   select public.eh_admin_de(p_usuario) or (public.usuario_liberado(p_usuario) and (
     case public.nivel_de(p_usuario, 'atendimento')
-      when 'todas' then exists (select 1 from public.conversas where id = p_conversa)
+      -- Todas as de clientes: o WhatsApp de colegas com o assistente é conversa interna e continua fora.
+      when 'todas' then exists (select 1 from public.conversas cv
+                                where cv.id = p_conversa and not public.eh_telefone_do_assistente(cv.telefone))
       when 'meus_setores' then
         exists (select 1 from public.conversas where id = p_conversa and atendente_id = p_usuario)
         or exists (
@@ -45,6 +47,29 @@ language sql stable security definer set search_path = '' as $$ select public.po
 
 create or replace function public.pode_ver_conversa(p_conversa uuid) returns boolean
 language sql stable security definer set search_path = '' as $$ select public.pode_ver_conversa_de(auth.uid(), p_conversa) $$;
+
+-- ---------- Alertas do setor: só quem vê as demandas do setor ("Do meu setor" ou "Todas") ----------
+-- Alerta com pessoa continua só dela (e do administrador). "Só as minhas" não recebe o do setor: não veria a demanda.
+
+drop policy leitura on public.alertas;
+create policy leitura on public.alertas for select to authenticated using (
+  public.eh_admin()
+  or (public.eh_usuario_ativo() and usuario_id = auth.uid())
+  or (usuario_id is null and setor_id is not null and setor_id in (select public.meus_setores())
+      and public.tem_nivel('demandas', 'meu_setor'))
+);
+
+create or replace function public.marcar_alerta_lido(p_alerta uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  update public.alertas set lido_em = now()
+  where id = p_alerta and (
+    public.eh_admin()
+    or (public.eh_usuario_ativo() and usuario_id = auth.uid())
+    or (usuario_id is null and setor_id is not null and setor_id in (select public.meus_setores())
+        and public.tem_nivel('demandas', 'meu_setor'))
+  );
+end $$;
 
 -- ---------- Arquivar e restaurar (spec 5.2): "Clientes e contatos: Editar e arquivar" ----------
 
