@@ -310,6 +310,37 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"conversa_leituras": {
+                  Row: {
+                    "conversa_id": string,"lida_ate": string,"usuario_id": string
+                  }
+                  Insert: {
+                    "conversa_id": string,"lida_ate": string,"usuario_id": string
+                  }
+                  Update: {
+                    "conversa_id"?: string,"lida_ate"?: string,"usuario_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversa_leituras_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "caixa_entrada"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversa_leituras_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "conversas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversa_leituras_usuario_id_fkey"
+      columns: ["usuario_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"conversas": {
                   Row: {
                     "atendente_id": string | null,"atualizado_em": string,"aviso_lgpd_enviado_em": string | null,"cliente_em_foco": string | null,"contato_id": string | null,"criado_em": string,"estado": Database["public"]['Enums']["estado_conversa"],"id": string,"telefone": string,"tentativas_nao_entendido": number
@@ -1020,6 +1051,9 @@ isOneToOne: false
                            },
 "marcar_alerta_lido":
 { Args: { "p_alerta": string }; Returns: undefined
+                           },
+"marcar_conversa_lida":
+{ Args: { "p_ate": string,"p_conversa": string }; Returns: boolean
                            },
 "meus_setores":
 { Args: Record<PropertyKey, never>; Returns: string[]
