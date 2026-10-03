@@ -202,7 +202,7 @@
 
 /*
  * Conversa aberta (Atendimento) a partir de lg: cabeçalho, histórico e compositor em linhas; o painel
- * Assistente/Detalhes fica sobre o histórico (lg até 2xl) ou numa coluna própria de 360px (2xl em diante).
+ * Cliente/Assistente/Agente fica sobre o histórico (lg até xl) ou numa coluna própria de 360px (xl, 1280 px, em diante).
  */
 @utility grade-conversa {
   grid-template-columns: minmax(0, 1fr);

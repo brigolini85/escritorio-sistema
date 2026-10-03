@@ -1,9 +1,8 @@
 'use client';
 
-import { ArrowRightLeft, Bot, CircleCheck, Clock, PanelRightClose, PanelRightOpen, UserRoundCheck } from 'lucide-react';
+import { ArrowRightLeft, Bot, CircleCheck, PanelRightClose, PanelRightOpen, UserRoundCheck } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
-import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -47,7 +46,7 @@ export function EscolherDemanda({ demandas, className }: { demandas: DemandaDaCo
 
 /**
  * Ações do cabeçalho da conversa: Assumir (primária) ou Devolver ao agente, e, para a demanda em foco,
- * Transferir, Com o cliente e Concluir (com confirmação). Mesmas server actions e campos de antes.
+ * Transferir (Com o cliente e Concluir da demanda ficam na demanda, na aba CLIENTE).
  */
 export function AcoesConversa({
   minha,
@@ -73,7 +72,7 @@ export function AcoesConversa({
   const d = demandaEmFoco(demandas, demandaId);
 
   return (
-    // Container query: com pouco espaço (a 1280px, por exemplo) Transferir, Com o cliente e Concluir ficam só com o
+    // Container query: com pouco espaço (a 1280px, por exemplo) o Transferir fica só com o
     // ícone; o texto continua como nome acessível (sr-only) e aparece no title.
     <div className="@container">
     <div className="flex flex-wrap items-center gap-2">
@@ -114,30 +113,6 @@ export function AcoesConversa({
         <>
           <EscolherDemanda demandas={demandas} />
           <Transferir key={`t-${d.id}`} demanda={d} setores={setores} pessoas={pessoas} />
-          {d.status !== 'aguardando_cliente' && (
-            <form action={d.aguardandoCliente}>
-              <Button size="sm" variant="outline" title="Com o cliente">
-                <Clock aria-hidden size={16} strokeWidth={1.75} />
-                <span className="@max-3xl:sr-only">Com o cliente</span>
-              </Button>
-            </form>
-          )}
-          <ConfirmDialog
-            key={`c-${d.id}`}
-            gatilho={(
-              <Button size="sm" variant="outline" title="Concluir" aria-label={`Concluir a demanda #${d.numero}`}>
-                <CircleCheck aria-hidden size={16} strokeWidth={1.75} />
-                <span className="@max-3xl:sr-only">Concluir</span>
-              </Button>
-            )}
-            titulo={`Concluir a demanda #${d.numero}?`}
-            descricao={`“${d.titulo}” sai das demandas abertas desta conversa.`}
-            confirmar="Concluir"
-            enviando="Concluindo…"
-            variante="primary"
-            tipo="concluir"
-            acao={d.concluir}
-          />
         </>
       )}
       {children}
@@ -197,7 +172,7 @@ function BotaoEnviar({ rotulo, enviando, aoTerminar }: { rotulo: string; enviand
   return <Button type="submit" disabled={pending}>{pending ? enviando : rotulo}</Button>;
 }
 
-/** Mostra ou esconde o painel Assistente/Detalhes (a partir de lg; abaixo disso ele fica embaixo da conversa). */
+/** Mostra ou esconde a coluna Cliente/Assistente/Agente (a partir de lg; abaixo disso ele fica embaixo da conversa). */
 export function BotaoPainel() {
   const { painelAberto, alternarPainel } = useEstadoConversa();
   return (
@@ -217,7 +192,7 @@ export function BotaoPainel() {
           {painelAberto ? <PanelRightClose aria-hidden size={16} strokeWidth={1.75} /> : <PanelRightOpen aria-hidden size={16} strokeWidth={1.75} />}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{painelAberto ? 'Esconder Assistente e Detalhes (Esc)' : 'Mostrar Assistente e Detalhes'}</TooltipContent>
+      <TooltipContent>{painelAberto ? 'Esconder Cliente, Assistente e Agente (Esc)' : 'Mostrar Cliente, Assistente e Agente'}</TooltipContent>
     </Tooltip>
   );
 }

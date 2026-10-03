@@ -46,10 +46,9 @@ test('faixa de passagem, por quê, cartão de decisão, marco e link do document
   await expect(faixa).toContainText('O agente passou para uma pessoa há 18 min.');
   await expect(faixa).toContainText('Motivo: não entendeu o pedido duas vezes');
   const log = page.getByRole('log', { name: 'Histórico da conversa' });
-  // De 1024 a 1535 px o painel da direita fica por cima do histórico (a coluna própria é da Task 12): fecha para clicar.
+  // A partir de 1280 px (viewport padrão do Playwright) a coluna da direita é própria e não cobre o histórico (P17): não precisa fechar.
   await expect(page.locator('body')).toHaveAttribute(HIDRATADA, '', { timeout: 30_000 });
-  await page.getByRole('button', { name: 'Esconder painel lateral' }).click();
-  await expect(page.locator('#painel-conversa')).toBeHidden();
+  await expect(page.locator('#painel-conversa')).toBeVisible();
   await log.getByText('por quê?').click();
   await expect(log.getByText('Buscou produtos', { exact: true })).toBeVisible();
   await expect(log.getByText(`Abriu uma demanda (#${s.numero} no Fiscal)`)).toBeVisible();
@@ -90,6 +89,7 @@ test('trocar empresa só entre as do contato; vínculo apagado com a tela aberta
   const s = await cenario();
   await entrar(page, 'ana-conversa@e2e.local', SENHA);
   await page.goto(`/atendimento/${s.conversa}`);
+  await expect(page.locator('body')).toHaveAttribute(HIDRATADA, '', { timeout: 30_000 });
   await page.getByRole('button', { name: 'Trocar empresa' }).click();
   await page.getByRole('menuitem', { name: 'Padaria Sol ME' }).click();
   await expect(page.getByText('Conversa agora em Padaria Sol ME.')).toBeVisible();
@@ -134,7 +134,6 @@ test('sem acesso a pedidos de nota, o por quê mostra o aviso e nunca o conteúd
   await page.goto(`/atendimento/${s.conversa}`);
   const log = page.getByRole('log', { name: 'Histórico da conversa' });
   await expect(page.locator('body')).toHaveAttribute(HIDRATADA, '', { timeout: 30_000 });
-  await page.getByRole('button', { name: 'Esconder painel lateral' }).click();
   await log.getByText('por quê?').click();
   await expect(log.getByText('Só quem tem acesso a pedidos de nota vê a descrição, os itens e as correções deste pedido.')).toBeVisible();
   await expect(page.getByText('SEGREDO-DO-PEDIDO')).toHaveCount(0);

@@ -14,18 +14,23 @@ import { cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDas
 import { mascararTelefone } from '@/lib/formatos';
 import { linhaDoTempo } from '@/lib/historico';
 import { AVISO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
+import type { Prioridade } from '@/lib/demandas';
 import { temNivel, usaAssistente } from '@/lib/permissoes';
+import { resumirPedido } from '@/lib/resumo-pedido';
 import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ConversaAssistente } from '../../assistente/conversa-assistente';
 import { alterarStatus, assumir, concluir, concluirAtendimento, devolverAoAgente, notaInterna, responder, transferir } from '../acoes';
 import { Realce } from '../realce';
-import { AcoesConversa, BotaoPainel, type DemandaDaConversa } from './acoes-conversa';
+import { AcoesConversa, BotaoPainel, type DemandaDaConversa as AcoesDaDemanda } from './acoes-conversa';
 import { situacaoDasMensagens } from '../../treinar-agente/ensinar';
+import { AbaAgente } from './aba-agente';
+import { AbaCliente } from './aba-cliente';
 import { AbrirDemanda } from './abrir-demanda';
+import { DemandaDaConversa } from './demanda-da-conversa';
+import type { DemandaDetalhe } from './tipos-conversa';
 import { Compositor } from './compositor';
 import { EnsinarAgente } from './ensinar-agente';
-import { DetalhesConversa, type DemandaDetalhe } from './detalhes-conversa';
 import { AvisoAssistente, EstadoConversa } from './estado-conversa';
 import { FaixaPassagem } from './faixa-passagem';
 import { CartaoDecisaoConversa, MarcoConversa, PorQue } from './itens-historico';
@@ -113,6 +118,27 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     : { data: [] as { id: string; cliente_id: string }[] };
   const documentosAbertos = documentosAbertosDe(documentosVisiveis ?? [], conversa.cliente_em_foco, (vinculos ?? []).map((v) => v.clientes?.id));
 
+  // Aba CLIENTE: tudo da empresa em foco (sem empresa, listas vazias). A RLS já limita as demandas ao nível de Demandas da pessoa.
+  const empresaId = conversa.cliente_em_foco;
+  const lerAbaCliente = async () => {
+    if (!empresaId) return { ficha: null, marcas: null, demandasEmpresa: [], pedidosEmpresa: [], documentos: [] };
+    const [{ data: ficha }, { data: marcas }, { data: demandasEmpresa }, { data: pedidosEmpresa }, { data: documentos }] = await Promise.all([
+      sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj, regime, cliente_servicos(servicos(nome))').eq('id', empresaId).maybeSingle(),
+      conversa.contato_id
+        ? sb.from('contato_clientes').select('pode_pedir_nota, pode_atualizar_preco').eq('contato_id', conversa.contato_id).eq('cliente_id', empresaId).maybeSingle()
+        : Promise.resolve({ data: null }),
+      sb.from('chamados').select('id, numero, titulo, prioridade, prazo_em, prazo_pausado_desde, conversa_id')
+        .eq('cliente_id', empresaId).neq('status', 'concluido').order('prazo_em', { ascending: true, nullsFirst: false }).limit(20),
+      // Sem acesso a pedidos de nota (P11), a consulta nem sai do servidor.
+      verPedidos
+        ? sb.from('chamados').select('id, criado_em, pedido_venda').eq('cliente_id', empresaId).not('pedido_venda', 'is', null).order('criado_em', { ascending: false }).limit(5)
+        : Promise.resolve({ data: [] as { id: string; criado_em: string; pedido_venda: unknown }[] }),
+      sb.from('documentos_empresa').select('id, nome').eq('cliente_id', empresaId).eq('ia_pode_enviar', true).order('nome'),
+    ]);
+    return { ficha, marcas, demandasEmpresa: demandasEmpresa ?? [], pedidosEmpresa: pedidosEmpresa ?? [], documentos: documentos ?? [] };
+  };
+  const { ficha, marcas, demandasEmpresa, pedidosEmpresa, documentos } = await lerAbaCliente();
+
   const podeAssistente = usaAssistente(u);
   const podeCsv = temNivel(u, 'notas', 'corrigir');
   const podeTreinar = temNivel(u, 'treinar', 'sim');
@@ -153,7 +179,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   ];
   const historico = linhaDoTempo(itens);
 
-  const demandasAcoes: DemandaDaConversa[] = abertas.map((c) => ({
+  const demandasAcoes: AcoesDaDemanda[] = abertas.map((c) => ({
     id: c.id, numero: c.numero, titulo: c.titulo, setorId: c.setor_id, status: c.status as StatusDemanda,
     transferir: transferir.bind(null, c.id, id),
     aguardandoCliente: alterarStatus.bind(null, c.id, id, 'aguardando_cliente'),
@@ -171,16 +197,49 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     };
   });
 
+  const compradoresPorId = new Map((compradores ?? []).map((c) => [c.id, c as CompradorCadastrado]));
+  const pedidosRecentes = verPedidos
+    ? (pedidosEmpresa ?? []).flatMap((p) => { const r = resumirPedido(p.pedido_venda, null); return r ? [{ id: p.id, criado_em: p.criado_em, destino: r.destinatario.nome, total: r.total }] : []; })
+    : null;
+  const detalheDaConversa = new Map(demandasDetalhe.map((d) => {
+    const acoes = demandasAcoes.find((a) => a.id === d.id)!;
+    const salvo = d.pedido_venda as PedidoVendaSalvo | null;
+    return [d.id, <DemandaDaConversa key={d.id} d={d} acoes={acoes} comprador={salvo?.unidade_id ? compradoresPorId.get(salvo.unidade_id) ?? null : null} podeCsv={podeCsv} />];
+  }));
+  // Demandas desta conversa que não são da empresa em foco (ex.: Triagem sem empresa) entram na lista também.
+  const daEmpresa = new Set((demandasEmpresa ?? []).map((d) => d.id));
+  const demandasDaAba = [
+    ...(demandasEmpresa ?? []).map((d) => ({ id: d.id, numero: d.numero, titulo: d.titulo, prioridade: d.prioridade as Prioridade,
+      prazo_em: d.prazo_em, prazo_pausado_desde: d.prazo_pausado_desde, daConversa: d.conversa_id === id })),
+    ...abertas.filter((d) => !daEmpresa.has(d.id)).map((d) => ({ id: d.id, numero: d.numero, titulo: d.titulo, prioridade: d.prioridade as Prioridade,
+      prazo_em: d.prazo_em, prazo_pausado_desde: d.prazo_pausado_desde, daConversa: true })),
+  ];
+
   return (
     <EstadoConversa
       painelInicial={Boolean(erro) || painelAbertoDoCookie(loja.get(COOKIE_PAINEL_CONVERSA)?.value)}
-      abaInicial={podeAssistente ? 'assistente' : 'detalhes'}
+      abaInicial={erro && podeAssistente ? 'assistente' : 'cliente'}
       demandaInicial={abertas[0]?.id ?? null}
       aviso={erro}
     >
       <GradeConversa
         painel={(
           <PainelLateral
+            cliente={(
+              <AbaCliente
+                conversaId={id}
+                empresa={ficha ? { id: ficha.id, nome: ficha.nome_fantasia ?? ficha.razao_social, cnpj: ficha.cnpj, regime: ficha.regime,
+                  servicos: ficha.cliente_servicos.flatMap((cs) => (cs.servicos ? [cs.servicos.nome] : [])) } : null}
+                contato={conversa.contatos}
+                podeEditarContato={temNivel(u, 'clientes', 'editar')}
+                marcas={marcas ? { podePedirNota: marcas.pode_pedir_nota, podeMudarPreco: marcas.pode_atualizar_preco } : null}
+                demandas={demandasDaAba}
+                detalheDaConversa={detalheDaConversa}
+                pedidos={pedidosRecentes}
+                documentos={documentos ?? []}
+                agora={new Date()}
+              />
+            )}
             assistente={podeAssistente ? (
               <div className="flex min-h-0 flex-1 flex-col gap-2">
                 <p className="text-xs text-muted">Já sabe deste cliente e das demandas desta conversa.</p>
@@ -188,19 +247,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
                 <ConversaAssistente usuarioId={u.id} conversaId={id} podeCsv={podeCsv} compacta />
               </div>
             ) : undefined}
-            detalhes={(
-              <DetalhesConversa
-                conversaId={id}
-                empresa={empresa}
-                outrasEmpresas={outrasEmpresas}
-                contato={conversa.contatos}
-                podeEditarContato={temNivel(u, 'clientes', 'editar')}
-                demandas={demandasDetalhe}
-                compradores={new Map((compradores ?? []).map((c) => [c.id, c as CompradorCadastrado]))}
-                podeCsv={podeCsv}
-                decisoes={decisoesTela}
-              />
-            )}
+            agente={<AbaAgente decisoes={decisoesTela} passagem={conversa.aguardando_pessoa_desde ? { desde: conversa.aguardando_pessoa_desde, motivo: conversa.motivo_pessoa } : null} />}
           />
         )}
       >

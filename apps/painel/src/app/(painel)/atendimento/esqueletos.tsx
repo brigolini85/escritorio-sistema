@@ -48,7 +48,7 @@ export function EsqueletoConversa() {
           <Skeleton className="h-24 w-full" />
         </div>
       </div>
-      <div className="hidden flex-col gap-3 border-l border-border bg-surface p-3 2xl:flex 2xl:w-painel-conversa">
+      <div className="hidden flex-col gap-3 border-l border-border bg-surface p-3 xl:flex xl:w-painel-conversa">
         <Skeleton className="h-9 w-full" />
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-24 w-full" />

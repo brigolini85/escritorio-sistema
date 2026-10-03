@@ -52,6 +52,9 @@ test('caixa do assistente dentro do atendimento grava a pergunta com a conversa,
   const conversaId = await conversaComDemanda('5531999990201');
   await entrar(page, email, senha);
   await page.goto(`/atendimento/${conversaId}`);
+  // A aba CLIENTE abre primeiro (decisão 12): o assistente fica na aba ASSISTENTE.
+  await expect(page.locator('body')).toHaveAttribute('data-conversa-hidratada', '', { timeout: 30_000 });
+  await page.locator('#painel-conversa').getByRole('tab', { name: 'Assistente' }).click();
   await expect(page.getByText('Já sabe deste cliente')).toBeVisible();
   const campo = page.getByPlaceholder('Pergunte ao assistente');
   await expect(campo).toHaveAttribute('maxlength', '4000');

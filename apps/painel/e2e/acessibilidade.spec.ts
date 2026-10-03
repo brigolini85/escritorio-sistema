@@ -174,7 +174,9 @@ for (const tema of ['claro', 'escuro'] as const) {
       erros.push(...(await auditar(page, 'menu do usuário', tema)));
       await page.keyboard.press('Escape');
 
-      await page.getByRole('button', { name: 'Concluir' }).first().click();
+      // Concluir a demanda mora na demanda, na aba CLIENTE (o Concluir do cabeçalho é o do atendimento, só depois de assumir).
+      await page.locator('#painel-conversa summary').first().click();
+      await page.getByRole('button', { name: /Concluir a demanda/ }).first().click();
       await expect(page.getByRole('alertdialog').or(page.getByRole('dialog'))).toBeVisible();
       erros.push(...(await auditar(page, 'confirmação de concluir', tema)));
       await page.keyboard.press('Escape');

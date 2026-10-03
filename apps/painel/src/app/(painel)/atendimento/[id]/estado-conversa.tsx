@@ -6,7 +6,7 @@ import { AvisoErro, useTirarErroDaUrl } from '@/components/patterns/aviso-erro';
 import { cookiePainelConversa } from './preferencias-conversa';
 
 export type ModoCompositor = 'responder' | 'nota';
-export type AbaPainel = 'assistente' | 'detalhes';
+export type AbaPainel = 'cliente' | 'assistente' | 'agente';
 
 type Estado = {
   painelAberto: boolean;
@@ -32,8 +32,8 @@ export function useEstadoConversa(): Estado {
 
 /** O painel só recolhe a partir de lg; abaixo disso ele fica embaixo da conversa, sempre visível. */
 const PAINEL_RECOLHIVEL = '(min-width: 1024px)';
-/** De lg até 2xl o painel fica por cima do histórico (sobreposição): o foco entra nele ao abrir. */
-export const PAINEL_SOBREPOSTO = '(min-width: 1024px) and (max-width: 1535.98px)';
+/** De lg até xl o painel fica por cima do histórico (sobreposição): o foco entra nele ao abrir; de 1280 px é coluna própria (P17). */
+export const PAINEL_SOBREPOSTO = '(min-width: 1024px) and (max-width: 1279.98px)';
 
 const botaoPainel = () => document.getElementById('botao-painel-conversa');
 const painel = () => document.getElementById('painel-conversa');
