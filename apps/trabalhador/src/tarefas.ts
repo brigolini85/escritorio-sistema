@@ -58,6 +58,20 @@ export async function alertaVencimento(d: DepsTarefas): Promise<number> {
   return vencidas.length;
 }
 
+/** A cada 5 minutos: cada alerta no seu try, para a falha de um não pular o outro; o erro volta no fim e o job consta como falho. */
+export async function alertasPeriodicos(d: DepsTarefas, tarefas: ((d: DepsTarefas) => Promise<unknown>)[] = [alertaFila, alertaVencimento]): Promise<void> {
+  const erros: unknown[] = [];
+  for (const tarefa of tarefas) {
+    try {
+      await tarefa(d);
+    } catch (e) {
+      erros.push(e);
+    }
+  }
+  if (erros.length === 1) throw erros[0];
+  if (erros.length > 1) throw new Error(`Alertas periódicos falharam: ${erros.map((e) => (e instanceof Error ? e.message : String(e))).join('; ')}`);
+}
+
 export function inicioDoDiaSP(agora: Date): Date {
   const data = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(agora);
   return new Date(`${data}T00:00:00-03:00`);
