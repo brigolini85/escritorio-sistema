@@ -797,15 +797,46 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
-                },"uso_ia": {
+                },"sugestoes_resposta": {
                   Row: {
-                    "conversa_id": string | null,"criado_em": string,"custo_usd": number,"id": string,"modelo": string,"tokens_cache_escrita": number,"tokens_cache_leitura": number,"tokens_entrada": number,"tokens_saida": number
+                    "concluida_em": string | null,"conversa_id": string,"criado_em": string,"erro": string | null,"id": string,"status": string,"texto": string | null,"usuario_id": string
                   }
                   Insert: {
-                    "conversa_id"?: string | null,"criado_em"?: string,"custo_usd": number,"id"?: string,"modelo": string,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada": number,"tokens_saida": number
+                    "concluida_em"?: string | null,"conversa_id": string,"criado_em"?: string,"erro"?: string | null,"id"?: string,"status"?: string,"texto"?: string | null,"usuario_id": string
                   }
                   Update: {
-                    "conversa_id"?: string | null,"criado_em"?: string,"custo_usd"?: number,"id"?: string,"modelo"?: string,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada"?: number,"tokens_saida"?: number
+                    "concluida_em"?: string | null,"conversa_id"?: string,"criado_em"?: string,"erro"?: string | null,"id"?: string,"status"?: string,"texto"?: string | null,"usuario_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "sugestoes_resposta_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "caixa_entrada"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "sugestoes_resposta_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "conversas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "sugestoes_resposta_usuario_id_fkey"
+      columns: ["usuario_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"uso_ia": {
+                  Row: {
+                    "conversa_id": string | null,"criado_em": string,"custo_usd": number,"funcionalidade": string | null,"id": string,"modelo": string,"tokens_cache_escrita": number,"tokens_cache_leitura": number,"tokens_entrada": number,"tokens_saida": number,"usuario_id": string | null
+                  }
+                  Insert: {
+                    "conversa_id"?: string | null,"criado_em"?: string,"custo_usd": number,"funcionalidade"?: string | null,"id"?: string,"modelo": string,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada": number,"tokens_saida": number,"usuario_id"?: string | null
+                  }
+                  Update: {
+                    "conversa_id"?: string | null,"criado_em"?: string,"custo_usd"?: number,"funcionalidade"?: string | null,"id"?: string,"modelo"?: string,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada"?: number,"tokens_saida"?: number,"usuario_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -819,6 +850,12 @@ isOneToOne: false
       columns: ["conversa_id"]
 isOneToOne: false
       referencedRelation: "conversas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "uso_ia_usuario_id_fkey"
+      columns: ["usuario_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
       referencedColumns: ["id"]
     }
                   ]
@@ -1129,6 +1166,9 @@ isOneToOne: false
                            },
 "nota_interna":
 { Args: { "p_chamado": string,"p_texto": string }; Returns: undefined
+                           },
+"pedir_sugestao_resposta":
+{ Args: { "p_conversa": string }; Returns: string
                            },
 "permissoes_dos_niveis":
 { Args: { "n": Json }; Returns: (string)[]
