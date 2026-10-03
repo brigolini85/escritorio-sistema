@@ -130,7 +130,7 @@ Cada módulo tem um nível:
 
 Quando a Parte D entrou, cada pessoa recebeu o nível que reproduz o que ela já fazia: ninguém passou a ver nem a fazer mais ou menos sem você mexer. Quem só tinha o assistente pelo WhatsApp ficou com "Site e WhatsApp".
 
-**Configurações: Sim** não é o mesmo que ser administrador. A pessoa abre Configurações e mexe em Expediente, Mensagens, Respostas prontas, Prazos, Setores e Feriados. Ficam só com o administrador: Usuários e permissões, Teto de IA e alertas, Integrações e a pausa do agente. Assim ninguém se faz administrador, muda o gasto com IA ou pausa o agente sem você saber. No submenu de Configurações, o item aparece como Expediente (sem a parte de IA).
+**Configurações: Sim** não é o mesmo que ser administrador. A pessoa abre Configurações e mexe em Expediente, Mensagens, Respostas prontas, Prazos, Setores, Serviços, Feriados e no aviso da tela de login (o recado que todos veem antes de entrar). Setores e serviços ela cadastra, altera e desativa, mas não exclui de vez: isso continua com você. Ficam só com o administrador: Usuários e permissões, Teto de IA e alertas, Integrações e a pausa do agente. Assim ninguém se faz administrador, muda o gasto com IA ou pausa o agente sem você saber. No submenu de Configurações, o item aparece como Expediente (sem a parte de IA).
 
 **Pedidos de nota: Sem acesso** esconde o bloco "Pedido de nota" e o CSV do Bling na demanda, a descrição e os itens do pedido e o antes e depois das correções. O assistente da pessoa também deixa de consultar e corrigir pedidos de nota e vendas. É uma proteção de tela e de assistente: a demanda continua visível pelo nível de Demandas.
 

@@ -4545,8 +4545,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ## Entrega (depois da revisão final do branch)
 
 1. **Resultado real de todas as suítes,** com o Supabase local nas portas 563xx (Restrições globais) e **`supabase db reset`** antes:
-   - **regressão antes e depois:** mostre ao dono, lado a lado, a linha do `22_regressao_visibilidade.test.sql` guardada na Task 1 (`$SCRATCH/regressao-antes.txt`, 71/71 com o código antigo) e a de agora (71/71 com as cinco migrações). Mostre também `git diff $(cat "$SCRATCH/commit-regressao.txt") -- supabase/tests/22_regressao_visibilidade.test.sql` **vazio** (o teste não mudou);
-   - `supabase test db`: todos os arquivos, inclusive `22` 71/71, `23` 25/25, `24` 24/24, `25` 34/34, `26` 16/16, `27` 11/11;
+   - **regressão antes e depois:** mostre ao dono, lado a lado, a linha do `22_regressao_visibilidade.test.sql` guardada na Task 1 (`$SCRATCH/regressao-antes.txt`, 100/100 com o código antigo; o arquivo ficou com `plan(100)` na rodada de correção da Task 1, commit 8f5eb71) e a de agora (100/100 com as cinco migrações). Mostre também `git diff $(cat "$SCRATCH/commit-regressao.txt") -- supabase/tests/22_regressao_visibilidade.test.sql` **vazio** (o teste não mudou);
+   - `supabase test db`: todos os arquivos, inclusive `22` 100/100, `23` 25/25, `24` 38/38, `25` 34/34, `26` 19/19, `26b` 57/57, `27` 11/11, `27b` 25/25;
    - `pnpm --filter @escritorio/core test`;
    - `pnpm --filter @escritorio/db test` e `pnpm --filter @escritorio/db typecheck`;
    - `pnpm --filter @escritorio/trabalhador test` e `pnpm --filter @escritorio/trabalhador typecheck`;
