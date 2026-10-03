@@ -130,11 +130,11 @@ Cada módulo tem um nível:
 
 Quando a Parte D entrou, cada pessoa recebeu o nível que reproduz o que ela já fazia: ninguém passou a ver nem a fazer mais ou menos sem você mexer. Quem só tinha o assistente pelo WhatsApp ficou com "Site e WhatsApp".
 
-**Configurações: Sim** não é o mesmo que ser administrador. A pessoa abre Configurações e mexe em Expediente, Mensagens, Respostas prontas, Prazos, Setores e Feriados. Ficam só com o administrador: Usuários e permissões, Teto de IA e alertas, Integrações e a pausa do agente. Assim ninguém se faz administrador, muda o gasto com IA ou pausa o agente sem você saber. No menu, quem tem "Sim" vê o item como "Expediente".
+**Configurações: Sim** não é o mesmo que ser administrador. A pessoa abre Configurações e mexe em Expediente, Mensagens, Respostas prontas, Prazos, Setores e Feriados. Ficam só com o administrador: Usuários e permissões, Teto de IA e alertas, Integrações e a pausa do agente. Assim ninguém se faz administrador, muda o gasto com IA ou pausa o agente sem você saber. No submenu de Configurações, o item aparece como Expediente (sem a parte de IA).
 
 **Pedidos de nota: Sem acesso** esconde o bloco "Pedido de nota" e o CSV do Bling na demanda, a descrição e os itens do pedido e o antes e depois das correções. O assistente da pessoa também deixa de consultar e corrigir pedidos de nota e vendas. É uma proteção de tela e de assistente: a demanda continua visível pelo nível de Demandas.
 
-**Horário de acesso:** seg a sex, sábado e domingo, cada um Permitido (com início e fim) ou Bloqueado. Pessoa nova começa com seg a sex das 08:00 às 18:00 e fim de semana bloqueado; quem já existia ficou sem restrição até você definir. O fim vale inclusive (18:00 ainda entra, 18:01 não). Feriado segue o dia da semana. O administrador entra a qualquer hora e nunca é bloqueado.
+**Horário de acesso:** seg a sex, sábado e domingo, cada um Permitido (com início e fim) ou Bloqueado. Pessoa nova começa com seg a sex das 08:00 às 18:00 e fim de semana bloqueado; quem já existia ficou sem restrição até você definir. Quem for criada fora do painel novo (painel antigo ou teste) também fica sem restrição. O fim vale inclusive (18:00 ainda entra, 18:01 não). Feriado segue o dia da semana. O administrador entra a qualquer hora e nunca é bloqueado.
 
 **Fora do horário** a pessoa não entra: aparece a página "Fora do seu horário de acesso", com o horário dela. Se a aba já estava aberta quando o horário acabou, a próxima ação leva a essa página; nada é lido nem gravado, e as mensagens dos clientes deixam de chegar naquela tela. O assistente pelo WhatsApp responde "Fora do seu horário de acesso. O assistente volta a responder quando o seu horário começar." sem gastar IA. Na lista de usuários, quem está fora do horário agora aparece como "Fora do horário agora".
 
@@ -207,11 +207,11 @@ O arquivo segue o modelo de **pedido de venda** do Bling: 41 colunas separadas p
 
 ## 9. Assistente interno (dono e equipe)
 
-- **Quem usa:** na aba **Usuários** (menu do administrador), marque em cada pessoa "Usar o assistente pelo site" e/ou "Usar o assistente pelo WhatsApp (pelo telefone acima)". Vale também para o administrador.
+- **Quem usa:** em Configurações › Usuários e permissões, abra a ficha da pessoa e escolha o nível de **Assistente**: Site, ou Site e WhatsApp (exige o telefone). Vale também para o administrador.
 - **No painel:** menu **Assistente** (perguntas gerais) ou a caixa **Assistente** dentro de cada atendimento (já sabe do cliente e das demandas daquela conversa).
-- **No WhatsApp:** a pessoa marcada manda mensagem do número dela para o número do agente. Essas conversas não aparecem no Atendimento. Atenção: um número cadastrado em um usuário é sempre tratado como da equipe (com o assistente ligado, as mensagens vão para o assistente; sem ele, são ignoradas) e nunca fala com o agente de clientes. Para testar como cliente, use outro número, ou apague o telefone do usuário na aba Usuários.
+- **No WhatsApp:** a pessoa com "Site e WhatsApp" manda mensagem do número dela para o número do agente. Essas conversas não aparecem no Atendimento. Atenção: um número cadastrado em um usuário é sempre tratado como da equipe (com o assistente ligado, as mensagens vão para o assistente; sem ele, são ignoradas) e nunca fala com o agente de clientes. Para testar como cliente, use outro número, ou apague o telefone da pessoa em Configurações › Usuários e permissões (ficha da pessoa).
 - **O que ele faz (Parte 1):** consulta demandas, pedidos, vendas por período e rede, preços e cadastros; corrige pedidos de nota (itens, quantidades, unidade, preço, destinatário, pagamento, entrega) mostrando o antes e o depois e só grava depois do "sim"; gera o CSV do Bling (botão no painel, arquivo no WhatsApp).
-- **Permissões:** corrigir pedidos e gerar CSV exigem "Corrigir pedidos de nota e gerar CSV do Bling" (o administrador sempre pode). Vale também para os botões "Baixar CSV Bling" e "Exportar CSV Bling" do painel: marque essa opção, na aba Usuários, para a equipe do Fiscal. Quem não é administrador só vê as demandas dos seus setores.
+- **Permissões:** corrigir pedidos e gerar CSV exigem o nível **Pedidos de nota = Corrigir e gerar** (o administrador sempre pode). Vale também para os botões "Baixar CSV Bling" e "Exportar CSV Bling" do painel: dê esse nível, na ficha da pessoa, para a equipe do Fiscal. Quem não é administrador vê as demandas conforme o nível de **Demandas**: só as suas, as do seu setor ou todas.
 - **Correção de pedido:** o assistente mostra o antes e o depois e só grava com um "sim" numa mensagem seguinte, na mesma conversa. Se o pedido mudar nesse meio-tempo (outra pessoa, preço da tabela), ou se a pessoa pedir outra mudança, ele mostra uma prévia nova. Pedido de "corrige e manda o CSV" gera o arquivo só depois do "sim".
 - **Registro:** toda alteração fica anotada na demanda ("Pedido alterado pelo assistente a pedido de Fulano") e na auditoria; o gasto entra no limite mensal de IA.
 - **Guarda das conversas:** as conversas com o assistente são apagadas depois de 1 ano, junto com as demais.
@@ -226,7 +226,7 @@ Só o agente de clientes lê as orientações. O assistente interno (seção 9) 
 
 ### Quem pode usar
 
-O administrador sempre pode. Para liberar outra pessoa: aba **Usuários** → abra a pessoa → marque **Treinar o agente** → salve. Quem não tem a marcação não vê o item no menu nem o botão "Ensinar o agente" nas conversas.
+O administrador sempre pode. Para liberar outra pessoa: Configurações › Usuários e permissões → abra a pessoa → **Treinar o agente = Sim** → salve. Quem não tem esse nível não vê o item no menu nem o botão "Ensinar o agente" nas conversas.
 
 ### Como escrever uma boa orientação
 
@@ -321,4 +321,4 @@ psql "<endereço do Session pooler do ambiente>" -v ON_ERROR_STOP=1 -f supabase/
 
 ### Setores novos
 
-Além de Pessoal, Contábil, Fiscal, Financeiro e Legalização, as orientações contam com os setores **IRPF** (imposto de renda de pessoa física), **Comercial** (quem ainda não é cliente, orçamento, serviço fora do contrato) e **Direção** (assuntos sensíveis e decisões do escritório; outro contador pedindo documentos também vai para lá). Eles **não vêm com o sistema**: a homologação já tem os três; em produção (e em qualquer ambiente novo), crie-os com `supabase/dados/setores-novos.sql` **antes** do seed das orientações (comandos acima). O arquivo só cria o que falta (confere pelo nome) e não mexe num setor que já existe. Sem eles, assunto sensível cai na triagem. Depois, em cada ambiente, confira em **Configurações** a descrição de assuntos de cada um (é por ela que o agente escolhe o setor) e marque em **Usuários** quem atende cada setor, principalmente a Direção.
+Além de Pessoal, Contábil, Fiscal, Financeiro e Legalização, as orientações contam com os setores **IRPF** (imposto de renda de pessoa física), **Comercial** (quem ainda não é cliente, orçamento, serviço fora do contrato) e **Direção** (assuntos sensíveis e decisões do escritório; outro contador pedindo documentos também vai para lá). Eles **não vêm com o sistema**: a homologação já tem os três; em produção (e em qualquer ambiente novo), crie-os com `supabase/dados/setores-novos.sql` **antes** do seed das orientações (comandos acima). O arquivo só cria o que falta (confere pelo nome) e não mexe num setor que já existe. Sem eles, assunto sensível cai na triagem. Depois, em cada ambiente, confira em **Configurações** a descrição de assuntos de cada um (é por ela que o agente escolhe o setor) e marque em **Usuários e permissões** quem atende cada setor, principalmente a Direção.
