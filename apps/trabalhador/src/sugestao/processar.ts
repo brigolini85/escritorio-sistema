@@ -4,7 +4,7 @@ import { erroTemporarioIa } from '../agente/cliente-ia';
 import { carregarContextoAssistente, podeVerConversa } from '../assistente/contexto';
 import { novoEstado, type DepsAssistente } from '../assistente/ferramentas';
 import { usaAssistentePor } from '../assistente/visibilidade';
-import { ENTREGAR_RASCUNHO, FERRAMENTAS_SUGESTAO, executarLeituraSugestao, reposDaSugestao, type EstadoSugestao } from './ferramentas';
+import { ENTREGAR_RASCUNHO, FERRAMENTAS_SUGESTAO, canalDaSugestao, executarLeituraSugestao, reposDaSugestao, type EstadoSugestao } from './ferramentas';
 import { montarSistemaSugestao } from './prompt';
 
 export const SUGESTAO_SEM_ASSISTENTE = 'Sugerir resposta usa o assistente: peça acesso ao administrador.';
@@ -39,7 +39,8 @@ export async function processarSugestao(d: DepsAssistente, sugestaoId: string, u
   if ((await d.repos.custoIaDoMes(mesReferencia(new Date()))) >= config.tetoIaUsd) return falhar(SUGESTAO_TETO);
 
   const repos = reposDaSugestao(d.repos, s);
-  const dl: DepsAssistente = { repos, ia: d.ia, canal: d.canal };
+  // Mesmo que quem chama passe o canal de verdade, as consultas só enxergam o canal bloqueado.
+  const dl: DepsAssistente = { repos, ia: d.ia, canal: canalDaSugestao() };
   try {
     const ctx = await carregarContextoAssistente(repos, usuario, 'site', s.conversa_id, new Date());
     if (!ctx.conversa) return falhar(SUGESTAO_SEM_ACESSO);
@@ -48,8 +49,10 @@ export async function processarSugestao(d: DepsAssistente, sugestaoId: string, u
     const messages: Anthropic.MessageParam[] = [{ role: 'user', content: 'Sugira a próxima resposta da equipe a este cliente.' }];
     const preco = config.precosModelos[config.modeloConversa] ?? { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
 
+    // Resposta sem ferramenta: a próxima rodada já é a que obriga a entregar (repetir as mesmas mensagens só gastaria).
+    let forcar = false;
     for (let i = 0; i < MAX_RODADAS && estado.rascunho === null; i++) {
-      const ultima = i === MAX_RODADAS - 1;
+      const ultima = forcar || i === MAX_RODADAS - 1;
       const r = await dl.ia.criar({
         model: config.modeloConversa, max_tokens: 4000, system, tools: FERRAMENTAS_SUGESTAO, messages,
         ...(ultima ? { tool_choice: { type: 'tool' as const, name: ENTREGAR_RASCUNHO.name } } : {}),
@@ -58,7 +61,11 @@ export async function processarSugestao(d: DepsAssistente, sugestaoId: string, u
       await repos.registrarUsoIa({ conversaId: s.conversa_id, modelo: config.modeloConversa, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
         tokensCacheLeitura: uso.cacheLeitura, tokensCacheEscrita: uso.cacheEscrita, custoUsd: calcularCustoUsd(uso, preco) });
       const usos = r.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
-      if (r.stop_reason !== 'tool_use' || usos.length === 0) continue;
+      if (r.stop_reason !== 'tool_use' || usos.length === 0) {
+        if (ultima) break;
+        forcar = true;
+        continue;
+      }
       messages.push({ role: 'assistant', content: r.content });
       const resultados: Anthropic.ToolResultBlockParam[] = [];
       for (const u of usos) {

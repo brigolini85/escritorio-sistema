@@ -13,6 +13,7 @@ import { criarArmazenamento } from './midia/armazenamento';
 import { criarTranscritor } from './midia/transcritor';
 import { processarConversa } from './processar-conversa';
 import { limparRetencao } from './retencao';
+import { canalDaSugestao } from './sugestao/ferramentas';
 import { processarSugestao } from './sugestao/processar';
 import { criarServidor } from './servidor';
 import { alertasPeriodicos, batimento, resumoDiario } from './tarefas';
@@ -59,7 +60,7 @@ async function principal() {
   // Sugerir resposta (Atendimento): só leitura; nada é enviado nem gravado na conversa.
   for (let i = 0; i < 2; i++) {
     await boss.work<JobSugestao>(FILAS.sugerirResposta, { includeMetadata: true }, async ([job]) => {
-      await processarSugestao({ repos, ia: deps.ia, canal }, job!.data.sugestaoId, job!.retryCount >= job!.retryLimit);
+      await processarSugestao({ repos, ia: deps.ia, canal: canalDaSugestao() }, job!.data.sugestaoId, job!.retryCount >= job!.retryLimit);
     });
   }
   await boss.work<{ mensagemId: string }>(FILAS.enviarMensagem, { includeMetadata: true }, async ([job]) => {

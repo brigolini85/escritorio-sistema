@@ -1,6 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { FuncionalidadeIa } from '@escritorio/core';
 import type { Repos, SugestaoResposta } from '@escritorio/db';
+import type { CanalWhatsApp } from '../canal/tipos';
 import { FERRAMENTAS_ASSISTENTE, executarConsultaAssistente, falha, objeto, ok, type DepsAssistente, type EstadoAssistente, type Resultado } from '../assistente/ferramentas';
 
 /** As únicas ferramentas do assistente que a sugestão usa: todas só leem (spec 7A.1, decisão 7). */
@@ -33,6 +34,16 @@ export class BloqueadoNaSugestao extends Error {
     super(`A sugestão não grava nem envia nada (${o}).`);
     this.name = 'BloqueadoNaSugestao';
   }
+}
+
+/** WhatsApp da sugestão: qualquer envio lança erro (como no Treinar o agente); nada sai para o cliente. */
+export function canalDaSugestao(): CanalWhatsApp {
+  return {
+    interpretarWebhook: () => null,
+    enviarTexto: async () => { throw new BloqueadoNaSugestao('WhatsApp'); },
+    enviarArquivo: async () => { throw new BloqueadoNaSugestao('WhatsApp'); },
+    status: async () => { throw new BloqueadoNaSugestao('WhatsApp'); },
+  };
 }
 
 const FUNCIONALIDADE: FuncionalidadeIa = 'sugerir_resposta';
