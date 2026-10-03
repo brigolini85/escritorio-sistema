@@ -1003,6 +1003,8 @@ isOneToOne: false
                            },
 "criar_demanda":
 { Args: { "p_cliente": string,"p_contato"?: string,"p_descricao": string,"p_prazo"?: string,"p_prioridade"?: Database["public"]['Enums']["prioridade_demanda"],"p_responsavel"?: string,"p_setor": string,"p_titulo": string }; Returns: Json
+                           } |
+{ Args: { "p_cliente": string,"p_contato": string,"p_conversa": string,"p_descricao": string,"p_prazo": string,"p_prioridade": Database["public"]['Enums']["prioridade_demanda"],"p_responsavel": string,"p_setor": string,"p_titulo": string }; Returns: Json
                            },
 "criar_simulacao":
 { Args: { "p_cliente_id"?: string,"p_mensagem": string,"p_rascunho"?: Json }; Returns: string
@@ -1201,6 +1203,9 @@ isOneToOne: false
                            },
 "transferir_chamado":
 { Args: { "p_chamado": string,"p_responsavel": string,"p_setor": string }; Returns: undefined
+                           },
+"trocar_empresa_conversa":
+{ Args: { "p_cliente": string,"p_conversa": string }; Returns: Json
                            },
 "uso_do_cadastro":
 { Args: { "p_id": string,"p_tipo": string }; Returns: Json
