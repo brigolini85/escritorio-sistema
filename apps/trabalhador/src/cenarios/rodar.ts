@@ -88,7 +88,7 @@ async function rodar(c: Cenario): Promise<string[]> {
   const deps = {
     repos, ia: criarClienteIa(process.env.ANTHROPIC_API_KEY!),
     envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) },
-    midia: criarArmazenamento(db), transcritor: { transcrever: async () => '' },
+    midia: criarArmazenamento(db), transcritor: { modelo: 'falso', provedor: 'groq' as const, transcrever: async () => ({ texto: '', segundos: null }) },
     fila: { enviar: async () => {} }, alertas: { alertar: async () => {} }, relogio: () => new Date(c.agora ?? SEGUNDA_10H),
   };
   // Rodadas seguintes (ex.: o "sim" que confirma um preço, o "só essa" que libera a nota), cada uma depois da resposta à anterior.

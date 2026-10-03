@@ -1,5 +1,10 @@
+import type { ProvedorIa } from '@escritorio/core';
+
+export type Transcricao = { texto: string; segundos: number | null };
 export interface Transcritor {
-  transcrever(audio: Uint8Array, mime: string, nomeArquivo: string): Promise<string>;
+  readonly modelo: string;
+  readonly provedor: ProvedorIa;
+  transcrever(audio: Uint8Array, mime: string, nomeArquivo: string): Promise<Transcricao>;
 }
 
 /** Vocabulário enviado no `prompt` da transcrição (máx. 224 tokens). Sem ele, siglas como INSS saem erradas (V4). */
@@ -8,10 +13,13 @@ export const VOCABULARIO_PADRAO =
 
 /** Fornecedor compatível com POST {base}/audio/transcriptions (escolhido na Task 1). */
 export function criarTranscritor(
-  cfg: { baseUrl: string; apiKey: string; modelo: string; vocabulario?: string },
+  cfg: { baseUrl: string; apiKey: string; modelo: string; vocabulario?: string; provedor?: ProvedorIa },
   buscar: typeof fetch = fetch,
 ): Transcritor {
   return {
+    modelo: cfg.modelo,
+    // O fornecedor configurado hoje é a Groq (spec 7B.1); outro compatível entra com provedor próprio na regra do banco.
+    provedor: cfg.provedor ?? 'groq',
     async transcrever(audio, mime, nomeArquivo) {
       const form = new FormData();
       // A cópia garante um ArrayBuffer comum, que é o que o Blob aceita.
@@ -19,12 +27,15 @@ export function criarTranscritor(
       form.append('model', cfg.modelo);
       form.append('language', 'pt');
       form.append('prompt', cfg.vocabulario || VOCABULARIO_PADRAO);
+      // verbose_json traz a duração: é por ela que o fornecedor cobra (spec 7B.2).
+      form.append('response_format', 'verbose_json');
       const r = await buscar(`${cfg.baseUrl}/audio/transcriptions`, {
         method: 'POST', headers: { Authorization: `Bearer ${cfg.apiKey}` }, body: form,
       });
       if (!r.ok) throw new Error(`transcrição falhou: ${r.status}`);
-      const j = (await r.json()) as { text: string };
-      return j.text.trim();
+      const j = (await r.json()) as { text: string; duration?: unknown };
+      const segundos = typeof j.duration === 'number' && Number.isFinite(j.duration) && j.duration >= 0 ? j.duration : null;
+      return { texto: j.text.trim(), segundos };
     },
   };
 }

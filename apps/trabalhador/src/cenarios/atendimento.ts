@@ -19,7 +19,7 @@ let seq = 0;
 function deps(ia: ClienteIa, canal: CanalFalso): DepsProcessamento {
   return {
     repos, ia, fila: new FilaFalsa(), envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) },
-    midia: criarArmazenamento(db), transcritor: { transcrever: async () => '' }, alertas: { alertar: async () => {} }, relogio: () => SEGUNDA_10H,
+    midia: criarArmazenamento(db), transcritor: { modelo: 'falso', provedor: 'groq' as const, transcrever: async () => ({ texto: '', segundos: null }) }, alertas: { alertar: async () => {} }, relogio: () => SEGUNDA_10H,
   };
 }
 const receber = (conversaId: string, conteudo: string) =>

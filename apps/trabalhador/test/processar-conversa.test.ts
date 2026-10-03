@@ -19,7 +19,7 @@ function deps(ia: IaRoteirizada, extra: Partial<DepsProcessamento> = {}): DepsPr
     repos, ia, fila: new FilaFalsa(),
     envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) },
     midia: criarArmazenamento(db, baixar),
-    transcritor: { transcrever: vi.fn().mockResolvedValue('preciso do holerite') },
+    transcritor: { modelo: 'whisper-large-v3-turbo', provedor: 'groq', transcrever: vi.fn().mockResolvedValue({ texto: 'preciso do holerite', segundos: 30 }) },
     alertas: { alertar: async (a) => { alertas.push(a); } },
     relogio: () => SEGUNDA_10H,
     ...extra,
@@ -189,6 +189,40 @@ describe('processarConversa', () => {
     const { data } = await db.from('mensagens').select('transcricao, arquivo_path').eq('id_provedor', 'M1').single();
     expect(data?.transcricao).toBe('preciso do holerite');
     expect(data?.arquivo_path).toMatch(/^conversas\//);
+  });
+
+  it('transcrição grava uso: transcricao_audio, groq, segundos, conversa, empresa e o custo por minuto de Configurações', async () => {
+    const { conversa, empresas } = await contatoComEmpresas(['Indústria X']);
+    await db.from('conversas').update({ cliente_em_foco: empresas[0]!.id }).eq('id', conversa.id);
+    await db.from('configuracoes').update({ custo_minuto_transcricao_usd: 0.002 }).eq('id', 1);
+    await receber(conversa.id, 'M1', '', 'audio');
+    await processarConversa(deps(respondeOi()), conversa.id, false);
+    const t = (await db.from('uso_ia').select('funcionalidade, provedor, segundos_audio, custo_usd, conversa_id, cliente_id, usuario_id, modelo')
+      .eq('funcionalidade', 'transcricao_audio').single()).data!;
+    expect(t).toEqual({ funcionalidade: 'transcricao_audio', provedor: 'groq', segundos_audio: 30, custo_usd: 0.001,
+      conversa_id: conversa.id, cliente_id: empresas[0]!.id, usuario_id: null, modelo: 'whisper-large-v3-turbo' });
+  });
+
+  it('transcrição que falha não grava uso (o fornecedor não cobra) e o agente recebe o aviso', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    await receber(conversa.id, 'M1', '', 'audio');
+    await processarConversa(deps(respondeOi(), {
+      transcritor: { modelo: 'w', provedor: 'groq', transcrever: vi.fn().mockRejectedValue(new Error('transcrição falhou: 429')) },
+    }), conversa.id, false);
+    expect((await db.from('uso_ia').select('id').eq('funcionalidade', 'transcricao_audio')).data).toEqual([]);
+    expect((await db.from('mensagens').select('transcricao').eq('id_provedor', 'M1').single()).data!.transcricao).toBe('[áudio não pôde ser transcrito]');
+  });
+
+  it('o teto soma tudo: só transcrição já no teto faz o agente parar (spec 7B.2)', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    await db.from('configuracoes').update({ teto_ia_usd: 1 }).eq('id', 1);
+    await repos.registrarUsoIa({ funcionalidade: 'transcricao_audio', usuarioId: null, conversaId: conversa.id, clienteId: null, modelo: 'w', provedor: 'groq',
+      tokensEntrada: 0, tokensSaida: 0, tokensCacheLeitura: 0, tokensCacheEscrita: 0, segundosAudio: 60, custoUsd: 1 });
+    await db.from('uso_ia').update({ criado_em: SEGUNDA_10H.toISOString() }).eq('funcionalidade', 'transcricao_audio');
+    await receber(conversa.id, 'M2', 'oi');
+    const ia = respondeOi();
+    expect(await processarConversa(deps(ia), conversa.id, false)).toBe('teto');
+    expect(ia.recebidos).toHaveLength(0);
   });
 
   it('falha temporária da IA é relançada, exceto na última tentativa', async () => {

@@ -17,7 +17,7 @@ function deps(ia: IaRoteirizada): DepsProcessamento {
     repos, ia, fila: new FilaFalsa(),
     envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) },
     midia: criarArmazenamento(db),
-    transcritor: { transcrever: vi.fn().mockResolvedValue('') },
+    transcritor: { modelo: 'falso', provedor: 'groq', transcrever: vi.fn().mockResolvedValue({ texto: '', segundos: null }) },
     alertas: { alertar: async () => {} },
     relogio: () => SEGUNDA_10H,
   };

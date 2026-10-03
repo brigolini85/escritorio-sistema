@@ -1,4 +1,4 @@
-import { MOTIVOS_PASSAGEM, mesReferencia, motivoDaEscalada } from '@escritorio/core';
+import { MOTIVOS_PASSAGEM, custoTranscricaoUsd, mesReferencia, motivoDaEscalada } from '@escritorio/core';
 import type { Conversa, Mensagem } from '@escritorio/db';
 import type { Alertas } from './alertas';
 import { erroTemporarioIa } from './agente/cliente-ia';
@@ -9,7 +9,7 @@ import { montarConteudoUsuario, type AnexoParaIa } from './agente/prompt';
 import { enviarDoSistema } from './envio';
 import { agendarAssistente, type Fila } from './fila';
 import type { ArmazenamentoMidia } from './midia/armazenamento';
-import type { Transcritor } from './midia/transcritor';
+import type { Transcricao, Transcritor } from './midia/transcritor';
 
 export type DepsProcessamento = DepsAgente & { transcritor: Transcritor; midia: ArmazenamentoMidia; alertas: Alertas; relogio: () => Date; fila: Fila };
 export type DesfechoProcessamento = 'sem-mensagens' | 'assistente' | 'interno' | 'humano' | 'pausado' | 'teto' | 'agente' | 'escalado';
@@ -27,6 +27,29 @@ function anexoParaIa(m: Mensagem, bytes: Uint8Array, mimeCompleto: string, nome:
   if (m.tipo === 'imagem' && IMAGENS.includes(mime)) return { tipo: 'imagem', mime, base64, nome };
   if (m.tipo === 'documento' && mime === 'application/pdf') return { tipo: 'documento', mime, base64, nome };
   return null;
+}
+
+const AVISO_AUDIO_FALHOU = '[áudio não pôde ser transcrito]';
+
+/** Transcreve e grava o custo (spec 7B.2). Falha do fornecedor não é cobrada: só o aviso. Falha ao gravar o custo não perde o áudio. */
+async function transcrever(d: DepsProcessamento, conversa: Conversa, bytes: Uint8Array, mime: string, nome: string): Promise<string> {
+  let r: Transcricao;
+  try {
+    r = await d.transcritor.transcrever(bytes, mime, nome);
+  } catch {
+    return AVISO_AUDIO_FALHOU;
+  }
+  try {
+    const config = await d.repos.obterConfiguracoes();
+    await d.repos.registrarUsoIa({
+      funcionalidade: 'transcricao_audio', usuarioId: null, conversaId: conversa.id, clienteId: conversa.cliente_em_foco,
+      modelo: d.transcritor.modelo, provedor: d.transcritor.provedor, tokensEntrada: 0, tokensSaida: 0, tokensCacheLeitura: 0, tokensCacheEscrita: 0,
+      segundosAudio: r.segundos, custoUsd: custoTranscricaoUsd(r.segundos, config.custoMinutoTranscricaoUsd),
+    });
+  } catch (e) {
+    console.error('[mídia] falha ao gravar o custo da transcrição', conversa.id, e);
+  }
+  return r.texto;
 }
 
 async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: Mensagem[]): Promise<AnexoParaIa[]> {
@@ -47,8 +70,7 @@ async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: M
       const salvo = await d.midia.baixarESalvar(m.midia_url_origem, conversa.id, nome, m.arquivo_mime);
       const patch: Partial<Mensagem> = { arquivo_path: salvo.path, arquivo_mime: salvo.mime };
       if (m.tipo === 'audio') {
-        patch.transcricao = await d.transcritor.transcrever(salvo.bytes, salvo.mime.split(';')[0]!, nome)
-          .catch(() => '[áudio não pôde ser transcrito]');
+        patch.transcricao = await transcrever(d, conversa, salvo.bytes, salvo.mime.split(';')[0]!, nome);
         m.transcricao = patch.transcricao;
       } else {
         const anexo = anexoParaIa(m, salvo.bytes, salvo.mime, nome);

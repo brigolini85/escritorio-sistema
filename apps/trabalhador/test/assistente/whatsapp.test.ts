@@ -15,7 +15,7 @@ function deps(): DepsProcessamento {
   const canal = new CanalFalso();
   return {
     repos, ia, fila, envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) }, midia: criarArmazenamento(db),
-    transcritor: { transcrever: vi.fn().mockResolvedValue('gera o csv') }, alertas: { alertar: async () => {} }, relogio: () => new Date('2026-09-29T15:00:00Z'),
+    transcritor: { modelo: 'falso', provedor: 'groq', transcrever: vi.fn().mockResolvedValue({ texto: 'gera o csv', segundos: null }) }, alertas: { alertar: async () => {} }, relogio: () => new Date('2026-09-29T15:00:00Z'),
   };
 }
 async function mensagemDe(telefone: string, conteudo: string) {
