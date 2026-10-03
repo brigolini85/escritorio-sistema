@@ -147,7 +147,7 @@ function ConteudoEnsinar({ situacaoInicial, empresa }: { situacaoInicial: string
           {empresa && (
             <Label className={cn(classeOpcao, 'items-center py-2', !empresa.ativa && 'cursor-not-allowed opacity-60')}>
               <input type="radio" name="vale" value="empresa" defaultChecked={valeEmpresa} disabled={!empresa.ativa} className={classeCaixa} />
-              Só {empresa.nome}{empresa.ativa ? '' : ' (inativa)'}
+              Só {empresa.nome}{empresa.ativa ? '' : ' (arquivada)'}
             </Label>
           )}
           <Label className={cn(classeOpcao, 'items-center py-2')}>
@@ -156,7 +156,7 @@ function ConteudoEnsinar({ situacaoInicial, empresa }: { situacaoInicial: string
           </Label>
         </div>
         {empresa && valeEmpresa && <input type="hidden" name="cliente_id" value={empresa.id} />}
-        {empresa && !empresa.ativa && <p className="text-sm text-muted">A empresa desta conversa está inativa: a orientação só pode valer para todos.</p>}
+        {empresa && !empresa.ativa && <p className="text-sm text-muted">A empresa desta conversa está arquivada: a orientação só pode valer para todos.</p>}
       </fieldset>
 
       <FormField id={`${id}-titulo`} rotulo="Título" ajuda="Um nome curto para achar a orientação na lista." obrigatorio>

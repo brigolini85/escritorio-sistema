@@ -85,7 +85,7 @@ export function EscolherEmpresa({
           >
             <Building2 aria-hidden size={16} strokeWidth={1.75} className="shrink-0 text-muted" />
             <span className={cn('flex-1 truncate', escolhida ? 'text-foreground' : 'text-subtle')}>
-              {escolhida ? `${escolhida.nome}${escolhida.inativa ? ' (inativa)' : ''}` : placeholder}
+              {escolhida ? `${escolhida.nome}${escolhida.inativa ? ' (arquivada)' : ''}` : placeholder}
             </span>
             <ChevronsUpDown aria-hidden size={16} strokeWidth={1.75} className="shrink-0 text-muted" />
           </button>
@@ -100,7 +100,7 @@ export function EscolherEmpresa({
                   <CommandItem key={e.id} value={`${e.nome} ${e.detalhe ?? ''} ${e.id}`} onSelect={() => escolher(e.id)}>
                     <Check aria-hidden size={16} strokeWidth={1.75} className={cn(e.id === valor ? 'opacity-100' : 'opacity-0')} />
                     <span className="flex min-w-0 flex-col">
-                      <span className="truncate">{e.nome}{e.inativa ? ' (inativa)' : ''}</span>
+                      <span className="truncate">{e.nome}{e.inativa ? ' (arquivada)' : ''}</span>
                       {e.detalhe && <span className="truncate text-xs text-muted">{e.detalhe}</span>}
                     </span>
                   </CommandItem>

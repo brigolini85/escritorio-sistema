@@ -48,7 +48,7 @@ function ValePara({ l }: { l: Pick<Linha, 'empresa' | 'setor' | 'clienteId' | 's
       <span className="flex min-w-0 items-center gap-1.5">
         <Building2 aria-hidden size={16} strokeWidth={1.75} className="shrink-0 text-muted" />
         <span className="truncate">{l.empresa?.nome ?? 'Empresa removida'}</span>
-        {l.empresa && !l.empresa.ativa && <Badge variant="outline">inativa</Badge>}
+        {l.empresa && !l.empresa.ativa && <Badge variant="outline">arquivada</Badge>}
       </span>
     );
   }
