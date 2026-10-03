@@ -47,7 +47,7 @@ export function EscolherDemanda({ demandas, className }: { demandas: DemandaDaCo
 
 /**
  * Ações do cabeçalho da conversa: Assumir (primária) ou Devolver ao agente, e, para a demanda em foco,
- * Transferir, Aguardando cliente e Concluir (com confirmação). Mesmas server actions e campos de antes.
+ * Transferir, Com o cliente e Concluir (com confirmação). Mesmas server actions e campos de antes.
  */
 export function AcoesConversa({
   minha,
@@ -71,7 +71,7 @@ export function AcoesConversa({
   const d = demandaEmFoco(demandas, demandaId);
 
   return (
-    // Container query: com pouco espaço (a 1280px, por exemplo) Transferir, Aguardando cliente e Concluir ficam só com o
+    // Container query: com pouco espaço (a 1280px, por exemplo) Transferir, Com o cliente e Concluir ficam só com o
     // ícone; o texto continua como nome acessível (sr-only) e aparece no title.
     <div className="@container">
     <div className="flex flex-wrap items-center gap-2">
@@ -97,9 +97,9 @@ export function AcoesConversa({
           <Transferir key={`t-${d.id}`} demanda={d} setores={setores} pessoas={pessoas} />
           {d.status !== 'aguardando_cliente' && (
             <form action={d.aguardandoCliente}>
-              <Button size="sm" variant="outline" title="Aguardando cliente">
+              <Button size="sm" variant="outline" title="Com o cliente">
                 <Clock aria-hidden size={16} strokeWidth={1.75} />
-                <span className="@max-3xl:sr-only">Aguardando cliente</span>
+                <span className="@max-3xl:sr-only">Com o cliente</span>
               </Button>
             </form>
           )}

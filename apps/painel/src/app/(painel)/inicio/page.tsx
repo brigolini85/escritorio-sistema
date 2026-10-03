@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/cn';
 import { contarConversasAguardando, contarDemandasAbertas } from '@/lib/contadores';
+import { lerFiltrosDemandas } from '@/lib/demandas';
+import { filtrarConsulta } from '@/lib/demandas-consulta';
 import { formatarUSD } from '@/lib/formatos';
 import { LIMITES_BATIMENTO, lerSinaisVida, MINUTOS_SEM_RESPONSAVEL_PADRAO, situacaoTeto } from '@/lib/inicio';
 import { obterUsuario } from '@/lib/sessao';
@@ -59,7 +61,11 @@ export default async function Inicio() {
     const q = sb.from('chamados').select('id', { count: 'exact', head: true }).neq('status', 'concluido');
     return setorId ? q.eq('setor_id', setorId) : q.is('setor_id', null);
   };
-  const [semResp, semRespAntigas, ...contagens] = await Promise.all([
+  const contarDemandas = (params: Record<string, string>) =>
+    filtrarConsulta(sb.from('demandas_lista').select('id', { count: 'exact', head: true }), lerFiltrosDemandas(params, u.id), u.id, agora);
+  const [vencemHoje, vencidas, semResp, semRespAntigas, ...contagens] = await Promise.all([
+    contarDemandas({ prazo: 'hoje' }),
+    contarDemandas({ vencidas: '1' }),
     abertasSemResponsavel(),
     abertasSemResponsavel().lt('criado_em', limite),
     ...(setores ?? []).map((s) => porSetor(s.id)),
@@ -167,6 +173,18 @@ export default async function Inicio() {
                 <Link href="/demandas?responsavel=sem" className="text-brand underline-offset-4 hover:underline">Ver na lista</Link>
               </span>
             )}
+          />
+          <Numero
+            titulo="Vencem hoje"
+            valor={vencemHoje.error ? null : vencemHoje.count ?? 0}
+            destaque={(vencemHoje.count ?? 0) > 0 ? 'atencao' : undefined}
+            rodape={<Link href="/demandas?prazo=hoje" className="text-brand underline-offset-4 hover:underline">Ver na lista</Link>}
+          />
+          <Numero
+            titulo="Vencidas"
+            valor={vencidas.error ? null : vencidas.count ?? 0}
+            destaque={(vencidas.count ?? 0) > 0 ? 'perigo' : undefined}
+            rodape={<Link href="/demandas?vencidas=1" className="text-brand underline-offset-4 hover:underline">Ver na lista</Link>}
           />
           {teto && <GastoIa gasto={teto.gasto} teto={teto.teto} fracao={teto.fracao} nivel={teto.nivel} parcial={gasto?.parcial ?? false} />}
         </div>

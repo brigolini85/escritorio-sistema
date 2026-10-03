@@ -24,3 +24,12 @@ export const GeraisForm = z.preprocess((v) => {
 export const esquemaAvisoLogin = z.object({
   aviso_login: z.string().transform((v) => v.replace(/\r\n/g, '\n')).pipe(z.string().trim().max(200, 'Até 200 caracteres.')),
 });
+
+const dias = z.coerce.number().int().min(0).max(30);
+/** Dias úteis até o prazo de cada prioridade (spec 6.5). 0 = no mesmo dia, até o fim do expediente. */
+export const PrazosForm = z.object({
+  prazo_urgente_dias: z.string().min(1).pipe(dias),
+  prazo_alta_dias: z.string().min(1).pipe(dias),
+  prazo_normal_dias: z.string().min(1).pipe(dias),
+  prazo_baixa_dias: z.string().min(1).pipe(dias),
+});

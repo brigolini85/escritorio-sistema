@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { exigirAdmin } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { esquemaAvisoLogin, GeraisForm } from './esquemas';
+import { esquemaAvisoLogin, GeraisForm, PrazosForm } from './esquemas';
 
 const recarregar = () => revalidatePath('/configuracoes');
 function checar(r: { error: { message: string } | null }) {
@@ -72,5 +72,14 @@ export async function salvarAvisoLogin(formData: FormData) {
   const dados = esquemaAvisoLogin.safeParse({ aviso_login: String(formData.get('aviso_login') ?? '') });
   if (!dados.success) redirect('/configuracoes?erro=aviso_login#aviso-login');
   checar(await (await supabaseServidor()).from('configuracoes').update({ aviso_login: dados.data.aviso_login }).eq('id', 1));
+  recarregar();
+}
+
+export async function salvarPrazos(formData: FormData) {
+  await exigirAdmin();
+  const dados = PrazosForm.safeParse(Object.fromEntries(['prazo_urgente_dias', 'prazo_alta_dias', 'prazo_normal_dias', 'prazo_baixa_dias']
+    .map((k) => [k, String(formData.get(k) ?? '')])));
+  if (!dados.success) redirect('/configuracoes?erro=prazos#prazos');
+  checar(await (await supabaseServidor()).from('configuracoes').update(dados.data).eq('id', 1));
   recarregar();
 }

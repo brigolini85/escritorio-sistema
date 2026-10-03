@@ -51,9 +51,9 @@ describe('itens', () => {
     expect(itemContato({ id: 'c1', nome: 'João', telefone: '5531999990201' }))
       .toEqual({ id: 'c1', titulo: 'João', detalhe: '5531999990201', href: '/contatos?q=5531999990201' });
     expect(itemDemanda({ id: 'd1', numero: 7, titulo: 'Guia do DAS', status: 'em_andamento', conversa_id: 'cv', clientes: { razao_social: 'X Ltda', nome_fantasia: null } }))
-      .toEqual({ id: 'd1', titulo: '#7 Guia do DAS', detalhe: 'X Ltda · Em andamento', href: '/atendimento/cv' });
+      .toEqual({ id: 'd1', titulo: '#7 Guia do DAS', detalhe: 'X Ltda · Resolvendo', href: '/atendimento/cv' });
     expect(itemDemanda({ id: 'd2', numero: 8, titulo: 'Sem conversa', status: 'aberto', conversa_id: null, clientes: null }))
-      .toMatchObject({ detalhe: 'Aberta', href: '/demandas' });
+      .toMatchObject({ detalhe: 'Nova', href: '/demandas' });
   });
 });
 

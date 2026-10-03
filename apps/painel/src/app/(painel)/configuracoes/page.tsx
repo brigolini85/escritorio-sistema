@@ -21,7 +21,7 @@ import { classeCaixa, classeSelect } from '../clientes/estilos';
 import { gastoDoMes } from '../inicio/gasto-do-mes';
 import {
   adicionarFeriado, removerFeriado, removerResposta, salvarAvisoLogin, salvarGerais, salvarMensagens,
-  salvarResposta, salvarServico, salvarSetor,
+  salvarPrazos, salvarResposta, salvarServico, salvarSetor,
 } from './acoes';
 import { CampoEmail, CampoNomeUnico } from './campos-validados';
 import { HorarioExpediente } from './horario-expediente';
@@ -32,6 +32,7 @@ const DIAS_EXTENSO = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira'
 
 const SECOES: SecaoConfiguracao[] = [
   { id: 'expediente', rotulo: 'Expediente' },
+  { id: 'prazos', rotulo: 'Prazos' },
   { id: 'teto-ia', rotulo: 'Teto de IA' },
   { id: 'mensagens', rotulo: 'Mensagens automáticas' },
   { id: 'setores', rotulo: 'Setores' },
@@ -148,6 +149,21 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
                 </FormField>
               </CardContent>
               <RodapeSalvar outro={{ id: 'expediente', nota: 'Salva junto com o expediente.', notaAlterado: 'O expediente também tem alterações, que este Salvar grava junto.' }} />
+            </Secao>
+          </FormularioAlteravel>
+
+          <FormularioAlteravel action={salvarPrazos}>
+            <Secao id="prazos" titulo="Prazos por prioridade" descricao="Dias úteis até o prazo de cada demanda nova, contando o expediente e os feriados. 0 = no mesmo dia, até o fim do expediente.">
+              <CardContent className="grid gap-4 sm:grid-cols-4">
+                {([
+                  ['prazo_urgente_dias', 'Urgente'], ['prazo_alta_dias', 'Alta'], ['prazo_normal_dias', 'Normal'], ['prazo_baixa_dias', 'Baixa'],
+                ] as const).map(([campo, nome]) => (
+                  <FormField key={campo} id={campo} rotulo={`${nome} (dias úteis)`} erro={erro === 'prazos' ? 'De 0 a 30.' : undefined}>
+                    <Input name={campo} type="number" step="1" min="0" max="30" required defaultValue={cfg?.[campo]} className="tabular" />
+                  </FormField>
+                ))}
+              </CardContent>
+              <RodapeSalvar rotulo="Salvar prazos" />
             </Secao>
           </FormularioAlteravel>
 

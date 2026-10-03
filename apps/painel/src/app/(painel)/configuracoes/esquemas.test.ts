@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { esquemaAvisoLogin, GeraisForm } from './esquemas';
+import { esquemaAvisoLogin, GeraisForm, PrazosForm } from './esquemas';
 
 describe('GeraisForm', () => {
   it('valida horários, dias úteis e teto', () => {
@@ -24,5 +24,15 @@ describe('esquemaAvisoLogin', () => {
   it('conta o CRLF do textarea como um caractere e grava só LF', () => {
     const visiveis200 = `${'x'.repeat(99)}\r\n${'y'.repeat(100)}`; // 200 caracteres na tela, 201 com o CRLF
     expect(esquemaAvisoLogin.parse({ aviso_login: visiveis200 })).toEqual({ aviso_login: `${'x'.repeat(99)}\n${'y'.repeat(100)}` });
+  });
+});
+
+describe('PrazosForm (Configurações › Prazos)', () => {
+  it('dias úteis inteiros de 0 a 30 para cada prioridade', () => {
+    expect(PrazosForm.parse({ prazo_urgente_dias: '0', prazo_alta_dias: '1', prazo_normal_dias: '2', prazo_baixa_dias: '5' }))
+      .toEqual({ prazo_urgente_dias: 0, prazo_alta_dias: 1, prazo_normal_dias: 2, prazo_baixa_dias: 5 });
+    for (const ruim of ['-1', '31', '1.5', '']) {
+      expect(PrazosForm.safeParse({ prazo_urgente_dias: '0', prazo_alta_dias: ruim, prazo_normal_dias: '2', prazo_baixa_dias: '5' }).success).toBe(false);
+    }
   });
 });
