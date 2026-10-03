@@ -164,6 +164,7 @@ async function principal() {
   // `pnpm cenarios prioridade` roda só os cenários cujo nome contém "prioridade" (cada um custa chamadas ao Claude).
   const filtro = process.argv[2]?.trim();
   const lista = filtro ? CENARIOS.filter((c) => c.nome.includes(filtro)) : CENARIOS;
+  if (lista.length === 0) { console.error(`Nenhum cenário com "${filtro}" no nome.`); process.exit(1); }
   let falhou = 0;
   for (const c of lista) {
     const falhas = await rodar(c).catch((e: Error) => [`erro: ${e.message}`]);

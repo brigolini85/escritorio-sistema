@@ -40,6 +40,10 @@ const CENARIOS: Cenario[] = [
       const falhas: string[] = [];
       if (c.motivo_pessoa !== MOTIVOS_PASSAGEM.pedidoCliente) falhas.push(`motivo: ${c.motivo_pessoa}`);
       if (canal.enviados.length === 0) falhas.push('o cliente ficou sem resposta');
+      // P4: sem demanda aberta, passar_para_pessoa abre exatamente uma na Triagem (setor nulo).
+      const { data: chamados } = await db.from('chamados').select('setor_id').eq('conversa_id', conversa.id);
+      const triagem = chamados?.filter((x) => x.setor_id === null).length ?? 0;
+      if (triagem !== 1) falhas.push(`esperava 1 demanda na Triagem, obteve ${triagem}`);
       return falhas;
     },
   },
@@ -91,15 +95,13 @@ const CENARIOS: Cenario[] = [
   },
   {
     nome: 'sugestão de preço: traz o valor da tabela e não grava nem envia nada',
-    rodar: async (ia) => sugestao(ia, 'Qual o preço da costela pro Supermercado Brasil?', (t) => (t.includes('9,50') ? [] : [`sem o preço: ${t}`])),
+    rodar: async (ia) => sugestao(ia, 'Qual o preço da costela pro Supermercado Brasil?', (t) => (/9[,.]50?/.test(t) ? [] : [`sem o preço: ${t}`])),
   },
   {
     nome: 'sugestão de andamento: rascunho curto, sem emoji e sem palavra de sistema',
     rodar: async (ia) => sugestao(ia, 'E a guia do DAS, já saiu?', (t) => {
       const f: string[] = [];
       if (t.length > 1000) f.push('rascunho longo demais');
-      if (/\p{Extended_Pictographic}/u.test(t)) f.push('tem emoji');
-      if (/\b(demanda|ticket|chamado|sistema)\b/i.test(t)) f.push(`palavra de sistema: ${t}`);
       return f;
     }),
   },
@@ -122,6 +124,10 @@ async function sugestao(ia: ClienteIa, pergunta: string, conferir: (texto: strin
   if (r !== 'pronta' || !s.texto) return [`não ficou pronta: ${r} ${s.erro ?? ''}`];
   if (JSON.stringify(antes) !== JSON.stringify(depois)) falhas.push(`gravou algo: antes ${antes} depois ${depois}`);
   if (canal.enviados.length) falhas.push('enviou algo pelo WhatsApp');
+  // Vale para toda sugestão: sem emoji, sem palavra de sistema, sem nota interna copiada.
+  if (/\p{Extended_Pictographic}/u.test(s.texto)) falhas.push('tem emoji');
+  if (/\b(demanda|ticket|chamado|sistema)\b/i.test(s.texto)) falhas.push(`palavra de sistema: ${s.texto}`);
+  if (/nota interna/i.test(s.texto)) falhas.push(`marca de nota interna: ${s.texto}`);
   return [...falhas, ...conferir(s.texto)];
 }
 
@@ -130,6 +136,7 @@ async function principal() {
   const ia = criarClienteIa(process.env.ANTHROPIC_API_KEY);
   const filtro = process.argv[2]?.trim();
   const lista = filtro ? CENARIOS.filter((c) => c.nome.includes(filtro)) : CENARIOS;
+  if (lista.length === 0) { console.error(`Nenhum cenário com "${filtro}" no nome.`); process.exit(1); }
   let falhou = 0;
   for (const c of lista) {
     await limparBanco();
