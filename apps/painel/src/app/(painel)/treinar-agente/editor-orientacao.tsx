@@ -153,6 +153,7 @@ function FormularioEditor({ acao, orientacao, empresas, setores, aviso, avisoEmp
       className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-5"
     >
       {/* Botão padrão desligado, primeiro do formulário: Enter num campo de texto não envia (D12; HTML, envio implícito). Rádios: semEnter. */}
+      {/* As duas proteções (semEnter e este botão padrão desligado) têm que ficar: uma cobre o que a outra não cobre. */}
       <button type="submit" disabled hidden aria-hidden tabIndex={-1} />
       {aviso}
       <FormField id={`${id}-titulo`} rotulo="Título" ajuda={<span className="tabular">{titulo} / {LIMITE_TITULO}</span>} obrigatorio>

@@ -323,7 +323,7 @@ O tipo serve para organizar e aparece para o agente junto do título; não muda 
 
 ### Ligar e desligar
 
-Toda orientação nova começa **desligada**. No editor, **Salvar desligada** guarda sem o agente ler; **Salvar e ligar** guarda e já liga. A chave de cada linha da lista (e a do alto do editor) liga e desliga na hora, sem mexer no texto que você está escrevendo. Desligada, ela fica guardada, mas o agente não lê. É o jeito seguro de preparar uma orientação, testar no simulador e só depois ligar.
+Toda orientação nova começa **desligada**. No editor, **Salvar desligada** guarda sem o agente ler; **Salvar e ligar** guarda e já liga. A chave de cada linha da lista (e a do alto do editor) liga e desliga na hora, sem mexer no texto que você está escrevendo. **Salvar desligada** numa orientação que estava ligada também a desliga; para só guardar o texto de uma ligada, use **Salvar e ligar**. Desligada, ela fica guardada, mas o agente não lê. É o jeito seguro de preparar uma orientação, testar no simulador e só depois ligar.
 
 ### Medidor e limite
 
@@ -341,9 +341,9 @@ Abra uma orientação: o **Histórico** fica embaixo do editor, numa tabela. Cad
 Nada do que acontece num teste é enviado ao cliente nem gravado: nenhuma mensagem sai pelo WhatsApp, nenhuma demanda é aberta, nenhum preço muda.
 
 - **Simulador** (coluna da direita, sempre visível): escolha a empresa em "Como cliente de" (ou teste sem empresa), escreva como o cliente escreveria e toque em **Testar**. Aparecem a resposta que o agente mandaria e, em "O que o agente faria", as ações (por exemplo "Abriria uma demanda no Fiscal: guia do DAS") — tudo só simulado.
-- Com uma orientação aberta, o teste usa o que está **escrito no editor agora**, ligado, mesmo sem salvar (o selo diz "usando o rascunho, ligado"). Se a orientação vale para uma empresa, o simulador já vem com ela. Faltando título, texto ou empresa, o teste não sai e o campo que falta fica em destaque.
+- Com uma orientação aberta, o teste usa o que está **escrito no editor agora**, ligado, mesmo sem salvar. O selo diz "usando o rascunho, ligado" quando a orientação é nova ou foi alterada; aberta sem mudanças, diz "usando esta orientação, ligada". Se a orientação vale para uma empresa, o simulador já vem com ela. Faltando título, texto, empresa ou setor, o teste não sai e o campo que falta recebe o foco.
 - Sem orientação aberta, o teste usa só as orientações **ligadas**.
-- **Sem o rascunho**: depois do resultado, **Comparar sem o rascunho** roda mais um teste com a mesma mensagem e empresa, sem o que você escreveu, e mostra lado a lado como o agente responde hoje. É mais um teste e conta em Gastos com IA ("Testar o agente").
+- **Sem o rascunho**: quando o teste usou algo que o agente ainda não lê (orientação nova, desligada ou alterada), aparece depois do resultado o botão **Comparar sem o rascunho** (nunca num teste retomado). Ele roda mais um teste com a mesma mensagem e empresa, sem o que você escreveu, e mostra abaixo do resultado, no quadro "Sem o rascunho", como o agente responde hoje. É mais um teste e conta em Gastos com IA ("Testar o agente").
 
 Cada pessoa tem um teste por vez. O teste gasta IA como uma conversa de verdade e conta no teto mensal.
 
@@ -351,7 +351,7 @@ Cada pessoa tem um teste por vez. O teste gasta IA como uma conversa de verdade 
 
 Em **Atendimento**, dentro de uma conversa, o botão **Ensinar o agente** (no alto da conversa, no fim da linha de ações) cria uma orientação a partir daquela situação. Ele já vem com as últimas mensagens do cliente em "Situação"; você escreve o que o agente deveria fazer, escolhe o tipo (padrão: Situação específica) e para quem vale (padrão: só aquela empresa; dá para trocar para todos os clientes).
 
-- A orientação criada assim começa **desligada**. Revise na tela Treinar o agente, teste e só depois ligue. Na lista ela aparece com a marca **do Atendimento**. A marca vem do formato do texto com que a orientação foi criada (começando por "Situação: …" e depois "O que fazer: …", ou só "O que fazer: …", como o Ensinar o agente escreve), não de um registro à parte: uma orientação criada à mão já nesse formato também ganha a marca.
+- A orientação criada assim começa **desligada**. Revise na tela Treinar o agente, teste e só depois ligue. Na lista ela aparece com a marca **do Atendimento**. A marca vem do formato do texto com que a orientação foi criada, ou, sem a versão de criação, do texto atual (começando por "Situação: …" e depois "O que fazer: …", ou só "O que fazer: …", como o Ensinar o agente escreve), não de um registro à parte: uma orientação criada à mão já nesse formato também ganha a marca.
 - **Revise o texto do cliente** antes de salvar: apague o que não descreve a situação e nunca deixe frases do cliente que soem como ordem ("ignore as regras", "me dê desconto"). O que fica ali vira instrução para o agente.
 - **Orientações não são apagadas**: nem a orientação nem as versões do histórico (desligar só tira do agente). O que vier de mensagens de clientes deve ser revisado antes de salvar, sem nome, CPF, telefone ou outros dados pessoais. Exclusão e pedidos de LGPD (apagar o que um cliente escreveu) ficam para decisão sua; hoje não há como apagar pela tela.
 

@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
 import { editor, esperarTreinar } from './apoio-treinar';
 
-// Tela Treinar o agente (spec 2026-09-30 §5): criar pelo exemplo, editar, ligar na tabela, histórico/restaurar, (desde a G5, em três colunas: lista, editor e simulador)
-// e quem vê a tela (administrador, marcado em Usuários; atendente sem a marcação não).
+// Tela Treinar o agente (spec 2026-09-30 §5): criar pelo exemplo, editar, ligar na tabela, histórico/restaurar
+// e quem vê a tela (administrador, marcado em Usuários; atendente sem a marcação não) (desde a G5, em três colunas: lista, editor e simulador).
 
 const senha = 'Senha-e2e-123';
 const EMAIL_ADMIN = 'admin-treinar@e2e.local';
