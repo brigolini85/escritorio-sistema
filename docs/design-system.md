@@ -71,6 +71,8 @@ O painel não tem zoom: o tamanho da letra sobe sozinho com a tela, e a pessoa a
 
 **Gráficos** (Gastos com IA): uma cor por funcionalidade, nos tokens `--gasto-*` (paleta conferida pelo validador da skill dataviz no claro e no escuro); a cor segue a funcionalidade, nunca a posição. Barra de dado só com `style={{ width|height: '<n>%' }}`; o gráfico é `aria-hidden` e sempre há uma tabela equivalente ("Ver em tabela") ou uma legenda visível com o texto. Texto nunca na cor da série. Números grandes em `font-extrabold`.
 
+**Números do Início** (`NumeroInicio`): a variante `situacao` tem faixa colorida no topo, título em caixa alta (CSS), número grande, detalhe e link; a variante `mesa` tem ícone à esquerda e o cartão inteiro é o link. `data-numero`/`data-valor` são o contrato dos testes. A cor nunca fala sozinha: o título e o detalhe dizem o que o número é. **Custo só no Painel de situação:** `dados-situacao.ts` é o único arquivo do Início que lê gasto, `configuracoes` e `sinais_vida`; a Minha mesa nunca o importa (o teste `inicio-travas.spec.ts` confere a página e o pacote RSC).
+
 ## Quando usar ui/, patterns/ ou layout/
 
 - **`ui/`**: peças genéricas, sem regra de negócio, que serviriam em qualquer produto: botão, campo, janela, tabela, selo. Vêm do shadcn/ui (Radix) e são ajustadas aos tokens. Mude aqui só o que deve mudar em todo lugar.
@@ -129,6 +131,7 @@ Use sempre estes termos, em português do Brasil:
 
 - **Gastos com IA:** "Gastos com IA", "Total do mês × teto", "Previsão até o fim do mês", "Chamadas à IA", "Custo por atendimento", "Áudios transcritos", "Por funcionalidade", "Por dia", "Quem mais gasta na equipe", "Onde gastou", "Gastos por cliente", "Atendimentos", "Resolvidos pelo agente", "passou para pessoa", "resolvido pelo agente", "Não identificado", "Exportar". **Atendimento** nesta tela = as mensagens de um telefone num mesmo dia.
 - **Configurações:** grupos "Escritório", "Agente e atendimento", "Cadastros", "Sistema"; "não salvo", "antes: X", "N alterações não salvas", "Sem alterações", "Descartar", "Salvar e sair", "Continuar aqui", "Só para as novas", "Aplicar também às N abertas", "prazo recalculado por mudança de regra (<pessoa>)".
+- **Início:** "Situação do escritório" (administrador) e a saudação "Bom dia, <nome>" (quem atende); "Esperando pessoa", "Demandas abertas", "Vencem hoje", "Vencidas", "Sem responsável"; "conversas esperando você", "minhas demandas vencidas", "sem responsável nos meus setores"; "Minhas demandas por prazo" com os grupos "Vencida", "Vencem hoje", "Próximos dias"; "Você concluiu N demandas hoje"; "N com o agente hoje"; "atualizado há N s · recarrega a cada minuto"; no bloco Sistema: "atendendo", "pausado", "pausado: limite de IA do mês", "conectado", "sem sinal".
 
 Os dois robôs têm nomes e cores diferentes:
 

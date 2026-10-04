@@ -1,5 +1,5 @@
 import type { CompradorCadastrado, PedidoVendaSalvo } from '@escritorio/core';
-import { FileText, Inbox, Plus, SearchX } from 'lucide-react';
+import { FileText, Inbox, MessageCircle, Plus, SearchX } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AgentStateIndicator } from '@/components/patterns/agent-state-indicator';
 import { AvisoErro } from '@/components/patterns/aviso-erro';
@@ -29,6 +29,7 @@ import { INFO_FUNCIONALIDADE } from '@/lib/gastos';
 import { lerOrdem, lerPagina, ordenarLinhas, paginar, valorParam, type ParamsBusca } from '@/lib/tabela-url';
 import { CronometroEspera } from '../atendimento/cronometro-espera';
 import { MarcoConversa } from '../atendimento/[id]/itens-historico';
+import { NumeroInicio } from '../inicio/numero-inicio';
 import { DemoConfiguracoes, DemoConfirmacoes, DemoTabela, DemoTiposConfirmacao, type DemandaExemplo } from './demos-padroes';
 
 // Seção "Padrões de domínio" do /_design (fase 3): cada padrão de components/patterns com dados de exemplo.
@@ -357,6 +358,11 @@ export function Padroes({ params }: { params: ParamsBusca }) {
 
       <Exemplo titulo="Configurações (Parte G1): FormularioConfig, Antes e RodapeConfig (mude o campo: âmbar, “antes: 18:00”, “1 alteração não salva”)" className="block">
         <DemoConfiguracoes />
+      </Exemplo>
+
+      <Exemplo titulo="Início (Parte G2): NumeroInicio — variante situacao (faixa no topo, detalhe e link) e variante mesa (ícone; o cartão inteiro é o link)" className="grid gap-4 sm:grid-cols-2">
+        <NumeroInicio chave="exemplo-vencem-hoje" titulo="Vencem hoje" valor={6} tom="atencao" detalhe="2 urgentes" link={{ href: '/demandas?prazo=hoje', rotulo: 'Ver na lista' }} />
+        <NumeroInicio chave="exemplo-esperando-voce" variante="mesa" icone={MessageCircle} titulo="conversas esperando você" valor={2} tom="perigo" link={{ href: '/atendimento', rotulo: 'Abrir o Atendimento' }} />
       </Exemplo>
     </Secao>
   );

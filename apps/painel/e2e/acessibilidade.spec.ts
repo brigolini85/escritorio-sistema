@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
 import { abrirSecao } from './apoio-configuracoes';
 import { demandaE2e, limparDemandasE2e } from './apoio-demandas';
+import { abrirInicio } from './apoio-inicio';
 import { limparGastos, semearGastos } from './apoio-gastos';
 
 // Auditoria automática de acessibilidade (axe, WCAG 2.0/2.1 A e AA) em todas as telas, no tema claro e no escuro.
@@ -149,6 +150,7 @@ for (const tema of ['claro', 'escuro'] as const) {
         await page.goto(rota);
         // Painel da demanda: espera o conteúdo de verdade (não o esqueleto) antes do axe.
         if (rota.includes('demanda=')) await expect(page.getByRole('dialog', { name: /Nº [0-9]+/ }).getByLabel('Responsável')).toBeVisible({ timeout: 30_000 });
+        if (rota === '/inicio') await abrirInicio(page, 'situacao');
         erros.push(...(await auditar(page, rota, tema)));
       }
       // Janela de impacto de Prazos (com uma demanda Normal aberta, a janela abre ao salvar) e janela de saída do Expediente.
@@ -325,6 +327,27 @@ for (const tema of ['claro', 'escuro'] as const) {
       await expect(page.getByText('Nenhuma orientação ainda.')).toBeVisible();
       const erros = await auditar(page, '/treinar-agente (vazio)', tema);
       expect(erros, erros.join('\n')).toEqual([]);
+    });
+
+    test(`Minha mesa sem violações graves (${tema})`, async ({ page }) => {
+      await semear();
+      const EMAIL_MESA = 'a11y-mesa@teste.com';
+      const ana = await criarUsuarioTeste({ email: EMAIL_MESA, senha: SENHA, nome: 'Ana Acessível', papel: 'atendente', setores: ['Fiscal'] });
+      // A demanda semeada (Fiscal) fica com ela: Minhas demandas com ABRIR/CONCLUIR, e a conversa semeada espera por ela.
+      await db.from('chamados').update({ responsavel_id: ana }).eq('titulo', TITULO);
+      try {
+        await entrar(page, EMAIL_MESA, SENHA);
+        await abrirInicio(page, 'mesa');
+        const erros = await auditar(page, '/inicio (Minha mesa)', tema);
+        await page.getByRole('button', { name: /^Concluir a demanda #/ }).first().click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+        erros.push(...(await auditar(page, '/inicio (Minha mesa, concluir)', tema)));
+        await page.keyboard.press('Escape');
+        expect(erros, erros.join('\n')).toEqual([]);
+      } finally {
+        await db.auth.admin.deleteUser(ana);
+        await db.from('usuarios').delete().eq('email', EMAIL_MESA);
+      }
     });
   });
 }
