@@ -40,6 +40,7 @@ Para cada ambiente (homologação e produção), crie dois apps a partir do repo
    - `TRANSCRICAO_BASE_URL`, `TRANSCRICAO_API_KEY`, `TRANSCRICAO_MODELO` (Groq, `whisper-large-v3`). `TRANSCRICAO_VOCABULARIO` é opcional: termos que ajudam a transcrição a acertar siglas;
    - `SMTP_HOST`, `SMTP_PORTA`, `SMTP_USUARIO`, `SMTP_SENHA`, `SMTP_REMETENTE` (o e-mail que manda os alertas);
    - `PAINEL_URL`: o endereço do painel, por exemplo `https://painel.seuescritorio.com.br`.
+   - `ACESSOS_PORTAIS_CHAVE` (só no app **Painel**): a chave das senhas de portais da ficha do cliente. Gere uma por ambiente com o comando do `.env.example` (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`: sai um texto de 44 caracteres terminado em `=`) e guarde uma cópia num lugar seguro (gerenciador de senhas). Sem ela, as senhas não abrem; trocar ou perder a chave obriga a cadastrar as senhas de novo.
 6. Em "Domains", configure o domínio do painel (ex.: `painel.seuescritorio.com.br`) e o do trabalhador (ex.: `robo.seuescritorio.com.br`).
 
 ### 2.3 GitHub
@@ -120,6 +121,16 @@ A tela **Contatos** mostra quem fala pelas empresas no WhatsApp, **do contato ma
 - **Quem vê o quê:** toda a equipe vê os contatos; a hora e o estado da conversa só aparecem para quem pode ver aquela conversa (por isso alguém da equipe pode ler "nenhuma conversa visível"). Mudar marcações, vincular empresa, editar e a chave do agente pedem "Clientes e contatos: Ver e editar"; arquivar pede "Editar e arquivar".
 - **Tirar uma empresa do contato** continua na ficha da empresa (Clientes → empresa → aba Contatos → Remover).
 
+### Ficha do cliente (aba Dados)
+
+A ficha tem um índice à esquerda: ✓ quando o bloco está completo, "N pendentes" quando falta um campo com `*`, "vence"/"vencido" no certificado. Os `*` não impedem salvar (só razão social e CNPJ): o que faltar fica como pendência para completar depois. Um **Salvar** no rodapé grava a aba inteira (dados, endereço, contato, inscrições de substituto tributário, contrato, serviços, responsáveis e certificado); **Cancelar** volta ao que está salvo.
+
+- **Busca pública:** a lupa do CNPJ (ou sair do campo com o número completo) preenche razão social, nome fantasia, CNAE e endereço **só nos campos vazios**; a lupa do CEP preenche rua, bairro, cidade e UF. Só o número sai do escritório (BrasilAPI e ViaCEP). Se a busca não achar ou demorar, a tela avisa e você preenche à mão.
+- **Endereço antigo:** quem tinha o endereço num campo só ficou com ele inteiro em "Logradouro"; complete CEP, número, bairro, cidade e UF quando abrir a ficha. O agente continua informando o endereço por extenso, montado dos campos.
+- **Certificado digital:** com o vencimento e o "Avisar antes" (padrão 30 dias), o sistema abre sozinho, todo dia às 7h, uma demanda no Fiscal para o responsável do Fiscal da empresa (sem responsável, vai para a fila do setor) — uma por certificado e vencimento. Ela aparece no Início como as outras demandas. "Sem certificado" desliga o aviso. **Na primeira rodada do trabalhador novo**, toda empresa com certificado **já vencido** ganha de uma vez uma demanda de prioridade **alta** (pode vir uma leva); feche as que não valem mais ou atualize o vencimento na ficha.
+- **Acessos de portais:** portal, usuário e senha. A senha é guardada cifrada e aparece mascarada; revelar (some em 30 segundos) e copiar exigem a permissão "Ver acessos de portais" e ficam na auditoria. O agente, o assistente, os registros do sistema e as exportações nunca recebem as senhas.
+- **Honorários e contrato** ficam na ficha para a equipe; o agente e o assistente não leem.
+
 ### Quando chegar o e-mail "WhatsApp desconectado"
 
 O celular do escritório perdeu a conexão com a Z-API. Entre no painel da Z-API, abra a instância de produção e leia o QR code de novo com o celular do escritório (WhatsApp → Aparelhos conectados → Conectar aparelho). Em até um minuto o sistema percebe e volta a funcionar.
@@ -143,6 +154,8 @@ Cada módulo tem um nível:
 | Treinar o agente | Sem acesso · Sim |
 | Alterar prazos de demandas | Não · Sim (escolher o prazo à mão; mudar a prioridade recalcula o prazo para todos) |
 | Configurações | Sem acesso · Sim (sem teto de IA, alertas, pausa do agente e usuários, que ficam com o administrador) |
+
+**Ver acessos de portais** é uma permissão à parte, no cartão "Acessos de portais" embaixo da ficha da pessoa (grava na hora). Ela deixa revelar e copiar as senhas dos portais na ficha do cliente; cadastrar ou trocar uma senha pede também "Ver e editar" em Clientes. O administrador sempre vê. Cada revelação e cada cópia ficam na auditoria (quem, quando, empresa e portal).
 
 Quando a Parte D entrou, cada pessoa recebeu o nível que reproduz o que ela já fazia: ninguém passou a ver nem a fazer mais ou menos sem você mexer. Quem só tinha o assistente pelo WhatsApp ficou com "Site e WhatsApp".
 
@@ -232,12 +245,14 @@ O menu de Configurações fica à esquerda, em grupos, com um resumo do que est�
 - **Nunca compartilhe as chaves** (Supabase, Claude, Z-API, Groq, e-mail) por WhatsApp, e-mail ou print. Elas ficam só no Easypanel, no GitHub e no arquivo `.env` do seu computador.
 - **Apagar os dados de um contato a pedido dele**: Clientes → abra a empresa → na linha do contato, marque **confirmo** e clique em **Apagar dados (LGPD)**. As mensagens, transcrições, arquivos e registros do agente daquele contato são apagados, e o nome e o telefone são trocados por dados fictícios. Só administradores veem esse botão.
 - **Prazo de guarda**: conversas, arquivos e registros do agente são apagados automaticamente depois de **1 ano**.
+- **Senhas de portais dos clientes** ficam cifradas com a chave ACESSOS_PORTAIS_CHAVE, que mora só no Easypanel (fora do banco): nem uma cópia do banco nem a chave de serviço do Supabase abrem as senhas.
 - **Quem recebe dados dos clientes** (para constar no registro de tratamento de dados do escritório):
   - **Anthropic** (a IA Claude, que lê as mensagens para responder), com transferência internacional (Estados Unidos);
   - **Groq** (transcrição dos áudios), com transferência internacional (Estados Unidos);
   - **Z-API** (a ponte com o WhatsApp);
   - **Supabase** (guarda os dados; projetos na região São Paulo);
-  - o **provedor de e-mail (SMTP)** que envia os alertas e o resumo.
+  - o **provedor de e-mail (SMTP)** que envia os alertas e o resumo;
+  - **BrasilAPI** e **ViaCEP** (busca pública da ficha do cliente): recebem só o número do CNPJ ou do CEP digitado, nada mais.
 
 ## 6. Plano de saída da Z-API
 
