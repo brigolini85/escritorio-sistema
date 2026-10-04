@@ -12,8 +12,13 @@ import { SelosContato } from './marcacoes';
 const TOM: Record<TomConversa, string> = { espera: 'self-start rounded-sm bg-warning-soft px-1.5 font-semibold text-warning', pessoa: 'text-human-owned', agente: 'text-muted', sem: 'text-subtle' };
 const MAX_EMPRESAS = 3;
 
-/** Colunas da imagem A: contato + telefone, empresas, marcações, último contato + estado, agente. */
-export function colunasContatos({ euId, veTodas, pode, agora }: { euId: string; veTodas: boolean; pode: boolean; agora: Date }): ColunaTabela<LinhaContato>[] {
+/**
+ * Colunas da imagem A: contato + telefone, empresas, marcações, último contato + estado, agente.
+ * `ordenaUltimo` falso (banco sem a visão da G3, D14): a lista é só pelo nome, então "Último contato" não ordena.
+ */
+export function colunasContatos({ euId, veTodas, pode, agora, ordenaUltimo = true }: {
+  euId: string; veTodas: boolean; pode: boolean; agora: Date; ordenaUltimo?: boolean;
+}): ColunaTabela<LinhaContato>[] {
   return [
     {
       id: 'nome', titulo: 'Contato', ordenavel: true, className: 'max-w-60',
@@ -40,7 +45,7 @@ export function colunasContatos({ euId, veTodas, pode, agora }: { euId: string; 
     },
     { id: 'marcacoes', titulo: 'Marcações', quebrar: true, celula: (c) => <SelosContato vinculos={c.vinculos} /> },
     {
-      id: 'ultimo', titulo: 'Último contato', ordenavel: true,
+      id: 'ultimo', titulo: 'Último contato', ordenavel: ordenaUltimo,
       celula: (c) => {
         const e = estadoDaConversa(c, { euId, veTodas });
         return (

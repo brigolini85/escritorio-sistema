@@ -13,11 +13,21 @@ export const POR_PAGINA = 50;
 const COLUNAS = 'id, nome, telefone, agente_pausado, empresas, conversa_id, ultimo_contato_em, estado_conversa, atendente_id, atendente_nome, espera_desde';
 
 export type Contagens = Record<'todos' | FiltroRapido, number>;
-/** `completa` falso: banco sem a visão da G3 (D14) — lista pelo nome, sem filtros rápidos, empresa e período. */
-export type ListaContatos = { linhas: LinhaContato[]; paginacao: Paginacao; contagens: Contagens | null; completa: boolean; erro: boolean };
+/**
+ * `completa` falso: banco sem a visão da G3 (D14) — lista pelo nome, sem filtros rápidos, empresa e período.
+ * `ordem` é a que valeu (sem a visão, sempre pelo nome), para o cabeçalho da tabela não mentir.
+ */
+export type ListaContatos = { linhas: LinhaContato[]; paginacao: Paginacao; contagens: Contagens | null; completa: boolean; erro: boolean; ordem: Ordem };
 
 /** A visão da G3 ainda não existe no banco: o PostgREST novo diz PGRST205; o antigo, 42P01. */
 export const semVisao = (e: { code?: string } | null | undefined): boolean => e?.code === 'PGRST205' || e?.code === '42P01';
+
+/**
+ * Contagem (HEAD) numa relação que não existe: o PostgREST responde 404 sem corpo e o postgrest-js 2.117.2 transforma isso em
+ * 204 sem erro e sem contagem. Contagem pedida e não recebida, sem erro, também é falta da visão.
+ */
+const contagemSemVisao = (r: { error: { code?: string } | null; count: number | null }): boolean =>
+  semVisao(r.error) || (!r.error && r.count === null);
 
 interface Consulta extends ConsultaContatos<Consulta> {}
 const filtrar = <T,>(q: T, f: FiltrosContatos, agora: Date, rapido: FiltroRapido | null): T =>
@@ -35,7 +45,7 @@ const paraLinha = (r: LinhaVisao): LinhaContato => ({
   atendenteNome: r.atendente_nome, esperaDesde: r.espera_desde,
 });
 
-const SEM_LISTA = (erro: boolean): ListaContatos => ({ linhas: [], paginacao: paginar(0, 1, POR_PAGINA), contagens: null, completa: true, erro });
+const SEM_LISTA = (erro: boolean, ordem: Ordem): ListaContatos => ({ linhas: [], paginacao: paginar(0, 1, POR_PAGINA), contagens: null, completa: true, erro, ordem });
 
 /**
  * A lista (spec 7C.2): cinco contagens (Todos e os quatro filtros rápidos, D4) e a página pedida, tudo em contatos_lista,
@@ -44,11 +54,11 @@ const SEM_LISTA = (erro: boolean): ListaContatos => ({ linhas: [], paginacao: pa
 export async function lerListaContatos(sb: Sb, f: FiltrosContatos, ordem: Ordem, paginaPedida: number, agora: Date): Promise<ListaContatos> {
   const contar = (rapido: FiltroRapido | null) => filtrar(sb.from('contatos_lista').select('id', { count: 'exact', head: true }), f, agora, rapido);
   const [todos, desligado, semEmpresa, nota, preco] = await Promise.all([contar(null), contar('desligado'), contar('sem_empresa'), contar('nota'), contar('preco')]);
-  if (semVisao(todos.error)) return lerListaSemVisao(sb, f, paginaPedida);
+  if (contagemSemVisao(todos)) return lerListaSemVisao(sb, f, ordem, paginaPedida);
   const falha = [todos, desligado, semEmpresa, nota, preco].find((r) => r.error)?.error;
   if (falha) {
     console.error('[contatos] falha ao contar a lista', falha);
-    return SEM_LISTA(true);
+    return SEM_LISTA(true, ordem);
   }
   const contagens: Contagens = {
     todos: todos.count ?? 0, desligado: desligado.count ?? 0, sem_empresa: semEmpresa.count ?? 0, nota: nota.count ?? 0, preco: preco.count ?? 0,
@@ -69,34 +79,39 @@ export async function lerListaContatos(sb: Sb, f: FiltrosContatos, ordem: Ordem,
     paginacao = paginar(total, 1, POR_PAGINA);
     r = await ler(paginacao);
   }
+  // Rede de segurança do D14: se mesmo assim só a página acusar a falta da visão, a leitura de antes.
+  if (semVisao(r.error)) return lerListaSemVisao(sb, f, ordem, paginaPedida);
   if (r.error) console.error('[contatos] falha ao ler a lista', r.error);
-  return { linhas: ((r.data ?? []) as unknown as LinhaVisao[]).map(paraLinha), paginacao, contagens, completa: true, erro: Boolean(r.error) };
+  return { linhas: ((r.data ?? []) as unknown as LinhaVisao[]).map(paraLinha), paginacao, contagens, completa: true, erro: Boolean(r.error), ordem };
 }
 
 type Basica = { eq(coluna: string, valor: boolean): Basica; or(filtros: string): Basica };
 
-/** A leitura de antes da G3 (D14): contatos pelo nome; último contato e estado da caixa_entrada (Parte E) só para a página. */
-async function lerListaSemVisao(sb: Sb, f: FiltrosContatos, paginaPedida: number): Promise<ListaContatos> {
+/**
+ * A leitura de antes da G3 (D14): contatos pelo nome (crescente, ou decrescente se pedido pelo nome); último contato e estado
+ * da caixa_entrada (Parte E) só para a página. Os filtros rápidos nem aparecem sem a visão, então o da URL não filtra.
+ */
+async function lerListaSemVisao(sb: Sb, f: FiltrosContatos, ordemPedida: Ordem, paginaPedida: number): Promise<ListaContatos> {
+  const ordem: Ordem = { coluna: 'nome', direcao: ordemPedida.coluna === 'nome' ? ordemPedida.direcao : 'asc' };
   const basico = <T,>(q: T): T => {
     let r = (q as unknown as Basica).eq('ativo', true);
     if (f.q) {
       const digitos = digitosDaBusca(f.q);
       r = r.or(`nome.ilike.%${f.q}%${digitos ? `,telefone.ilike.%${digitos}%` : ''}`);
     }
-    if (f.rapido === 'desligado') r = r.eq('agente_pausado', true);
     return r as unknown as T;
   };
   const contados = await basico(sb.from('contatos').select('id', { count: 'exact', head: true }));
   if (contados.error) {
     console.error('[contatos] falha ao contar a lista', contados.error);
-    return { ...SEM_LISTA(true), completa: false };
+    return { ...SEM_LISTA(true, ordem), completa: false };
   }
   const total = contados.count ?? 0;
   const ler = (p: Paginacao) => {
     const [de, ate] = faixaDaConsulta(p, POR_PAGINA);
     return basico(sb.from('contatos')
       .select('id, nome, telefone, agente_pausado, contato_clientes(pode_pedir_nota, pode_atualizar_preco, clientes(id, razao_social, nome_fantasia, ativo))'))
-      .order('nome').order('id').range(de, ate);
+      .order('nome', { ascending: ordem.direcao === 'asc' }).order('id').range(de, ate);
   };
   let paginacao = paginar(total, paginaPedida, POR_PAGINA);
   let r = await ler(paginacao);
@@ -106,7 +121,7 @@ async function lerListaSemVisao(sb: Sb, f: FiltrosContatos, paginaPedida: number
   }
   if (r.error) {
     console.error('[contatos] falha ao ler a lista', r.error);
-    return { linhas: [], paginacao, contagens: null, completa: false, erro: true };
+    return { linhas: [], paginacao, contagens: null, completa: false, erro: true, ordem };
   }
   const contatos = r.data ?? [];
   const telefones = contatos.map((c) => c.telefone);
@@ -126,7 +141,7 @@ async function lerListaSemVisao(sb: Sb, f: FiltrosContatos, paginaPedida: number
       atendenteNome: null, esperaDesde: l?.espera_desde ?? null,
     };
   });
-  return { linhas, paginacao, contagens: null, completa: false, erro: false };
+  return { linhas, paginacao, contagens: null, completa: false, erro: false, ordem };
 }
 
 /** Empresas ativas para o seletor da barra e o "vincular empresa" (D5, D10). `detalhe` é o CNPJ (a busca do EscolherEmpresa). */

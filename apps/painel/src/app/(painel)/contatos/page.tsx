@@ -49,11 +49,14 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
   const contatoAberto = aberto && UUID.test(aberto) ? aberto : null;
   const agora = new Date();
   const sb = await supabaseServidor();
-  const [lista, arquivados, empresas] = await Promise.all([
-    lerListaContatos(sb, f, ordem, lerPagina(params), agora),
+  // As empresas só servem ao filtro "Empresa", que some sem a visão da G3 (D14): nem são lidas nesse caso.
+  const [[lista, empresas], arquivados] = await Promise.all([
+    lerListaContatos(sb, f, ordem, lerPagina(params), agora)
+      .then(async (l) => [l, l.completa ? await lerEmpresasAtivas(sb) : []] as const),
     contarArquivados(sb, 'contato'),
-    lerEmpresasAtivas(sb),
   ]);
+  // Os links de ordem e de página da tabela não reabrem o painel em edição.
+  const paramsTabela = { ...params, editar: undefined };
 
   // Abrir e fechar o painel mantém a página da tabela.
   const pagina = lista.paginacao.pagina > 1 ? lista.paginacao.pagina : null;
@@ -80,14 +83,14 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
           </>
         )}
       />
-      <BarraContatos params={params} f={f} contagens={lista.contagens} empresas={empresas} ordem={ordem} completa={lista.completa} />
+      <BarraContatos params={params} f={f} contagens={lista.contagens} empresas={empresas} ordem={lista.ordem} completa={lista.completa} />
       <DataTable
         rotulo="Contatos"
         linhas={lista.linhas}
-        colunas={colunasContatos({ euId: u.id, veTodas, pode, agora })}
+        colunas={colunasContatos({ euId: u.id, veTodas, pode, agora, ordenaUltimo: lista.completa })}
         chave={(c) => c.id}
-        params={params}
-        ordem={ordem}
+        params={paramsTabela}
+        ordem={lista.ordem}
         paginacao={lista.paginacao}
         acoesLinha={(c) => <AcoesLinhaContato id={c.id} nome={c.nome} conversaId={c.conversaId} podeConversa={podeConversa} podeArquivar={podeArquivar} />}
         hrefLinha={(c) => hrefContato(c.id)}

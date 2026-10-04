@@ -57,6 +57,7 @@ describe('lerListaContatos', () => {
     expect(r.contagens).toEqual({ todos: 214, desligado: 9, sem_empresa: 4, nota: 58, preco: 17 });
     expect(r.paginacao.total).toBe(58);
     expect(r.completa).toBe(true);
+    expect(r.ordem).toEqual(ORDEM);
     const lista = cenario.consultas.filter((c) => c.tabela === 'contatos_lista');
     expect(lista).toHaveLength(6);
     for (const c of lista) {
@@ -72,7 +73,13 @@ describe('lerListaContatos', () => {
 
   it('sem a visão (homologação antes do "ok", D14): pelo nome em contatos, sem contagens, conversa pela caixa_entrada, nada no log', async () => {
     cenario.responder = (c) => {
-      if (c.tabela === 'contatos_lista') return { data: null, count: null, error: { code: 'PGRST205', message: 'Could not find the table' } };
+      // Como o postgrest-js 2.117.2 responde de verdade: o HEAD do 404 sem corpo vira 204 sem erro e sem contagem;
+      // só o GET traz o PGRST205.
+      if (c.tabela === 'contatos_lista') {
+        return ehContagem(c)
+          ? { data: null, count: null, error: null, status: 204 }
+          : { data: null, count: null, error: { code: 'PGRST205', message: 'Could not find the table' }, status: 404 };
+      }
       if (c.tabela === 'contatos') {
         return ehContagem(c) ? { data: null, count: 1, error: null } : {
           data: [{ id: 'c1', nome: 'Carla', telefone: '5511977772211', agente_pausado: false, contato_clientes: [
@@ -94,8 +101,36 @@ describe('lerListaContatos', () => {
       vinculos: [{ empresaId: 'e1', empresa: 'Rede Bom Preço Ltda', podePedirNota: true, podeMudarPreco: false }],
     })]);
     const pagina = cenario.consultas.find((c) => c.tabela === 'contatos' && !ehContagem(c))!;
-    expect(tem(pagina, 'order', 'nome')).toBe(true);
+    expect(tem(pagina, 'order', 'nome', { ascending: true })).toBe(true);
+    // A ordem pedida era pelo último contato: sem a visão, a tela mostra a que valeu (nome, crescente).
+    expect(r.ordem).toEqual({ coluna: 'nome', direcao: 'asc' });
     expect(logs()).toEqual([]);
+  });
+
+  it('sem a visão: só o GET da página acusa a falta (contagens sem erro): cai na leitura de antes, sem log', async () => {
+    cenario.responder = (c) => {
+      if (c.tabela === 'contatos_lista') {
+        return ehContagem(c) ? { data: null, count: 3, error: null } : { data: null, error: { code: 'PGRST205', message: 'Could not find the table' } };
+      }
+      if (c.tabela === 'contatos') return ehContagem(c) ? { data: null, count: 0, error: null } : { data: [], error: null };
+      return { data: null, error: { code: 'XX000', message: 'inesperado' } };
+    };
+    const r = await lerListaContatos(sb(), SEM_FILTRO, ORDEM, 1, AGORA);
+    expect(r).toMatchObject({ completa: false, contagens: null, erro: false, linhas: [] });
+    expect(logs()).toEqual([]);
+  });
+
+  it('sem a visão: o filtro rápido da URL não filtra (os botões nem aparecem); nome decrescente pedido vale', async () => {
+    cenario.responder = (c) => (c.tabela === 'contatos_lista'
+      ? (ehContagem(c) ? { data: null, count: null, error: null } : { data: null, error: { code: 'PGRST205', message: 'x' } })
+      : c.tabela === 'contatos' ? (ehContagem(c) ? { data: null, count: 0, error: null } : { data: [], error: null })
+        : { data: null, error: { code: 'XX000', message: 'inesperado' } });
+    const r = await lerListaContatos(sb(), { ...SEM_FILTRO, rapido: 'desligado' }, { coluna: 'nome', direcao: 'desc' }, 1, AGORA);
+    const contatos = cenario.consultas.filter((c) => c.tabela === 'contatos');
+    expect(contatos).toHaveLength(2);
+    for (const c of contatos) expect(tem(c, 'eq', 'agente_pausado', true)).toBe(false);
+    expect(tem(contatos.find((c) => !ehContagem(c))!, 'order', 'nome', { ascending: false })).toBe(true);
+    expect(r.ordem).toEqual({ coluna: 'nome', direcao: 'desc' });
   });
 
   it('falha que não é falta da visão: erro na tela e no log', async () => {
