@@ -201,3 +201,54 @@ describe('busca e responsáveis', () => {
     expect(separarSetores(setores, servicos, [], {})).toEqual({ principais: setores, outros: [] });
   });
 });
+
+describe('conferências antes de salvar (itens adiados para a Task 8)', () => {
+  const base = { razao_social: 'X Ltda', cnpj: '12345678000195' };
+
+  it('linha de substituto tributário toda em branco é ignorada (não bloqueia nem vira pendência)', () => {
+    const r = lerFicha(form({ ...base, st_uf: ['SP', '', ' '], st_inscricao: ['1', '', ''] }), { admin: false });
+    expect(r.ok && r.dados.inscricoes_st).toEqual([{ uf: 'SP', inscricao: '1' }]);
+    expect(estadoDosBlocos(valoresDe(form({ st_uf: [''], st_inscricao: [''] })), AGORA).fiscal).toEqual({ tipo: 'neutro' });
+    expect(lerFicha(form({ ...base, st_uf: ['SP'], st_inscricao: ['1'.repeat(31)] }), { admin: false }))
+      .toMatchObject({ ok: false, erros: { inscricoes_st: 'Inscrição com até 30 letras' } });
+  });
+
+  it('data de verdade: 2030-13-45 e 2030-02-30 recusam; 2028-02-29 passa', () => {
+    const r = lerFicha(form({ ...base, contrato_inicio: '2030-13-45', certificado_vencimento: '2030-02-30' }), { admin: false });
+    expect(r).toMatchObject({ ok: false, erros: { contrato_inicio: 'Data inválida', certificado_vencimento: 'Data inválida' } });
+    const ok = lerFicha(form({ ...base, contrato_inicio: '2028-02-29' }), { admin: false });
+    expect(ok.ok && ok.dados.contrato_inicio).toBe('2028-02-29');
+  });
+
+  it('vencimento inválido no índice é pendência, nunca "completo"', () => {
+    expect(Number.isNaN(diasAte('2030-13-45', AGORA))).toBe(true);
+    expect(estadoDosBlocos(valoresDe(form({ certificado_tipo: 'e_cnpj_a1', certificado_vencimento: '2030-13-45' })), AGORA).certificado)
+      .toEqual({ tipo: 'pendente', n: 1 });
+    expect(estadoDosBlocos(valoresDe(form({ certificado_vencimento: 'lixo' })), AGORA).certificado).toEqual({ tipo: 'pendente', n: 1 });
+  });
+
+  it('honorário e faturamento cabem na coluna do banco', () => {
+    expect(lerFicha(form({ ...base, honorario_mensal: '10.000.000.000,00' }), { admin: false }))
+      .toMatchObject({ ok: false, erros: { honorario_mensal: 'Valor acima do limite' } });
+    const ok = lerFicha(form({ ...base, honorario_mensal: '9.999.999.999,99', faturamento_ultimo_ano: '999.999.999.999,99' }), { admin: false });
+    expect(ok.ok && ok.dados).toMatchObject({ honorario_mensal: 9999999999.99, faturamento_ultimo_ano: 999999999999.99 });
+    expect(lerFicha(form({ ...base, faturamento_ultimo_ano: '1000000000000' }), { admin: false }))
+      .toMatchObject({ ok: false, erros: { faturamento_ultimo_ano: 'Valor acima do limite' } });
+  });
+
+  it('textos longos demais recusam no campo', () => {
+    const r = lerFicha(form({ ...base, nome_fantasia: 'N'.repeat(151), numero: '1'.repeat(21), cidade: 'C'.repeat(101) }), { admin: false });
+    expect(r).toMatchObject({ ok: false, erros: { nome_fantasia: 'Até 150 letras', numero: 'Até 20 letras', cidade: 'Até 100 letras' } });
+    expect(lerFicha(form({ ...base, razao_social: 'R'.repeat(151) }), { admin: false }))
+      .toMatchObject({ ok: false, erros: { razao_social: 'Até 150 letras' } });
+  });
+
+  it('arquivo no lugar de texto não vira "[object File]"', () => {
+    const f = form(base);
+    f.append('nome_fantasia', new File(['x'], 'x.txt'));
+    f.append('st_uf', new File(['x'], 'x.txt'));
+    f.append('st_inscricao', '');
+    const r = lerFicha(f, { admin: false });
+    expect(r.ok && r.dados).toMatchObject({ nome_fantasia: null, inscricoes_st: [] });
+  });
+});

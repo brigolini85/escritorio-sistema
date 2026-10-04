@@ -35,7 +35,10 @@ export function formatarCnae(codigo: unknown, descricao: unknown): string | null
 
 async function pegar(url: string, buscar: typeof fetch): Promise<{ status: number; corpo: unknown } | null> {
   try {
-    const r = await buscar(url, { signal: AbortSignal.timeout(LIMITE_BUSCA_MS), cache: 'no-store', headers: { accept: 'application/json' } });
+    // redirect 'error': a busca nunca segue para outro endereço (o servidor do painel não vira ponte para a rede interna).
+    const r = await buscar(url, {
+      signal: AbortSignal.timeout(LIMITE_BUSCA_MS), cache: 'no-store', redirect: 'error', headers: { accept: 'application/json' },
+    });
     return { status: r.status, corpo: r.ok ? await r.json() : null };
   } catch {
     // Tempo esgotado, rede fora ou resposta que não é JSON: a tela pede o preenchimento à mão.

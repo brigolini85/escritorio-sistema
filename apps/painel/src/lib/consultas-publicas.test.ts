@@ -70,6 +70,18 @@ describe('busca de CEP (ViaCEP pelo servidor)', () => {
   });
 });
 
+describe('redirecionamento (a busca não segue para outro endereço)', () => {
+  it('as duas buscas pedem redirect "error"; redirecionamento recusado vira "indisponível"', async () => {
+    const cnpj = falso(() => resposta(404));
+    await consultarCnpj('12345678000195', cnpj.buscar);
+    const cep = falso(() => resposta(404));
+    await consultarCep('36404450', cep.buscar);
+    expect([cnpj.chamadas[0]!.init?.redirect, cep.chamadas[0]!.init?.redirect]).toEqual(['error', 'error']);
+    expect(await consultarCep('36404450', falso(() => { throw new TypeError('fetch failed: redirect'); }).buscar))
+      .toEqual({ ok: false, motivo: 'indisponivel' });
+  });
+});
+
 describe('formatação', () => {
   it('CNAE com máscara e descrição', () => {
     expect(formatarCnae(1091101, 'Fabricação de produtos de panificação')).toBe('1091-1/01 · Fabricação de produtos de panificação');

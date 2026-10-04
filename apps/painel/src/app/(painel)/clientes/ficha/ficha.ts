@@ -7,6 +7,26 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Data que existe no calendário (2030-13-45 e 2030-02-30 não), num intervalo que o Postgres guarda sem surpresa. */
+export function dataReal(v: string): boolean {
+  if (!DATA.test(v)) return false;
+  const [a, m, d] = v.split('-').map(Number) as [number, number, number];
+  const t = new Date(Date.UTC(a, m - 1, d));
+  return a >= 1900 && a <= 2199 && t.getUTCFullYear() === a && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+
+/** Tamanho máximo dos textos da ficha (a tela usa no maxLength; a ação confere de novo). */
+export const LIMITES = {
+  razao_social: 150, nome_fantasia: 150, inscricao_estadual: 30, inscricao_municipal: 30, inscricao_suframa: 30, cnae_principal: 300,
+  regime: 60, logradouro: 150, numero: 20, complemento: 100, bairro: 100, cidade: 100, site: 200, email: 254, email_cobranca: 254,
+} as const;
+/** numeric(12,2) e numeric(14,2) em clientes: acima disso o banco recusaria com erro cru. */
+export const MAXIMO_DINHEIRO = { honorario_mensal: 9_999_999_999.99, faturamento_ultimo_ano: 999_999_999_999.99 } as const;
+const TAMANHO_INSCRICAO_ST = 30;
+
+/** Valor do FormData como texto; arquivo enviado no lugar de texto vira vazio (nunca "[object File]"). */
+const textoDe = (v: FormDataEntryValue | null | undefined): string => (typeof v === 'string' ? v : '');
+
 export const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
   'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'] as const;
 export const REGIMES = ['Simples Nacional', 'MEI', 'Lucro Presumido', 'Lucro Real', 'Imune/Isenta'] as const;
@@ -84,14 +104,23 @@ function lerReajuste(v: string): { reajuste: string | null; reajuste_mes: number
   return mes >= 1 && mes <= (m[1] === 'anual' ? 12 : 6) ? { reajuste: m[1]!, reajuste_mes: mes } : 'invalido';
 }
 
+/** Linhas de substituto tributário do formulário; a linha toda em branco (adicionada e não usada) é ignorada. */
+function linhasSt(f: FormData): { uf: string; inscricao: string }[] {
+  const ies = f.getAll('st_inscricao');
+  return f.getAll('st_uf')
+    .map((u, i) => ({ uf: textoDe(u).trim(), inscricao: textoDe(ies[i]).trim() }))
+    .filter((l) => l.uf || l.inscricao);
+}
+
 /** O formulário da ficha → o p_dados de salvar_ficha_cliente. Só razão social e CNPJ travam (D9); o resto vazio vira nulo. */
 export function lerFicha(f: FormData, opcoes: { admin: boolean }): LeituraFicha {
-  const t = (k: string) => String(f.get(k) ?? '').trim();
+  const t = (k: string) => textoDe(f.get(k)).trim();
   const ou = (k: string) => t(k) || null;
   const erros: ErrosFicha = {};
 
   const razao = t('razao_social');
   if (razao.length < 2) erros.razao_social = 'Informe a razão social';
+  for (const [k, max] of Object.entries(LIMITES)) if (t(k).length > max) erros[k] = `Até ${max} letras`;
   const cnpj = somenteDigitos(t('cnpj'));
   if (!validarCnpj(cnpj)) erros.cnpj = 'CNPJ inválido';
   const cep = somenteDigitos(t('cep'));
@@ -110,11 +139,11 @@ export function lerFicha(f: FormData, opcoes: { admin: boolean }): LeituraFicha 
   };
   const emailEmpresa = email('email');
   const emailCobranca = email('email_cobranca');
-  const dinheiro = (k: string) => {
+  const dinheiro = (k: keyof typeof MAXIMO_DINHEIRO) => {
     const v = lerDinheiro(t(k));
-    if (v !== 'invalido') return v;
-    erros[k] = 'Valor inválido (ex.: 1.250,00)';
-    return null;
+    if (v === 'invalido') { erros[k] = 'Valor inválido (ex.: 1.250,00)'; return null; }
+    if (v !== null && v > MAXIMO_DINHEIRO[k]) { erros[k] = 'Valor acima do limite'; return null; }
+    return v;
   };
   const faturamento = dinheiro('faturamento_ultimo_ano');
   const honorario = dinheiro('honorario_mensal');
@@ -129,7 +158,7 @@ export function lerFicha(f: FormData, opcoes: { admin: boolean }): LeituraFicha 
   const avisar = numero('certificado_avisar_dias', 1, 180, 'Dias inválidos');
   const data = (k: string) => {
     const v = t(k);
-    if (v && !DATA.test(v)) { erros[k] = 'Data inválida'; return null; }
+    if (v && !dataReal(v)) { erros[k] = 'Data inválida'; return null; }
     return v || null;
   };
   const inicio = data('contrato_inicio');
@@ -145,23 +174,23 @@ export function lerFicha(f: FormData, opcoes: { admin: boolean }): LeituraFicha 
   const reajuste = lerReajuste(t('reajuste'));
   if (reajuste === 'invalido') erros.reajuste = 'Reajuste inválido';
   const decimo = t('decimo_terceiro');
-  const segmentos = [...new Set(f.getAll('segmentos').map(String))].filter((s) => SEGMENTOS.some((x) => x.valor === s));
+  const segmentos = [...new Set(f.getAll('segmentos').map(textoDe))].filter((s) => SEGMENTOS.some((x) => x.valor === s));
 
-  const ufsSt = f.getAll('st_uf').map((v) => String(v).trim().toUpperCase());
-  const iesSt = f.getAll('st_inscricao').map((v) => String(v).trim());
-  const inscricoes = ufsSt.map((u, i) => ({ uf: u, inscricao: iesSt[i] || null }));
+  const inscricoes = linhasSt(f).map((l) => ({ uf: l.uf.toUpperCase(), inscricao: l.inscricao || null }));
   if (inscricoes.some((i) => !(UFS as readonly string[]).includes(i.uf))) erros.inscricoes_st = 'Escolha a UF de cada linha';
-  else {
+  else if (inscricoes.some((i) => (i.inscricao?.length ?? 0) > TAMANHO_INSCRICAO_ST)) {
+    erros.inscricoes_st = `Inscrição com até ${TAMANHO_INSCRICAO_ST} letras`;
+  } else {
     const repetida = inscricoes.find((x, i) => inscricoes.findIndex((y) => y.uf === x.uf) !== i);
     if (repetida) erros.inscricoes_st = `UF repetida: ${repetida.uf}`;
   }
 
-  const servicos = f.getAll('servico').map(String).filter((s) => UUID.test(s));
+  const servicos = f.getAll('servico').map(textoDe).filter((s) => UUID.test(s));
   const responsaveis: Record<string, string | null> = {};
   for (const [k, v] of f.entries()) {
     if (!k.startsWith('responsavel:')) continue;
     const setor = k.slice('responsavel:'.length);
-    if (UUID.test(setor)) responsaveis[setor] = UUID.test(String(v)) ? String(v) : null;
+    if (UUID.test(setor)) responsaveis[setor] = UUID.test(textoDe(v)) ? textoDe(v) : null;
   }
   const isento = f.get('isento_ie') === 'on';
 
@@ -212,11 +241,10 @@ const OBRIGATORIOS = {
 export function valoresDe(f: FormData): ValoresFicha {
   const campos: Record<string, string> = {};
   for (const [k, v] of f.entries()) if (typeof v === 'string' && !(k in campos)) campos[k] = v.trim();
-  const ies = f.getAll('st_inscricao');
   return {
     campos,
     segmentos: f.getAll('segmentos').length,
-    st: f.getAll('st_uf').map((u, i) => ({ uf: String(u), inscricao: String(ies[i] ?? '').trim() })),
+    st: linhasSt(f),
     responsaveis: [...f.entries()].filter(([k, v]) => k.startsWith('responsavel:') && String(v)).length,
   };
 }
@@ -234,8 +262,9 @@ export function hojeSP(agora: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO }).format(agora);
 }
 
-/** Dias corridos de hoje (em São Paulo) até a data (AAAA-MM-DD); negativo = já passou. */
+/** Dias corridos de hoje (em São Paulo) até a data (AAAA-MM-DD); negativo = já passou; data que não existe = NaN. */
 export function diasAte(data: string, agora: Date): number {
+  if (!dataReal(data)) return Number.NaN;
   const [a, m, d] = data.split('-').map(Number) as [number, number, number];
   const [x, y, z] = hojeSP(agora).split('-').map(Number) as [number, number, number];
   return Math.round((Date.UTC(a, m - 1, d) - Date.UTC(x, y - 1, z)) / 86_400_000);
@@ -245,6 +274,8 @@ export function estadoCertificado(tipo: string | undefined, vencimento: string |
   if (tipo === 'sem') return { tipo: 'completo' };
   if (!vencimento) return { tipo: 'pendente', n: 1 };
   const dias = diasAte(vencimento, agora);
+  // Data que não existe não pode passar por "completo" (NaN falha todas as comparações abaixo).
+  if (!Number.isFinite(dias)) return { tipo: 'pendente', n: 1 };
   if (dias < 0) return { tipo: 'vencido', dias: -dias };
   if (dias <= avisar) return { tipo: 'vence', dias };
   return { tipo: 'completo' };

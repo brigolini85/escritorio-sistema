@@ -51,6 +51,22 @@ describe('cofre dos acessos de portais (D1)', () => {
     expect(cofreConfigurado()).toBe(false);
   });
 
+  it('a chave só vale em base64 estrito de 32 bytes (44 letras terminando em "=")', () => {
+    const k = randomBytes(32);
+    for (const ruim of [
+      k.toString('base64url'), // 43 letras, sem "=" e com "-"/"_": o Node aceitaria
+      k.toString('base64').slice(0, 43), // sem o "="
+      `${k.toString('base64').slice(0, 20)}*${k.toString('base64').slice(21)}`, // letra fora do base64, que o Node pularia
+      `${k.toString('base64')}AAAA`, // 35 bytes
+      ` ${k.toString('base64').slice(0, 22)} ${k.toString('base64').slice(22)}`, // espaço no meio
+    ]) {
+      vi.stubEnv('ACESSOS_PORTAIS_CHAVE', ruim);
+      expect(cofreConfigurado(), ruim).toBe(false);
+    }
+    vi.stubEnv('ACESSOS_PORTAIS_CHAVE', `${k.toString('base64')}\n`);
+    expect(cofreConfigurado()).toBe(true);
+  });
+
   it('a mensagem de erro nunca leva a senha', () => {
     vi.stubEnv('ACESSOS_PORTAIS_CHAVE', '');
     expect(() => cifrar('Portal#Segredo-2026', 'x')).toThrow(/^(?!.*Segredo).*$/);

@@ -14,10 +14,13 @@ export class ErroCofre extends Error {}
 /** Etiqueta inteira (16 bytes): o Node aceitaria etiqueta curta, que enfraquece a autenticação. */
 const TAMANHO_ETIQUETA = 16;
 
-/** Ausente ou com tamanho errado: o cofre fica desligado (D8). Nunca há chave padrão. */
+/** Base64 estrito de 32 bytes: o Buffer do Node pula letras fora do base64 e aceita base64url, e uma chave mal colada passaria. */
+const CHAVE_BASE64 = /^[A-Za-z0-9+/]{43}=$/;
+
+/** Ausente, mal escrita ou com tamanho errado: o cofre fica desligado (D8). Nunca há chave padrão. */
 function chave(): Buffer | null {
   const bruta = process.env.ACESSOS_PORTAIS_CHAVE?.trim();
-  if (!bruta) return null;
+  if (!bruta || !CHAVE_BASE64.test(bruta)) return null;
   const k = Buffer.from(bruta, 'base64');
   return k.length === 32 ? k : null;
 }
