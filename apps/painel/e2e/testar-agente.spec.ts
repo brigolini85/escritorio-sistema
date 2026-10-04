@@ -1,8 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
+import { abrirTreinar, editor, esperarTreinar } from './apoio-treinar';
 
-// "Testar o agente" (spec 2026-09-30 §4 e §5). Nos e2e não roda trabalhador: o teste fica pendente ("Pensando…") e o
-// resultado é gravado direto no banco (service role), como o trabalhador gravaria; o Dialog mostra pelo tempo real.
+// "Testar o agente" (spec 2026-09-30 §4 e §5), desde a G5 no simulador sempre visível da tela (spec 7C.5). Nos e2e não roda
+// trabalhador: o teste fica pendente ("Pensando…") e o resultado é gravado direto no banco (service role), como o
+// trabalhador gravaria; o simulador mostra pelo tempo real.
 
 const senha = 'Senha-e2e-123';
 const EMAIL_MARCADA = 'testa-agente@e2e.local';
@@ -28,42 +30,42 @@ async function simulacoes(usuarioId: string) {
   return data ?? [];
 }
 
-const janela = (page: Page) => page.getByRole('dialog', { name: /Testar/ });
+const janela = (page: Page) => page.getByRole('region', { name: 'Simulador', exact: true });
+const testar = (page: Page) => janela(page).getByRole('button', { name: 'Testar', exact: true });
 
 test('atendente marcada testa o agente: Pensando…, teste pendente retomado, resultado e erro pelo tempo real', async ({ page }) => {
   const usuario = await criarUsuarioTeste({ email: EMAIL_MARCADA, senha, nome: 'Carla Testa', papel: 'atendente', setores: ['Fiscal'], permissoes: ['treinar_agente'] });
   const { data: cliente } = await db.from('clientes').insert({ razao_social: EMPRESA, nome_fantasia: 'Mercearia Teste', cnpj: CNPJ }).select('id').single();
   await entrar(page, EMAIL_MARCADA, senha);
-  await page.goto('/treinar-agente');
+  await abrirTreinar(page);
 
-  await page.getByRole('button', { name: 'Testar o agente' }).click();
-  await expect(janela(page).getByRole('heading', { name: 'Testar o agente' })).toBeVisible();
-  await expect(janela(page).getByText('É só um teste: nada é enviado ao cliente nem gravado.')).toBeVisible();
+  await expect(janela(page).getByRole('heading', { name: 'Simulador' })).toBeVisible();
+  await expect(janela(page).getByText('Nada é enviado ao cliente nem gravado em demanda.')).toBeVisible();
+  await expect(janela(page).getByText('orientações ligadas, sem rascunho')).toBeVisible();
 
   // Mensagem vazia não sai (campo obrigatório).
-  await janela(page).getByRole('button', { name: 'Enviar teste' }).click();
+  await testar(page).click();
   expect(await simulacoes(usuario)).toHaveLength(0);
 
   await janela(page).getByLabel('Mensagem do cliente').fill('Bom dia, preciso da guia do DAS.');
-  await janela(page).getByRole('combobox', { name: 'Empresa (opcional)' }).click();
+  await janela(page).getByRole('combobox', { name: 'Como cliente de' }).click();
   await page.getByRole('combobox', { name: 'Buscar empresa' }).fill('Mercearia');
   await page.getByRole('option', { name: /Mercearia Teste/ }).click();
-  await janela(page).getByRole('button', { name: 'Enviar teste' }).click();
+  await testar(page).click();
   await expect(janela(page).getByRole('status').filter({ hasText: 'Pensando…' })).toBeVisible();
-  await expect(janela(page).getByRole('button', { name: 'Enviar teste' })).toBeDisabled();
+  await expect(testar(page)).toBeDisabled();
   await expect.poll(async () => (await simulacoes(usuario)).length).toBe(1);
   const [sim] = await simulacoes(usuario);
   expect(sim).toMatchObject({ mensagem: 'Bom dia, preciso da guia do DAS.', cliente_id: cliente!.id, rascunho: null, status: 'pendente' });
 
-  // Fechar e testar de novo com o primeiro ainda pendente: o Dialog retoma o pendente em vez de criar outro.
-  await page.keyboard.press('Escape');
-  await expect(janela(page)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Testar o agente' }).click();
+  // Recarregar e testar de novo com o primeiro ainda pendente: o simulador retoma o pendente em vez de criar outro.
+  await page.reload();
+  await esperarTreinar(page);
   await janela(page).getByLabel('Mensagem do cliente').fill('Outra mensagem');
-  await expect(janela(page).getByRole('combobox', { name: 'Empresa (opcional)' })).toHaveText(/Nenhuma empresa/);
-  await janela(page).getByRole('combobox', { name: 'Empresa (opcional)' }).click();
+  await expect(janela(page).getByRole('combobox', { name: 'Como cliente de' })).toHaveText(/Sem empresa/);
+  await janela(page).getByRole('combobox', { name: 'Como cliente de' }).click();
   await page.getByRole('option', { name: /Mercearia Teste/ }).click();
-  await janela(page).getByRole('button', { name: 'Enviar teste' }).click();
+  await testar(page).click();
   await expect(janela(page).getByText('Você já tem um teste em andamento')).toBeVisible();
   await expect(janela(page).getByText('Bom dia, preciso da guia do DAS.')).toBeVisible();
   expect(await simulacoes(usuario)).toHaveLength(1);
@@ -81,17 +83,15 @@ test('atendente marcada testa o agente: Pensando…, teste pendente retomado, re
   await expect(janela(page).getByText('Assim que estiver pronta, mando aqui.')).toBeVisible();
   await expect(janela(page).getByText('Pensando…')).toHaveCount(0);
   await expect(janela(page).getByText('1 orientação ficou de fora')).toBeVisible();
-  // As ações ficam recolhidas.
-  const acoes = janela(page).getByRole('button', { name: 'O que o agente faria (1)' });
-  await expect(acoes).toHaveAttribute('aria-expanded', 'false');
-  await expect(janela(page).getByText('Abriria uma demanda no Fiscal: Guia do DAS')).toBeHidden();
-  await acoes.click();
+  // As ações aparecem abertas, em "O que o agente faria"; sem rascunho, não há comparação.
+  await expect(janela(page).getByRole('heading', { name: 'O que o agente faria' })).toBeVisible();
   await expect(janela(page).getByText('Abriria uma demanda no Fiscal: Guia do DAS')).toBeVisible();
+  await expect(janela(page).getByRole('region', { name: 'Sem o rascunho' })).toHaveCount(0);
 
   // Outro teste, agora sem empresa; o trabalhador grava erro: aviso humano e "Tentar de novo".
   await janela(page).getByRole('button', { name: 'Testar sem empresa' }).click();
-  await expect(janela(page).getByRole('combobox', { name: 'Empresa (opcional)' })).toHaveText(/Nenhuma empresa/);
-  await janela(page).getByRole('button', { name: 'Enviar teste' }).click();
+  await expect(janela(page).getByRole('combobox', { name: 'Como cliente de' })).toHaveText(/Sem empresa/);
+  await testar(page).click();
   await expect(janela(page).getByText('Pensando…')).toBeVisible();
   await expect.poll(async () => (await simulacoes(usuario)).length).toBe(2);
   const segunda = (await simulacoes(usuario))[1]!;
@@ -107,31 +107,30 @@ test('atendente marcada testa o agente: Pensando…, teste pendente retomado, re
   expect(count).toBe(0);
 });
 
-test('"Testar esta orientação" manda o que está no formulário, sem salvar', async ({ page }) => {
+test('o simulador manda o que está no formulário, sem salvar', async ({ page }) => {
   const usuario = await criarUsuarioTeste({ email: EMAIL_ADMIN, senha, nome: 'Dono Testa', papel: 'admin' });
   const { data: cliente } = await db.from('clientes').insert({ razao_social: EMPRESA, nome_fantasia: 'Mercearia Teste', cnpj: CNPJ }).select('id').single();
   const { data: salva } = await db.from('orientacoes_agente')
     .insert({ titulo: 'Prazo do teste', texto: 'Documentos saem no mesmo dia.', tipo: 'regra', ativo: true }).select('id').single();
   await entrar(page, EMAIL_ADMIN, senha);
-  await page.goto(`/treinar-agente?orientacao=${salva!.id}`);
-  const painel = page.getByRole('dialog', { name: 'Prazo do teste' });
+  await abrirTreinar(page, `?orientacao=${salva!.id}`);
+  const painel = editor(page);
 
   // Edita sem salvar: texto novo e vale só para a empresa.
   await painel.getByLabel('O que o agente deve fazer').fill('Documentos pedidos até as 15h saem no mesmo dia.');
-  await painel.getByRole('radio', { name: 'Uma empresa' }).check();
+  // O rádio fica escondido (sr-only) sob o segmento: marca-se pelo rótulo, como a pessoa faz.
+  await painel.getByRole('radio', { name: 'Uma empresa' }).locator('xpath=..').check();
   await painel.getByRole('combobox', { name: 'Empresa' }).click();
   await page.getByRole('combobox', { name: 'Buscar empresa' }).fill('Mercearia');
   await page.getByRole('option', { name: /Mercearia Teste/ }).click();
-  await painel.getByRole('button', { name: 'Testar esta orientação' }).click();
 
-  await expect(janela(page).getByRole('heading', { name: 'Testar esta orientação' })).toBeVisible();
-  await expect(janela(page).getByText('mesmo sem salvar')).toBeVisible();
-  await expect(janela(page).getByText('Orientação em teste:')).toContainText('Prazo do teste');
+  await expect(janela(page).getByText('usando o rascunho, ligado')).toBeVisible();
   // A empresa da orientação já vem escolhida para o teste.
-  await expect(janela(page).getByRole('combobox', { name: 'Empresa (opcional)' })).toHaveText(/Mercearia Teste/);
+  await expect(janela(page).getByRole('combobox', { name: 'Como cliente de' })).toHaveText(/Mercearia Teste/);
   await janela(page).getByLabel('Mensagem do cliente').fill('Pedi o contrato social às 14h, sai hoje?');
-  await janela(page).getByRole('button', { name: 'Enviar teste' }).click();
+  await testar(page).click();
   await expect(janela(page).getByText('Pensando…')).toBeVisible();
+  await expect(janela(page).getByText('Teste com o rascunho')).toContainText('Prazo do teste');
   await expect.poll(async () => (await simulacoes(usuario)).length).toBe(1);
   expect((await simulacoes(usuario))[0]).toMatchObject({
     mensagem: 'Pedi o contrato social às 14h, sai hoje?',
@@ -142,20 +141,19 @@ test('"Testar esta orientação" manda o que está no formulário, sem salvar', 
   // Nada salvo: a orientação continua como estava e o formulário ainda tem as alterações.
   const { data: depois } = await db.from('orientacoes_agente').select('texto, cliente_id').eq('id', salva!.id).single();
   expect(depois).toEqual({ texto: 'Documentos saem no mesmo dia.', cliente_id: null });
-  await page.keyboard.press('Escape');
-  await expect(janela(page)).toHaveCount(0);
-  await expect(painel.getByText('Alterações não salvas')).toBeVisible();
+  await expect(painel.getByText('Rascunho não salvo')).toBeVisible();
   await expect(painel.getByLabel('O que o agente deve fazer')).toHaveValue('Documentos pedidos até as 15h saem no mesmo dia.');
 });
 
-test('"Testar esta orientação" com o título vazio não abre o teste', async ({ page }) => {
+test('rascunho com o título vazio não vira teste', async ({ page }) => {
   const usuario = await criarUsuarioTeste({ email: EMAIL_ADMIN, senha, nome: 'Dono Testa', papel: 'admin' });
   await entrar(page, EMAIL_ADMIN, senha);
-  await page.goto('/treinar-agente?orientacao=nova');
-  const painel = page.getByRole('dialog', { name: 'Nova orientação' });
+  await abrirTreinar(page, '?orientacao=nova');
+  const painel = editor(page);
   await painel.getByLabel('O que o agente deve fazer').fill('Seja breve.');
-  await painel.getByRole('button', { name: 'Testar esta orientação' }).click();
-  await expect(janela(page)).toHaveCount(0);
+  await janela(page).getByLabel('Mensagem do cliente').fill('Oi');
+  await testar(page).click();
+  await expect(janela(page).getByRole('alert')).toHaveText('Complete o rascunho para testar: Informe o título da orientação.');
   await expect(painel.getByLabel('Título')).toBeFocused();
   expect(await simulacoes(usuario)).toHaveLength(0);
 });

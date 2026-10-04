@@ -7,6 +7,7 @@ import { abrirContatos } from './apoio-contatos';
 import { demandaE2e, limparDemandasE2e } from './apoio-demandas';
 import { abrirInicio } from './apoio-inicio';
 import { limparGastos, semearGastos } from './apoio-gastos';
+import { abrirTreinar, esperarTreinar } from './apoio-treinar';
 
 // Auditoria automática de acessibilidade (axe, WCAG 2.0/2.1 A e AA) em todas as telas, no tema claro e no escuro.
 // Falha só com violações sérias ou críticas; as moderadas/menores aparecem no log para a próxima revisão.
@@ -251,11 +252,13 @@ for (const tema of ['claro', 'escuro'] as const) {
 
       // Treinar o agente: busca de empresa aberta no formulário e confirmação de restaurar uma versão.
       await page.goto(`/treinar-agente?orientacao=${ids.orientacao}`);
-      await page.getByRole('dialog').getByRole('combobox', { name: 'Empresa' }).click();
+      await esperarTreinar(page);
+      await page.getByRole('region', { name: 'Editor da orientação' }).getByRole('combobox', { name: 'Empresa' }).click();
       await expect(page.getByRole('option').first()).toBeVisible();
       erros.push(...(await auditar(page, 'busca de empresa (Treinar o agente)', tema)));
       await page.keyboard.press('Escape');
       await page.goto(`/treinar-agente?orientacao=${ids.orientacao}&aba=historico`);
+      await esperarTreinar(page);
       await page.getByRole('button', { name: 'Restaurar esta versão' }).click();
       await expect(page.getByRole('dialog', { name: 'Restaurar esta versão?' })).toBeVisible();
       erros.push(...(await auditar(page, 'confirmação de restaurar (Treinar o agente)', tema)));
@@ -274,15 +277,15 @@ for (const tema of ['claro', 'escuro'] as const) {
       const ids = await semear();
       await entrar(page, EMAIL, SENHA);
       const erros: string[] = [];
-      await page.goto('/treinar-agente');
-      await page.getByRole('button', { name: 'Testar o agente' }).click();
-      const janela = page.getByRole('dialog', { name: 'Testar o agente' });
+      await abrirTreinar(page);
+      const janela = page.getByRole('region', { name: 'Simulador', exact: true });
+      const testar = janela.getByRole('button', { name: 'Testar', exact: true });
       await expect(janela.getByLabel('Mensagem do cliente')).toBeVisible();
-      erros.push(...(await auditar(page, 'Testar o agente (vazio)', tema)));
+      erros.push(...(await auditar(page, 'Simulador (vazio)', tema)));
       await janela.getByLabel('Mensagem do cliente').fill('Bom dia, preciso do comprovante.');
-      await janela.getByRole('button', { name: 'Enviar teste' }).click();
+      await testar.click();
       await expect(janela.getByText('Pensando…')).toBeVisible();
-      erros.push(...(await auditar(page, 'Testar o agente (pensando)', tema)));
+      erros.push(...(await auditar(page, 'Simulador (pensando)', tema)));
       // Sem trabalhador nos e2e: o resultado vai direto no banco, como o trabalhador gravaria.
       await expect.poll(async () => (await db.from('simulacoes_agente').select('id').eq('usuario_id', ids.usuario)).data?.length).toBe(1);
       await db.from('simulacoes_agente').update({
@@ -290,13 +293,29 @@ for (const tema of ['claro', 'escuro'] as const) {
         respostas: { mensagens: ['Bom dia! Já peço ao Fiscal.'], acoes: [{ ferramenta: 'abrir_chamado', resumo: 'Abriria uma demanda no Fiscal: Comprovante' }], observacoes: ['Aviso do teste.'] },
       }).eq('usuario_id', ids.usuario);
       await expect(janela.getByText('Bom dia! Já peço ao Fiscal.')).toBeVisible({ timeout: 10_000 });
-      await janela.getByRole('button', { name: /O que o agente faria/ }).click();
-      erros.push(...(await auditar(page, 'Testar o agente (resultado)', tema)));
-      await janela.getByRole('button', { name: 'Enviar teste' }).click();
+      erros.push(...(await auditar(page, 'Simulador (resultado)', tema)));
+      await testar.click();
       await expect.poll(async () => (await db.from('simulacoes_agente').select('id').eq('usuario_id', ids.usuario)).data?.length).toBe(2);
       await db.from('simulacoes_agente').update({ status: 'erro', erro: 'Não consegui fazer o teste agora. Tente de novo em alguns minutos.' }).eq('usuario_id', ids.usuario).eq('status', 'pendente');
       await expect(janela.getByRole('alert')).toBeVisible({ timeout: 10_000 });
-      erros.push(...(await auditar(page, 'Testar o agente (erro)', tema)));
+      erros.push(...(await auditar(page, 'Simulador (erro)', tema)));
+
+      // Com rascunho e "Sem o rascunho": a orientação semeada com o texto mudado, sem salvar.
+      await abrirTreinar(page, `?orientacao=${ids.orientacao}`);
+      await page.getByRole('region', { name: 'Editor da orientação' }).getByLabel('O que o agente deve fazer').fill('Responda com uma frase só.');
+      await janela.getByLabel('Mensagem do cliente').fill('Bom dia, preciso do comprovante.');
+      await testar.click();
+      await expect.poll(async () => (await db.from('simulacoes_agente').select('id').eq('usuario_id', ids.usuario)).data?.length).toBe(3);
+      await db.from('simulacoes_agente').update({
+        status: 'pronta', respostas: { mensagens: ['Bom dia! Segue o comprovante.'], acoes: [], observacoes: [] },
+      }).eq('usuario_id', ids.usuario).eq('status', 'pendente');
+      await janela.getByRole('button', { name: 'Comparar sem o rascunho' }).click();
+      await expect.poll(async () => (await db.from('simulacoes_agente').select('id').eq('usuario_id', ids.usuario)).data?.length).toBe(4);
+      await db.from('simulacoes_agente').update({
+        status: 'pronta', respostas: { mensagens: ['Bom dia! Vou ver com o Fiscal.'], acoes: [], observacoes: [] },
+      }).eq('usuario_id', ids.usuario).eq('status', 'pendente');
+      await expect(janela.getByRole('region', { name: 'Sem o rascunho' }).getByText('Bom dia! Vou ver com o Fiscal.')).toBeVisible({ timeout: 10_000 });
+      erros.push(...(await auditar(page, 'Simulador (com rascunho e sem o rascunho)', tema)));
       expect(erros, erros.join('\n')).toEqual([]);
     });
 

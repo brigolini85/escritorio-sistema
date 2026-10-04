@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
+import { editor } from './apoio-treinar';
 
 // "Ensinar o agente" no cabeçalho da conversa (spec 2026-09-30 §5): só com a permissão; situação preenchida com as
 // últimas mensagens do cliente; cria a orientação desligada com o texto composto e a empresa da conversa; toast com link.
@@ -110,7 +111,7 @@ test('atendente marcada ensina pela conversa: situação preenchida, nasce desli
 
   await j.getByRole('link', { name: 'Abrir na tela Treinar o agente' }).click();
   await expect(page).toHaveURL(new RegExp(`/treinar-agente\\?orientacao=${criada!.id}$`));
-  await expect(page.getByRole('dialog').getByRole('heading', { name: TITULO_SUGERIDO })).toBeVisible();
+  await expect(editor(page).getByRole('heading', { name: TITULO_SUGERIDO })).toBeVisible();
 });
 
 test('administrador troca para todos, liga e o limite de caracteres segura o envio', async ({ page }) => {
