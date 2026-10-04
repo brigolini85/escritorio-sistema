@@ -1,6 +1,5 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { exigirAdmin, exigirConfiguracoes } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
@@ -8,7 +7,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import type { z } from 'zod';
 import { COLUNA_PRAZO, PRIORIDADES, type ImpactoPrazo, type Resultado } from '@/lib/configuracoes';
 import { ROTULO_PRIORIDADE } from '@/lib/demandas';
-import { EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, PrazosForm, TetoAlertasForm } from './esquemas';
+import { CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, TetoAlertasForm } from './esquemas';
 
 // Respostas dos cartões (D21): nada de redirect com ?erro=; o cartão mostra o erro e mantém o que foi digitado.
 const ok = (mensagem: string): Resultado => ({ ok: true, mensagem });
@@ -69,11 +68,37 @@ export async function salvarExpediente(formData: FormData): Promise<Resultado> {
   return ok('Expediente salvo.');
 }
 
-/** Teto de IA e alertas: só o administrador (P12); o gatilho configuracoes_so_admin recusa de novo no banco. */
-export async function salvarTetoAlertas(formData: FormData) {
+/** Teto de IA e alertas: só o administrador (P12 da Parte D); o gatilho configuracoes_so_admin recusa de novo no banco. */
+export async function salvarTetoAlertas(formData: FormData): Promise<Resultado> {
   await exigirAdmin();
-  checar(await (await supabaseServidor()).from('configuracoes').update(TetoAlertasForm.parse(formData)).eq('id', 1));
+  const v = TetoAlertasForm.safeParse(formData);
+  if (!v.success) return primeiroErro(v.error);
+  const { error } = await (await supabaseServidor()).from('configuracoes').update(v.data).eq('id', 1);
+  if (error) return doBanco(error);
   recarregar();
+  return ok('Teto e alertas salvos.');
+}
+
+export async function salvarCotacao(formData: FormData): Promise<Resultado> {
+  await exigirAdmin();
+  const v = CotacaoForm.safeParse(formData);
+  if (!v.success) return primeiroErro(v.error);
+  const { error } = await (await supabaseServidor()).from('configuracoes').update(v.data).eq('id', 1);
+  if (error) return doBanco(error);
+  recarregar();
+  return ok('Cotação e custo da transcrição salvos.');
+}
+
+export async function salvarModelos(formData: FormData): Promise<Resultado> {
+  await exigirAdmin();
+  const sb = await supabaseServidor();
+  const { data: cfg } = await sb.from('configuracoes').select('precos_modelos').eq('id', 1).single();
+  const v = modelosForm(Object.keys((cfg?.precos_modelos ?? {}) as Record<string, unknown>)).safeParse(formData);
+  if (!v.success) return primeiroErro(v.error);
+  const { error } = await sb.from('configuracoes').update(v.data).eq('id', 1);
+  if (error) return doBanco(error);
+  recarregar();
+  return ok('Modelos salvos.');
 }
 
 export async function adicionarFeriado(formData: FormData): Promise<Resultado> {
@@ -92,21 +117,25 @@ export async function removerFeriado(data: string) {
   recarregar();
 }
 
-export async function salvarMensagens(formData: FormData) {
+export async function salvarMensagens(formData: FormData): Promise<Resultado> {
   await exigirConfiguracoes();
   // Com o agente pausado nada é enviado ao cliente (decisão do dono, 2026-09-28): não há mensagem de pausa.
   const chaves = ['aviso_lgpd', 'fora_do_horario', 'ia_indisponivel'];
   const mensagens = Object.fromEntries(chaves.map((k) => [k, String(formData.get(k) ?? '').trim()]));
-  checar(await (await supabaseServidor()).from('configuracoes').update({ mensagens }).eq('id', 1));
+  const { error } = await (await supabaseServidor()).from('configuracoes').update({ mensagens }).eq('id', 1);
+  if (error) return doBanco(error);
   recarregar();
+  return ok('Mensagens salvas.');
 }
 
-export async function salvarAvisoLogin(formData: FormData) {
+export async function salvarAvisoLogin(formData: FormData): Promise<Resultado> {
   await exigirConfiguracoes();
-  const dados = esquemaAvisoLogin.safeParse({ aviso_login: String(formData.get('aviso_login') ?? '') });
-  if (!dados.success) redirect('/configuracoes?erro=aviso_login#aviso-login');
-  checar(await (await supabaseServidor()).from('configuracoes').update({ aviso_login: dados.data.aviso_login }).eq('id', 1));
+  const v = esquemaAvisoLogin.safeParse({ aviso_login: String(formData.get('aviso_login') ?? '') });
+  if (!v.success) return primeiroErro(v.error);
+  const { error } = await (await supabaseServidor()).from('configuracoes').update({ aviso_login: v.data.aviso_login }).eq('id', 1);
+  if (error) return doBanco(error);
   recarregar();
+  return ok('Aviso do login salvo.');
 }
 
 const COLUNAS_PRAZO = 'prazo_urgente_dias, prazo_alta_dias, prazo_normal_dias, prazo_baixa_dias';
@@ -165,13 +194,13 @@ export async function salvarPrazos(formData: FormData): Promise<Resultado> {
 }
 
 /** Limites do cronômetro de espera (P18): "Configurações: Sim" como as outras seções; o banco valida de novo (check das colunas). */
-export async function salvarLimitesEspera(formData: FormData) {
+export async function salvarLimitesEspera(formData: FormData): Promise<Resultado> {
   await exigirConfiguracoes();
   const v = EsperaForm.safeParse({ espera_verde_min: String(formData.get('espera_verde_min') ?? ''), espera_ambar_min: String(formData.get('espera_ambar_min') ?? '') });
-  if (!v.success) return { ok: false as const, erro: v.error.issues[0]!.message };
+  if (!v.success) return primeiroErro(v.error);
   const { error } = await (await supabaseServidor()).from('configuracoes').update(v.data).eq('id', 1);
-  if (error) return { ok: false as const, erro: mensagemDoBanco(error.message) };
+  if (error) return doBanco(error);
   recarregar();
   revalidatePath('/atendimento');
-  return { ok: true as const, mensagem: 'Limites de espera salvos.' };
+  return ok('Limites de espera salvos.');
 }

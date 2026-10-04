@@ -25,21 +25,36 @@ const decimalOpcional = (msg: string, minimoExclusivo: boolean) => z.preprocess(
   z.number({ invalid_type_error: msg }).refine((n) => Number.isFinite(n) && (minimoExclusivo ? n > 0 : n >= 0), msg).nullable(),
 );
 
-/** Teto de IA e alertas: só o administrador (P12; o banco também segura essas colunas). */
+/** Teto de IA e alertas: só o administrador (P12 da Parte D; o banco também segura essas colunas). */
 export const TetoAlertasForm = z.preprocess((v) => {
   const f = v as FormData;
   return {
     teto_ia_usd: f.get('teto_ia_usd'), minutos_alerta_fila: f.get('minutos_alerta_fila'),
     email_alertas: f.get('email_alertas') || null, telefone_dono: f.get('telefone_dono') || null,
-    cotacao_usd_brl: f.get('cotacao_usd_brl') || null, custo_minuto_transcricao_usd: f.get('custo_minuto_transcricao_usd') || null,
   };
 }, z.object({
-  teto_ia_usd: z.coerce.number().positive(),
-  minutos_alerta_fila: z.coerce.number().int().min(5),
-  email_alertas: z.string().email().nullable(),
+  teto_ia_usd: z.coerce.number().positive('O teto precisa ser maior que zero.'),
+  minutos_alerta_fila: z.coerce.number().int().min(5, 'No mínimo 5 minutos.'),
+  email_alertas: z.string().email('Confira o e-mail.').nullable(),
   telefone_dono: telefoneOpcional,
+}));
+
+/** Cotação para mostrar R$ e custo por minuto da transcrição (só o administrador; spec 7B e seção 9). */
+export const CotacaoForm = z.preprocess((v) => {
+  const f = v as FormData;
+  return { cotacao_usd_brl: f.get('cotacao_usd_brl') || null, custo_minuto_transcricao_usd: f.get('custo_minuto_transcricao_usd') || null };
+}, z.object({
   cotacao_usd_brl: decimalOpcional('A cotação precisa ser maior que zero.', true),
   custo_minuto_transcricao_usd: decimalOpcional('O custo por minuto não pode ser negativo.', false),
+}));
+
+/** Modelos de IA: só os que têm preço em precos_modelos (D11), senão o gasto fica zerado. */
+export const modelosForm = (chaves: string[]) => z.preprocess((v) => {
+  const f = v as FormData;
+  return { modelo_conversa: f.get('modelo_conversa'), modelo_rapido: f.get('modelo_rapido') };
+}, z.object({
+  modelo_conversa: z.string().refine((m) => chaves.includes(m), 'Escolha um modelo da lista de preços.'),
+  modelo_rapido: z.string().refine((m) => chaves.includes(m), 'Escolha um modelo da lista de preços.'),
 }));
 
 /** Recado na tela de entrada: aparado, pode ficar vazio, até 200 caracteres; o CRLF do textarea vira LF antes de contar (senão 200 visíveis passariam do limite). */

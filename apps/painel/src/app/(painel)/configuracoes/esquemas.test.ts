@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, PrazosForm, TetoAlertasForm } from './esquemas';
+import { CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, TetoAlertasForm } from './esquemas';
 
 describe('ExpedienteForm e TetoAlertasForm (separados na Parte D: teto e alertas são só do administrador)', () => {
   it('expediente: horários e dias úteis', () => {
@@ -17,26 +17,24 @@ describe('ExpedienteForm e TetoAlertasForm (separados na Parte D: teto e alertas
     f.set('teto_ia_usd', '80'); f.set('minutos_alerta_fila', '30'); f.set('email_alertas', 'dono@escritorio.com'); f.set('telefone_dono', '(31) 97777-0000');
     expect(TetoAlertasForm.parse(f)).toEqual({
       teto_ia_usd: 80, minutos_alerta_fila: 30, email_alertas: 'dono@escritorio.com', telefone_dono: '5531977770000',
-      cotacao_usd_brl: null, custo_minuto_transcricao_usd: null,
     });
   });
 });
 
-describe('TetoAlertasForm: cotação do dólar e custo por minuto da transcrição (Parte F)', () => {
+describe('CotacaoForm: cotação do dólar e custo por minuto da transcrição (Parte F; cartão próprio na G1)', () => {
   const form = (extra: Record<string, string>) => {
     const f = new FormData();
-    f.set('teto_ia_usd', '80'); f.set('minutos_alerta_fila', '30');
     for (const [k, v] of Object.entries(extra)) f.set(k, v);
     return f;
   };
   const erros = (extra: Record<string, string>) => {
-    const r = TetoAlertasForm.safeParse(form(extra));
+    const r = CotacaoForm.safeParse(form(extra));
     return r.success ? [] : r.error.issues.map((i) => i.message);
   };
   it('cotação: vazio vira null; vírgula ou ponto viram número', () => {
-    expect(TetoAlertasForm.parse(form({ cotacao_usd_brl: '' })).cotacao_usd_brl).toBeNull();
-    expect(TetoAlertasForm.parse(form({ cotacao_usd_brl: '5,55' })).cotacao_usd_brl).toBe(5.55);
-    expect(TetoAlertasForm.parse(form({ cotacao_usd_brl: '5.55' })).cotacao_usd_brl).toBe(5.55);
+    expect(CotacaoForm.parse(form({ cotacao_usd_brl: '' })).cotacao_usd_brl).toBeNull();
+    expect(CotacaoForm.parse(form({ cotacao_usd_brl: '5,55' })).cotacao_usd_brl).toBe(5.55);
+    expect(CotacaoForm.parse(form({ cotacao_usd_brl: '5.55' })).cotacao_usd_brl).toBe(5.55);
   });
   it('cotação zero, negativa ou texto é recusada', () => {
     expect(erros({ cotacao_usd_brl: '0' })).toEqual(['A cotação precisa ser maior que zero.']);
@@ -44,9 +42,9 @@ describe('TetoAlertasForm: cotação do dólar e custo por minuto da transcriç�
     expect(erros({ cotacao_usd_brl: 'abc' })).toEqual(['A cotação precisa ser maior que zero.']);
   });
   it('custo por minuto: vazio vira null; "0,000667" vira 0.000667; zero vale; negativo recusado', () => {
-    expect(TetoAlertasForm.parse(form({ custo_minuto_transcricao_usd: '' })).custo_minuto_transcricao_usd).toBeNull();
-    expect(TetoAlertasForm.parse(form({ custo_minuto_transcricao_usd: '0,000667' })).custo_minuto_transcricao_usd).toBe(0.000667);
-    expect(TetoAlertasForm.parse(form({ custo_minuto_transcricao_usd: '0' })).custo_minuto_transcricao_usd).toBe(0);
+    expect(CotacaoForm.parse(form({ custo_minuto_transcricao_usd: '' })).custo_minuto_transcricao_usd).toBeNull();
+    expect(CotacaoForm.parse(form({ custo_minuto_transcricao_usd: '0,000667' })).custo_minuto_transcricao_usd).toBe(0.000667);
+    expect(CotacaoForm.parse(form({ custo_minuto_transcricao_usd: '0' })).custo_minuto_transcricao_usd).toBe(0);
     expect(erros({ custo_minuto_transcricao_usd: '-0,01' })).toEqual(['O custo por minuto não pode ser negativo.']);
   });
 });
@@ -100,5 +98,16 @@ describe('ExpedienteForm (Parte G1): mensagens em português', () => {
     const f = new FormData();
     f.set('horario_inicio', ''); f.set('horario_fim', '18:00');
     expect(ExpedienteForm.safeParse(f).error?.issues[0]?.message).toBe('Informe o horário (hh:mm).');
+  });
+});
+
+describe('modelosForm (Parte G1, D11)', () => {
+  const Modelos = modelosForm(['claude-sonnet-5', 'claude-haiku-4-5']);
+  it('aceita só modelos com preço', () => {
+    const f = new FormData();
+    f.set('modelo_conversa', 'claude-sonnet-5'); f.set('modelo_rapido', 'claude-haiku-4-5');
+    expect(Modelos.parse(f)).toEqual({ modelo_conversa: 'claude-sonnet-5', modelo_rapido: 'claude-haiku-4-5' });
+    f.set('modelo_rapido', 'gpt-x');
+    expect(Modelos.safeParse(f).error?.issues[0]?.message).toBe('Escolha um modelo da lista de preços.');
   });
 });

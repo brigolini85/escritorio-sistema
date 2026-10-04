@@ -5,7 +5,6 @@ import { PageHeader } from '@/components/layout/page-header';
 import { RecarregarPeriodico } from '@/components/layout/recarregar-periodico';
 import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
 import { EmptyState } from '@/components/patterns/empty-state';
-import { FormField } from '@/components/patterns/form-field';
 import { BotaoSalvar, FormularioAlteravel, IndicadorAlteracoes } from '@/components/patterns/formulario-alteravel';
 import { HealthSignal } from '@/components/patterns/health-signal';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/cn';
-import { formatarUSD } from '@/lib/formatos';
 import { LIMITES_BATIMENTO, situacaoTeto } from '@/lib/inicio';
 import { hojeSP } from '@/lib/configuracoes';
 import { exigirConfiguracoes } from '@/lib/sessao';
@@ -21,22 +19,21 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import { classeCaixa, classeSelect } from '../clientes/estilos';
 import { gastoDoMes } from '../inicio/gasto-do-mes';
 import {
-  removerResposta, salvarAvisoLogin, salvarMensagens, salvarResposta, salvarServico, salvarSetor, salvarTetoAlertas,
+  removerResposta, salvarResposta, salvarServico, salvarSetor,
 } from './acoes';
-import { CampoEmail, CampoNomeUnico } from './campos-validados';
-import { FormularioEspera } from './formulario-espera';
+import { CampoNomeUnico } from './campos-validados';
 import { NavegacaoSecoes, type SecaoConfiguracao } from './navegacao-secoes';
+import { SecaoEspera } from './secoes/espera';
 import { SecaoExpediente } from './secoes/expediente';
 import { SecaoFeriados } from './secoes/feriados';
+import { SecaoIa } from './secoes/ia';
+import { SecaoMensagens } from './secoes/mensagens';
 import { SecaoPrazos } from './secoes/prazos';
-
-/** Decimal do banco na grafia daqui (5,55); vazio quando não configurado. O esquema aceita vírgula ou ponto. */
-const decimalBr = (v: number | null | undefined) => (v === null || v === undefined ? '' : String(Number(v)).replace('.', ','));
 
 const SECOES: SecaoConfiguracao[] = [
   { id: 'expediente', rotulo: 'Expediente' },
   { id: 'prazos', rotulo: 'Prazos' },
-  { id: 'atendimento', rotulo: 'Atendimento' },
+  { id: 'espera', rotulo: 'Limites de espera' },
   { id: 'teto-ia', rotulo: 'Teto de IA' },
   { id: 'mensagens', rotulo: 'Mensagens automáticas' },
   { id: 'setores', rotulo: 'Setores' },
@@ -44,12 +41,6 @@ const SECOES: SecaoConfiguracao[] = [
   { id: 'respostas', rotulo: 'Respostas prontas' },
   { id: 'feriados', rotulo: 'Feriados' },
   { id: 'integracoes', rotulo: 'Integrações' },
-];
-
-const MENSAGENS = [
-  { chave: 'aviso_lgpd', rotulo: 'Aviso de privacidade (primeiro contato)' },
-  { chave: 'fora_do_horario', rotulo: 'Fora do horário', ajuda: '{inicio} e {fim} viram os horários do expediente.' },
-  { chave: 'ia_indisponivel', rotulo: 'IA indisponível' },
 ];
 
 /** Card de uma seção, com âncora para a navegação interna. */
@@ -66,18 +57,7 @@ function Secao({ id, titulo, descricao, children, className, escopo = false }: {
   );
 }
 
-/** Rodapé do card com o indicador de alterações e o Salvar da seção. */
-function RodapeSalvar({ rotulo = 'Salvar' }: { rotulo?: string }) {
-  return (
-    <CardFooter className="flex-wrap justify-end">
-      <IndicadorAlteracoes />
-      <BotaoSalvar size="sm">{rotulo}</BotaoSalvar>
-    </CardFooter>
-  );
-}
-
-export default async function Configuracoes({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
-  const { erro } = await searchParams;
+export default async function Configuracoes() {
   const u = await exigirConfiguracoes();
   // "Configurações: Sim" (P12): teto de IA, alertas, integrações e usuários continuam só do administrador.
   const admin = u.papel === 'admin';
@@ -94,7 +74,6 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
   ]);
   if (!cfg) throw new Error('Não consegui ler as configurações.');
   const hoje = hojeSP(agora);
-  const mensagens = (cfg?.mensagens ?? {}) as Record<string, string>;
   const sinal = (c: string) => sinais?.find((s) => s.componente === c)?.visto_em ?? null;
   const teto = cfg && gasto ? situacaoTeto(gasto.total, Number(cfg.teto_ia_usd)) : null;
   const nomesSetores = (setores ?? []).map((x) => x.nome);
@@ -116,86 +95,13 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
           {/* Expediente e Teto de IA são formulários separados (Parte D): o teto e os alertas são só do administrador. */}
           <SecaoExpediente cfg={cfg} />
 
-          {admin && (
-            <FormularioAlteravel action={salvarTetoAlertas}>
-              <Secao id="teto-ia" titulo="Teto de IA e alertas" descricao="Ao chegar no teto do mês, o agente para de responder e as conversas vão para a equipe." escopo>
-                <CardContent className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    id="teto_ia_usd"
-                    rotulo="Teto mensal de gasto com IA (US$)"
-                    ajuda={
-                      <>
-                        {teto && `Gasto neste mês: ${formatarUSD(teto.gasto)} (${Math.round(teto.fracao * 100)}% do teto)${gasto?.parcial ? ', valor parcial' : ''}. `}
-                        <Link href="/gastos-ia" className="text-brand underline underline-offset-4">Ver gastos com IA</Link>
-                      </>
-                    }
-                  >
-                    <Input name="teto_ia_usd" type="number" step="1" min="1" required defaultValue={Number(cfg?.teto_ia_usd)} className="tabular sm:w-40" />
-                  </FormField>
-                  <FormField id="cotacao_usd_brl" rotulo="Cotação do dólar (R$ por US$ 1)" ajuda="Só para mostrar os gastos em reais. Vazio: tudo em US$.">
-                    <Input name="cotacao_usd_brl" inputMode="decimal" defaultValue={decimalBr(cfg?.cotacao_usd_brl)} className="tabular sm:w-40" />
-                  </FormField>
-                  <FormField
-                    id="custo_minuto_transcricao_usd"
-                    rotulo="Custo por minuto da transcrição de áudio (US$)"
-                    ajuda="Veja no painel do fornecedor (Groq). Vazio: a transcrição fica sem custo em Gastos com IA."
-                  >
-                    <Input name="custo_minuto_transcricao_usd" inputMode="decimal" defaultValue={decimalBr(cfg?.custo_minuto_transcricao_usd)} className="tabular sm:w-40" />
-                  </FormField>
-                  <FormField id="minutos_alerta_fila" rotulo="Avisar demanda sem responsável após (minutos)">
-                    <Input name="minutos_alerta_fila" type="number" step="1" min="5" required defaultValue={cfg?.minutos_alerta_fila} className="tabular sm:w-40" />
-                  </FormField>
-                  <FormField id="email_alertas" rotulo="E-mail para alertas">
-                    <CampoEmail name="email_alertas" defaultValue={cfg?.email_alertas ?? ''} />
-                  </FormField>
-                  <FormField id="telefone_dono" rotulo="Seu WhatsApp (recebe avisos e o resumo diário)">
-                    <Input name="telefone_dono" inputMode="tel" defaultValue={cfg?.telefone_dono ?? ''} />
-                  </FormField>
-                </CardContent>
-                <RodapeSalvar />
-              </Secao>
-            </FormularioAlteravel>
-          )}
+          {admin && <SecaoIa cfg={cfg} teto={teto} parcial={gasto?.parcial ?? false} />}
 
           <SecaoPrazos cfg={cfg} feriados={feriados ?? []} hoje={hoje} admin={admin} agora={agora} />
 
-          <FormularioEspera>
-            <Secao id="atendimento" titulo="Atendimento" descricao="Cores do cronômetro de espera na lista do Atendimento.">
-              <CardContent className="grid gap-4 sm:grid-cols-2">
-                <FormField id="espera_verde_min" rotulo="Verde até (minutos)">
-                  <Input name="espera_verde_min" type="number" step="1" min="1" max="240" required defaultValue={cfg?.espera_verde_min} className="tabular" />
-                </FormField>
-                <FormField id="espera_ambar_min" rotulo="Âmbar até (minutos)" ajuda="Depois disso, vermelho.">
-                  <Input name="espera_ambar_min" type="number" step="1" min="2" max="480" required defaultValue={cfg?.espera_ambar_min} className="tabular" />
-                </FormField>
-              </CardContent>
-              <RodapeSalvar rotulo="Salvar limites" />
-            </Secao>
-          </FormularioEspera>
+          <SecaoEspera cfg={cfg} />
 
-          <FormularioAlteravel action={salvarMensagens}>
-            <Secao id="mensagens" titulo="Mensagens automáticas" descricao="O que o agente manda sozinho ao cliente nestas situações.">
-              <CardContent className="flex flex-col gap-4">
-                {MENSAGENS.map((m) => (
-                  <FormField key={m.chave} id={`mensagem-${m.chave}`} rotulo={m.rotulo} ajuda={m.ajuda}>
-                    <Textarea name={m.chave} defaultValue={mensagens[m.chave] ?? ''} rows={2} className="min-h-16" />
-                  </FormField>
-                ))}
-              </CardContent>
-              <RodapeSalvar rotulo="Salvar mensagens" />
-            </Secao>
-          </FormularioAlteravel>
-
-          <FormularioAlteravel action={salvarAvisoLogin}>
-            <Secao id="aviso-login" titulo="Aviso na tela de entrada" descricao="Um recado curto que a equipe lê antes de entrar no painel.">
-              <CardContent>
-                <FormField id="aviso_login" rotulo="Aviso na tela de entrada" ajuda="Até 200 caracteres. Vazio não mostra nada. Nunca coloque dados de clientes." erro={erro === 'aviso_login' ? 'Até 200 caracteres.' : undefined}>
-                  <Textarea name="aviso_login" maxLength={200} rows={2} defaultValue={cfg?.aviso_login ?? ''} />
-                </FormField>
-              </CardContent>
-              <RodapeSalvar rotulo="Salvar aviso" />
-            </Secao>
-          </FormularioAlteravel>
+          <SecaoMensagens cfg={cfg} />
 
           <Secao id="setores" titulo="Setores" descricao="O agente usa a descrição dos assuntos para decidir para qual setor mandar cada demanda.">
             <CardContent className="flex flex-col gap-2">

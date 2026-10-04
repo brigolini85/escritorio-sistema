@@ -86,13 +86,14 @@ test('administrador salva a cotação do dólar e o custo por minuto em Configur
   await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
   try {
     await entrar(page, 'admin@teste.com', 'senha-forte-123');
-    await page.goto('/configuracoes#teto-ia');
+    await abrirSecao(page, 'ia');
     const secao = page.getByRole('region', { name: 'Teto de IA e alertas' });
     await expect(secao).toBeVisible({ timeout: 30_000 });
     await expect(secao.getByRole('link', { name: 'Ver gastos com IA' })).toHaveAttribute('href', '/gastos-ia');
-    await secao.getByLabel('Cotação do dólar (R$ por US$ 1)').fill('5,55');
-    await secao.getByLabel('Custo por minuto da transcrição de áudio (US$)').fill('0,000667');
-    await secao.getByRole('button', { name: 'Salvar' }).click();
+    const cotacao = page.getByRole('region', { name: 'Cotação e custo da transcrição' });
+    await cotacao.getByLabel('Cotação do dólar (R$ por US$ 1)').fill('5,55');
+    await cotacao.getByLabel('Custo por minuto da transcrição de áudio (US$)').fill('0,000667');
+    await cotacao.getByRole('button', { name: 'Salvar valores' }).click();
     await expect.poll(async () => (await db.from('configuracoes').select('cotacao_usd_brl').eq('id', 1).single()).data?.cotacao_usd_brl).toBe(5.55);
     expect((await db.from('configuracoes').select('custo_minuto_transcricao_usd').eq('id', 1).single()).data?.custo_minuto_transcricao_usd).toBe(0.000667);
     await page.reload();

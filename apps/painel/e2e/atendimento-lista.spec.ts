@@ -76,7 +76,7 @@ test('limites de espera em Configurações mudam a cor', async ({ page }) => {
   await criarUsuarioTeste({ email: 'admin-lista@e2e.local', senha: SENHA, nome: 'Admin Lista', papel: 'admin' });
   await conversa('0001', { nome: 'Carla', cliente: 'Rede', minutosEspera: 18, mensagens: ['um'] });
   await entrar(page, 'admin-lista@e2e.local', SENHA);
-  await page.goto('/configuracoes#atendimento');
+  await page.goto('/configuracoes?secao=espera');
   await page.getByLabel('Verde até (minutos)').fill('20', { timeout: 30_000 });
   await page.getByLabel('Âmbar até (minutos)').fill('40');
   await page.getByRole('button', { name: 'Salvar limites' }).click();
