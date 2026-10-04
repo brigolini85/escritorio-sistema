@@ -232,6 +232,7 @@ test('a linha abre o contato e o nome muda ali; sem permissão não há edição
   await page.goto('/contatos');
   await page.locator('tbody tr').filter({ hasText: 'Maria Arquivo' }).click();
   const painel = page.getByRole('dialog');
+  await painel.getByRole('link', { name: 'Editar Maria Arquivo' }).click();
   await painel.getByLabel('Nome', { exact: true }).fill('Maria Souza');
   await painel.getByRole('button', { name: 'Salvar nome' }).click();
   await expect(page.getByText('Salvo: Maria Souza.')).toBeVisible();
@@ -243,4 +244,8 @@ test('a linha abre o contato e o nome muda ali; sem permissão não há edição
   await page.goto('/contatos');
   await expect(linha(page, 'Maria Souza')).toHaveCount(1);
   await expect(page.getByRole('link', { name: /^Editar / })).toHaveCount(0);
+  await page.locator('tbody tr').filter({ hasText: 'Maria Souza' }).click();
+  // O painel carregou (o título é o nome) antes de conferir que não há Editar.
+  await expect(page.getByRole('dialog', { name: 'Maria Souza' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('dialog', { name: 'Maria Souza' }).getByRole('link', { name: /^Editar / })).toHaveCount(0);
 });

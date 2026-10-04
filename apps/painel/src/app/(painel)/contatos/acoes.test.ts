@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Sobra 1 da Parte B (decisão P1): o lápis do contato abre o painel, onde o Nome é editável.
-const falso = vi.hoisted(() => ({ pode: true, atualizacoes: [] as Record<string, unknown>[], linhas: [{ id: 'c1' }] as { id: string }[] }));
+const falso = vi.hoisted(() => ({ pode: true, atualizacoes: [] as Record<string, unknown>[], linhas: [{ id: 'c1' }] as { id: string }[], erro: null as { code: string; message: string } | null }));
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
@@ -11,7 +11,7 @@ vi.mock('@/lib/supabase/servidor', () => ({
     from: () => ({
       update: (dados: Record<string, unknown>) => {
         falso.atualizacoes.push(dados);
-        return { eq: () => ({ eq: () => ({ select: async () => ({ data: falso.linhas, error: null }) }) }) };
+        return { eq: () => ({ eq: () => ({ select: async () => (falso.erro ? { data: null, error: falso.erro } : { data: falso.linhas, error: null }) }) }) };
       },
     }),
   }),
@@ -26,6 +26,7 @@ beforeEach(() => {
   falso.pode = true;
   falso.atualizacoes = [];
   falso.linhas = [{ id: ID }];
+  falso.erro = null;
 });
 
 describe('renomearContato', () => {
@@ -40,5 +41,11 @@ describe('renomearContato', () => {
     falso.pode = false;
     expect(await renomearContato(ID, comNome('Maria'))).toEqual({ ok: false, erro: 'Você não tem permissão para editar contatos.' });
     expect(falso.atualizacoes).toEqual([{ nome: 'Maria' }]);
+  });
+  it('erro do banco: só o raise exception (P0001) chega à tela; o resto vira a frase genérica', async () => {
+    falso.erro = { code: '42501', message: 'new row violates row-level security policy for table "contatos"' };
+    expect(await renomearContato(ID, comNome('Maria'))).toEqual({ ok: false, erro: 'Não foi possível salvar agora. Tente de novo.' });
+    falso.erro = { code: 'P0001', message: 'Contato arquivado não pode ser alterado.' };
+    expect(await renomearContato(ID, comNome('Maria'))).toEqual({ ok: false, erro: 'Contato arquivado não pode ser alterado.' });
   });
 });

@@ -129,7 +129,12 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
       <PainelLateralUrl param="contato" id={contatoAberto} hrefFechar={hrefContato(null)} esqueleto={<EsqueletoContato />} className="sm:max-w-lg">
         {contatoAberto && (
           <Suspense key={contatoAberto} fallback={<EsqueletoContato />}>
-            <DetalheContato id={contatoAberto} pode={pode} podeArquivar={podeArquivar} admin={u.papel === 'admin'} />
+            <DetalheContato
+              id={contatoAberto}
+              u={u}
+              editar={valorParam(params, 'editar') === '1'}
+              hrefEditar={`/contatos${hrefComParams(params, { contato: contatoAberto, editar: '1', [PARAM_PAGINA]: pagina })}`}
+            />
           </Suspense>
         )}
       </PainelLateralUrl>
