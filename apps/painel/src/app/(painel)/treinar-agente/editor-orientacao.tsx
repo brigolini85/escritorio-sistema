@@ -129,9 +129,11 @@ function FormularioEditor({ acao, orientacao, empresas, setores, aviso, avisoEmp
   const conferir = (e: FormEvent<HTMLFormElement>) => {
     if (faltaEmpresa(e.currentTarget)) e.preventDefault();
   };
-  // Enter no título não envia (reforço do botão padrão desligado): senão SALVAR DESLIGADA desligaria uma orientação ligada (D12).
-  const semEnter = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') e.preventDefault();
+  // Enter num campo do formulário (título, rádios) não envia: o Chrome pula o botão padrão desligado quando o Enter vem de
+  // um rádio e clicaria SALVAR DESLIGADA, desligando uma orientação ligada (D12). Fora do formulário (busca da empresa,
+  // aberta num portal) o Enter segue normal.
+  const semEnter = (e: KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Enter' && e.target instanceof HTMLInputElement && e.currentTarget.contains(e.target)) e.preventDefault();
   };
 
   return (
@@ -139,6 +141,7 @@ function FormularioEditor({ acao, orientacao, empresas, setores, aviso, avisoEmp
       id={ID_FORM_ORIENTACAO}
       action={acao}
       onSubmit={conferir}
+      onKeyDown={semEnter}
       onInput={(e) => sincronizar(e.currentTarget)}
       onChange={(e) => sincronizar(e.currentTarget)}
       onReset={(e) => {
@@ -149,11 +152,11 @@ function FormularioEditor({ acao, orientacao, empresas, setores, aviso, avisoEmp
       salvarParaSair={async () => false}
       className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-5"
     >
-      {/* Botão padrão desligado, primeiro do formulário: Enter em qualquer campo não envia (D12; HTML, envio implícito). */}
+      {/* Botão padrão desligado, primeiro do formulário: Enter num campo de texto não envia (D12; HTML, envio implícito). Rádios: semEnter. */}
       <button type="submit" disabled hidden aria-hidden tabIndex={-1} />
       {aviso}
       <FormField id={`${id}-titulo`} rotulo="Título" ajuda={<span className="tabular">{titulo} / {LIMITE_TITULO}</span>} obrigatorio>
-        <Input name="titulo" defaultValue={orientacao?.titulo} maxLength={LIMITE_TITULO} placeholder="Ex.: Cumprimento" autoComplete="off" onKeyDown={semEnter} />
+        <Input name="titulo" defaultValue={orientacao?.titulo} maxLength={LIMITE_TITULO} placeholder="Ex.: Cumprimento" autoComplete="off" />
       </FormField>
 
       <div className="grid gap-5 xl:grid-cols-2">

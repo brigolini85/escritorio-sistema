@@ -50,7 +50,7 @@ export function lerFiltrosOrientacoes(params: ParamsBusca) {
   return {
     tipo: TIPOS.includes(tipo as TipoOrientacao) ? (tipo as TipoOrientacao) : null,
     vale: vale === 'todos' || vale === 'empresa' || vale === 'setor' ? (vale as ValePara) : null,
-    ativo: ativo === 'ligadas' || ativo === 'desligadas' ? ativo : null,
+    ativo: ativo === 'ligadas' || ativo === 'desligadas' ? (ativo as 'ligadas' | 'desligadas') : null,
     q: (valorParam(params, 'q') ?? '').trim(),
   };
 }

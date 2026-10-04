@@ -1,17 +1,15 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect, unstable_rethrow } from 'next/navigation';
-import type { EmpresaOpcao } from '@/components/patterns/escolher-empresa';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { enfileirarSimulacao } from '@/lib/fila';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
-import { lerEmPaginas } from '@/lib/paginas';
 import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { hrefComParams } from '@/lib/tabela-url';
 import { comporTexto } from './ensinar';
-import { AVISO_EMPRESAS_INCOMPLETAS, destinoDaTela, ehUuid, opcaoEmpresa, OrientacaoForm, type DadosOrientacao } from './esquemas';
+import { destinoDaTela, ehUuid, OrientacaoForm, type DadosOrientacao } from './esquemas';
 import {
   ERRO_BANCO_PENDENTE, MENSAGEM_FALHA_TESTE, MENSAGEM_FILA_FORA, MENSAGEM_TESTE_PENDENTE, PedidoTeste,
 } from './simulacao';
@@ -194,25 +192,5 @@ export async function testarAgente(entrada: PedidoTeste): Promise<RespostaTeste>
   } catch (e) {
     unstable_rethrow(e);   // sessão vencida: redirect para /entrar continua valendo
     return { erro: e instanceof Error ? e.message : MENSAGEM_FALHA_TESTE };
-  }
-}
-
-export type EmpresasTeste = { empresas: EmpresaOpcao[]; aviso: string | null };
-
-/**
- * Empresas ativas para o Dialog "Testar o agente", lidas quando ele abre (não pesam na tela nem vão duas vezes na
- * página). Cliente da pessoa, de 1000 em 1000. Falha ou lista cortada: o que veio + aviso discreto.
- */
-export async function empresasParaTeste(): Promise<EmpresasTeste> {
-  try {
-    const sb = await exigirTreinar();
-    const { data, error, parcial } = await lerEmPaginas((de, ate) => sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj, ativo')
-      .eq('ativo', true).order('razao_social').order('id').range(de, ate));
-    if (error || parcial) console.error('[treinar-agente] empresas do teste incompletas', error ?? 'limite de páginas');
-    return { empresas: data.map(opcaoEmpresa), aviso: error || parcial ? AVISO_EMPRESAS_INCOMPLETAS : null };
-  } catch (e) {
-    unstable_rethrow(e);
-    console.error('[treinar-agente] falha ao ler as empresas do teste', e);
-    return { empresas: [], aviso: AVISO_EMPRESAS_INCOMPLETAS };
   }
 }
