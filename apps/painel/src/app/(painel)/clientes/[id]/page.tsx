@@ -32,7 +32,10 @@ export default async function FichaClientePagina({ params, searchParams }: {
   // Arquivar e restaurar exigem "Editar e arquivar" (Parte D); o banco (exigir_arquivar) recusa de novo.
   const podeArquivar = temNivel(u, 'clientes', 'arquivar');
   const sb = await supabaseServidor();
-  const { data: c } = await sb.from('clientes').select('*').eq('id', id).maybeSingle();
+  const { data: c, error } = await sb.from('clientes').select('*').eq('id', id).maybeSingle();
+  // Falha de leitura vai para a tela de erro (tentar de novo), não para "não encontrado": o cliente pode existir.
+  // Endereço com id que nem é uuid (22P02) continua "não encontrado".
+  if (error && error.code !== '22P02') throw new Error(`Não foi possível ler o cliente: ${error.message}`);
   if (!c) notFound();
   // select('*') devolve só as colunas que existem: sem a migração da H1 a linha não traz logradouro (D23).
   const fichaNova = 'logradouro' in c;
