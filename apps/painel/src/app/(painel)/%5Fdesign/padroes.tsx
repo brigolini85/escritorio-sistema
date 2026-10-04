@@ -27,12 +27,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { LIMITES_PADRAO } from '@/lib/atendimento';
 import { INFO_FUNCIONALIDADE } from '@/lib/gastos';
 import { lerOrdem, lerPagina, ordenarLinhas, paginar, valorParam, type ParamsBusca } from '@/lib/tabela-url';
+import type { Cartao } from '@/lib/resultados-assistente';
+import { CartaoResultado } from '../assistente/cartao-resultado';
 import { CronometroEspera } from '../atendimento/cronometro-espera';
 import { MarcoConversa } from '../atendimento/[id]/itens-historico';
 import { NumeroInicio } from '../inicio/numero-inicio';
 import { DemoConfiguracoes, DemoConfirmacoes, DemoContatos, DemoTabela, DemoTiposConfirmacao, type DemandaExemplo } from './demos-padroes';
 
 // Seção "Padrões de domínio" do /_design (fase 3): cada padrão de components/patterns com dados de exemplo.
+
+// Cartões fixos do Assistente (sem leitura de banco).
+const CARTOES_ASSISTENTE: Cartao[] = [
+  { tipo: 'pedido', chave: 'pedido-536', rotulo: 'Prévia #536 · 1 alteração' },
+  { tipo: 'tabela', chave: 'tabela-exemplo-0', rotulo: 'Tabela · 4 linhas' },
+  { tipo: 'arquivo', chave: 'arquivos', rotulo: 'bling-pedidos-536.csv', mensagemId: 'exemplo', arquivo: { nome: 'bling-pedidos-536.csv', partes: 1, chamados: ['exemplo'] } },
+];
 
 const PREVIA_REAL = [
   'Prévia do pedido #1042:', 'Antes:', 'Destinatário: Supermercado Brasil / Santa Efigênia',
@@ -367,6 +376,10 @@ export function Padroes({ params }: { params: ParamsBusca }) {
 
       <Exemplo titulo="Contatos (Parte G3): SelosContato (“Pede nota · 1 de 2”, as duas marcações, “Só conversa”) e SwitchAgenteContato com estadoCurto, sem permissão" className="block">
         <DemoContatos />
+      </Exemplo>
+
+      <Exemplo titulo="Assistente (Parte G4): CartaoResultado “Ver ao lado” — prévia de pedido, tabela e arquivo do Bling (com os links da conversa)" className="grid max-w-md gap-2">
+        {CARTOES_ASSISTENTE.map((c) => <CartaoResultado key={c.tipo} cartao={c} href="#" ativo={c.tipo === 'pedido'} />)}
       </Exemplo>
     </Secao>
   );

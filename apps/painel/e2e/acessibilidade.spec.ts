@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
+import { abrirAssistente, conversaComAssistente, criarAna, CSV, EMAIL_ANA, limparG4, SENHA as SENHA_G4, semearPedido, TEXTO_TABELA, textoPrevia } from './apoio-assistente';
 import { abrirSecao } from './apoio-configuracoes';
 import { abrirContatos } from './apoio-contatos';
 import { demandaE2e, limparDemandasE2e } from './apoio-demandas';
@@ -361,6 +362,28 @@ for (const tema of ['claro', 'escuro'] as const) {
       await painel.getByRole('button', { name: 'Vincular empresa' }).click();
       await expect(painel.getByRole('form', { name: 'Vincular empresa' })).toBeVisible();
       const erros = await auditar(page, '/contatos (vincular empresa)', tema);
+      expect(erros, erros.join('\n')).toEqual([]);
+    });
+
+    test(`Assistente: pedido, tabela e arquivos ao lado sem violações graves (${tema})`, async ({ page }) => {
+      const erros: string[] = [];
+      const ana = await criarAna();
+      const p = await semearPedido();
+      const ids = await conversaComAssistente(ana, [
+        { papel: 'usuario', conteudo: 'quais pedidos estão em aberto?', min: 9 },
+        { papel: 'assistente', conteudo: TEXTO_TABELA, min: 8 },
+        { papel: 'assistente', conteudo: 'Pronto.', min: 5, arquivo: CSV([p.id], 2) },
+        { papel: 'assistente', conteudo: textoPrevia(p.numero), min: 1 },
+      ]);
+      try {
+        await entrar(page, EMAIL_ANA, SENHA_G4);
+        for (const consulta of ['', `?resultado=tabela-${ids[1]}-0`, '?resultado=arquivos']) {
+          await abrirAssistente(page, consulta);
+          erros.push(...(await auditar(page, `/assistente${consulta}`, tema)));
+        }
+      } finally {
+        await limparG4();
+      }
       expect(erros, erros.join('\n')).toEqual([]);
     });
   });
