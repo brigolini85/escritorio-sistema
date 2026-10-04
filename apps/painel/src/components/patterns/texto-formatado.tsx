@@ -11,6 +11,31 @@ function Trechos({ texto }: { texto: string }) {
   );
 }
 
+/** Tabela do texto do assistente (cabeçalho, colunas numéricas à direita). Também usada no painel de resultado. */
+export function TabelaDoTexto({ tabela }: { tabela: { cabecalho: string[]; linhas: string[][] } }) {
+  const numerica = colunasNumericas(tabela);
+  return (
+    <div className="overflow-hidden rounded-md border border-border bg-surface">
+      <Table className="text-sm">
+        <TableHeader className="bg-surface-muted">
+          <TableRow className="hover:bg-transparent">
+            {tabela.cabecalho.map((c, n) => <TableHead key={n} className={cn('h-8', numerica[n] && 'text-right')}><Trechos texto={c} /></TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tabela.linhas.map((l, r) => (
+            <TableRow key={r}>
+              {l.map((c, n) => (
+                <TableCell key={n} className={cn('h-8 py-1.5', numerica[n] && 'tabular whitespace-nowrap text-right')}><Trechos texto={c} /></TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 /**
  * Texto de resposta do assistente com parágrafos (quebras de linha mantidas), títulos, listas e tabelas.
  * Monta os elementos a partir do texto; nunca injeta HTML.
@@ -30,27 +55,7 @@ export function TextoFormatado({ texto, className }: { texto: string; className?
             </Lista>
           );
         }
-        const numerica = colunasNumericas(b);
-        return (
-          <div key={i} className="overflow-hidden rounded-md border border-border bg-surface">
-            <Table className="text-sm">
-              <TableHeader className="bg-surface-muted">
-                <TableRow className="hover:bg-transparent">
-                  {b.cabecalho.map((c, n) => <TableHead key={n} className={cn('h-8', numerica[n] && 'text-right')}><Trechos texto={c} /></TableHead>)}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {b.linhas.map((l, r) => (
-                  <TableRow key={r}>
-                    {l.map((c, n) => (
-                      <TableCell key={n} className={cn('h-8 py-1.5', numerica[n] && 'tabular whitespace-nowrap text-right')}><Trechos texto={c} /></TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        );
+        return <TabelaDoTexto key={i} tabela={b} />;
       })}
     </div>
   );

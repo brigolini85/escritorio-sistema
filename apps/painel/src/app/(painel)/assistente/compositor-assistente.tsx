@@ -16,11 +16,24 @@ export function ProvedorAssistente({ children }: { children: ReactNode }) {
   return <Contexto.Provider value={campo}>{children}</Contexto.Provider>;
 }
 
+/** Campo da pergunta da tela (as sugestões e o "Mudar outra coisa" escrevem nele). */
+export function usarCampoPergunta() {
+  return useContext(Contexto);
+}
+
+/** Põe o texto no campo para a pessoa revisar: não envia. */
+export function preencherCampo(el: HTMLTextAreaElement, texto: string) {
+  el.value = texto;
+  conferirTamanho(el);
+  el.focus();
+  el.setSelectionRange(texto.length, texto.length);
+}
+
 /** Perguntas de exemplo no estado vazio: um clique põe o texto no campo (não envia sozinho). */
-export function Sugestoes({ itens }: { itens: string[] }) {
+export function Sugestoes({ itens, className }: { itens: string[]; className?: string }) {
   const campo = useContext(Contexto);
   return (
-    <ul aria-label="Sugestões de perguntas" className="flex flex-wrap justify-center gap-2">
+    <ul aria-label="Sugestões de perguntas" className={cn('flex flex-wrap justify-center gap-2', className)}>
       {itens.map((s) => (
         <li key={s}>
           <Button
@@ -30,11 +43,7 @@ export function Sugestoes({ itens }: { itens: string[] }) {
             className="h-auto min-h-8 whitespace-normal py-1 text-left"
             onClick={() => {
               const el = campo?.current;
-              if (!el) return;
-              el.value = s;
-              conferirTamanho(el);
-              el.focus();
-              el.setSelectionRange(s.length, s.length);
+              if (el) preencherCampo(el, s);
             }}
           >
             {s}
