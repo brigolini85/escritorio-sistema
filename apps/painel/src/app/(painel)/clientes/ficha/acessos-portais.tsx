@@ -205,10 +205,11 @@ function JanelaAcesso({ clienteId, acesso, gatilho }: { clienteId: string; acess
             <Input name="portal" defaultValue={acesso?.portal ?? ''} maxLength={80} placeholder="Ex.: SEFAZ-MG" />
           </FormField>
           <FormField id={`${id}-usuario`} rotulo="Usuário" erro={erros.usuario}>
-            <Input name="usuario" defaultValue={acesso?.usuario ?? ''} maxLength={120} />
+            <Input name="usuario" defaultValue={acesso?.usuario ?? ''} maxLength={120} autoComplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" />
           </FormField>
           <FormField id={`${id}-senha`} rotulo="Senha" erro={erros.senha} ajuda={acesso?.tem_senha ? 'Em branco: continua a senha guardada.' : undefined}>
-            <Input name="senha" type="password" autoComplete="new-password" maxLength={200} disabled={semSenha} />
+            <Input name="senha" type="password" autoComplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" maxLength={200}
+              disabled={semSenha} />
           </FormField>
           <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
             <input type="checkbox" name="sem_senha" className={classeCaixa} checked={semSenha} onChange={(e) => setSemSenha(e.currentTarget.checked)} />

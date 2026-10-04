@@ -73,6 +73,14 @@ describe('bloco Acessos de portais', () => {
     expect(codigo).toMatch(/writeText\(r\.senha\)/);
   });
 
+  it('o campo de senha fica mascarado e o gerenciador de senhas do navegador não guarda a senha do portal do cliente', () => {
+    const campo = codigo.match(/<Input name="senha"[^>]*\/>/)?.[0] ?? '';
+    expect(campo).toMatch(/type="password"/);
+    expect(campo).toMatch(/autoComplete="off"/);
+    expect(campo).toMatch(/data-1p-ignore="true"/);
+    expect(campo).toMatch(/data-lpignore="true"/);
+  });
+
   it('a senha só aparece na tela dentro do <code> de quem revelou', () => {
     expect(codigo.match(/\{senha\}/g)).toEqual(['{senha}']);
     expect(codigo).toMatch(/<code [^>]*>\{senha\}<\/code>/);
