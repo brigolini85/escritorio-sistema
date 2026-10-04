@@ -46,7 +46,7 @@ export function BlocoIdentificacao({ c, erros, pode, admin, busca }: Props & { a
           <Input name="inscricao_suframa" defaultValue={c?.inscricao_suframa ?? ''} placeholder="—" autoComplete="off" />
         </FormField>
         <FormField id="ficha-regime" rotulo="Regime tributário" obrigatorio erro={erros.regime}>
-          <select name="regime" defaultValue={c?.regime ?? ''} required={false} className={classeSelect}>
+          <select name="regime" defaultValue={c?.regime ?? ''} required={false} aria-required className={classeSelect}>
             <option value="">Escolha o regime</option>
             {opcoesRegime(c?.regime ?? null).map((o) => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
           </select>
@@ -64,7 +64,7 @@ export function BlocoIdentificacao({ c, erros, pode, admin, busca }: Props & { a
           <Input name="funcionarios" inputMode="numeric" defaultValue={c?.funcionarios ?? ''} autoComplete="off" />
         </FormField>
         <fieldset className="md:col-span-2 xl:col-span-4">
-          <legend className={classeLegenda}>Segmento <span aria-hidden className="text-danger">*</span></legend>
+          <legend className={classeLegenda}>Segmento <span aria-hidden className="text-danger">*</span><span className="sr-only"> (obrigatório)</span></legend>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             {SEGMENTOS.map((s) => <Caixa key={s.valor} name="segmentos" value={s.valor} rotulo={s.rotulo} defaultChecked={segmentos.has(s.valor)} />)}
           </div>
@@ -85,26 +85,26 @@ export function BlocoEndereco({ c, erros, pode, busca }: Props & { busca: Busca 
     <BlocoFicha id="endereco" titulo="Endereço" pode={pode} aside="CEP preenche rua, bairro, cidade e UF">
       <div className="grid gap-x-4 gap-y-3 md:grid-cols-6 xl:grid-cols-12">
         <FormField id="ficha-cep" rotulo="CEP" obrigatorio erro={erros.cep} className="md:col-span-2 xl:col-span-3">
-          <CampoComLupa name="cep" required={false} defaultValue={c?.cep ? mascararCEP(c.cep) : ''} inputMode="numeric" autoComplete="off"
+          <CampoComLupa name="cep" required={false} aria-required defaultValue={c?.cep ? mascararCEP(c.cep) : ''} inputMode="numeric" autoComplete="off"
             placeholder="00000-000" rotuloLupa="Buscar o endereço" mostrarLupa={pode} buscando={busca.buscando} aoBuscar={busca.buscar} onBlur={busca.aoSair} />
         </FormField>
         <FormField id="ficha-logradouro" rotulo="Logradouro" obrigatorio erro={erros.logradouro} className="md:col-span-4 xl:col-span-5">
-          <Input name="logradouro" required={false} defaultValue={c?.logradouro ?? ''} autoComplete="off" />
+          <Input name="logradouro" required={false} aria-required defaultValue={c?.logradouro ?? ''} autoComplete="off" />
         </FormField>
         <FormField id="ficha-numero" rotulo="Número" obrigatorio erro={erros.numero} className="md:col-span-2 xl:col-span-2">
-          <Input name="numero" required={false} defaultValue={c?.numero ?? ''} autoComplete="off" />
+          <Input name="numero" required={false} aria-required defaultValue={c?.numero ?? ''} autoComplete="off" />
         </FormField>
         <FormField id="ficha-complemento" rotulo="Complemento" erro={erros.complemento} className="md:col-span-4 xl:col-span-2">
           <Input name="complemento" defaultValue={c?.complemento ?? ''} autoComplete="off" />
         </FormField>
         <FormField id="ficha-bairro" rotulo="Bairro" obrigatorio erro={erros.bairro} className="md:col-span-2 xl:col-span-3">
-          <Input name="bairro" required={false} defaultValue={c?.bairro ?? ''} autoComplete="off" />
+          <Input name="bairro" required={false} aria-required defaultValue={c?.bairro ?? ''} autoComplete="off" />
         </FormField>
         <FormField id="ficha-cidade" rotulo="Cidade" obrigatorio erro={erros.cidade} className="md:col-span-3 xl:col-span-5">
-          <Input name="cidade" required={false} defaultValue={c?.cidade ?? ''} autoComplete="off" />
+          <Input name="cidade" required={false} aria-required defaultValue={c?.cidade ?? ''} autoComplete="off" />
         </FormField>
         <FormField id="ficha-uf" rotulo="UF" obrigatorio erro={erros.uf} className="md:col-span-1 xl:col-span-2">
-          <select name="uf" required={false} defaultValue={c?.uf?.trim() ?? ''} className={classeSelect}>
+          <select name="uf" required={false} aria-required defaultValue={c?.uf?.trim() ?? ''} className={classeSelect}>
             <option value="">UF</option>
             {UFS.map((u) => <option key={u} value={u}>{u}</option>)}
           </select>

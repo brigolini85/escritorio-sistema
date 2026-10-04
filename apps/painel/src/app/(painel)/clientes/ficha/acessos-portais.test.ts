@@ -5,6 +5,44 @@ import { describe, expect, it } from 'vitest';
 // então a guarda lê o código e confere o que não pode faltar (o e2e da Task 13 confere o comportamento).
 const codigo = readFileSync(new URL('./acessos-portais.tsx', import.meta.url), 'utf8');
 
+/** Conteúdo de cada (…) ou {…} que começa logo depois de cada achado de `inicio`, com o equilíbrio de abre/fecha. */
+function trechos(texto: string, inicio: RegExp, abre: string, fecha: string): string[] {
+  return [...texto.matchAll(inicio)].map((m) => {
+    let i = (m.index ?? 0) + m[0].length;
+    const de = i;
+    for (let n = 1; n > 0 && i < texto.length; i++) {
+      if (texto[i] === abre) n++;
+      else if (texto[i] === fecha) n--;
+    }
+    return texto.slice(de, i - 1);
+  });
+}
+/** Tira o texto fixo das aspas e das crases (fica só o código, inclusive o de dentro de ${…}). */
+function semLiterais(e: string): string {
+  let saida = '';
+  // Pilha: 'c' = código (o número conta as chaves abertas dentro de ${…}), '`' = texto de crase.
+  const pilha: { modo: 'c' | '`'; chaves: number }[] = [{ modo: 'c', chaves: 0 }];
+  for (let i = 0; i < e.length; i++) {
+    const ch = e[i];
+    const topo = pilha[pilha.length - 1] ?? { modo: 'c', chaves: 0 };
+    if (topo.modo === '`') {
+      if (ch === '\\') i++;
+      else if (ch === '`') pilha.pop();
+      else if (ch === '$' && e[i + 1] === '{') { pilha.push({ modo: 'c', chaves: 0 }); i++; }
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      const fim = e.indexOf(ch, i + 1);
+      i = fim < 0 ? e.length : fim;
+      saida += ' ';
+    } else if (ch === '`') pilha.push({ modo: '`', chaves: 0 });
+    else if (ch === '{') { topo.chaves++; saida += ch; }
+    else if (ch === '}' && topo.chaves === 0 && pilha.length > 1) pilha.pop();
+    else { if (ch === '}') topo.chaves--; saida += ch; }
+  }
+  return saida;
+}
+
 describe('bloco Acessos de portais', () => {
   it('é componente do navegador e mora no bloco "acessos" (o índice aponta para #bloco-acessos)', () => {
     expect(codigo.startsWith("'use client';")).toBe(true);
@@ -26,6 +64,27 @@ describe('bloco Acessos de portais', () => {
     expect(codigo).toMatch(/setTimeout\(\(\) => setSenha\(null\), MOSTRAR_POR_MS\)/);
     expect(codigo).toMatch(/return \(\) => clearTimeout\(t\)/);
     expect(codigo).not.toMatch(/console\.|localStorage|sessionStorage|indexedDB|searchParams|router\.push|router\.replace|location\./);
+  });
+
+  it('a senha aberta só tem dois destinos: o estado (revelar) e a área de transferência (copiar)', () => {
+    expect(codigo).toMatch(/const \[senha, setSenha\] = useState<string \| null>\(null\);/);
+    expect(codigo.match(/r\.senha/g)).toEqual(['r.senha', 'r.senha']);
+    expect(codigo).toMatch(/setSenha\(r\.senha\)/);
+    expect(codigo).toMatch(/writeText\(r\.senha\)/);
+  });
+
+  it('a senha só aparece na tela dentro do <code> de quem revelou', () => {
+    expect(codigo.match(/\{senha\}/g)).toEqual(['{senha}']);
+    expect(codigo).toMatch(/<code [^>]*>\{senha\}<\/code>/);
+  });
+
+  it('a senha nunca entra em toast, title, data-* ou aria-label (só "senha !== null" para escolher o rótulo)', () => {
+    const expressoes = [
+      ...trechos(codigo, /toast\.\w+\(/g, '(', ')'),
+      ...trechos(codigo, /(?:title|aria-label|data-[\w-]+)=\{/g, '{', '}'),
+    ];
+    expect(expressoes.length).toBeGreaterThan(0);
+    for (const e of expressoes) expect(semLiterais(e.replace(/\bsenha [!=]== null\b/g, '')), e).not.toMatch(/\bsenha\b/);
   });
 
   it('copiar escreve na área de transferência a resposta da ação (auditada) e não mostra a senha', () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { Copy, Eye, EyeOff, Lock, Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { unstable_rethrow, useRouter } from 'next/navigation';
 import { useEffect, useId, useState, useTransition, type FormEvent, type ReactElement } from 'react';
 import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
 import { FormField } from '@/components/patterns/form-field';
@@ -17,6 +17,10 @@ import { BlocoFicha } from './campos';
 export type AcessoLinha = { id: string; portal: string; usuario: string | null; tem_senha: boolean };
 /** A senha revelada some sozinha (D5). */
 const MOSTRAR_POR_MS = 30_000;
+// Textos fixos para falha da chamada: o erro em si nunca vai para a tela.
+const NAO_ABRIU = 'Não consegui abrir a senha agora. Tente de novo.';
+const NAO_SALVOU = 'Não consegui salvar o acesso agora. Tente de novo.';
+const NAO_REMOVEU = 'Não consegui remover o acesso agora. Tente de novo.';
 
 /**
  * Acessos de portais (spec 7D.1 item 8). Portal e usuário à vista de quem vê a ficha (D7); a senha só chega à tela por
@@ -81,12 +85,25 @@ function LinhaAcesso({ clienteId, a, podeVer, podeEditar, cofreOk }: {
   }, [senha]);
   const motivo = !podeVer ? SEM_PERMISSAO_VER : !cofreOk ? SEM_CHAVE : null;
 
+  // Falha da ação (rede, 500) vira aviso na linha: sem o catch, o React 19 troca a ficha inteira pela tela de erro.
   const revelar = () => iniciar(async () => {
-    const r = await revelarAcesso(a.id);
-    if (r.ok) { setSenha(r.senha); setErro(null); } else setErro(r.erro);
+    try {
+      const r = await revelarAcesso(a.id);
+      if (r.ok) { setSenha(r.senha); setErro(null); } else setErro(r.erro);
+    } catch (err) {
+      unstable_rethrow(err);
+      setErro(NAO_ABRIU);
+    }
   });
   const copiar = () => iniciar(async () => {
-    const r = await copiarAcesso(a.id);
+    let r: Awaited<ReturnType<typeof copiarAcesso>>;
+    try {
+      r = await copiarAcesso(a.id);
+    } catch (err) {
+      unstable_rethrow(err);
+      setErro(NAO_ABRIU);
+      return;
+    }
     if (!r.ok) { setErro(r.erro); return; }
     try {
       await navigator.clipboard.writeText(r.senha);
@@ -131,8 +148,13 @@ function LinhaAcesso({ clienteId, a, podeVer, podeEditar, cofreOk }: {
           <ConfirmDialog tipo="excluir" titulo={`Remover o acesso ${a.portal}?`} descricao="A senha guardada sai junto. Fica registrado na auditoria." confirmar="Remover"
             gatilho={<Button type="button" variant="ghost" size="icon" aria-label={`Remover o acesso ${a.portal}`}><Trash2 aria-hidden size={16} strokeWidth={1.75} /></Button>}
             acao={async () => {
-              const r = await removerAcesso(clienteId, a.id);
-              if (r.ok) { toast.success('Acesso removido.'); router.refresh(); } else toast.error(r.erro);
+              try {
+                const r = await removerAcesso(clienteId, a.id);
+                if (r.ok) { toast.success('Acesso removido.'); router.refresh(); } else toast.error(r.erro);
+              } catch (err) {
+                unstable_rethrow(err);
+                toast.error(NAO_REMOVEU);
+              }
             }} />
         )}
       </td>
@@ -155,12 +177,17 @@ function JanelaAcesso({ clienteId, acesso, gatilho }: { clienteId: string; acess
     e.stopPropagation();
     const dados = new FormData(e.currentTarget);
     iniciar(async () => {
-      const r = await salvarAcesso(clienteId, acesso?.id ?? null, dados);
-      setEstado(r);
-      if (!r.ok) return;
-      setAberto(false);
-      toast.success('Acesso salvo.');
-      router.refresh();
+      try {
+        const r = await salvarAcesso(clienteId, acesso?.id ?? null, dados);
+        setEstado(r);
+        if (!r.ok) return;
+        setAberto(false);
+        toast.success('Acesso salvo.');
+        router.refresh();
+      } catch (err) {
+        unstable_rethrow(err);
+        setEstado({ ok: false, erros: { geral: NAO_SALVOU } });
+      }
     });
   };
 

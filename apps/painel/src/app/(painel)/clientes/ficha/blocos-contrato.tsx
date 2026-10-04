@@ -22,10 +22,10 @@ export function BlocoContrato({ c, erros, pode, servicos, contratados, setorPess
     <BlocoFicha id="contrato" titulo="Contrato e honorários" pode={pode}>
       <div className="grid gap-x-4 gap-y-3 md:grid-cols-3">
         <FormField id="ficha-contrato-inicio" rotulo="Início do contrato" obrigatorio erro={erros.contrato_inicio}>
-          <Input type="date" name="contrato_inicio" required={false} defaultValue={c?.contrato_inicio ?? ''} />
+          <Input type="date" name="contrato_inicio" required={false} aria-required defaultValue={c?.contrato_inicio ?? ''} />
         </FormField>
         <FormField id="ficha-honorario" rotulo="Honorário mensal" obrigatorio erro={erros.honorario_mensal}>
-          <CampoDinheiro name="honorario_mensal" required={false} defaultValue={dinheiroNoCampo(c?.honorario_mensal ?? null)} />
+          <CampoDinheiro name="honorario_mensal" required={false} aria-required defaultValue={dinheiroNoCampo(c?.honorario_mensal ?? null)} />
         </FormField>
         <FormField id="ficha-dia-vencimento" rotulo="Dia de vencimento" erro={erros.dia_vencimento}>
           <Input name="dia_vencimento" inputMode="numeric" defaultValue={c?.dia_vencimento ?? ''} autoComplete="off" />
@@ -110,7 +110,7 @@ export function BlocoCertificado({ c, erros, pode, estado }: { c: ClienteFicha |
           </select>
         </FormField>
         <FormField id="ficha-cert-vencimento" rotulo="Vencimento" obrigatorio erro={erros.certificado_vencimento}>
-          <Input type="date" name="certificado_vencimento" required={false} defaultValue={c?.certificado_vencimento ?? ''} />
+          <Input type="date" name="certificado_vencimento" required={false} aria-required defaultValue={c?.certificado_vencimento ?? ''} />
         </FormField>
         <FormField id="ficha-cert-avisar" rotulo="Avisar antes">
           <select name="certificado_avisar_dias" defaultValue={String(c?.certificado_avisar_dias ?? 30)} className={classeSelect}>
