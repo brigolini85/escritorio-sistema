@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatarDataHora } from '@/lib/formatos';
 import { ROTULO_TIPO } from '@/lib/orientacoes';
-import type { LinhaHistorico } from './tela';
+import { paresHistorico, type LinhaHistorico } from './tela';
 import type { Versao } from './versoes';
 
 type Acao = (dados: FormData) => void | Promise<void>;
@@ -24,7 +24,8 @@ export function HistoricoTabela({ linhas, versoes, ligada, valePara, restaurar, 
   restaurar: (versaoId: string) => Acao;
   aviso?: ReactNode;
 }) {
-  const n = linhas.length;
+  const pares = paresHistorico(linhas, versoes);
+  const n = pares.length;
   return (
     <section id="historico" aria-labelledby="titulo-historico" className="rounded-lg border border-border bg-surface">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-4 py-3">
@@ -40,8 +41,7 @@ export function HistoricoTabela({ linhas, versoes, ligada, valePara, restaurar, 
             <tr><th scope="col">Quando</th><th scope="col">O que aconteceu</th><th scope="col">Restaurar</th></tr>
           </thead>
           <tbody>
-            {linhas.map((l, i) => {
-              const v = versoes[i]!;
+            {pares.map(({ linha: l, versao: v }) => {
               return (
                 <tr key={l.id} className="border-b border-border align-top last:border-b-0">
                   <td className="whitespace-nowrap px-4 py-2.5 tabular text-muted">{l.quando}</td>

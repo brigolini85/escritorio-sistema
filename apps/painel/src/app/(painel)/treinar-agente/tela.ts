@@ -63,6 +63,15 @@ export function linhasHistorico(versoes: readonly Versao[], atual: Conteudo, ens
   }));
 }
 
+/** Cada linha com a versão do mesmo id (nunca pela posição): Restaurar leva sempre a versão que a linha mostra. */
+export function paresHistorico<V extends { id: string }>(linhas: readonly LinhaHistorico[], versoes: readonly V[]): { linha: LinhaHistorico; versao: V }[] {
+  const porId = new Map(versoes.map((v) => [v.id, v]));
+  return linhas.flatMap((linha) => {
+    const versao = porId.get(linha.id);
+    return versao ? [{ linha, versao }] : [];
+  });
+}
+
 /** Linha embaixo do título: "Criada por Ana no Atendimento", "Criada por Ana" ou "Criada no Atendimento". D8 */
 export function textoCriacao(criadoPor: string | null, ensinada: boolean): string {
   return `Criada${criadoPor ? ` por ${criadoPor}` : ''}${ensinada ? ' no Atendimento' : ''}`;

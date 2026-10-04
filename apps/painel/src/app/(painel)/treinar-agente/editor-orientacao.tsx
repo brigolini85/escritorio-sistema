@@ -129,7 +129,7 @@ function FormularioEditor({ acao, orientacao, empresas, setores, aviso, avisoEmp
   const conferir = (e: FormEvent<HTMLFormElement>) => {
     if (faltaEmpresa(e.currentTarget)) e.preventDefault();
   };
-  // Enter no título não envia: o botão padrão seria SALVAR DESLIGADA e desligaria uma orientação ligada (D12).
+  // Enter no título não envia (reforço do botão padrão desligado): senão SALVAR DESLIGADA desligaria uma orientação ligada (D12).
   const semEnter = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') e.preventDefault();
   };
@@ -145,8 +145,12 @@ function FormularioEditor({ acao, orientacao, empresas, setores, aviso, avisoEmp
         const f = e.currentTarget;
         setTimeout(() => sincronizar(f), 0);
       }}
+      // "Salvar e sair" genérico enviaria sem ativo e desligaria a orientação (D12): aqui nunca salva para sair.
+      salvarParaSair={async () => false}
       className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-5"
     >
+      {/* Botão padrão desligado, primeiro do formulário: Enter em qualquer campo não envia (D12; HTML, envio implícito). */}
+      <button type="submit" disabled hidden aria-hidden tabIndex={-1} />
       {aviso}
       <FormField id={`${id}-titulo`} rotulo="Título" ajuda={<span className="tabular">{titulo} / {LIMITE_TITULO}</span>} obrigatorio>
         <Input name="titulo" defaultValue={orientacao?.titulo} maxLength={LIMITE_TITULO} placeholder="Ex.: Cumprimento" autoComplete="off" onKeyDown={semEnter} />

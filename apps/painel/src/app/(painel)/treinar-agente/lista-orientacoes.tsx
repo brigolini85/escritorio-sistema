@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/cn';
 import { ROTULO_TIPO, TIPOS, type Medidor, type TipoOrientacao } from '@/lib/orientacoes';
 import { ChaveOrientacao } from './chave-orientacao';
+import type { ValePara } from './esquemas';
 import { MedidorCompacto } from './medidor-compacto';
 import { camposAPreencher, FAIXA_TIPO, ROTULO_CURTO_TIPO } from './tela';
 
@@ -48,12 +49,15 @@ function Detalhe({ l }: { l: ItemLista }) {
  * A chave fica fora do link (dois controles não se aninham).
  */
 export function ListaOrientacoes({
-  linhas, total, contagem, filtro, busca, aberta, orientacaoNaUrl, medidor, empresaMaisPesada, erro, aviso, hrefOrientacao, hrefFiltro, hrefNova,
+  linhas, total, contagem, filtro, tipo = null, vale = null, busca, aberta, orientacaoNaUrl, medidor, empresaMaisPesada, erro, aviso, hrefOrientacao, hrefFiltro, hrefNova,
 }: {
   linhas: ItemLista[];
   total: number;
   contagem: { todas: number; ligadas: number; desligadas: number };
   filtro: Filtro;
+  /** ?tipo= e ?vale= da URL (D16: sem botão, mas a busca mantém). */
+  tipo?: TipoOrientacao | null;
+  vale?: ValePara | null;
   busca: string;
   aberta: string | null;
   /** O valor de ?orientacao= (inclusive "nova"), mantido pela busca. */
@@ -88,6 +92,8 @@ export function ListaOrientacoes({
         <form role="search" action="/treinar-agente" className="relative">
           {orientacaoNaUrl && <input type="hidden" name="orientacao" value={orientacaoNaUrl} />}
           {filtro && <input type="hidden" name="ativo" value={filtro} />}
+          {tipo && <input type="hidden" name="tipo" value={tipo} />}
+          {vale && <input type="hidden" name="vale" value={vale} />}
           <Search aria-hidden size={16} strokeWidth={1.75} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
           <Input type="search" name="q" defaultValue={busca} aria-label="Buscar orientação" placeholder="Buscar orientação" className="pl-9" />
         </form>
