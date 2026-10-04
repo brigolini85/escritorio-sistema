@@ -92,3 +92,9 @@ export async function resumoDiario(d: DepsTarefas): Promise<void> {
   }
   if (cfg.emailAlertas) await d.email.enviar(cfg.emailAlertas, 'Resumo do dia', texto);
 }
+
+/** Todo dia de manhã: certificado perto de vencer vira demanda no Fiscal (spec 7D.1, D21). O dia é o de São Paulo. */
+export async function demandasDeCertificado(d: Pick<DepsTarefas, 'repos' | 'relogio'>): Promise<number> {
+  const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d.relogio());
+  return d.repos.gerarDemandasCertificado(hoje);
+}

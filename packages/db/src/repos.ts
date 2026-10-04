@@ -509,6 +509,11 @@ export function criarRepos(db: Db) {
         regime: c.regime, endereco: c.endereco, uf: c.uf, ativo: c.ativo };
     },
 
+    /** Certificado digital perto de vencer vira demanda no Fiscal (Parte H1, D21). `hoje` = dia em São Paulo; devolve quantas criou. */
+    async gerarDemandasCertificado(hoje: string): Promise<number> {
+      return checar(await db.rpc('gerar_demandas_certificado', { p_hoje: hoje }), 'gerarDemandasCertificado');
+    },
+
     /** Preço alterado pelo agente a pedido do contato; o banco exige "pode mudar preço" para a empresa. */
     async definirPrecoPeloAgente(grupoId: string, produtoId: string, valor: number, contatoId: string): Promise<void> {
       const r = await db.rpc('definir_preco_agente', { p_grupo: grupoId, p_produto: produtoId, p_valor: valor, p_contato: contatoId });

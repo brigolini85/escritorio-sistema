@@ -16,7 +16,7 @@ import { limparRetencao } from './retencao';
 import { canalDaSugestao } from './sugestao/ferramentas';
 import { processarSugestao } from './sugestao/processar';
 import { criarServidor } from './servidor';
-import { alertasPeriodicos, batimento, resumoDiario } from './tarefas';
+import { alertasPeriodicos, batimento, demandasDeCertificado, resumoDiario } from './tarefas';
 
 const FUSO = { tz: 'America/Sao_Paulo' };
 
@@ -78,6 +78,9 @@ async function principal() {
   await boss.schedule(FILAS.resumoDiario, '0 18 * * 1-6', {}, FUSO);
   await boss.work(FILAS.limpezaRetencao, async () => { await limparRetencao(db, midia); });
   await boss.schedule(FILAS.limpezaRetencao, '0 3 * * *', {}, FUSO);
+  // Todo dia às 07:00: certificado digital perto de vencer vira demanda no Fiscal (Parte H1).
+  await boss.work(FILAS.certificados, async () => { await demandasDeCertificado(depsTarefas); });
+  await boss.schedule(FILAS.certificados, '0 7 * * *', {}, FUSO);
 
   const app = criarServidor({ canal, repos, fila: filaDe(boss), segredo: cfg.WEBHOOK_SEGREDO, relogio });
   await app.listen({ host: '0.0.0.0', port: cfg.PORTA });

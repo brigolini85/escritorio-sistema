@@ -9,6 +9,8 @@ export const FILAS = {
   resumoDiario: 'resumo-diario',
   limpezaRetencao: 'limpeza-retencao',
   removerArquivos: 'remover-arquivos',
+  /** Todo dia às 07:00: certificado digital perto de vencer vira demanda no Fiscal (Parte H1). */
+  certificados: 'certificados-vencendo',
   assistente: 'assistente',
   /** Treinar o agente: o painel grava a simulação (criar_simulacao) e enfileira { simulacaoId } com este nome. */
   simularAgente: 'simular_agente',
@@ -41,7 +43,7 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   await boss.createQueue(FILAS.sugerirResposta, { name: FILAS.sugerirResposta, policy: 'stately', retryLimit: 1, retryDelay: 5 });
   await boss.createQueue(FILAS.enviarMensagem, { name: FILAS.enviarMensagem, retryLimit: 5, retryDelay: 10, retryBackoff: true });
   await boss.createQueue(FILAS.removerArquivos, { name: FILAS.removerArquivos, retryLimit: 10, retryDelay: 60, retryBackoff: true });
-  for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao]) {
+  for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao, FILAS.certificados]) {
     await boss.createQueue(nome, { name: nome, retryLimit: 2 });
   }
   return boss;
