@@ -44,9 +44,12 @@ export const MAX_ABAS = 5;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const CHAVE = new RegExp(`^(?:pedido-\\d{1,9}|(?:previa|tabela)-${UUID}-\\d{1,3}|arquivos)$`, 'i');
 
-/** "Prévia do pedido #536:" → 536. O último "#N" do cabeçalho; sem número, null (D19). */
+/** "Prévia do pedido #536:" → 536. O último "#N" da última linha do cabeçalho, se ela fala em prévia; senão null (D19). */
 export function numeroDoCabecalho(cabecalho: string): number | null {
-  const achados = [...cabecalho.matchAll(/#\s?(\d{1,9})\b/g)];
+  // Só a linha logo antes de "Antes:" e só se ela fala em prévia: "#N" do texto livre (ou entre prévias) é de outra coisa.
+  const ultima = cabecalho.split(/\r?\n/).filter((l) => l.trim()).at(-1) ?? '';
+  if (!/previa/i.test(ultima.normalize('NFD').replace(/\p{M}/gu, ''))) return null;
+  const achados = [...ultima.matchAll(/#\s?(\d{1,9})\b/g)];
   return achados.length ? Number(achados.at(-1)![1]) : null;
 }
 

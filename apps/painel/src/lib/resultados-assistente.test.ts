@@ -27,6 +27,27 @@ describe('numeroDoCabecalho', () => {
     expect(numeroDoCabecalho('Corrigi o #12. Prévia do #536:')).toBe(536);
     expect(numeroDoCabecalho('Prévia do pedido:')).toBeNull();
   });
+
+  it('só a última linha do cabeçalho, e só se ela fala em prévia: "#N" do texto livre não vale (D19)', () => {
+    expect(numeroDoCabecalho('Sobre a demanda #12.\nPrévia do pedido:')).toBeNull();
+    expect(numeroDoCabecalho('Sobre a demanda #12.\nSegue a prévia:')).toBeNull();
+    expect(numeroDoCabecalho('O pedido #12 mudou:')).toBeNull();
+    expect(numeroDoCabecalho('Sobre a demanda #12.\nPREVIA do pedido #536:\n\n')).toBe(536);
+  });
+
+  it('duas prévias: o texto entre elas citando outro "#N" não dá número à segunda', () => {
+    const texto = `${PREVIA(536, '')}\n\nAgora o #12 também.\nPrévia do pedido:\nAntes:\n${corpo(1, 'R$ 18,50', 'R$ 102,50')}\nDepois:\n${corpo(2, 'R$ 37,00', 'R$ 121,00')}`;
+    const l = lerConversa([msg(3, 'assistente', texto)], true);
+    expect(l.resultados.map((r) => r.chave).sort()).toEqual(['pedido-536', `previa-${ID(3)}-1`]);
+    expect(l.resultados.some((r) => r.chave === 'pedido-12')).toBe(false);
+  });
+
+  it('cabeçalho livre com "#12" numa linha de cima: prévia sem número e sem botões', () => {
+    const m = [msg(3, 'assistente', PREVIA(536).replace('Prévia do pedido #536:', 'Sobre a demanda #12.\nSegue a prévia:'))];
+    const l = lerConversa(m, true);
+    expect(l.resultados[0]).toMatchObject({ chave: `previa-${ID(3)}-0`, numero: null, rotulo: 'Prévia de pedido' });
+    expect(podeResponderPrevia(m, l.resultados[0] as ResultadoPedido)).toBe(false);
+  });
 });
 
 describe('lerArquivo', () => {
