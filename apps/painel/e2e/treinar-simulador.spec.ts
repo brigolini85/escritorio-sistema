@@ -214,7 +214,7 @@ test('lista: contagens, do Atendimento, campos a preencher, medidor, filtro e tr
 // Itens adiados para a Task 6 (progress.md): Enter em rádio, Restaurar pela linha, teste retomado, comparação com
 // ligar/salvar no meio e nenhum teste novo enquanto um roda.
 
-test('Enter num rádio (Tipo e Vale para) não grava: a orientação ligada continua ligada e sem versão nova', async ({ page }) => {
+test('Enter num rádio (Tipo e Vale para) e no título não grava: a orientação ligada continua ligada e sem versão nova', async ({ page }) => {
   await criarAna();
   const TITULO = `${P} Tom das respostas`;
   const { data: o } = await db.from('orientacoes_agente').insert({ titulo: TITULO, texto: 'Responda em duas frases.', tipo: 'jeito', ativo: true }).select('id').single();
@@ -229,6 +229,8 @@ test('Enter num rádio (Tipo e Vale para) não grava: a orientação ligada cont
   await editor(page).getByRole('radio', { name: /Regra do escritório/ }).press('Enter');
   await editor(page).getByRole('radio', { name: /Todos os clientes/ }).focus();
   await editor(page).getByRole('radio', { name: /Todos os clientes/ }).press('Enter');
+  // Enter no título com o formulário alterado: se enviasse, salvar_orientacao gravaria (texto e tipo mudaram).
+  await editor(page).getByLabel('Título').press('Enter');
   await page.waitForLoadState('networkidle');
   expect((await db.from('orientacoes_agente').select('texto, tipo, ativo').eq('id', o!.id).single()).data)
     .toEqual({ texto: 'Responda em duas frases.', tipo: 'jeito', ativo: true });
@@ -306,6 +308,7 @@ test('ligar e salvar durante a comparação não prendem o Testar; Testar e Tent
   await forcarEnvio();
   await page.waitForLoadState('networkidle');
   expect(await simulacoes(usuario)).toHaveLength(1);
+  await expect(simulador(page).getByText('Você já tem um teste em andamento')).toHaveCount(0);
   const [primeira] = await simulacoes(usuario);
   await pronta(primeira!.id, { mensagens: ['Segue o boleto atualizado.'], acoes: [], observacoes: [] });
   await expect(simulador(page).getByText('Segue o boleto atualizado.')).toBeVisible({ timeout: 10_000 });
@@ -337,11 +340,13 @@ test('ligar e salvar durante a comparação não prendem o Testar; Testar e Tent
   await expect(tentar).toBeVisible({ timeout: 10_000 });
   await tentar.dblclick();
   await expect.poll(async () => (await simulacoes(usuario)).length).toBe(4);
+  await expect(simulador(page).getByText('Você já tem um teste em andamento')).toHaveCount(0);
   await expect(simulador(page).getByRole('status').filter({ hasText: 'Pensando…' })).toBeVisible();
   await expect(testar).toBeDisabled();
   await forcarEnvio();
   await page.waitForLoadState('networkidle');
   expect(await simulacoes(usuario)).toHaveLength(4);
+  await expect(simulador(page).getByText('Você já tem um teste em andamento')).toHaveCount(0);
   const quarta = (await simulacoes(usuario))[3]!;
   expect(quarta).toMatchObject({ mensagem: 'E a segunda via?', status: 'pendente' });
   await pronta(quarta.id, { mensagens: ['Segue a segunda via.'], acoes: [], observacoes: [] });
