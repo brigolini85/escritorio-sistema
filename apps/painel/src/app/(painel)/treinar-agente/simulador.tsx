@@ -50,11 +50,15 @@ async function pedirTeste(p: PedidoTeste): Promise<RespostaTeste> {
 }
 
 /** Fase de um teste pela linha do banco; "não respondeu a tempo" pelo relógio de quem espera. */
-function useFase(id: string, aoMudarFase: (f: Fase) => void) {
+function useFase(id: string, aoMudarFase: (f: Fase | null) => void) {
   const { linha, atrasou } = useSimulacao(id);
   const resultado = linha ? resultadoDaLinha(linha) : { fase: 'pensando' as const };
   const fase: Fase = resultado.fase === 'pensando' && atrasou ? 'atrasou' : resultado.fase;
-  useEffect(() => aoMudarFase(fase), [fase, aoMudarFase]);
+  useEffect(() => {
+    aoMudarFase(fase);
+    // Ao sair da tela (troca de teste ou quadro escondido), a fase volta a neutra: "pensando" não prende o Testar.
+    return () => aoMudarFase(null);
+  }, [fase, aoMudarFase]);
   return { linha, resultado, fase };
 }
 
@@ -96,7 +100,7 @@ function ResultadoTeste({ id, aviso, rascunho, aoMudarFase, tentarDeNovo, rodape
   id: string;
   aviso: string | null;
   rascunho: PedidoTeste['rascunho'];
-  aoMudarFase: (f: Fase) => void;
+  aoMudarFase: (f: Fase | null) => void;
   tentarDeNovo: () => void;
   rodape: ReactNode;
 }) {
@@ -157,7 +161,7 @@ function ResultadoTeste({ id, aviso, rascunho, aoMudarFase, tentarDeNovo, rodape
 }
 
 /** A segunda simulação (sem rascunho): o texto que o cliente receberia e as ações, em poucas linhas. */
-function ResultadoComparacao({ id, aoMudarFase, comparar }: { id: string; aoMudarFase: (f: Fase) => void; comparar: () => void }) {
+function ResultadoComparacao({ id, aoMudarFase, comparar }: { id: string; aoMudarFase: (f: Fase | null) => void; comparar: () => void }) {
   const { resultado, fase } = useFase(id, aoMudarFase);
   if (fase === 'pensando') {
     return (
@@ -195,7 +199,7 @@ function SemORascunho({ comparacao, ocupado, erro, comparar, aoMudarFase }: {
   ocupado: boolean;
   erro: string | null;
   comparar: () => void;
-  aoMudarFase: (f: Fase) => void;
+  aoMudarFase: (f: Fase | null) => void;
 }) {
   return (
     <section aria-label="Sem o rascunho" className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3">
@@ -249,7 +253,7 @@ export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas
   }, [aberta]);
 
   const [mensagem, setMensagem] = useState('');
-  const [teste, setTeste] = useState<{ id: string; aviso: string | null; vez: number; pedido: PedidoTeste } | null>(null);
+  const [teste, setTeste] = useState<{ id: string; aviso: string | null; vez: number; pedido: PedidoTeste; podeComparar: boolean } | null>(null);
   const [fase, setFase] = useState<Fase | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [erroRascunho, setErroRascunho] = useState<string | null>(null);
@@ -275,7 +279,9 @@ export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas
         setFase(null);
       } else {
         setFase('pensando');
-        setTeste((t) => ({ id: r.id, aviso: r.aviso, vez: (t?.vez ?? 0) + 1, pedido }));
+        // Decidido na criação (D4): salvar ou ligar depois não esconde o quadro com uma comparação em andamento.
+        const podeComparar = !r.aviso && podeCompararSemRascunho(pedido.rascunho, salva);
+        setTeste((t) => ({ id: r.id, aviso: r.aviso, vez: (t?.vez ?? 0) + 1, pedido, podeComparar }));
       }
     });
   };
@@ -317,7 +323,10 @@ export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas
     enviar({ mensagem, clienteId: empresa, rascunho });
   };
 
-  const podeComparar = Boolean(teste && !teste.aviso && podeCompararSemRascunho(teste.pedido.rascunho, salva));
+  // Um teste por pessoa: repetir também espera o que está em andamento.
+  const repetir = () => {
+    if (ultimo && !ocupado) enviar(ultimo);
+  };
 
   return (
     <section aria-label="Simulador" className="flex min-h-0 flex-col bg-background max-lg:border-t max-lg:border-border lg:w-simulador-treinar lg:shrink-0 lg:border-l lg:border-border">
@@ -366,7 +375,7 @@ export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas
           <div className="flex flex-col items-start gap-2">
             <AvisoErro erro={erro} />
             {ultimo && (
-              <Button type="button" variant="outline" size="sm" disabled={enviando} onClick={() => enviar(ultimo)}>
+              <Button type="button" variant="outline" size="sm" disabled={ocupado} onClick={repetir}>
                 <RotateCcw aria-hidden size={16} strokeWidth={1.75} />
                 Tentar de novo
               </Button>
@@ -378,10 +387,11 @@ export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas
             key={`${teste.id}-${teste.vez}`}
             id={teste.id}
             aviso={teste.aviso}
-            rascunho={teste.pedido.rascunho}
+            // Teste retomado (aviso): a linha mostrada é a do teste antigo, não a deste rascunho (D7).
+            rascunho={teste.aviso ? null : teste.pedido.rascunho}
             aoMudarFase={setFase}
-            tentarDeNovo={() => ultimo && enviar(ultimo)}
-            rodape={podeComparar
+            tentarDeNovo={repetir}
+            rodape={teste.podeComparar
               ? <SemORascunho comparacao={comparacao} ocupado={ocupado} erro={erroComparacao} comparar={comparar} aoMudarFase={setFaseComparacao} />
               : null}
           />
