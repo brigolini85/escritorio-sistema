@@ -35,6 +35,9 @@ export function situacaoTeto(gasto: number, teto: number): SituacaoTeto {
   return { gasto, teto, fracao, nivel };
 }
 
+/** Percentual do teto para texto; fração infinita (teto 0 com gasto) vira "teto atingido", nunca "Infinity%". */
+export const textoFracaoTeto = (fracao: number): string => (Number.isFinite(fracao) ? `${Math.round(fracao * 100)}%` : 'teto atingido');
+
 /** `parcial` fica até a Parte G redesenhar o Início: com a gastos_resumo (uma soma no banco) é sempre false. */
 export type GastoDoMes = { total: number; parcial: boolean };
 

@@ -25,8 +25,9 @@ const primeiroErro = (e: z.ZodError): Resultado => falha(e.issues[0]?.message ??
 const lerPrazos = (f: FormData) => Object.fromEntries(PRIORIDADES.map((p) => [COLUNA_PRAZO[p], String(f.get(COLUNA_PRAZO[p]) ?? '')]));
 
 const recarregar = () => revalidatePath('/configuracoes');
-function checar(r: { error: { message: string } | null }) {
-  if (r.error) throw new Error(r.error.message);
+/** Remoções (o ConfirmDialog não lê retorno): erro vira exceção com a frase segura, nunca a mensagem crua do Postgres. */
+function checar(r: { error: { message: string; code?: string } | null }) {
+  if (r.error) throw new Error(textoDoBanco(r.error, 'Não consegui remover. Tente de novo.'));
 }
 
 /** Setores e serviços aparecem em demandas, atendimento, empresas, usuários, início e no treino do agente: sem revalidar, essas telas mostrariam a lista velha. */
@@ -43,8 +44,9 @@ export async function salvarSetor(id: string | null, formData: FormData): Promis
   if (!v.success) return primeiroErro(v.error);
   const dados = { ...v.data, ativo: formData.get('ativo') !== null || !id };
   const sb = await supabaseServidor();
-  const { error } = id ? await sb.from('setores').update(dados).eq('id', id) : await sb.from('setores').insert(dados);
+  const { data: salvos, error } = id ? await sb.from('setores').update(dados).eq('id', id).select('id') : await sb.from('setores').insert(dados).select('id');
   if (error) return nomeRepetido(error, 'Já existe um setor com este nome.');
+  if (id && !salvos?.length) return falha('Esse item não existe mais. Recarregue a página.');
   recarregarCadastros();
   return ok(id ? 'Setor salvo.' : 'Setor criado.');
 }
@@ -55,8 +57,9 @@ export async function salvarServico(id: string | null, formData: FormData): Prom
   if (!v.success) return primeiroErro(v.error);
   const dados = { ...v.data, ativo: formData.get('ativo') !== null || !id };
   const sb = await supabaseServidor();
-  const { error } = id ? await sb.from('servicos').update(dados).eq('id', id) : await sb.from('servicos').insert(dados);
+  const { data: salvos, error } = id ? await sb.from('servicos').update(dados).eq('id', id).select('id') : await sb.from('servicos').insert(dados).select('id');
   if (error) return nomeRepetido(error, 'Já existe um serviço com este nome.');
+  if (id && !salvos?.length) return falha('Esse item não existe mais. Recarregue a página.');
   recarregarCadastros();
   return ok(id ? 'Serviço salvo.' : 'Serviço criado.');
 }
@@ -190,7 +193,7 @@ export async function salvarAvisoLogin(formData: FormData): Promise<Resultado> {
 const COLUNAS_PRAZO = 'prazo_urgente_dias, prazo_alta_dias, prazo_normal_dias, prazo_baixa_dias';
 
 /** Impacto de cada prioridade mudada nas demandas abertas, sem gravar (simular_mudanca_prazo é stable). */
-export async function simularPrazos(formData: FormData): Promise<{ ok: true; impactos: ImpactoPrazo[] } | { ok: false; erro: string }> {
+export async function simularPrazos(formData: FormData): Promise<{ ok: true; impactos: ImpactoPrazo[]; semImpacto?: true } | { ok: false; erro: string }> {
   await exigirConfiguracoes();
   const v = PrazosForm.safeParse(lerPrazos(formData));
   if (!v.success) return { ok: false, erro: 'Cada prazo vai de 0 a 30 dias úteis.' };
@@ -204,6 +207,8 @@ export async function simularPrazos(formData: FormData): Promise<{ ok: true; imp
     if (v.data[col] === cfg[col]) continue;
     const r = await sb.rpc('simular_mudanca_prazo', { p_prioridade: p, p_dias: v.data[col] });
     // Homologação sem a migração (D25) cai aqui: a janela não abre e o cartão avisa.
+    // PGRST202: banco sem a migração (função inexistente): salva só para as novas, sem impacto calculado.
+    if (r.error?.code === 'PGRST202') return { ok: true, impactos: [], semImpacto: true };
     if (r.error) return { ok: false, erro: `Não consegui calcular o impacto: ${textoDoBanco(r.error, 'o banco não respondeu. Nada foi salvo.')}` };
     impactos.push(r.data as unknown as ImpactoPrazo);
   }
@@ -220,6 +225,7 @@ export async function salvarPrazos(formData: FormData): Promise<Resultado> {
     const { error } = await sb.from('configuracoes').update(v.data).eq('id', 1);
     if (error) return doBanco(error);
     recarregar();
+    if (formData.get('semImpacto') === 'sim') return ok('Prazos salvos para as demandas novas.');
     return ok('Prazos salvos. Valem para as demandas novas.');
   }
   const { data: cfg, error } = await sb.from('configuracoes').select(COLUNAS_PRAZO).eq('id', 1).single();
@@ -232,6 +238,7 @@ export async function salvarPrazos(formData: FormData): Promise<Resultado> {
     const r = await sb.rpc('aplicar_prazo_abertas', { p_prioridade: p, p_dias: v.data[col] });
     if (r.error) {
       recarregar();
+      revalidatePath('/demandas');
       return falha(`${feitas.length ? `Já aplicado: ${feitas.join(', ')}. ` : ''}${ROTULO_PRIORIDADE[p]}: ${textoDoBanco(r.error)}`);
     }
     mudaram += Number(r.data ?? 0);

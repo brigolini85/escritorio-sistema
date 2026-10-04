@@ -82,7 +82,7 @@ O painel não tem zoom: o tamanho da letra sobe sozinho com a tela, e a pessoa a
   - **Nome e monograma do escritório** (`lib/escritorio.ts`): `NOME_ESCRITORIO` e `MONOGRAMA`, usados no menu e no login. É o único lugar para trocar quando o logo chegar.
 - Uma tela (`app/(painel)/...`) monta patterns e primitivos. Ela não recria com classes soltas algo que já é um pattern.
 
-**Cronômetro de espera** (`atendimento/cronometro-espera.tsx`): verde/âmbar/vermelho pelos limites de Configurações › Atendimento, sempre com o número ("18 min") e, para o leitor de tela, "esperando há 18 minutos". **Marco** (centralizado, cinza) e **cartão de decisão** (tracejado) só aparecem na conversa; texto de pedido de nota nunca entra neles. O catálogo `/_design` mostra três cronômetros e um marco ("Atendimento (Parte E)").
+**Cronômetro de espera** (`atendimento/cronometro-espera.tsx`): verde/âmbar/vermelho pelos limites de Configurações › Limites de espera, sempre com o número ("18 min") e, para o leitor de tela, "esperando há 18 minutos". **Marco** (centralizado, cinza) e **cartão de decisão** (tracejado) só aparecem na conversa; texto de pedido de nota nunca entra neles. O catálogo `/_design` mostra três cronômetros e um marco ("Atendimento (Parte E)").
 
 **Ficha em página inteira** (Parte D, `usuarios/ficha-usuario.tsx`): cadastros com muitos campos usam página inteira com trilha, 3 colunas e rodapé com Voltar e Salvar, em vez de painel lateral. Campos que somem por uma escolha (ex.: "Administrador = Sim") ficam num `fieldset` desligado e escondido pela classe `hidden`: não vão no envio e voltam com o valor de antes.
 

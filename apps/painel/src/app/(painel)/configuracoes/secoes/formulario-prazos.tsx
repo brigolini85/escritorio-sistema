@@ -20,6 +20,7 @@ export function FormularioPrazos({ children }: { children: ReactNode }) {
       toast.error(s.erro);
       return false;
     }
+    if (s.semImpacto) dados.set('semImpacto', 'sim');
     if (!s.impactos.some((i) => i.abertas > 0)) return true;
     setImpactos(s.impactos);
     const escolha = await new Promise<Escolha>((res) => { resposta.current = res; });

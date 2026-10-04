@@ -73,3 +73,12 @@ describe('alertasDaFaixa', () => {
     expect(alertasDaFaixa({ teto: null, sinais: { fila: null, whatsapp: null, ultimo: null }, agora }).map((a) => a.id)).toEqual(['fila']);
   });
 });
+
+describe('textoFracaoTeto', () => {
+  it('percentual normal e "teto atingido" para fração infinita, nunca Infinity%', async () => {
+    const { textoFracaoTeto } = await import('./inicio');
+    expect(textoFracaoTeto(0.41)).toBe('41%');
+    expect(textoFracaoTeto(Infinity)).toBe('teto atingido');
+    expect(textoFracaoTeto(situacaoTeto(5, 0).fracao)).toBe('teto atingido');
+  });
+});

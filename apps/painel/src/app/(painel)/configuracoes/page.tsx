@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { hojeSP, hrefSecao, resumosDasSecoes, secaoDaUrl, secoesDe, type IdSecao } from '@/lib/configuracoes';
 import { LIMITES_BATIMENTO, situacaoTeto } from '@/lib/inicio';
 import { exigirConfiguracoes } from '@/lib/sessao';
+import { CARGOS_SUGERIDOS } from '@/lib/usuarios';
 import { situacaoDoSinal } from '@/lib/sinal-vida';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { gastoDoMes } from '../inicio/gasto-do-mes';
@@ -46,7 +47,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
   const teto = gasto ? situacaoTeto(gasto.total, Number(cfg.teto_ia_usd)) : null;
   const sinal = (c: string) => sinais?.find((s) => s.componente === c)?.visto_em ?? null;
   const resumos = resumosDasSecoes({
-    cfg: { ...cfg, teto_ia_usd: Number(cfg.teto_ia_usd), cargos: cfg.cargos ?? [] },
+    cfg: { ...cfg, teto_ia_usd: Number(cfg.teto_ia_usd), cargos: cfg.cargos ?? CARGOS_SUGERIDOS },
     feriados: feriados ?? [], respostas: respostas ?? [], setores: setores ?? [], servicos: servicos ?? [],
     fracaoTeto: teto?.fracao ?? null,
     integracoesOk: admin ? ['whatsapp', 'fila'].every((c) => situacaoDoSinal(sinal(c), agora, LIMITES_BATIMENTO) === 'ok') : null,

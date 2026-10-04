@@ -5,7 +5,7 @@ import { CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { nomeModelo } from '@/lib/configuracoes';
 import { formatarUSD } from '@/lib/formatos';
-import type { situacaoTeto } from '@/lib/inicio';
+import { textoFracaoTeto, type situacaoTeto } from '@/lib/inicio';
 import { classeSelect } from '../../clientes/estilos';
 import { salvarCotacao, salvarModelos, salvarTetoAlertas } from '../acoes';
 import { CampoEmail } from '../campos-validados';
@@ -35,7 +35,7 @@ export function SecaoIa({ cfg, teto, parcial }: { cfg: Config; teto: ReturnType<
               <FormField
                 id="teto_ia_usd"
                 rotulo="Teto mensal de gasto com IA (US$)"
-                ajuda={<>{teto && `Gasto neste mês: ${formatarUSD(teto.gasto)} (${Math.round(teto.fracao * 100)}% do teto)${parcial ? ', valor parcial' : ''}. `}<Link href="/gastos-ia" className={LINK}>Ver gastos com IA</Link></>}
+                ajuda={<>{teto && `Gasto neste mês: ${formatarUSD(teto.gasto)} (${textoFracaoTeto(teto.fracao)}${Number.isFinite(teto.fracao) ? ' do teto' : ''})${parcial ? ', valor parcial' : ''}. `}<Link href="/gastos-ia" className={LINK}>Ver gastos com IA</Link></>}
               >
                 <Input name="teto_ia_usd" type="number" step="1" min="1" required defaultValue={Number(cfg.teto_ia_usd)} className="tabular sm:w-40" />
               </FormField>
