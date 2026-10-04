@@ -14,7 +14,7 @@ test('item 6: quem tem Editar clientes (sem ser admin) desmarca serviço e o sal
 
   await page.goto(`/clientes/${cliente!.id}`);
   await page.getByLabel('Serviço Revisão E2E').uncheck();
-  await page.getByRole('button', { name: 'Salvar serviços' }).click();
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
   await expect(page.getByLabel('Serviço Revisão E2E')).not.toBeChecked();
   await expect.poll(async () => (await db.from('cliente_servicos').select('servico_id').eq('cliente_id', cliente!.id)).data).toEqual([]);
 });

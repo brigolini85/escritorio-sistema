@@ -130,6 +130,7 @@ for (const tema of ['claro', 'escuro'] as const) {
         '/demandas?nova=1',
         '/clientes',
         '/clientes?ver=arquivados',
+        '/clientes/novo',
         `/clientes/${ids.cliente}`,
         `/clientes/${ids.cliente}?aba=contatos`,
         `/clientes/${ids.cliente}?aba=precos`,
