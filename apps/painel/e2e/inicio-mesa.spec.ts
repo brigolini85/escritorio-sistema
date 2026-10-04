@@ -94,12 +94,19 @@ test('ASSUMIR de uma demanda que outra pessoa pegou antes: o aviso do banco e na
 
 test('"Só as minhas": a seção sem responsável fica vazia (a regra de leitura vale)', async ({ page }) => {
   await demandaE2e({ titulo: `${P} sem resp oculta`, setor: 'Fiscal', prazoEm: fimDeHoje() });
+  const { data: antes, error } = await db.from('usuario_permissoes').select('nivel').eq('usuario_id', ana).eq('modulo', 'demandas').single();
+  if (error) throw error;
   await db.from('usuario_permissoes').update({ nivel: 'minhas' }).eq('usuario_id', ana).eq('modulo', 'demandas');
-  await entrar(page, ANA.email, SENHA);
-  await abrirInicio(page, 'mesa');
-  const sem = page.getByRole('region', { name: 'Sem responsável nos meus setores' });
-  await expect(sem).toContainText('Nenhuma demanda sem responsável nos seus setores.');
-  expect(await numeroInicio(page, 'sem-responsavel')).toBe(0);
+  // Devolve o nível da Ana mesmo se o teste falhar: os próximos testes contam com o nível de antes.
+  try {
+    await entrar(page, ANA.email, SENHA);
+    await abrirInicio(page, 'mesa');
+    const sem = page.getByRole('region', { name: 'Sem responsável nos meus setores' });
+    await expect(sem).toContainText('Nenhuma demanda sem responsável nos seus setores.');
+    expect(await numeroInicio(page, 'sem-responsavel')).toBe(0);
+  } finally {
+    await db.from('usuario_permissoes').update({ nivel: antes.nivel }).eq('usuario_id', ana).eq('modulo', 'demandas');
+  }
 });
 
 test('conversas esperando você (cronômetro e não lidas), atalhos e o bloco Sistema sem pausar nem gasto', async ({ page }) => {

@@ -79,6 +79,7 @@ const UM_DIA_MS = 24 * 60 * 60 * 1000;
 export const lerSetoresSituacao = cache(async () => {
   const { sb } = await paginaInicio();
   const { data, error } = await sb.rpc('demandas_por_setor');
+  if (error) console.error('[inicio] falha ao ler as demandas por setor', error);
   return error ? null : lerLinhasSetor(data);
 });
 

@@ -9,7 +9,8 @@ import { lerSetoresSituacao, lerVencidasSituacao } from './dados-situacao';
 /** As cinco vencidas mais antigas (imagem A); o total é o do cartão (soma por setor). */
 export async function ListaVencidas() {
   const [vencidas, setores, { agora }] = await Promise.all([lerVencidasSituacao(), lerSetoresSituacao(), paginaInicio()]);
-  const total = setores ? totaisDosSetores(setores).vencidas : vencidas?.length ?? null;
+  // Sem a soma por setor, "—": a lista para em 5 e não é o total.
+  const total = setores ? totaisDosSetores(setores).vencidas : null;
   return (
     <section aria-labelledby="titulo-vencidas">
       <Card className="gap-2 p-4">
