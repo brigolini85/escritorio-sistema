@@ -1,5 +1,6 @@
 'use client';
 
+import { unstable_rethrow } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { Label } from '@/components/ui/label';
 import { ROTULO_DE_OPCAO } from '@/components/ui/rotulo-de-opcao';
@@ -12,7 +13,15 @@ export function ChaveVerAcessos({ id, nome, inicial, admin }: { id: string; nome
   const [ligado, setLigado] = useState(inicial);
   const [salvando, iniciar] = useTransition();
   const mudar = (v: boolean) => iniciar(async () => {
-    const r = await definirVerAcessos(id, v);
+    let r: Awaited<ReturnType<typeof definirVerAcessos>>;
+    // Falha da ação (rede, 500): aviso fixo; sem o catch, o React 19 troca a página pela tela de erro.
+    try {
+      r = await definirVerAcessos(id, v);
+    } catch (err) {
+      unstable_rethrow(err);
+      toast.error('Não consegui gravar agora. Tente de novo.');
+      return;
+    }
     if (!r.ok) { toast.error(r.erro); return; }
     setLigado(v);
     toast.success(v ? `${nome} agora vê os acessos de portais.` : `${nome} não vê mais os acessos de portais.`);
