@@ -41,6 +41,7 @@ Para cada ambiente (homologação e produção), crie dois apps a partir do repo
    - `SMTP_HOST`, `SMTP_PORTA`, `SMTP_USUARIO`, `SMTP_SENHA`, `SMTP_REMETENTE` (o e-mail que manda os alertas);
    - `PAINEL_URL`: o endereço do painel, por exemplo `https://painel.seuescritorio.com.br`.
    - `ACESSOS_PORTAIS_CHAVE` (só no app **Painel**): a chave das senhas de portais da ficha do cliente. Gere uma por ambiente com o comando do `.env.example` (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`: sai um texto de 44 caracteres terminado em `=`) e guarde uma cópia num lugar seguro (gerenciador de senhas). Sem ela, as senhas não abrem; trocar ou perder a chave obriga a cadastrar as senhas de novo.
+     **Painel de teste no computador** (o que liga na porta 3002 apontando para a homologação): ele não lê o Easypanel, e sim o arquivo de variáveis da homologação na pasta do projeto (o mesmo que leva o endereço e as chaves do Supabase de homologação para o painel de teste). Coloque nesse arquivo uma linha `ACESSOS_PORTAIS_CHAVE=` com **a mesma chave da homologação** cadastrada no Easypanel (não gere outra: senhas guardadas com uma chave não abrem com outra). Sem essa linha, o bloco "Acessos de portais" da ficha mostra o aviso de que falta a chave e não deixa cadastrar, ver nem copiar senhas.
 6. Em "Domains", configure o domínio do painel (ex.: `painel.seuescritorio.com.br`) e o do trabalhador (ex.: `robo.seuescritorio.com.br`).
 
 ### 2.3 GitHub
@@ -245,7 +246,7 @@ O menu de Configurações fica à esquerda, em grupos, com um resumo do que est�
 - **Nunca compartilhe as chaves** (Supabase, Claude, Z-API, Groq, e-mail) por WhatsApp, e-mail ou print. Elas ficam só no Easypanel, no GitHub e no arquivo `.env` do seu computador.
 - **Apagar os dados de um contato a pedido dele**: Clientes → abra a empresa → na linha do contato, marque **confirmo** e clique em **Apagar dados (LGPD)**. As mensagens, transcrições, arquivos e registros do agente daquele contato são apagados, e o nome e o telefone são trocados por dados fictícios. Só administradores veem esse botão.
 - **Prazo de guarda**: conversas, arquivos e registros do agente são apagados automaticamente depois de **1 ano**.
-- **Senhas de portais dos clientes** ficam cifradas com a chave ACESSOS_PORTAIS_CHAVE, que mora só no Easypanel (fora do banco): nem uma cópia do banco nem a chave de serviço do Supabase abrem as senhas.
+- **Senhas de portais dos clientes** ficam cifradas com a chave ACESSOS_PORTAIS_CHAVE, que mora só no Easypanel (fora do banco; a da homologação também no arquivo de variáveis do painel de teste, no computador): nem uma cópia do banco nem a chave de serviço do Supabase abrem as senhas.
 - **Quem recebe dados dos clientes** (para constar no registro de tratamento de dados do escritório):
   - **Anthropic** (a IA Claude, que lê as mensagens para responder), com transferência internacional (Estados Unidos);
   - **Groq** (transcrição dos áudios), com transferência internacional (Estados Unidos);
