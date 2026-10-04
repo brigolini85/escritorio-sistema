@@ -59,7 +59,7 @@ export function HistoricoEmBotoes({ conversaId, ultimaGeral, conversas, aberta }
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
                 {resto.map((c) => (
-                  <DropdownMenuItem key={c.id} asChild>
+                  <DropdownMenuItem key={c.id} asChild className="h-auto py-1.5">
                     <Link href={`/assistente?conversa=${c.id}`} className="flex flex-col items-start gap-0.5">
                       <span className="font-medium text-foreground">{c.nome}</span>
                       <span className="text-xs text-muted">{detalhe(c)}</span>
