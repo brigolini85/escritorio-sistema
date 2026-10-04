@@ -62,7 +62,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
     mensagens: () => <SecaoMensagens cfg={cfg} />,
     respostas: () => <SecaoRespostas respostas={respostas ?? []} />,
     espera: () => <SecaoEspera cfg={cfg} />,
-    ia: () => <SecaoIa cfg={cfg} teto={teto} parcial={gasto?.parcial ?? false} />,
+    ia: () => <SecaoIa cfg={cfg} teto={teto} />,
     setores: () => <SecaoSetores setores={setores ?? []} />,
     servicos: () => <SecaoServicos servicos={servicos ?? []} setores={setores ?? []} />,
     cargos: () => <SecaoCargos cfg={cfg} admin={admin} />,

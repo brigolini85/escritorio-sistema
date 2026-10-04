@@ -20,7 +20,7 @@ const decimalBr = (v: number | null | undefined) => (v === null || v === undefin
 const preco = (v: number) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
 /** Só o administrador (D8): teto e alertas, modelos e cotação, cada um com seu Salvar (pendência 17). */
-export function SecaoIa({ cfg, teto, parcial }: { cfg: Config; teto: ReturnType<typeof situacaoTeto> | null; parcial: boolean }) {
+export function SecaoIa({ cfg, teto }: { cfg: Config; teto: ReturnType<typeof situacaoTeto> | null }) {
   const precos = (cfg.precos_modelos ?? {}) as Record<string, Preco>;
   const modelos = Object.keys(precos);
   const opcoes = (atual: string) => [...new Set([...modelos, atual])].map((m) => (
@@ -35,7 +35,7 @@ export function SecaoIa({ cfg, teto, parcial }: { cfg: Config; teto: ReturnType<
               <FormField
                 id="teto_ia_usd"
                 rotulo="Teto mensal de gasto com IA (US$)"
-                ajuda={<>{teto && `Gasto neste mês: ${formatarUSD(teto.gasto)} (${textoFracaoTeto(teto.fracao)}${Number.isFinite(teto.fracao) ? ' do teto' : ''})${parcial ? ', valor parcial' : ''}. `}<Link href="/gastos-ia" className={LINK}>Ver gastos com IA</Link></>}
+                ajuda={<>{teto && `Gasto neste mês: ${formatarUSD(teto.gasto)} (${textoFracaoTeto(teto.fracao)}${Number.isFinite(teto.fracao) ? ' do teto' : ''}). `}<Link href="/gastos-ia" className={LINK}>Ver gastos com IA</Link></>}
               >
                 <Input name="teto_ia_usd" type="number" step="1" min="1" required defaultValue={Number(cfg.teto_ia_usd)} className="tabular sm:w-40" />
               </FormField>

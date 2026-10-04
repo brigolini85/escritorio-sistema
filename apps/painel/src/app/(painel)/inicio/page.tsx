@@ -190,7 +190,7 @@ export default async function Inicio() {
             destaque={(vencidas.count ?? 0) > 0 ? 'perigo' : undefined}
             rodape={<Link href="/demandas?vencidas=1" className="text-brand underline-offset-4 hover:underline">Ver na lista</Link>}
           />
-          {teto && <GastoIa gasto={teto.gasto} teto={teto.teto} fracao={teto.fracao} nivel={teto.nivel} parcial={gasto?.parcial ?? false} />}
+          {teto && <GastoIa gasto={teto.gasto} teto={teto.teto} fracao={teto.fracao} nivel={teto.nivel} />}
         </div>
       </section>
 
@@ -239,7 +239,7 @@ function Numero({ titulo, valor, destaque, rodape, children }: {
   );
 }
 
-function GastoIa({ gasto, teto, fracao, nivel, parcial }: { gasto: number; teto: number; fracao: number; nivel: 'ok' | 'perto' | 'atingido'; parcial: boolean }) {
+function GastoIa({ gasto, teto, fracao, nivel }: { gasto: number; teto: number; fracao: number; nivel: 'ok' | 'perto' | 'atingido' }) {
   const pct = Math.min(100, Math.round(fracao * 100));
   const cor = nivel === 'atingido' ? 'bg-danger' : nivel === 'perto' ? 'bg-warning' : 'bg-brand';
   return (
@@ -258,7 +258,7 @@ function GastoIa({ gasto, teto, fracao, nivel, parcial }: { gasto: number; teto:
         <div className={cn('h-full rounded-full transition-all duration-150 ease-out', cor)} style={{ width: `${pct}%` }} />
       </div>
       <p className={cn('mt-auto pt-2 text-xs', nivel === 'atingido' ? 'text-danger' : nivel === 'perto' ? 'text-warning' : 'text-muted')}>
-        {pct}% do teto de {formatarUSD(teto)}{parcial && ' · valor parcial (mês com uso demais para somar aqui; o real é maior)'}
+        {pct}% do teto de {formatarUSD(teto)}
         {' · '}<Link href="/gastos-ia" className="text-brand underline underline-offset-4">Ver gastos</Link>
       </p>
     </Card>
