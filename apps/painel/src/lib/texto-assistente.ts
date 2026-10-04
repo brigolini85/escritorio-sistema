@@ -16,8 +16,8 @@ export type Bloco =
 const ITEM_LISTA = /^\s*(?:[•\-–]|\*(?!\*))\s+(.*)$/;
 const ITEM_NUMERADO = /^\s*(\d{1,3})[.)]\s+(.*)$/;
 const TITULO = /^\s*#{1,6}\s+(.*)$/;
-const LINHA_TABELA = /^\s*\|.*\|\s*$/;
-const SEPARADOR_TABELA = /^\s*\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+export const LINHA_TABELA = /^\s*\|.*\|\s*$/;
+export const SEPARADOR_TABELA = /^\s*\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 
 function celulas(linha: string): string[] {
   return linha.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
