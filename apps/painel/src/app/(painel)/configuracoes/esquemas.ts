@@ -76,3 +76,10 @@ export const EsperaForm = z.object({
   espera_verde_min: z.coerce.number().int().min(1, 'De 1 a 240 minutos.').max(240, 'De 1 a 240 minutos.'),
   espera_ambar_min: z.coerce.number().int().max(480, 'Até 480 minutos.'),
 }).refine((v) => v.espera_ambar_min > v.espera_verde_min, { message: 'O âmbar precisa ser maior que o verde.', path: ['espera_ambar_min'] });
+
+/** Resposta pronta (Configurações: Sim): o agente só usa as ativas. */
+export const RespostaForm = z.object({
+  pergunta: z.string().trim().min(3, 'A pergunta precisa de pelo menos 3 letras.').max(300, 'Até 300 letras.'),
+  resposta: z.string().trim().min(1, 'Escreva a resposta.').max(2000, 'Até 2.000 letras.'),
+  ativo: z.boolean(),
+});

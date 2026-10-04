@@ -7,7 +7,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import type { z } from 'zod';
 import { COLUNA_PRAZO, PRIORIDADES, type ImpactoPrazo, type Resultado } from '@/lib/configuracoes';
 import { ROTULO_PRIORIDADE } from '@/lib/demandas';
-import { CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, TetoAlertasForm } from './esquemas';
+import { CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, RespostaForm, TetoAlertasForm } from './esquemas';
 
 // Respostas dos cartões (D21): nada de redirect com ?erro=; o cartão mostra o erro e mantém o que foi digitado.
 const ok = (mensagem: string): Resultado => ({ ok: true, mensagem });
@@ -45,17 +45,28 @@ export async function salvarServico(id: string | null, formData: FormData) {
   recarregar();
 }
 
-export async function salvarResposta(formData: FormData) {
+/** A conversa do Atendimento lê as respostas ativas: sem revalidar, o compositor mostraria a lista velha. */
+const recarregarRespostas = () => { recarregar(); revalidatePath('/atendimento', 'layout'); };
+
+/** Cria (id null) ou edita uma resposta pronta. Nova nasce ativa. */
+export async function salvarResposta(id: string | null, formData: FormData): Promise<Resultado> {
   await exigirConfiguracoes();
+  const v = RespostaForm.safeParse({
+    pergunta: String(formData.get('pergunta') ?? ''), resposta: String(formData.get('resposta') ?? ''),
+    ativo: id ? formData.get('ativo') !== null : true,
+  });
+  if (!v.success) return primeiroErro(v.error);
   const sb = await supabaseServidor();
-  checar(await sb.from('respostas_prontas').insert({ pergunta: String(formData.get('pergunta')).trim(), resposta: String(formData.get('resposta')).trim() }));
-  recarregar();
+  const { error } = id ? await sb.from('respostas_prontas').update(v.data).eq('id', id) : await sb.from('respostas_prontas').insert(v.data);
+  if (error) return doBanco(error);
+  recarregarRespostas();
+  return ok(id ? 'Resposta pronta salva.' : 'Resposta pronta adicionada.');
 }
 
 export async function removerResposta(id: string) {
   await exigirConfiguracoes();
   checar(await (await supabaseServidor()).from('respostas_prontas').delete().eq('id', id));
-  recarregar();
+  recarregarRespostas();
 }
 
 export async function salvarExpediente(formData: FormData): Promise<Resultado> {

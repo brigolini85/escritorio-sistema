@@ -1,16 +1,12 @@
-import { MessageSquareText, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecarregarPeriodico } from '@/components/layout/recarregar-periodico';
-import { ConfirmDialog } from '@/components/patterns/confirm-dialog';
-import { EmptyState } from '@/components/patterns/empty-state';
 import { BotaoSalvar, FormularioAlteravel, IndicadorAlteracoes } from '@/components/patterns/formulario-alteravel';
 import { HealthSignal } from '@/components/patterns/health-signal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/cn';
 import { LIMITES_BATIMENTO, situacaoTeto } from '@/lib/inicio';
 import { hojeSP } from '@/lib/configuracoes';
@@ -19,7 +15,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import { classeCaixa, classeSelect } from '../clientes/estilos';
 import { gastoDoMes } from '../inicio/gasto-do-mes';
 import {
-  removerResposta, salvarResposta, salvarServico, salvarSetor,
+  salvarServico, salvarSetor,
 } from './acoes';
 import { CampoNomeUnico } from './campos-validados';
 import { NavegacaoSecoes, type SecaoConfiguracao } from './navegacao-secoes';
@@ -29,6 +25,7 @@ import { SecaoFeriados } from './secoes/feriados';
 import { SecaoIa } from './secoes/ia';
 import { SecaoMensagens } from './secoes/mensagens';
 import { SecaoPrazos } from './secoes/prazos';
+import { SecaoRespostas } from './secoes/respostas';
 
 const SECOES: SecaoConfiguracao[] = [
   { id: 'expediente', rotulo: 'Expediente' },
@@ -161,43 +158,7 @@ export default async function Configuracoes() {
             </CardFooter>
           </Secao>
 
-          <Secao id="respostas" titulo="Respostas prontas" descricao="O agente só responde sozinho o que estiver aqui (além de saudações e andamento de demandas).">
-            <CardContent className="flex flex-col gap-2">
-              {(respostas ?? []).length === 0 ? (
-                <EmptyState icone={MessageSquareText} titulo="Nenhuma resposta pronta." descricao="Adicione abaixo as perguntas que o agente pode responder sozinho." className="py-6" />
-              ) : (
-                <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
-                  {(respostas ?? []).map((r) => (
-                    <li key={r.id} className="flex items-start gap-3 p-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-foreground">{r.pergunta}</p>
-                        <p className="whitespace-pre-line text-muted">{r.resposta}</p>
-                      </div>
-                      <ConfirmDialog
-                        gatilho={(
-                          <Button type="button" variant="ghost" size="icon" aria-label={`Remover a resposta pronta: ${r.pergunta}`} className="size-8 text-muted hover:text-danger">
-                            <Trash2 aria-hidden size={16} strokeWidth={1.75} />
-                          </Button>
-                        )}
-                        titulo="Remover resposta pronta?"
-                        descricao={<>O agente deixa de responder sozinho a <strong className="font-medium text-foreground">{r.pergunta}</strong>.</>}
-                        confirmar="Remover"
-                        enviando="Removendo…"
-                        acao={removerResposta.bind(null, r.id)}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-            <CardFooter>
-              <form action={salvarResposta} className="flex w-full flex-col gap-2">
-                <Input name="pergunta" placeholder="Pergunta (ex.: Qual o horário de atendimento?)" aria-label="Pergunta" required />
-                <Textarea name="resposta" placeholder="Resposta" aria-label="Resposta" required rows={2} className="min-h-16" />
-                <Button type="submit" size="sm" className="w-fit">Adicionar resposta</Button>
-              </form>
-            </CardFooter>
-          </Secao>
+          <SecaoRespostas respostas={respostas ?? []} />
 
           <SecaoFeriados feriados={feriados ?? []} hoje={hoje} />
 

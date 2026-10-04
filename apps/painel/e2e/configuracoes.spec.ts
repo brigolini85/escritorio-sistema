@@ -23,15 +23,28 @@ test('atendente não acessa Configurações', async ({ page }) => {
   await expect(page).toHaveURL(/\/inicio/);
 });
 
-test('administrador cria resposta pronta', async ({ page }) => {
-  await db.from('respostas_prontas').delete().eq('pergunta', 'Qual o horário?');
+test('administrador cria, edita, desliga e remove resposta pronta', async ({ page }) => {
+  await db.from('respostas_prontas').delete().in('pergunta', ['Qual o horário?', 'Qual o horário de vocês?']);
   await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
   await entrar(page, 'admin@teste.com', 'senha-forte-123');
-  await page.goto('/configuracoes');
-  await page.getByPlaceholder('Pergunta (ex.: Qual o horário de atendimento?)').fill('Qual o horário?');
+  await abrirSecao(page, 'respostas');
+  await page.getByPlaceholder('Pergunta (ex.: Qual o horário de atendimento?)').fill('Qual o horário?', { timeout: 30_000 });
   await page.getByPlaceholder('Resposta', { exact: true }).fill('De segunda a sexta, das 8h às 18h.');
   await page.getByRole('button', { name: 'Adicionar resposta' }).click();
-  await expect(page.getByText('De segunda a sexta, das 8h às 18h.')).toBeVisible();
+  await expect(page.getByText('Resposta pronta adicionada.')).toBeVisible();
+  const linha = page.getByRole('form', { name: 'Resposta pronta: Qual o horário?' });
+  await expect(linha.getByRole('textbox', { name: 'Resposta para: Qual o horário?' })).toHaveValue('De segunda a sexta, das 8h às 18h.');
+  await expect(page.getByPlaceholder('Resposta', { exact: true })).toHaveValue('');
+  // Editar: pergunta nova e desligada.
+  await linha.getByRole('textbox', { name: 'Pergunta: Qual o horário?' }).fill('Qual o horário de vocês?');
+  await linha.getByRole('checkbox', { name: 'ativa' }).uncheck();
+  await linha.getByRole('button', { name: 'Salvar a resposta pronta: Qual o horário?' }).click();
+  await expect(page.getByText('Resposta pronta salva.')).toBeVisible();
+  await expect.poll(async () => (await db.from('respostas_prontas').select('pergunta, ativo').eq('pergunta', 'Qual o horário de vocês?').maybeSingle()).data)
+    .toEqual({ pergunta: 'Qual o horário de vocês?', ativo: false });
+  await page.getByRole('button', { name: 'Remover a resposta pronta: Qual o horário de vocês?' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Remover' }).click();
+  await expect(page.getByRole('form', { name: 'Resposta pronta: Qual o horário de vocês?' })).toHaveCount(0);
 });
 
 test('atendente não acessa Usuários', async ({ page }) => {

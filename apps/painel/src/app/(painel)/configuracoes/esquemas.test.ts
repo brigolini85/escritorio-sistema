@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, TetoAlertasForm } from './esquemas';
+import { CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, RespostaForm, TetoAlertasForm } from './esquemas';
 
 describe('ExpedienteForm e TetoAlertasForm (separados na Parte D: teto e alertas são só do administrador)', () => {
   it('expediente: horários e dias úteis', () => {
@@ -109,5 +109,15 @@ describe('modelosForm (Parte G1, D11)', () => {
     expect(Modelos.parse(f)).toEqual({ modelo_conversa: 'claude-sonnet-5', modelo_rapido: 'claude-haiku-4-5' });
     f.set('modelo_rapido', 'gpt-x');
     expect(Modelos.safeParse(f).error?.issues[0]?.message).toBe('Escolha um modelo da lista de preços.');
+  });
+});
+
+describe('RespostaForm (Parte G1, D19)', () => {
+  it('apara; ativa pela caixa', () => {
+    expect(RespostaForm.parse({ pergunta: ' Horário? ', resposta: ' 8h às 18h ', ativo: true })).toEqual({ pergunta: 'Horário?', resposta: '8h às 18h', ativo: true });
+  });
+  it('pergunta curta ou resposta vazia: recusa', () => {
+    expect(RespostaForm.safeParse({ pergunta: 'Oi', resposta: 'x', ativo: true }).error?.issues[0]?.message).toBe('A pergunta precisa de pelo menos 3 letras.');
+    expect(RespostaForm.safeParse({ pergunta: 'Horário?', resposta: ' ', ativo: true }).error?.issues[0]?.message).toBe('Escreva a resposta.');
   });
 });
