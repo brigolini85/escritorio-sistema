@@ -30,9 +30,12 @@ function ItemFaixa({ alerta: a }: { alerta: AlertaFaixa }) {
       className={cn('flex items-start gap-3 rounded-lg border p-3 text-sm', perigo ? 'border-danger bg-danger-soft text-danger' : 'border-warning bg-warning-soft text-warning')}
     >
       <Icone aria-hidden size={20} strokeWidth={1.75} className="mt-0.5 shrink-0" />
-      <div>
-        <p className="font-semibold" suppressHydrationWarning>{a.titulo}</p>
-        <p>{a.texto}</p>
+      <div className="flex flex-1 flex-wrap items-start justify-between gap-x-4 gap-y-1">
+        <div>
+          <p className="font-semibold" suppressHydrationWarning>{a.titulo}</p>
+          <p>{a.texto}</p>
+        </div>
+        <a href={a.link.href} className="shrink-0 font-semibold underline-offset-4 hover:underline">{a.link.rotulo}</a>
       </div>
     </div>
   );

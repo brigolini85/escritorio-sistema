@@ -1,7 +1,8 @@
 import 'server-only';
 import { cache } from 'react';
+import type { LinhaAtendimento } from '@/lib/atendimento';
 import { inicioDoDiaSP } from '@/lib/demandas';
-import { diaSP } from '@/lib/inicio';
+import { diaSP, lerLinhasSetor } from '@/lib/inicio';
 import { lerSinaisVida } from '@/lib/leituras-admin';
 import { gastoDoMes } from './gasto-do-mes';
 import { paginaInicio } from './dados-inicio';
@@ -70,4 +71,48 @@ export const lerFeriadosDeHoje = cache(async () => {
   const { data, error } = await sb.from('feriados').select('data').eq('data', hoje);
   if (error) console.error('[inicio] falha ao ler feriados', error);
   return (data ?? []).map((f) => String(f.data));
+});
+
+const UM_DIA_MS = 24 * 60 * 60 * 1000;
+
+/** demandas_por_setor (Task 1): os cinco números são a soma das linhas (D5). null sem a migração (D21). */
+export const lerSetoresSituacao = cache(async () => {
+  const { sb } = await paginaInicio();
+  const { data, error } = await sb.rpc('demandas_por_setor');
+  return error ? null : lerLinhasSetor(data);
+});
+
+/** Conversas com espera em aberto (D6), quem espera há mais tempo primeiro: o número, o detalhe e a lista. */
+export const lerEsperandoSituacao = cache(async () => {
+  const { sb } = await paginaInicio();
+  const { data, count, error } = await sb.from('caixa_entrada').select('*', { count: 'exact' })
+    .not('espera_desde', 'is', null).order('espera_desde', { ascending: true }).limit(5);
+  return error ? null : { linhas: (data ?? []) as unknown as LinhaAtendimento[], total: count ?? 0 };
+});
+
+/** As cinco vencidas mais antigas (a primeira dá o "mais atrasada", D9). */
+export const lerVencidasSituacao = cache(async () => {
+  const { sb } = await paginaInicio();
+  const { data, error } = await sb.from('demandas_lista')
+    .select('id, numero, titulo, empresa, setor, responsavel, prazo_em, prazo_pausado_desde')
+    .is('vencida', true).order('prazo_em', { ascending: true }).limit(5);
+  return error ? null : data ?? [];
+});
+
+/** Prioridade e prazo das que ainda vencem hoje, para "2 urgentes · até 18h". */
+export const lerVencemHojeSituacao = cache(async () => {
+  const { sb, agora } = await paginaInicio();
+  const fim = new Date(inicioDoDiaSP(agora).getTime() + UM_DIA_MS).toISOString();
+  const { data, error } = await sb.from('demandas_lista').select('prioridade, prazo_em')
+    .neq('status', 'concluido').is('prazo_pausado_desde', null).gte('prazo_em', agora.toISOString()).lt('prazo_em', fim).limit(500);
+  return error ? null : data ?? [];
+});
+
+/** Sem responsável há mais que o prazo do alerta de fila (Configurações › Teto de IA e alertas). */
+export const contarSemResponsavelAntigas = cache(async (minutos: number) => {
+  const { sb, agora } = await paginaInicio();
+  const limite = new Date(agora.getTime() - minutos * 60_000).toISOString();
+  const { count, error } = await sb.from('chamados').select('id', { count: 'exact', head: true })
+    .neq('status', 'concluido').is('responsavel_id', null).lt('criado_em', limite);
+  return error ? null : count ?? 0;
 });
