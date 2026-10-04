@@ -68,7 +68,8 @@ export async function DadosFicha({ c, u }: { c: ClienteFicha | null; u: UsuarioP
       admin={u.papel === 'admin'}
       agora={new Date().toISOString()}
       ultimaAlteracao={textoUltimaAlteracao(ultima)}
-      acessos={<AcessosPortais clienteId={c?.id ?? null} acessos={acessos} podeVer={verAcessos} podeEditar={pode && verAcessos} cofreOk={cofreConfigurado()} />}
+      // key: o elemento vem do servidor e entra ao lado do bloco Certificado no Formulario; sem ela o React avisa "unique key".
+      acessos={<AcessosPortais key="acessos" clienteId={c?.id ?? null} acessos={acessos} podeVer={verAcessos} podeEditar={pode && verAcessos} cofreOk={cofreConfigurado()} />}
     />
   );
 }

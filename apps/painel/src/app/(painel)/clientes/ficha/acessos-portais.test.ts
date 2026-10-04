@@ -113,7 +113,10 @@ describe('bloco Acessos de portais', () => {
 
   it('revelar e copiar ficam desligados sem a permissão ou sem a chave, com o motivo à vista', () => {
     expect(codigo).toMatch(/const motivo = !podeVer \? SEM_PERMISSAO_VER : !cofreOk \? SEM_CHAVE : null;/);
-    expect(codigo.match(/disabled=\{Boolean\(motivo\) \|\| ocupado\}/g)).toHaveLength(2);
+    expect(codigo.match(/ disabled=\{Boolean\(motivo\)\}/g)).toHaveLength(2);
+    // Enquanto busca: aria-disabled e o clique ignorado (com disabled o foco cairia no body).
+    expect(codigo.match(/aria-disabled=\{ocupado \|\| undefined\} aria-busy=\{ocupado \|\| undefined\}/g)).toHaveLength(2);
+    expect(codigo.match(/onClick=\{ocupado \? undefined : /g)).toHaveLength(2);
     expect(codigo).toMatch(/\{!cofreOk && <p[^>]*>\{SEM_CHAVE\}<\/p>\}/);
   });
 });

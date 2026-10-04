@@ -13,7 +13,8 @@ export function BlocoFicha({ id, titulo, aside, pode = true, destaque = false, c
     <section id={`bloco-${id}`} data-bloco={id} aria-labelledby={`titulo-${id}`}
       className={cn('scroll-mt-4 rounded-lg border border-border bg-surface p-5', destaque && 'border-l-4 border-l-warning', className)}>
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id={`titulo-${id}`} className="text-sm font-extrabold uppercase tracking-wide text-brand">{titulo}</h2>
+        {/* tabIndex -1: o link do índice leva o foco para cá (o próximo Tab segue dentro do bloco). */}
+        <h2 id={`titulo-${id}`} tabIndex={-1} className="text-sm font-extrabold uppercase tracking-wide text-brand">{titulo}</h2>
         {aside && <div className="text-sm text-muted">{aside}</div>}
       </div>
       {/* "Só ver": os campos ficam à vista e desligados (não vão no envio). */}
@@ -30,8 +31,10 @@ export function CampoComLupa({ rotuloLupa, aoBuscar, buscando, mostrarLupa, clas
     <div className="relative">
       <Input {...props} className={cn(mostrarLupa && 'pr-10', className)} />
       {mostrarLupa && (
-        <button type="button" onClick={aoBuscar} disabled={buscando} aria-label={rotuloLupa} title={rotuloLupa}
-          className="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-md text-muted hover:text-foreground disabled:opacity-50">
+        // aria-disabled em vez de disabled: botão desligado perde o foco (cai no body) durante a busca.
+        <button type="button" onClick={() => { if (!buscando) aoBuscar(); }} aria-disabled={buscando || undefined} aria-busy={buscando || undefined}
+          aria-label={rotuloLupa} title={rotuloLupa}
+          className="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-md text-muted hover:text-foreground disabled:opacity-50 aria-disabled:cursor-wait aria-disabled:opacity-50">
           {buscando ? <LoaderCircle aria-hidden size={16} strokeWidth={1.75} className="animate-spin" /> : <Search aria-hidden size={16} strokeWidth={1.75} />}
         </button>
       )}

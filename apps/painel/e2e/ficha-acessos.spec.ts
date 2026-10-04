@@ -49,10 +49,27 @@ test('administrador cadastra o acesso: cifrado, mascarado, e revelar e copiar v�
   expect(linhas!.map(({ portal, usuario, tem_senha }) => ({ portal, usuario, tem_senha }))).toEqual([{ portal: 'SEFAZ-MG', usuario: 'padariasol', tem_senha: true }]);
   const acesso = linhas![0]!.id;
 
-  await linha.getByRole('button', { name: 'Revelar a senha de SEFAZ-MG' }).click();
+  // 1366: todas as ações da linha cabem no cartão, sem rolagem lateral (antes Copiar, Editar e Remover ficavam fora).
+  await page.setViewportSize({ width: 1366, height: 768 });
+  const caixaCartao = (await acessos.boundingBox())!;
+  for (const nome of ['Revelar a senha de SEFAZ-MG', 'Copiar a senha de SEFAZ-MG', 'Editar o acesso SEFAZ-MG', 'Remover o acesso SEFAZ-MG']) {
+    const b = (await linha.getByRole('button', { name: nome }).boundingBox())!;
+    expect(b.x, nome).toBeGreaterThanOrEqual(caixaCartao.x);
+    expect(b.x + b.width, nome).toBeLessThanOrEqual(caixaCartao.x + caixaCartao.width);
+  }
+  expect(await acessos.locator('table').evaluate((t) => t.parentElement!.scrollWidth <= t.parentElement!.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+
+  // Teclado: Enter em Revelar mostra a senha e o foco fica no mesmo botão, agora Esconder (antes caía no body).
+  const revelar = linha.getByRole('button', { name: 'Revelar a senha de SEFAZ-MG' });
+  const esconder = linha.getByRole('button', { name: 'Esconder a senha de SEFAZ-MG' });
+  await revelar.focus();
+  await page.keyboard.press('Enter');
   await expect(linha.getByText(SENHA_PORTAL)).toBeVisible();
-  await linha.getByRole('button', { name: 'Esconder a senha de SEFAZ-MG' }).click();
+  await expect(esconder).toBeFocused();
+  await page.keyboard.press('Enter');
   await expect(linha.getByText(SENHA_PORTAL)).toHaveCount(0);
+  await expect(revelar).toBeFocused();
   await linha.getByRole('button', { name: 'Copiar a senha de SEFAZ-MG' }).click();
   await expect(page.getByText('Senha copiada.')).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(SENHA_PORTAL);

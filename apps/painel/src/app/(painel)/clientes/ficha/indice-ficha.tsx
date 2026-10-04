@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, Lock } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { cn } from '@/lib/cn';
 import { BLOCOS, textoEstado, type Bloco, type EstadoBloco } from './ficha';
 
@@ -19,12 +19,27 @@ export function IndiceFicha({ estados }: { estados: Record<Bloco, EstadoBloco> }
     return () => observador.disconnect();
   }, []);
 
+  /**
+   * Rola até o bloco e leva o foco ao título dele (tabIndex -1): o próximo Tab segue dentro do bloco. O # puro do navegador
+   * só rolava e deixava o foco no body. O endereço ganha o # como antes, sem entrada nova no histórico.
+   */
+  const irPara = (e: MouseEvent<HTMLAnchorElement>, id: Bloco) => {
+    const secao = document.getElementById(`bloco-${id}`);
+    const titulo = document.getElementById(`titulo-${id}`);
+    if (!secao || !titulo) return;
+    e.preventDefault();
+    setAtivo(id);
+    secao.scrollIntoView({ block: 'start' });
+    titulo.focus({ preventScroll: true });
+    history.replaceState(history.state, '', `#bloco-${id}`);
+  };
+
   return (
     <nav aria-label="Blocos da ficha" className="sticky top-4 hidden w-indice-ficha shrink-0 self-start rounded-lg border border-border bg-surface p-2 lg:block">
       <ul className="flex flex-col gap-0.5">
         {BLOCOS.map((b) => (
           <li key={b.id}>
-            <a href={`#bloco-${b.id}`} onClick={() => setAtivo(b.id)} aria-current={ativo === b.id ? 'true' : undefined}
+            <a href={`#bloco-${b.id}`} onClick={(e) => irPara(e, b.id)} aria-current={ativo === b.id ? 'true' : undefined}
               className={cn('flex items-center justify-between gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-surface-muted',
                 ativo === b.id && 'bg-brand-soft font-bold text-brand')}>
               <span>{b.rotulo}</span>

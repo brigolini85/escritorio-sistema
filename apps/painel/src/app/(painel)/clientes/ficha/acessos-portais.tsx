@@ -124,39 +124,45 @@ function LinhaAcesso({ clienteId, a, podeVer, podeEditar, cofreOk }: {
             : <span className="tracking-widest text-foreground"><span aria-hidden>••••••••</span><span className="sr-only">senha guardada</span></span>}
         {erro && <p role="alert" className="mt-1 text-xs text-danger">{erro}</p>}
       </td>
-      <td className="whitespace-nowrap px-2 py-1 text-right">
-        {a.tem_senha && (
-          <>
-            <Button type="button" variant="ghost" size="icon" disabled={Boolean(motivo) || ocupado} title={motivo ?? undefined}
-              aria-label={senha !== null ? `Esconder a senha de ${a.portal}` : `Revelar a senha de ${a.portal}`}
-              onClick={senha !== null ? () => setSenha(null) : revelar}>
-              {senha !== null ? <EyeOff aria-hidden size={16} strokeWidth={1.75} /> : <Eye aria-hidden size={16} strokeWidth={1.75} />}
-            </Button>
-            <Button type="button" variant="ghost" size="icon" disabled={Boolean(motivo) || ocupado} title={motivo ?? undefined}
-              aria-label={`Copiar a senha de ${a.portal}`} onClick={copiar}>
-              <Copy aria-hidden size={16} strokeWidth={1.75} />
-            </Button>
-          </>
-        )}
-        {podeEditar && podeVer && cofreOk && (
-          <JanelaAcesso clienteId={clienteId} acesso={a} gatilho={(
-            <Button type="button" variant="ghost" size="icon" aria-label={`Editar o acesso ${a.portal}`}><Pencil aria-hidden size={16} strokeWidth={1.75} /></Button>
-          )} />
-        )}
-        {/* Remover também pede a permissão (D6, o banco recusa sem ela), mas continua sem a chave (D8). */}
-        {podeEditar && podeVer && (
-          <ConfirmDialog tipo="excluir" titulo={`Remover o acesso ${a.portal}?`} descricao="A senha guardada sai junto. Fica registrado na auditoria." confirmar="Remover"
-            gatilho={<Button type="button" variant="ghost" size="icon" aria-label={`Remover o acesso ${a.portal}`}><Trash2 aria-hidden size={16} strokeWidth={1.75} /></Button>}
-            acao={async () => {
-              try {
-                const r = await removerAcesso(clienteId, a.id);
-                if (r.ok) { toast.success('Acesso removido.'); router.refresh(); } else toast.error(r.erro);
-              } catch (err) {
-                unstable_rethrow(err);
-                toast.error(NAO_REMOVEU);
-              }
-            }} />
-        )}
+      <td className="px-2 py-1">
+        {/* Os botões quebram linha em vez de sair do cartão (meia largura em telas estreitas). */}
+        <div className="flex flex-wrap items-center justify-end gap-0.5">
+          {a.tem_senha && (
+            <>
+              {/* Enquanto busca: aria-disabled (com disabled o botão perde o foco, que cai no body). */}
+              <Button type="button" variant="ghost" size="icon" disabled={Boolean(motivo)} aria-disabled={ocupado || undefined} aria-busy={ocupado || undefined}
+                title={motivo ?? undefined} className="aria-disabled:cursor-wait aria-disabled:opacity-50"
+                aria-label={senha !== null ? `Esconder a senha de ${a.portal}` : `Revelar a senha de ${a.portal}`}
+                onClick={ocupado ? undefined : senha !== null ? () => setSenha(null) : revelar}>
+                {senha !== null ? <EyeOff aria-hidden size={16} strokeWidth={1.75} /> : <Eye aria-hidden size={16} strokeWidth={1.75} />}
+              </Button>
+              <Button type="button" variant="ghost" size="icon" disabled={Boolean(motivo)} aria-disabled={ocupado || undefined} aria-busy={ocupado || undefined}
+                title={motivo ?? undefined} className="aria-disabled:cursor-wait aria-disabled:opacity-50"
+                aria-label={`Copiar a senha de ${a.portal}`} onClick={ocupado ? undefined : copiar}>
+                <Copy aria-hidden size={16} strokeWidth={1.75} />
+              </Button>
+            </>
+          )}
+          {podeEditar && podeVer && cofreOk && (
+            <JanelaAcesso clienteId={clienteId} acesso={a} gatilho={(
+              <Button type="button" variant="ghost" size="icon" aria-label={`Editar o acesso ${a.portal}`}><Pencil aria-hidden size={16} strokeWidth={1.75} /></Button>
+            )} />
+          )}
+          {/* Remover também pede a permissão (D6, o banco recusa sem ela), mas continua sem a chave (D8). */}
+          {podeEditar && podeVer && (
+            <ConfirmDialog tipo="excluir" titulo={`Remover o acesso ${a.portal}?`} descricao="A senha guardada sai junto. Fica registrado na auditoria." confirmar="Remover"
+              gatilho={<Button type="button" variant="ghost" size="icon" aria-label={`Remover o acesso ${a.portal}`}><Trash2 aria-hidden size={16} strokeWidth={1.75} /></Button>}
+              acao={async () => {
+                try {
+                  const r = await removerAcesso(clienteId, a.id);
+                  if (r.ok) { toast.success('Acesso removido.'); router.refresh(); } else toast.error(r.erro);
+                } catch (err) {
+                  unstable_rethrow(err);
+                  toast.error(NAO_REMOVEU);
+                }
+              }} />
+          )}
+        </div>
       </td>
     </tr>
   );

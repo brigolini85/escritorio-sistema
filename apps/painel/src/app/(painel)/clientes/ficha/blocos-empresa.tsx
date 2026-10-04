@@ -117,8 +117,9 @@ export function BlocoEndereco({ c, erros, pode, busca }: Props & { busca: Busca 
 
 export function BlocoContato({ c, erros, pode }: Props) {
   return (
-    <BlocoFicha id="contato" titulo="Contato" pode={pode} aside="as pessoas que falam pela empresa ficam na aba Contatos">
-      <div className="grid gap-x-4 gap-y-3 md:grid-cols-2 xl:grid-cols-5">
+    <BlocoFicha id="contato" titulo="Contato" pode={pode} aside="as pessoas que falam pela empresa ficam na aba Contatos" className="@container">
+      {/* Cinco colunas só com largura para os e-mails inteiros; a 1366 ficam três. */}
+      <div className="grid gap-x-4 gap-y-3 @md:grid-cols-2 @2xl:grid-cols-3 @5xl:grid-cols-5">
         <FormField id="ficha-telefone" rotulo="Telefone" erro={erros.telefone}>
           <Input name="telefone" inputMode="tel" defaultValue={c?.telefone ? mascararTelefone(c.telefone) : ''} autoComplete="off" />
         </FormField>

@@ -183,17 +183,18 @@ function Formulario({ cliente, servicos, contratados, setores, pessoas, responsa
         )}
         <div className="flex items-start gap-5">
           <IndiceFicha estados={estados} />
-          <div className="flex min-w-0 flex-1 flex-col gap-4">
+          {/* Container: os pares de blocos só ficam lado a lado quando a coluna tem largura para os campos (não cabem a 1366). */}
+          <div className="@container flex min-w-0 flex-1 flex-col gap-4">
             <BlocoIdentificacao c={cliente} erros={erros} pode={pode} admin={admin} busca={buscaCnpj} />
             <BlocoEndereco c={cliente} erros={erros} pode={pode} busca={buscaCep} />
             <BlocoContato c={cliente} erros={erros} pode={pode} />
             <BlocoFiscal iniciais={inscricoesSt} erro={erros.inscricoes_st} pode={pode} />
-            <div className="grid items-start gap-4 xl:grid-cols-2">
+            <div className="grid items-start gap-4 @5xl:grid-cols-2">
               <BlocoContrato c={cliente} erros={erros} pode={pode} servicos={servicos} contratados={contratados}
                 setorPessoal={setores.find((s) => s.nome === 'Pessoal')?.id ?? null} />
               <BlocoResponsaveis setores={setores} servicos={servicos} contratados={contratados} pessoas={pessoas} responsaveis={responsaveis} pode={pode} />
             </div>
-            <div className="grid items-start gap-4 xl:grid-cols-2">
+            <div className="grid items-start gap-4 @5xl:grid-cols-2">
               <BlocoCertificado c={cliente} erros={erros} pode={pode} estado={estados.certificado} />
               {acessos}
             </div>

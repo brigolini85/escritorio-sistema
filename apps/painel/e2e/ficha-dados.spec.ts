@@ -186,3 +186,45 @@ test('administrador pausa o agente pela ficha (mesmo rótulo de hoje)', async ({
   await expect.poll(async () => (await db.from('clientes').select('agente_pausado').eq('id', id).single()).data?.agente_pausado).toBe(true);
   await expect(page.getByRole('list', { name: 'Situação da empresa' }).getByText('Agente pausado para esta empresa')).toBeVisible();
 });
+
+test('teclado: o índice leva o foco ao título do bloco; as lupas ficam com o foco durante e depois da busca', async ({ page }) => {
+  test.setTimeout(60_000);
+  await db.from('clientes').delete().eq('cnpj', CNPJ_SOL);
+  await comoAdmin(page);
+  await abrirFicha(page, '/clientes/novo');
+
+  // Índice: Enter rola até o bloco e o foco entra nele (antes ficava no body).
+  await indice(page).getByRole('link', { name: /Certificado digital/ }).focus();
+  await page.keyboard.press('Enter');
+  const tituloCertificado = bloco(page, 'Certificado digital').getByRole('heading', { name: 'Certificado digital' });
+  await expect(tituloCertificado).toBeFocused();
+  await expect(tituloCertificado).toBeInViewport();
+  await expect(page).toHaveURL(/#bloco-certificado$/);
+  // O próximo Tab segue dentro do bloco.
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('Tipo', { exact: true })).toBeFocused();
+
+  // CNPJ: sair do campo com Tab dispara a busca e o foco fica na lupa (antes ela era desligada e o foco caía no body).
+  const lupaCnpj = page.getByRole('button', { name: 'Buscar dados públicos da empresa' });
+  await page.getByLabel('CNPJ').fill('12.345.678/0001-95');
+  await page.keyboard.press('Tab');
+  await expect(lupaCnpj).toBeFocused();
+  await expect(page.getByLabel('Razão social')).toHaveValue('PADARIA SOL COMERCIO DE ALIMENTOS ME');
+  await expect(lupaCnpj).toBeFocused();
+  await expect(lupaCnpj).not.toHaveAttribute('aria-busy');
+
+  // CEP lento (a busca desiste antes da resposta): durante a busca a lupa fica ocupada e com o foco, e continua com ele depois.
+  const lupaCep = bloco(page, 'Endereço').getByRole('button', { name: 'Buscar o endereço' });
+  await campoCep(page).fill('11111-111');
+  await lupaCep.focus();
+  await expect(lupaCep).toHaveAttribute('aria-busy', 'true'); // sair do campo para a lupa já buscou
+  await expect(lupaCep).toBeFocused();
+  await page.keyboard.press('Enter'); // ocupada: não busca de novo
+  await expect(bloco(page, 'Endereço').getByText('Não consegui buscar agora. Preencha à mão.')).toBeVisible({ timeout: 10_000 });
+  await expect(lupaCep).toBeFocused();
+  await page.keyboard.press('Enter'); // a lupa busca sempre: de novo lenta
+  await expect(lupaCep).toHaveAttribute('aria-busy', 'true');
+  await expect(lupaCep).toBeFocused();
+  await expect(lupaCep).not.toHaveAttribute('aria-busy', { timeout: 10_000 });
+  await expect(lupaCep).toBeFocused();
+});
