@@ -98,6 +98,37 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"certificado_avisos": {
+                  Row: {
+                    "chamado_id": string | null,"cliente_id": string,"criado_em": string,"vencimento": string
+                  }
+                  Insert: {
+                    "chamado_id"?: string | null,"cliente_id": string,"criado_em"?: string,"vencimento": string
+                  }
+                  Update: {
+                    "chamado_id"?: string | null,"cliente_id"?: string,"criado_em"?: string,"vencimento"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "certificado_avisos_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "chamados"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "certificado_avisos_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "demandas_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "certificado_avisos_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"chamado_eventos": {
                   Row: {
                     "chamado_id": string,"cliente_id": string | null,"criado_em": string,"id": string,"texto": string | null,"tipo": string,"usuario_id": string | null
@@ -1362,6 +1393,9 @@ isOneToOne: false
 "gastos_resumo":
 { Args: { "p_ate": string,"p_de": string }; Returns: Json
                            },
+"gerar_demandas_certificado":
+{ Args: { "p_hoje"?: string }; Returns: number
+                           },
 "horario_permite":
 { Args: { "p_quando"?: string,"p_usuario": string }; Returns: boolean
                            },
@@ -1460,6 +1494,9 @@ isOneToOne: false
                            },
 "revelar_acesso":
 { Args: { "p_acao"?: string,"p_id": string }; Returns: Json
+                           },
+"rotulo_certificado":
+{ Args: { "p_tipo": string }; Returns: string
                            },
 "salvar_acesso":
 { Args: { "p_cliente": string,"p_id": string,"p_portal": string,"p_senha_cifrada": string,"p_usuario": string }; Returns: string
