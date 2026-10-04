@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { lerFiltroCaixa } from '@/lib/caixa';
-import { lerAgentePausado } from '@/lib/contadores';
+import { lerAgentePausado } from '@/lib/leituras-admin';
 import { lerDataAlvo } from '@/lib/historico';
 import { temNivel, usaAssistente } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';

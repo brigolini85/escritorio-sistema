@@ -1,5 +1,6 @@
 import 'server-only';
-import { lerGastoIaDoMes, mesCorrenteSP, type GastoDoMes } from '@/lib/inicio';
+import { mesCorrenteSP, type GastoDoMes } from '@/lib/inicio';
+import { lerGastoIaDoMes } from '@/lib/leituras-admin';
 import type { supabaseServidor } from '@/lib/supabase/servidor';
 
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;

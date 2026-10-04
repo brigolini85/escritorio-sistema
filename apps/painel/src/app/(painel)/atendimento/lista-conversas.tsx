@@ -5,7 +5,7 @@ import { BotaoTentarDeNovo } from '@/components/patterns/data-table-cliente';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { agruparConversas, juntarSemRepetir, lerLimites, type LinhaAtendimento } from '@/lib/atendimento';
 import { interpretarBusca } from '@/lib/busca';
-import { lerAgentePausado } from '@/lib/contadores';
+import { lerAgentePausado } from '@/lib/leituras-admin';
 import { consultaCaixa, filtroPadrao, passaNoFiltro, rotuloFiltroCaixa, type FiltroCaixa } from '@/lib/caixa';
 import { cn } from '@/lib/cn';
 import type { UsuarioPainel } from '@/lib/sessao';

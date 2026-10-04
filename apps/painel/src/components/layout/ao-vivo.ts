@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { estadoPelaPausaGeral as estadoDoAgente, type EstadoAgente } from '@/components/patterns/estado-agente';
 import { toast } from '@/components/ui/toaster';
-import { contarConversasAguardando, contarDemandasAbertas, deveAvisarNovaConversa, lerAgentePausado } from '@/lib/contadores';
+import { contarConversasAguardando, contarDemandasAbertas, deveAvisarNovaConversa, lerPausaDoResumo } from '@/lib/contadores';
 import { autenticarTempoReal, supabaseNavegador } from '@/lib/supabase/navegador';
 import { msDesdeRecargaPorTempoReal, paginaRecarregaAoVivo } from './recarga-pagina';
 import type { Contadores } from './sidebar';
@@ -19,7 +19,7 @@ const JANELA_RECARGA_TEMPO_REAL_MS = 15_000;
  * - evento de tempo real em conversas/chamados visíveis → relê só as duas contagens pelo navegador (RLS),
  *   exceto quando a página já recarrega pelo tempo real (AtualizarAoVivo): aí as contagens vêm do layout;
  * - estado do agente (só quem lê configuracoes): configuracoes não está na publicação do tempo real,
- *   então é relido junto com os eventos, ao voltar para a aba e a cada minuto;
+ *   então é relido (pela estado_sistema_resumo, sem custo) junto com os eventos, ao voltar para a aba e a cada minuto;
  * - valores novos vindos do servidor (server action que revalida, navegação) substituem os locais.
  * Aviso "Nova conversa aguardando atendimento" só quando o aumento veio de um evento de tempo real
  * e a pessoa não acabou de agir (enviar formulário ou navegar nos últimos segundos).
@@ -82,7 +82,7 @@ export function useAoVivo(inicial: { contadores: Contadores; estadoAgente: Estad
         [a, d, p] = await Promise.all([
           contarConversasAguardando(sb),
           contarDemandasAbertas(sb),
-          leAgente ? lerAgentePausado(sb) : Promise.resolve(null),
+          leAgente ? lerPausaDoResumo(sb) : Promise.resolve(null),
         ]);
       } catch (e) {
         // Rede fora ou erro inesperado: mantém os números da tela e continua ouvindo os próximos eventos.

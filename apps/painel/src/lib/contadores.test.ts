@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { contarConversasAguardando, contarDemandasAbertas, descricaoContador, deveAvisarNovaConversa, lerAgentePausado, rotuloContador } from './contadores';
+import { describe, expect, it, vi } from 'vitest';
+import { contarConversasAguardando, contarDemandasAbertas, descricaoContador, deveAvisarNovaConversa, lerPausaDoResumo, rotuloContador } from './contadores';
 
 /** Cliente falso: registra tabela e filtros e devolve a resposta dada. */
 function falso(resposta: Record<string, unknown>) {
@@ -26,8 +26,13 @@ describe('contadores', () => {
   });
   it('erro de leitura vira null (contador some, a casca não quebra)', async () => {
     expect(await contarDemandasAbertas(falso({ count: null, error: { message: 'x' } }).sb)).toBeNull();
-    expect(await lerAgentePausado(falso({ data: null, error: null }).sb)).toBeNull();
-    expect(await lerAgentePausado(falso({ data: { agente_pausado: true }, error: null }).sb)).toBe(true);
+  });
+  it('pausa geral pela estado_sistema_resumo (sem custo; a casca no navegador não lê configuracoes)', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { agente_pausado: true, teto_atingido: false }, error: null });
+    expect(await lerPausaDoResumo({ rpc } as never)).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('estado_sistema_resumo');
+    expect(await lerPausaDoResumo({ rpc: vi.fn().mockResolvedValue({ data: null, error: null }) } as never)).toBeNull();
+    expect(await lerPausaDoResumo({ rpc: vi.fn().mockResolvedValue({ data: null, error: { message: 'x' } }) } as never)).toBeNull();
   });
   it('rótulo e descrição', () => {
     expect(rotuloContador(0)).toBeNull();

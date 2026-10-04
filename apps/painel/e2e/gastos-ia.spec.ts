@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { db, entrar } from './apoio';
 import { limparGastos, semearGastos } from './apoio-gastos';
+import { abrirInicio } from './apoio-inicio';
 
 let dados: Awaited<ReturnType<typeof semearGastos>>;
 test.beforeAll(async () => { dados = await semearGastos(); });
@@ -8,7 +9,8 @@ test.afterAll(async () => { await limparGastos(); });
 
 test('administrador vê o mês: cartões, por funcionalidade e por dia', async ({ page }) => {
   await entrar(page, dados.admin.email, dados.admin.senha);
-  await page.getByRole('link', { name: 'Gastos com IA' }).click();
+  // exact: o cartão do gasto × teto do Início tem "Ver Gastos com IA" (D20); aqui é o item do menu.
+  await page.getByRole('link', { name: 'Gastos com IA', exact: true }).click();
   await expect(page).toHaveURL(/\/gastos-ia$/);
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Gastos com IA');
   await expect(page.getByRole('link', { name: 'Este mês' })).toHaveAttribute('aria-current', 'page');
@@ -115,19 +117,22 @@ test('exportar só desta pessoa: o arquivo tem só as chamadas dela; pessoa inv�
   expect((await page.request.get('/gastos-ia/exportar?p=mes&pessoa=nao-e-uuid')).status()).toBe(400);
 });
 
-test('Início: o cartão do gasto do mês lê a gastos_resumo e leva a Gastos com IA', async ({ page }) => {
+test('Início: o cartão do gasto × teto lê a gastos_resumo e leva a Gastos com IA', async ({ page }) => {
   await entrar(page, dados.admin.email, dados.admin.senha);
-  const cartao = page.getByText('Gasto com IA no mês').locator('..');
+  await abrirInicio(page, 'situacao');
+  const cartao = page.getByTestId('inicio-gasto');
   await expect(cartao).toContainText('2,31');                      // 0,4 + 0,2 + 0,01 + 0,3 + 0,5 + 0,9
-  await cartao.getByRole('link', { name: 'Ver gastos' }).click();
+  await expect(cartao).toContainText('Previsão até o fim do mês');
+  await cartao.getByRole('link', { name: 'Ver Gastos com IA' }).click();
   await expect(page).toHaveURL(/\/gastos-ia$/);
 });
 
 test('Início: atendente não vê o cartão do gasto', async ({ page }) => {
   await entrar(page, dados.ana.email, dados.ana.senha);
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await expect(page.getByText('Gasto com IA no mês')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Ver gastos' })).toHaveCount(0);
+  await abrirInicio(page, 'mesa');
+  await expect(page.getByTestId('inicio-gasto')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Ver Gastos com IA' })).toHaveCount(0);
+  await expect(page.getByText('US$')).toHaveCount(0);
 });
 
 test('exportar mais de 1000 chamadas: o arquivo traz todas (páginas de 1000 do PostgREST)', async ({ page }) => {

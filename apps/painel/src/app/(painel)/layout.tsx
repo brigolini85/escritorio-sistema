@@ -5,8 +5,8 @@ import { COOKIE_MENU, menuRecolhidoDoCookie } from '@/components/layout/preferen
 import { estadoPelaPausaGeral } from '@/components/patterns/estado-agente';
 import { COOKIE_TEMA, escolhaDoCookie } from '@/components/tema/tema';
 import { rotuloAmbiente } from '@/lib/ambiente';
-import { contarConversasAguardando, contarDemandasAbertas, lerAgentePausado } from '@/lib/contadores';
-import { lerSinaisVida } from '@/lib/inicio';
+import { contarConversasAguardando, contarDemandasAbertas } from '@/lib/contadores';
+import { lerAgentePausado, lerSinaisVida } from '@/lib/leituras-admin';
 import { itensDoMenu } from '@/lib/menu';
 import { obterUsuario } from '@/lib/sessao';
 import { situacaoDoSinal } from '@/lib/sinal-vida';

@@ -1,19 +1,21 @@
 import { expect, test } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
 import { abrirSecao, salvarPrazosSoNovas } from './apoio-configuracoes';
+import { abrirInicio } from './apoio-inicio';
 
 test('administrador pausa e retoma o agente pelo Início', async ({ page }) => {
   await db.from('configuracoes').update({ agente_pausado: false }).eq('id', 1);
   await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
   await entrar(page, 'admin@teste.com', 'senha-forte-123');
+  await abrirInicio(page, 'situacao');
   await page.getByRole('button', { name: 'Pausar agente' }).click();
   // Pausar e retomar pedem confirmação (ConfirmDialog): o botão da janela envia a mesma action.
   await page.getByRole('dialog').getByRole('button', { name: 'Pausar agente' }).click();
-  await expect(page.getByText('O agente está PAUSADO')).toBeVisible();
+  await expect(page.getByTestId('inicio-agente').locator('[data-estado-agente]')).toHaveText('Pausado');
   expect((await db.from('configuracoes').select('agente_pausado').single()).data?.agente_pausado).toBe(true);
   await page.getByRole('button', { name: 'Retomar agente' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Retomar agente' }).click();
-  await expect(page.getByText('O agente está atendendo normalmente.')).toBeVisible();
+  await expect(page.getByTestId('inicio-agente').locator('[data-estado-agente]')).toHaveText(/Atendendo|Parado pelo teto de IA/);
 });
 
 test('atendente não acessa Configurações', async ({ page }) => {

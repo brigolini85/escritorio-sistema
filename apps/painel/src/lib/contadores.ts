@@ -17,11 +17,14 @@ export async function contarDemandasAbertas(sb: Cliente): Promise<number | null>
   return error ? null : count ?? 0;
 }
 
-/** Estado geral do agente (configuracoes.agente_pausado). null quando o RLS não deixa ler (só administrador lê). */
-export async function lerAgentePausado(sb: Cliente): Promise<boolean | null> {
-  const { data, error } = await sb.from('configuracoes').select('agente_pausado').eq('id', 1).maybeSingle();
-  if (error || !data) return null;
-  return data.agente_pausado;
+/**
+ * Pausa geral do agente pela estado_sistema_resumo (só booleanos, sem custo): a releitura da casca no navegador não
+ * lê configuracoes (o leitor de lá fica em lib/leituras-admin.ts, só do servidor). null sem resposta (ex.: sem a migração).
+ */
+export async function lerPausaDoResumo(sb: Cliente): Promise<boolean | null> {
+  const { data, error } = await sb.rpc('estado_sistema_resumo');
+  const pausado = !error && data && typeof data === 'object' ? (data as { agente_pausado?: unknown }).agente_pausado : null;
+  return typeof pausado === 'boolean' ? pausado : null;
 }
 
 /** Texto do selo do menu: nada para zero ou desconhecido, "99+" acima de 99. */

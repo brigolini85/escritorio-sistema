@@ -1,14 +1,10 @@
-// Leituras e regras do Início (spec 7C.1): sinais de vida, gasto de IA do mês vs. teto, faixa de alertas, cabeçalho,
-// demandas por setor e o estado do sistema. Gasto, sinais e configuracoes só o administrador lê (banco e RLS); quem
-// atende lê só estado_sistema_resumo (sem custos, D3).
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@escritorio/db';
+// Regras do Início (spec 7C.1): teto de IA, faixa de alertas, cabeçalho, demandas por setor e o estado do sistema.
+// Gasto, sinais e configuracoes só o administrador lê (banco e RLS), por lib/leituras-admin.ts; quem atende lê só
+// estado_sistema_resumo (sem custos, D3).
 import { minutosDeEspera, textoEspera } from './atendimento';
 import { FUSO, formatarUSD, tempoRelativo } from './formatos';
 import { descreverPrazo, horaCurta } from './prazo';
 import { situacaoDoSinal, type LimitesSinal } from './sinal-vida';
-
-type Cliente = SupabaseClient<Database>;
 
 /**
  * O trabalhador grava 'fila' a cada batimento (a cada minuto) e 'whatsapp' no mesmo batimento, só quando a Z-API
@@ -40,26 +36,10 @@ export function situacaoTeto(gasto: number, teto: number): SituacaoTeto {
 /** Percentual do teto para texto; fração infinita (teto 0 com gasto) vira "teto atingido", nunca "Infinity%". */
 export const textoFracaoTeto = (fracao: number): string => (Number.isFinite(fracao) ? `${Math.round(fracao * 100)}%` : 'teto atingido');
 
+// Os leitores de gasto e sinais (só o administrador) ficam em lib/leituras-admin.ts: a Minha mesa importa este arquivo.
 export type GastoDoMes = { total: number };
 
-/** Gasto de IA do mês corrente (Brasília) pela gastos_resumo (só o administrador; os outros recebem null). */
-export async function lerGastoIaDoMes(sb: Cliente, agora: Date): Promise<GastoDoMes | null> {
-  const { inicio, fim } = mesCorrenteSP(agora);
-  const { data, error } = await sb.rpc('gastos_resumo', { p_de: inicio, p_ate: fim });
-  if (error || !data) return null;
-  return { total: Number((data as { total_usd: number }).total_usd) || 0 };
-}
-
 export type SinaisVida = { fila: string | null; whatsapp: string | null; ultimo: string | null };
-
-/** sinais_vida por componente. null quando não dá para ler (só o administrador lê). */
-export async function lerSinaisVida(sb: Cliente): Promise<SinaisVida | null> {
-  const { data, error } = await sb.from('sinais_vida').select('componente, visto_em');
-  if (error || !data) return null;
-  const de = (c: string) => data.find((l) => l.componente === c)?.visto_em ?? null;
-  const ultimo = data.reduce<string | null>((m, l) => (!m || new Date(l.visto_em) > new Date(m) ? l.visto_em : m), null);
-  return { fila: de('fila'), whatsapp: de('whatsapp'), ultimo };
-}
 
 export type AlertaFaixa = {
   id: 'teto' | 'fila' | 'whatsapp'; nivel: 'perigo' | 'atencao'; titulo: string; texto: string; link: { href: string; rotulo: string };
