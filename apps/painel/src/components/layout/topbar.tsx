@@ -2,7 +2,8 @@
 
 import { ChevronRight, House, Menu } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { AgentStateIndicator, type EstadoAgente } from '@/components/patterns/agent-state-indicator';
 import { cn } from '@/lib/cn';
 import { BuscaGlobal } from './busca-global';
@@ -10,8 +11,7 @@ import { MenuUsuario } from './menu-usuario';
 import { trilhaDaRota } from './trilha';
 
 /** Trilha da tela atual (casa › Seção › Tela); o último passo é a página e não é link. */
-function Trilha() {
-  const passos = trilhaDaRota(usePathname());
+function TrilhaPassos({ passos }: { passos: ReturnType<typeof trilhaDaRota> }) {
   return (
     // Abaixo de sm a trilha some: o título da página já diz onde se está e a busca precisa do espaço.
     <nav aria-label="Trilha" className="hidden min-w-0 flex-1 sm:block">
@@ -43,6 +43,19 @@ function Trilha() {
         })}
       </ol>
     </nav>
+  );
+}
+
+/** A seção de Configurações vem da busca (?secao=); useSearchParams pede Suspense. */
+function TrilhaComSecao() {
+  return <TrilhaPassos passos={trilhaDaRota(usePathname(), useSearchParams().get('secao'))} />;
+}
+function Trilha() {
+  const pathname = usePathname();
+  return (
+    <Suspense fallback={<TrilhaPassos passos={trilhaDaRota(pathname)} />}>
+      <TrilhaComSecao />
+    </Suspense>
   );
 }
 

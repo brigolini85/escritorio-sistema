@@ -14,7 +14,7 @@ const ITENS: ItemMenu[] = [
     href: '/configuracoes',
     filhos: [
       { rotulo: 'Usuários e permissões', href: '/usuarios' },
-      { rotulo: 'Setores', href: '/configuracoes#setores' },
+      { rotulo: 'Setores', href: '/configuracoes?secao=setores' },
       { rotulo: 'Mensagens', href: '/_design#menu' },
     ],
   },

@@ -25,6 +25,8 @@ describe('seções (spec 7C.4, D8, D12)', () => {
     expect(secaoDoHash('#integracoes')).toBe('integracoes');
     expect(secaoDoHash('#nada')).toBeNull();
     expect(secaoDoHash('')).toBeNull();
+    // Hash malformado (link colado pela metade) não derruba a página.
+    expect(secaoDoHash('#%E0%A4%A')).toBeNull();
   });
   it('rótulo e endereço', () => {
     expect(rotuloDaSecao('prazos')).toBe('Prazos');

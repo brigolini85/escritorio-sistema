@@ -59,8 +59,8 @@ export default async function GastosIa({ searchParams }: { searchParams: Promise
           <span className="text-sm text-subtle">
             <CircleDollarSign aria-hidden size={14} strokeWidth={1.75} className="mr-1 inline align-text-bottom" />Só administrador ·{' '}
             {cotacao
-              ? <>cotação usada: {formatarBRL(cotacao)} (<Link className={LINK} href="/configuracoes#teto-ia">Configurações</Link>)</>
-              : <>sem cotação: valores em US$ (<Link className={LINK} href="/configuracoes#teto-ia">preencher</Link>)</>}
+              ? <>cotação usada: {formatarBRL(cotacao)} (<Link className={LINK} href="/configuracoes?secao=ia">Configurações</Link>)</>
+              : <>sem cotação: valores em US$ (<Link className={LINK} href="/configuracoes?secao=ia">preencher</Link>)</>}
           </span>
         }
         acoes={<FiltrosPeriodo periodo={periodo} />}

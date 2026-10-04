@@ -37,9 +37,11 @@ export function secaoDaUrl(valor: string | string[] | undefined, admin: boolean)
   return secoesDe(admin).find((s) => s.id === id) ?? SECOES_CONFIG[0]!;
 }
 
-/** "#teto-ia" (link antigo) → "ia"; null quando não é seção. */
+/** "#teto-ia" (link antigo) → "ia"; null quando não é seção (ou o hash está malformado). */
 export function secaoDoHash(hash: string): IdSecao | null {
-  const v = decodeURIComponent(hash.replace(/^#/, ''));
+  let v: string;
+  // Link colado pela metade ("#%E0%A4%A") faz decodeURIComponent lançar: não é seção.
+  try { v = decodeURIComponent(hash.replace(/^#/, '')); } catch { return null; }
   if (!v) return null;
   const id = idCerto(v);
   return SECOES_CONFIG.some((s) => s.id === id) ? (id as IdSecao) : null;

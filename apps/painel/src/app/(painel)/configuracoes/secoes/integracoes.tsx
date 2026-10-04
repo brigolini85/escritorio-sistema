@@ -4,7 +4,7 @@ import { CardContent } from '@/components/ui/card';
 import { LIMITES_BATIMENTO } from '@/lib/inicio';
 import { Cartao } from '../cartao';
 
-/** Último sinal de cada serviço (só o administrador, D20). Recarrega a cada minuto com a aba visível. */
+/** Último sinal de cada serviço (só o administrador, D20). Recarrega a cada minuto com a aba visível, só enquanto esta seção está aberta. */
 export function SecaoIntegracoes({ sinal }: { sinal: (componente: string) => string | null }) {
   return (
     <>

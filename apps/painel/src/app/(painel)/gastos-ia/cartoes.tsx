@@ -109,7 +109,7 @@ export function Cartoes({ periodo, resumo, resumoMes, teto, cotacao, custoMinuto
           <Linha>
             {custoMinutoConfigurado
               ? <span className="tabular">{formatarUSD(resumo.custo_audio_usd)}</span>
-              : <>custo por minuto não configurado (<Link className={LINK_CONFIG} href="/configuracoes#teto-ia">Configurações</Link>)</>}
+              : <>custo por minuto não configurado (<Link className={LINK_CONFIG} href="/configuracoes?secao=ia">Configurações</Link>)</>}
           </Linha>
         </Cartao>
       </div>

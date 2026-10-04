@@ -122,7 +122,7 @@ test('Configurações "Sim" sem ser administrador: não vê a cotação nem o cu
   await db.from('usuario_permissoes').update({ nivel: 'sim' }).eq('usuario_id', ana).eq('modulo', 'configuracoes');
   await entrar(page, 'ana-cotacao@e2e.local', 'senha-forte-123');
   await page.goto('/configuracoes');
-  await expect(page.getByRole('heading', { name: 'Expediente' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Expediente', exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByLabel('Cotação do dólar (R$ por US$ 1)')).toHaveCount(0);
   await expect(page.getByLabel('Custo por minuto da transcrição de áudio (US$)')).toHaveCount(0);
 });

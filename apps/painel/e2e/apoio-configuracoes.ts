@@ -1,8 +1,12 @@
 import { expect, type Page } from '@playwright/test';
 
-/** Abre uma seção de Configurações pelo endereço (a página longa ignora ?secao; depois da Task 10 ele escolhe a seção). */
+/**
+ * Abre uma seção de Configurações pelo endereço e espera o React hidratar a página: preencher um campo antes disso junta o
+ * digitado ao valor do servidor ("X\nYAuxiliar…"). O menu marca data-hidratado num useEffect (só roda no navegador).
+ */
 export async function abrirSecao(page: Page, id: string): Promise<void> {
   await page.goto(`/configuracoes?secao=${id}`);
+  await expect(page.locator('nav[aria-label="Seções das configurações"][data-hidratado]')).toHaveCount(1, { timeout: 30_000 });
 }
 
 /** Salvar prazos: com demanda aberta da prioridade, a janela de impacto abre; escolhe "Só para as novas". */

@@ -13,12 +13,17 @@ describe('trilha da barra do topo (ícone › Seção › Tela)', () => {
     ['/contatos', [{ rotulo: 'Cadastros' }, { rotulo: 'Contatos' }]],
     ['/assistente', [{ rotulo: 'Assistente' }]],
     ['/treinar-agente', [{ rotulo: 'Treinar o agente' }]],
-    ['/configuracoes', [{ rotulo: 'Configurações' }]],
+    ['/configuracoes', [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Expediente' }]],
     ['/gastos-ia', [{ rotulo: 'Administração' }, { rotulo: 'Gastos com IA' }]],
     ['/usuarios', [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões' }]],
     ['/_design', [{ rotulo: 'Catálogo do design' }]],
   ])('%s', (rota, esperado) => {
     expect(trilhaDaRota(rota)).toEqual(esperado);
+  });
+  it('Configurações mostra a seção (Parte G1, D22)', () => {
+    expect(trilhaDaRota('/configuracoes', 'prazos')).toEqual([{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Prazos' }]);
+    expect(trilhaDaRota('/configuracoes', null)).toEqual([{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Expediente' }]);
+    expect(trilhaDaRota('/configuracoes', 'teto-ia')).toEqual([{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Teto e modelos de IA' }]);
   });
   it('rota desconhecida devolve trilha vazia (só o ícone de Início)', () => {
     expect(trilhaDaRota('/qualquer')).toEqual([]);

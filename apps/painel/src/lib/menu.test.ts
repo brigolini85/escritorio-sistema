@@ -23,6 +23,8 @@ describe('menu pelos níveis (Parte D)', () => {
     // Sem o teto de IA, o item não promete "IA".
     expect(conf.filhos!.map((f) => f.rotulo)).toContain('Expediente');
     expect(conf.filhos!.map((f) => f.rotulo)).not.toContain('Expediente e IA');
+    expect(conf.filhos!.find((f) => f.rotulo === 'Setores')?.href).toBe('/configuracoes?secao=setores');
+    expect(conf.filhos!.map((f) => f.rotulo)).not.toContain('Teto e modelos de IA');
   });
   it('Gastos com IA: só o administrador, antes de Configurações (spec 7)', () => {
     expect(rotulos('admin', n())).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Treinar o agente', 'Gastos com IA', 'Configurações']);
@@ -32,6 +34,8 @@ describe('menu pelos níveis (Parte D)', () => {
     const itens = itensDoMenu({ papel: 'admin', niveis: n() });
     expect(itens.map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Treinar o agente', 'Gastos com IA', 'Configurações']);
     expect(itens.at(-1)!.filhos!.map((f) => f.rotulo)).toContain('Usuários e permissões');
+    const adminConf = itens.find((i) => i.rotulo === 'Configurações')!;
+    expect(adminConf.filhos!.map((f) => f.rotulo)).toContain('Teto e modelos de IA');
     expect(rotulos('admin', n({ assistente: 'site' }))).toContain('Assistente');
   });
 });

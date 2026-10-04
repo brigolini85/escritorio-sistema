@@ -26,7 +26,7 @@ test('administrador vê o estado do WhatsApp e a dica do atalho não repete o no
   await criarUsuarioTeste({ email: EMAIL_ADMIN, senha, nome: 'Admin Menu', papel: 'admin' });
   await entrar(page, EMAIL_ADMIN, senha);
   const menu = page.getByRole('complementary');
-  await expect(menu.getByRole('link', { name: /^WhatsApp: / })).toHaveAttribute('href', '/configuracoes#integracoes');
+  await expect(menu.getByRole('link', { name: /^WhatsApp: / })).toHaveAttribute('href', '/configuracoes?secao=integracoes');
   await expect(menu.getByRole('img', { name: 'WhatsApp', exact: true })).toHaveCount(0);
 
   const inicio = menu.locator('a[href="/inicio"][aria-label="Início"]');

@@ -1,13 +1,8 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
 import { abrirSecao } from './apoio-configuracoes';
 
 const SENHA = 'senha-forte-123';
-
-/** Preencher um <textarea> enquanto o React hidrata junta o digitado ao valor do servidor ("X\nYAuxiliar…"): espera o React tomar o campo. */
-async function esperarHidratar(campo: Locator) {
-  await expect.poll(() => campo.evaluate((el) => Object.keys(el).some((k) => k.startsWith('__reactFiber'))), { timeout: 30_000 }).toBe(true);
-}
 
 test('Cargos: lista nova aparece na ficha da pessoa', async ({ page }) => {
   const antes = (await db.from('configuracoes').select('cargos').eq('id', 1).single()).data!.cargos;
@@ -16,7 +11,6 @@ test('Cargos: lista nova aparece na ficha da pessoa', async ({ page }) => {
     await entrar(page, 'admin-cargos@e2e.local', SENHA);
     await abrirSecao(page, 'cargos');
     const cartao = page.getByRole('region', { name: 'Cargos' });
-    await esperarHidratar(cartao.getByLabel('Cargos (um por linha)'));
     await cartao.getByLabel('Cargos (um por linha)').fill('Auxiliar\nAnalista\nEstagiário e2e', { timeout: 30_000 });
     await cartao.getByRole('button', { name: 'Salvar cargos' }).click();
     await expect(page.getByText('Cargos salvos.')).toBeVisible();
@@ -24,7 +18,6 @@ test('Cargos: lista nova aparece na ficha da pessoa', async ({ page }) => {
     await expect(page.locator('datalist option[value="Estagiário e2e"]')).toHaveCount(1, { timeout: 30_000 });
     // Repetido: o erro aparece e o digitado fica.
     await abrirSecao(page, 'cargos');
-    await esperarHidratar(cartao.getByLabel('Cargos (um por linha)'));
     await cartao.getByLabel('Cargos (um por linha)').fill('Analista\nanalista', { timeout: 30_000 });
     await cartao.getByRole('button', { name: 'Salvar cargos' }).click();
     await expect(cartao.getByRole('alert')).toHaveText('Há cargo repetido na lista.');

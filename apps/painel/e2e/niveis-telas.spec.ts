@@ -33,7 +33,7 @@ test('Configurações "Sim": abre sem teto de IA e sem Usuários; "Sem acesso" v
   await expect(page).toHaveURL(/\/inicio/);
   await nivel(ana, 'configuracoes', 'sim');
   await page.goto('/configuracoes');
-  await expect(page.getByRole('heading', { name: 'Expediente' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Expediente', exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Teto de IA e alertas' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Integrações' })).toHaveCount(0);
   await page.goto('/usuarios');
@@ -64,7 +64,7 @@ test('Configurações "Sim": quem não é administrador salva o Expediente, sem 
   const antes = (await db.from('configuracoes').select('horario_fim').eq('id', 1).single()).data!.horario_fim;
   await entrar(page, 'ana-niveis@e2e.local', SENHA);
   await page.goto('/configuracoes');
-  await expect(page.getByRole('heading', { name: 'Expediente' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Expediente', exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Teto de IA e alertas' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Integrações' })).toHaveCount(0);
   const novoFim = antes.startsWith('19:') ? '18:30' : '19:15';

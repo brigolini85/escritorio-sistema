@@ -1,3 +1,5 @@
+import { rotuloDaSecao } from '@/lib/configuracoes';
+
 export type PassoTrilha = { rotulo: string; href?: string };
 
 type Secao = { prefixo: string; trilha: PassoTrilha[]; detalhe?: string };
@@ -14,22 +16,25 @@ const SECOES: Secao[] = [
   { prefixo: '/assistente', trilha: [{ rotulo: 'Assistente' }] },
   { prefixo: '/treinar-agente', trilha: [{ rotulo: 'Treinar o agente' }] },
   { prefixo: '/gastos-ia', trilha: [{ rotulo: 'Administração' }, { rotulo: 'Gastos com IA' }] },
-  { prefixo: '/configuracoes', trilha: [{ rotulo: 'Configurações' }] },
   { prefixo: '/usuarios', trilha: [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões' }], detalhe: 'Pessoa' },
   // Rota fixa mais longa que /usuarios/[id]: sem esta linha, /usuarios/novo viraria "Pessoa".
   { prefixo: '/usuarios/novo', trilha: [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões', href: '/usuarios' }, { rotulo: 'Nova pessoa' }] },
   { prefixo: '/_design', trilha: [{ rotulo: 'Catálogo do design' }] },
 ].sort((a, b) => b.prefixo.length - a.prefixo.length);
 
-export function trilhaDaRota(pathname: string): PassoTrilha[] {
-  const secao = SECOES.find((s) => pathname === s.prefixo || pathname.startsWith(`${s.prefixo}/`));
-  if (!secao) return [];
-  const trilha = secao.trilha.map((p) => ({ ...p }));
-  const temSubcaminho = pathname !== secao.prefixo;
-  if (temSubcaminho && secao.detalhe) {
+export function trilhaDaRota(pathname: string, secao?: string | null): PassoTrilha[] {
+  // Configurações: uma seção por vez (?secao=, Parte G1); sem secao, a página abre no Expediente.
+  if (pathname === '/configuracoes') {
+    return [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: rotuloDaSecao(secao ?? 'expediente') ?? 'Expediente' }];
+  }
+  const rota = SECOES.find((s) => pathname === s.prefixo || pathname.startsWith(`${s.prefixo}/`));
+  if (!rota) return [];
+  const trilha = rota.trilha.map((p) => ({ ...p }));
+  const temSubcaminho = pathname !== rota.prefixo;
+  if (temSubcaminho && rota.detalhe) {
     const ultimo = trilha[trilha.length - 1]!;
-    ultimo.href = secao.prefixo;
-    trilha.push({ rotulo: secao.detalhe });
+    ultimo.href = rota.prefixo;
+    trilha.push({ rotulo: rota.detalhe });
   }
   return trilha;
 }

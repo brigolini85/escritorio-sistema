@@ -60,7 +60,7 @@ export function AtalhosMenu({ recolhido = false, whatsapp }: { recolhido?: boole
 
       {whatsapp ? (
         <Dica rotulo={rotuloZap}>
-          <Link href="/configuracoes#integracoes" aria-label={rotuloZap} aria-describedby={undefined} className={cn(QUADRADO, 'border-modulo-inicio')}>
+          <Link href="/configuracoes?secao=integracoes" aria-label={rotuloZap} aria-describedby={undefined} className={cn(QUADRADO, 'border-modulo-inicio')}>
             <MessageCircle aria-hidden size={18} strokeWidth={1.75} />
             <span aria-hidden className={cn('absolute -right-1 -top-1 size-2 rounded-full ring-2 ring-sidebar', COR_PONTO[whatsapp])} />
           </Link>
