@@ -2,7 +2,7 @@
 -- sobrescreve nada, a aba inteira salva numa chamada com a regra de quem chama, e "Só ver" não grava.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(47);
 
 insert into auth.users (id, email) values
   ('e8100000-0000-0000-0000-00000000000a', 'admin@h1.local'),
@@ -154,6 +154,56 @@ select results_eq(
 update public.clientes set numero = '12' where id = 'e8300000-0000-0000-0000-00000000000a';
 select is((select endereco from public.clientes where id = 'e8300000-0000-0000-0000-00000000000a'),
   'Rua Antiga, 12 - Centro, Belo Horizonte/MG, CEP 30110-000', 'mudar só o número recalcula o por extenso');
+
+-- 36–42 (revisão final, I1): UF gravada antes da migração fora da lista (o painel antigo aceitava duas letras quaisquer)
+-- não trava o cliente; só UF nova ou trocada é conferida (D10). A linha entra com os gatilhos desligados, como era antes.
+alter table public.clientes disable trigger endereco_por_extenso;
+alter table public.clientes disable trigger uf_valida;
+insert into public.clientes (id, razao_social, cnpj, endereco, uf) values
+  ('e8300000-0000-0000-0000-00000000000d', 'H1 UF Velha Ltda', '39393939000101', 'Rua Velha, 1', 'XX');
+alter table public.clientes enable trigger uf_valida;
+alter table public.clientes enable trigger endereco_por_extenso;
+select lives_ok($$ select public.copiar_endereco_para_logradouro() $$, 'a cópia do endereço passa com uma UF velha fora da lista');
+select is((select logradouro from public.clientes where id = 'e8300000-0000-0000-0000-00000000000d'), 'Rua Velha, 1',
+  'UF velha fora da lista: o endereço foi copiado para Logradouro');
+select lives_ok($$ update public.clientes set ativo = false where id = 'e8300000-0000-0000-0000-00000000000d' $$,
+  'cliente com UF velha fora da lista pode ser arquivado');
+select lives_ok($$ update public.clientes set ativo = true, endereco = 'Rua Velha, 2', uf = 'XX' where id = 'e8300000-0000-0000-0000-00000000000d' $$,
+  'o painel antigo salva de novo com a mesma UF velha');
+select throws_ok($$ update public.clientes set uf = 'YY' where id = 'e8300000-0000-0000-0000-00000000000d' $$, '23514', null,
+  'trocar para outra UF fora da lista é recusado');
+select throws_ok($$ insert into public.clientes (razao_social, cnpj, uf) values ('H1 UF Nova XX', '39393939000102', 'XX') $$, '23514', null,
+  'cliente novo com UF fora da lista é recusado');
+select lives_ok($$ update public.clientes set uf = 'MG' where id = 'e8300000-0000-0000-0000-00000000000d' $$, 'UF válida é aceita');
+
+-- 43–44 (revisão final, M1): a tela só lista os serviços ativos; salvar não desfaz o vínculo com um serviço desativado
+insert into public.servicos (id, nome, ativo) values ('e8200000-0000-0000-0000-000000000002', 'H1 Desativado', false);
+insert into public.cliente_servicos (cliente_id, servico_id)
+select c.id, s.id from public.clientes c, public.servicos s
+where c.cnpj = '12345678000195' and s.id in ('e8200000-0000-0000-0000-000000000001', 'e8200000-0000-0000-0000-000000000002');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"e8100000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
+select lives_ok($$ select public.salvar_ficha_cliente((select id from public.clientes where cnpj = '12345678000195'), '{
+  "razao_social": "H1 Padaria Sol Comércio de Alimentos ME", "cnpj": "12345678000195", "servicos": [],
+  "cep": "36404450", "logradouro": "Rua Rosa Figueiredo", "numero": "431", "bairro": "São Marcos",
+  "cidade": "Conselheiro Lafaiete", "uf": "MG", "inscricoes_st": [{"uf": "SP", "inscricao": "123456789110"}]}') $$,
+  'Bia salva sem marcar nenhum serviço');
+select results_eq(
+  $$ select servico_id from public.cliente_servicos where cliente_id = (select id from public.clientes where cnpj = '12345678000195') $$,
+  $$ values ('e8200000-0000-0000-0000-000000000002'::uuid) $$,
+  'o serviço ativo desmarcado sai; o vínculo com o serviço desativado (fora da tela) fica');
+reset role;
+
+-- 45–47 (revisão final, M2): apagar o Logradouro refaz o endereço com o que sobrou (ou vazio, sem nada)
+update public.clientes set logradouro = null where id = 'e8300000-0000-0000-0000-00000000000a';
+select is((select endereco from public.clientes where id = 'e8300000-0000-0000-0000-00000000000a'),
+  '12 - Centro, Belo Horizonte/MG, CEP 30110-000', 'sem Logradouro: o endereço é refeito com as outras partes');
+update public.clientes set numero = null, bairro = null, cidade = null, uf = null, cep = null where id = 'e8300000-0000-0000-0000-00000000000a';
+select is((select endereco from public.clientes where id = 'e8300000-0000-0000-0000-00000000000a'), null,
+  'sem nenhuma parte: o endereço fica vazio (o agente não lê o endereço velho)');
+update public.clientes set logradouro = null, cidade = null where cnpj = '12345678000195';
+select is((select endereco from public.clientes where cnpj = '12345678000195'),
+  '431 - São Marcos, CEP 36404-450', 'apagar Logradouro e Cidade de uma vez também refaz o endereço');
 
 select * from finish();
 rollback;

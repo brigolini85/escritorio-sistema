@@ -35,10 +35,21 @@ alter table public.clientes
   add column certificado_avisar_dias smallint not null default 30 check (certificado_avisar_dias between 1 and 180),
   add constraint clientes_contrato_datas check (contrato_fim is null or contrato_inicio is null or contrato_fim >= contrato_inicio);
 
--- UF de hoje é texto livre de duas letras: a checagem vale para o que for gravado daqui em diante (NOT VALID, D10).
-alter table public.clientes add constraint clientes_uf_valida check (uf in (
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR',
-  'SC', 'SP', 'SE', 'TO')) not valid;
+-- UF de hoje é texto livre de duas letras: só a UF nova ou trocada é conferida (D10). Não é CHECK (nem NOT VALID): o
+-- Postgres conferiria a linha inteira em todo UPDATE, e um cliente antigo com UF fora da lista não poderia mais ser
+-- arquivado, pausado nem salvo, e a cópia do endereço logo abaixo falharia e desfaria a migração.
+create function public.clientes_uf_na_lista() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if new.uf is not null and (tg_op = 'INSERT' or new.uf is distinct from old.uf) and new.uf not in (
+    'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO',
+    'RR', 'SC', 'SP', 'SE', 'TO') then
+    raise exception 'UF inválida: %.', new.uf using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+create trigger uf_valida before insert or update of uf on public.clientes
+  for each row execute function public.clientes_uf_na_lista();
 
 -- ---------- Inscrições de substituto tributário (UF + inscrição; linha sem inscrição é pendência na tela) ----------
 
@@ -106,8 +117,9 @@ begin
     new.logradouro := nullif(btrim(new.endereco), '');
   elsif (new.logradouro, new.numero, new.complemento, new.bairro, new.cidade, new.uf, new.cep)
         is distinct from (old.logradouro, old.numero, old.complemento, old.bairro, old.cidade, old.uf, old.cep)
-        and new.logradouro is not null then
-    new.endereco := public.montar_endereco(new.logradouro, new.numero, new.complemento, new.bairro, new.cidade, new.uf, new.cep);
+        and (new.logradouro is not null or old.endereco is not null) then
+    -- Sem logradouro (a ficha apagou), o por extenso sai do que sobrou, ou fica vazio: o agente não lê o endereço velho.
+    new.endereco := nullif(public.montar_endereco(new.logradouro, new.numero, new.complemento, new.bairro, new.cidade, new.uf, new.cep), '');
   end if;
   return new;
 end $$;
@@ -196,7 +208,9 @@ begin
   select v_id, upper(btrim(e ->> 'uf')), nullif(btrim(e ->> 'inscricao'), '') from jsonb_array_elements(v_st) e
   on conflict (cliente_id, uf) do update set inscricao = excluded.inscricao where s.inscricao is distinct from excluded.inscricao;
 
-  delete from public.cliente_servicos where cliente_id = v_id and not (servico_id = any (v_servicos));
+  -- A tela só lista os serviços ativos: o vínculo com um serviço desativado não está no formulário e fica.
+  delete from public.cliente_servicos where cliente_id = v_id and not (servico_id = any (v_servicos))
+    and servico_id in (select id from public.servicos where ativo);
   insert into public.cliente_servicos (cliente_id, servico_id)
   select distinct v_id, x from unnest(v_servicos) x
   where not exists (select 1 from public.cliente_servicos where cliente_id = v_id and servico_id = x);
