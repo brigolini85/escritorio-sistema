@@ -793,6 +793,55 @@ isOneToOne: false
       referencedColumns: ["id","cliente_id"]
     }
                   ]
+                },"pedidos_fora_do_acesso": {
+                  Row: {
+                    "chamado_id": string | null,"cliente_id": string,"contato_id": string,"criado_em": string,"dia": string,"id": string,"setor_id": string,"socios_avisados": number,"vezes": number
+                  }
+                  Insert: {
+                    "chamado_id"?: string | null,"cliente_id": string,"contato_id": string,"criado_em"?: string,"dia": string,"id"?: string,"setor_id": string,"socios_avisados"?: number,"vezes"?: number
+                  }
+                  Update: {
+                    "chamado_id"?: string | null,"cliente_id"?: string,"contato_id"?: string,"criado_em"?: string,"dia"?: string,"id"?: string,"setor_id"?: string,"socios_avisados"?: number,"vezes"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pedidos_fora_do_acesso_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "chamados"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pedidos_fora_do_acesso_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "demandas_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pedidos_fora_do_acesso_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pedidos_fora_do_acesso_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pedidos_fora_do_acesso_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pedidos_fora_do_acesso_setor_id_fkey"
+      columns: ["setor_id"]
+isOneToOne: false
+      referencedRelation: "setores"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"permissao_niveis": {
                   Row: {
                     "modulo": string,"nivel": string,"ordem": number
@@ -1211,7 +1260,10 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "agente_numeros_hoje":
+            "acesso_do_contato":
+{ Args: { "p_cliente": string,"p_contato": string }; Returns: Json
+                           },
+"agente_numeros_hoje":
 { Args: { "p_agora"?: string }; Returns: Json
                            },
 "alterar_status_chamado":
@@ -1267,6 +1319,11 @@ isOneToOne: false
                            },
 "contato_whatsapp_resumo":
 { Args: { "p_contato": string }; Returns: Json
+                           },
+"contatos_procuraveis":
+{ Args: { "p_cliente": string,"p_setor": string }; Returns: {
+              "contato_id": string,"nome": string,"telefone": string
+            }[]
                            },
 "copiar_endereco_para_logradouro":
 { Args: Record<PropertyKey, never>; Returns: number
@@ -1334,6 +1391,11 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"demandas_para_contato":
+{ Args: { "p_cliente": string,"p_contato": string,"p_conversa": string }; Returns: {
+              "criado_em": string,"id": string,"numero": number,"setor_id": string,"setor_nome": string,"status": Database["public"]['Enums']["status_chamado"],"titulo": string
+            }[]
+                           },
 "demandas_por_setor":
 { Args: { "p_agora"?: string }; Returns: {
               "abertas": number,"no_prazo": number,"sem_responsavel": number,"setor": string,"setor_id": string,"urgentes": number,"vencem_hoje": number,"vencidas": number
@@ -1347,6 +1409,11 @@ isOneToOne: false
                            },
 "dia_util_anterior":
 { Args: { "p_dia": string }; Returns: string
+                           },
+"documentos_para_contato":
+{ Args: { "p_cliente": string,"p_contato": string }; Returns: {
+              "arquivo_mime": string,"arquivo_nome": string,"arquivo_path": string,"ia_pode_enviar": boolean,"id": string,"nome": string,"setor_id": string,"tem_valores": boolean
+            }[]
                            },
 "editar_demanda":
 { Args: { "p_chamado": string,"p_contato"?: string,"p_descricao": string,"p_titulo": string }; Returns: undefined
@@ -1508,6 +1575,9 @@ isOneToOne: false
 "reabrir_demanda":
 { Args: { "p_chamado": string }; Returns: undefined
                            },
+"registrar_pedido_fora_do_acesso":
+{ Args: { "p_cliente": string,"p_contato": string,"p_dia": string,"p_setor": string }; Returns: Json
+                           },
 "registrar_resposta":
 { Args: { "p_arquivo_mime": string,"p_arquivo_nome": string,"p_arquivo_path": string,"p_conversa": string,"p_texto": string }; Returns: string
                            },
@@ -1549,6 +1619,11 @@ isOneToOne: false
                            },
 "situacao_acesso":
 { Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"socios_para_alerta":
+{ Args: { "p_cliente": string,"p_exceto": string }; Returns: {
+              "contato_id": string,"nome": string,"telefone": string
+            }[]
                            },
 "somar_tempo_util":
 { Args: { "p_de": string,"p_tempo": string }; Returns: string
