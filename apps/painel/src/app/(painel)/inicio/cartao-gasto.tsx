@@ -7,18 +7,18 @@ import { emReais, percentual, previsaoFechamento } from '@/lib/gastos';
 import { diasDoMes, situacaoTeto } from '@/lib/inicio';
 import type { UsuarioPainel } from '@/lib/sessao';
 import { paginaInicio } from './dados-inicio';
-import { lerConfigSituacao, lerGastoSituacao } from './dados-situacao';
+import { lerConfigSituacao, lerCotacaoSituacao, lerGastoSituacao } from './dados-situacao';
 
 /** Gasto com IA × teto (imagem A, spec 7B.3): só o administrador (D1). Marca de aviso em 80% e previsão de fechamento. */
 export async function CartaoGasto({ u }: { u: UsuarioPainel }) {
-  const [cfg, gasto, { agora }] = await Promise.all([lerConfigSituacao(), lerGastoSituacao(u.id), paginaInicio()]);
+  const [cfg, gasto, cotacao, { agora }] = await Promise.all([lerConfigSituacao(), lerGastoSituacao(u.id), lerCotacaoSituacao(), paginaInicio()]);
   if (!cfg || !gasto) {
     return <Card data-testid="inicio-gasto" className="p-4 text-sm text-muted">O gasto com IA não pôde ser lido agora.</Card>;
   }
   const teto = Number(cfg.teto_ia_usd);
   const nivel = situacaoTeto(gasto.total, teto).nivel;
   const pct = percentual(gasto.total, teto);
-  const reais = emReais(gasto.total, cfg.cotacao_usd_brl ? Number(cfg.cotacao_usd_brl) : null);
+  const reais = emReais(gasto.total, cotacao);
   const { primeiro, ultimo } = diasDoMes(agora);
   return (
     <Card data-testid="inicio-gasto" className="gap-2 border-t-4 border-t-brand p-4">

@@ -8,7 +8,9 @@ import { situacaoTeto } from '@/lib/inicio';
 import type { UsuarioPainel } from '@/lib/sessao';
 import { alternarPausaGeral } from './acoes';
 import { paginaInicio } from './dados-inicio';
-import { lerConfigSituacao, lerDemandasDoDia, lerFeriadosDeHoje, lerGastoSituacao, lerNumerosAgente } from './dados-situacao';
+import {
+  lerConfigSituacao, lerDemandasDoDia, lerFeriadosDeHoje, lerGastoSituacao, lerNumerosAgente, lerTetoAtingidoResumo,
+} from './dados-situacao';
 
 const ESTADO = {
   atendendo: { titulo: 'Atendendo', Icone: CircleDot, cor: 'text-success' },
@@ -24,7 +26,10 @@ export async function CartaoAgente({ u }: { u: UsuarioPainel }) {
   if (!cfg) {
     return <Card data-testid="inicio-agente" className="p-4 text-sm text-muted">O estado do agente não pôde ser lido agora.</Card>;
   }
-  const tetoAtingido = gasto ? situacaoTeto(gasto.total, Number(cfg.teto_ia_usd)).nivel === 'atingido' : false;
+  // Teto pela soma do mês (a mesma conta do trabalhador); sem o gasto, pela estado_sistema_resumo; sem as duas, desconhecido.
+  const tetoAtingido: boolean | null = gasto
+    ? situacaoTeto(gasto.total, Number(cfg.teto_ia_usd)).nivel === 'atingido'
+    : await lerTetoAtingidoResumo();
   const tipo = cfg.agente_pausado ? 'pausado' : tetoAtingido ? 'teto' : 'atendendo';
   const { titulo, Icone, cor } = ESTADO[tipo];
   const noExpediente = estaNoExpediente(agora, {
@@ -34,7 +39,7 @@ export async function CartaoAgente({ u }: { u: UsuarioPainel }) {
     ? 'Todas as mensagens vão para a equipe.'
     : tipo === 'teto'
       ? 'O gasto do mês chegou ao teto: as mensagens vão para a equipe até o mês virar ou o teto subir.'
-      : noExpediente ? 'dentro do expediente' : 'fora do expediente';
+      : `${noExpediente ? 'dentro do expediente' : 'fora do expediente'}${tetoAtingido === null ? ' · o teto de IA não pôde ser conferido agora' : ''}`;
   const pct = numeros && numeros.conversas > 0 ? `${Math.round((numeros.resolvidas / numeros.conversas) * 100)}%` : '—';
 
   return (
