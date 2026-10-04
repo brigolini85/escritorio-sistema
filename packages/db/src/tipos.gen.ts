@@ -196,6 +196,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"cliente_acessos": {
+                  Row: {
+                    "atualizado_em": string,"atualizado_por": string | null,"cliente_id": string,"id": string,"portal": string,"senha_cifrada": string | null,"tem_senha": boolean | null,"usuario": string | null
+                  }
+                  Insert: {
+                    "atualizado_em"?: string,"atualizado_por"?: string | null,"cliente_id": string,"id"?: string,"portal": string,"senha_cifrada"?: string | null,"tem_senha"?: never,"usuario"?: string | null
+                  }
+                  Update: {
+                    "atualizado_em"?: string,"atualizado_por"?: string | null,"cliente_id"?: string,"id"?: string,"portal"?: string,"senha_cifrada"?: string | null,"tem_senha"?: never,"usuario"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "cliente_acessos_atualizado_por_fkey"
+      columns: ["atualizado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "cliente_acessos_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"cliente_inscricoes_st": {
                   Row: {
                     "cliente_id": string,"inscricao": string | null,"uf": string
@@ -1014,13 +1039,13 @@ isOneToOne: false
                   ]
                 },"usuarios": {
                   Row: {
-                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cargo": string | null,"criado_em": string,"email": string,"horario_acesso": Json | null,"id": string,"nome": string,"observacoes": string | null,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null,"ultimo_acesso_em": string | null,"visao_demandas": string
+                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cargo": string | null,"criado_em": string,"email": string,"horario_acesso": Json | null,"id": string,"nome": string,"observacoes": string | null,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null,"ultimo_acesso_em": string | null,"ver_acessos_portais": boolean,"visao_demandas": string
                   }
                   Insert: {
-                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email": string,"horario_acesso"?: Json | null,"id": string,"nome": string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"visao_demandas"?: string
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email": string,"horario_acesso"?: Json | null,"id": string,"nome": string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"ver_acessos_portais"?: boolean,"visao_demandas"?: string
                   }
                   Update: {
-                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email"?: string,"horario_acesso"?: Json | null,"id"?: string,"nome"?: string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"visao_demandas"?: string
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email"?: string,"horario_acesso"?: Json | null,"id"?: string,"nome"?: string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"ver_acessos_portais"?: boolean,"visao_demandas"?: string
                   }
                   Relationships: [
                     {
@@ -1210,6 +1235,9 @@ isOneToOne: false
 "definir_tamanho_letra":
 { Args: { "p_tamanho": string }; Returns: undefined
                            },
+"definir_ver_acessos":
+{ Args: { "p_pode": boolean,"p_usuario": string }; Returns: undefined
+                           },
 "definir_visao_demandas":
 { Args: { "p_visao": string }; Returns: undefined
                            },
@@ -1388,6 +1416,9 @@ isOneToOne: false
 "pode_ser_responsavel":
 { Args: { "p_setor": string,"p_usuario": string }; Returns: boolean
                            },
+"pode_ver_acessos":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "pode_ver_chamado":
 { Args: { "p_chamado": string }; Returns: boolean
                            },
@@ -1415,6 +1446,9 @@ isOneToOne: false
 "registrar_resposta":
 { Args: { "p_arquivo_mime": string,"p_arquivo_nome": string,"p_arquivo_path": string,"p_conversa": string,"p_texto": string }; Returns: string
                            },
+"remover_acesso":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
 "restaurar_cadastro":
 { Args: { "p_id": string,"p_tipo": string }; Returns: undefined
                            },
@@ -1423,6 +1457,12 @@ isOneToOne: false
                            },
 "restaurar_unidade":
 { Args: { "p_com_rede"?: boolean,"p_id": string }; Returns: Json
+                           },
+"revelar_acesso":
+{ Args: { "p_acao"?: string,"p_id": string }; Returns: Json
+                           },
+"salvar_acesso":
+{ Args: { "p_cliente": string,"p_id": string,"p_portal": string,"p_senha_cifrada": string,"p_usuario": string }; Returns: string
                            },
 "salvar_ficha_cliente":
 { Args: { "p_dados": Json,"p_id": string }; Returns: string
