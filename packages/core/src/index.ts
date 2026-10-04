@@ -9,3 +9,4 @@ export * from './busca';
 export * from './bling';
 export * from './permissoes';
 export * from './passagem';
+export * from './acesso';
