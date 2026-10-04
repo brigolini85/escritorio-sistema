@@ -7,6 +7,7 @@ import { exigirConfiguracoes } from '@/lib/sessao';
 import { situacaoDoSinal } from '@/lib/sinal-vida';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { gastoDoMes } from '../inicio/gasto-do-mes';
+import { GuardaSaida } from './guarda-saida';
 import { MenuSecoes } from './menu-secoes';
 import { SecaoCargos } from './secoes/cargos';
 import { SecaoEspera } from './secoes/espera';
@@ -69,6 +70,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
 
   return (
     <section>
+      <GuardaSaida secao={secao.rotulo} />
       <PageHeader
         titulo={<>Configurações · <span className="font-extrabold text-brand">{secao.rotulo}</span></>}
         descricao="Uma seção por vez. Cada cartão salva sozinho; sair com alteração não salva pede confirmação."
