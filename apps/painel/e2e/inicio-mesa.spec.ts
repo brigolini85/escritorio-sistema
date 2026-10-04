@@ -64,3 +64,77 @@ test('CONCLUIR pede confirmação, tira a demanda da mesa e conta em "Você conc
   await expect(minhas).toContainText('Você concluiu 1 demanda hoje.');
   expect((await db.from('chamados').select('status').eq('id', d.id).single()).data?.status).toBe('concluido');
 });
+
+const PREFIXO_TEL = '553197004';
+
+test('Sem responsável nos meus setores: só do setor dela, ASSUMIR leva para as minhas', async ({ page }) => {
+  const fiscal = await demandaE2e({ titulo: `${P} sem resp Fiscal`, setor: 'Fiscal', prazoEm: fimDeHoje() });
+  await demandaE2e({ titulo: `${P} sem resp Pessoal`, setor: 'Pessoal', prazoEm: fimDeHoje() });
+  await entrar(page, ANA.email, SENHA);
+  await abrirInicio(page, 'mesa');
+  const sem = page.getByRole('region', { name: 'Sem responsável nos meus setores' });
+  await expect(sem).toContainText(`${P} sem resp Fiscal`);
+  await expect(sem).not.toContainText(`${P} sem resp Pessoal`);
+  await sem.getByRole('button', { name: `Assumir a demanda #${fiscal.numero}` }).click();
+  await expect(page.getByText('Demanda assumida.')).toBeVisible();
+  await expect(sem).not.toContainText(`${P} sem resp Fiscal`);
+  await expect(page.getByRole('region', { name: 'Minhas demandas por prazo' })).toContainText(`${P} sem resp Fiscal`);
+});
+
+test('ASSUMIR de uma demanda que outra pessoa pegou antes: o aviso do banco e nada muda', async ({ page }) => {
+  const d = await demandaE2e({ titulo: `${P} disputada`, setor: 'Fiscal', prazoEm: fimDeHoje() });
+  const bruno = await criarUsuarioTeste({ email: 'bruno-mesa@e2e.local', senha: SENHA, nome: 'Bruno Mesa', papel: 'atendente', setores: ['Fiscal'] });
+  await entrar(page, ANA.email, SENHA);
+  await abrirInicio(page, 'mesa');
+  await db.from('chamados').update({ responsavel_id: bruno }).eq('id', d.id);
+  await page.getByRole('button', { name: `Assumir a demanda #${d.numero}` }).click();
+  await expect(page.getByText('A demanda já está com Bruno Mesa.')).toBeVisible();
+  expect((await db.from('chamados').select('responsavel_id').eq('id', d.id).single()).data?.responsavel_id).toBe(bruno);
+});
+
+test('"Só as minhas": a seção sem responsável fica vazia (a regra de leitura vale)', async ({ page }) => {
+  await demandaE2e({ titulo: `${P} sem resp oculta`, setor: 'Fiscal', prazoEm: fimDeHoje() });
+  await db.from('usuario_permissoes').update({ nivel: 'minhas' }).eq('usuario_id', ana).eq('modulo', 'demandas');
+  await entrar(page, ANA.email, SENHA);
+  await abrirInicio(page, 'mesa');
+  const sem = page.getByRole('region', { name: 'Sem responsável nos meus setores' });
+  await expect(sem).toContainText('Nenhuma demanda sem responsável nos seus setores.');
+  expect(await numeroInicio(page, 'sem-responsavel')).toBe(0);
+});
+
+test('conversas esperando você (cronômetro e não lidas), atalhos e o bloco Sistema sem pausar nem gasto', async ({ page }) => {
+  await db.from('conversas').delete().like('telefone', `${PREFIXO_TEL}%`);
+  await db.from('configuracoes').update({ agente_pausado: false }).eq('id', 1);
+  const { data: setor } = await db.from('setores').select('id').eq('nome', 'Fiscal').single();
+  const { data: c } = await db.from('conversas').insert({
+    telefone: `${PREFIXO_TEL}0001`, aguardando_pessoa_desde: new Date(Date.now() - 7 * 60_000).toISOString(), motivo_pessoa: 'pediu para falar com pessoa',
+  }).select('id').single();
+  await db.from('chamados').insert({ conversa_id: c!.id, setor_id: setor!.id, titulo: `${P} da conversa` });
+  for (const [i, texto] of ['um', 'dois', 'três'].entries()) {
+    await db.from('mensagens').insert({ conversa_id: c!.id, direcao: 'entrada', autor: 'cliente', conteudo: texto,
+      criado_em: new Date(Date.now() - (3 - i) * 1000).toISOString(), processada_em: new Date().toISOString() });
+  }
+  try {
+    await entrar(page, ANA.email, SENHA);
+    await abrirInicio(page, 'mesa');
+    const conversas = page.getByRole('region', { name: 'Conversas esperando você' });
+    const item = conversas.locator(`a[href="/atendimento/${c!.id}"]`);
+    await expect(item.locator('[data-espera="ambar"]')).toContainText('7 min');
+    await expect(item.getByLabel('3 mensagens não lidas')).toBeVisible();
+    await expect(conversas).toContainText(/com o agente hoje/);
+    await expect(conversas.getByRole('link', { name: 'Abrir atendimento' })).toHaveAttribute('href', '/atendimento');
+
+    const atalhos = page.getByRole('navigation', { name: 'Atalhos' });
+    await expect(atalhos.getByRole('link', { name: 'Nova demanda' })).toHaveAttribute('href', '/demandas?nova=1');
+    await expect(atalhos.getByRole('link', { name: 'Contatos' })).toHaveAttribute('href', '/contatos');
+    await expect(atalhos.getByRole('link', { name: 'Respostas prontas' })).toHaveCount(0);
+
+    const sistema = page.getByTestId('inicio-sistema');
+    await expect(sistema.locator('[data-sistema="agente"]')).toContainText('atendendo');
+    await expect(sistema.locator('[data-sistema="whatsapp"]')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Pausar agente|Retomar agente/ })).toHaveCount(0);
+    await expect(page.getByText('US$')).toHaveCount(0);
+  } finally {
+    await db.from('conversas').delete().like('telefone', `${PREFIXO_TEL}%`);
+  }
+});
