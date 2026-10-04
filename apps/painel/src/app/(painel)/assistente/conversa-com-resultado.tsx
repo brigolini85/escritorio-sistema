@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { AvisoErro } from '@/components/patterns/aviso-erro';
 import { Skeleton } from '@/components/ui/skeleton';
 import { temNivel } from '@/lib/permissoes';
-import { escolherResultado, lerConversa } from '@/lib/resultados-assistente';
+import { escolherResultado, lerConversa, podeResponderPrevia } from '@/lib/resultados-assistente';
 import type { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { perguntarAoAssistente } from './acoes';
@@ -10,6 +10,7 @@ import { ChatAssistente } from './chat-assistente';
 import { CompositorAssistente, Sugestoes } from './compositor-assistente';
 import { lerDemandaDoPedido, lerMensagensAssistente } from './dados-assistente';
 import { PainelResultado } from './painel-resultado';
+import { RespostaDaPrevia } from './resposta-previa';
 
 type Usuario = Awaited<ReturnType<typeof obterUsuario>>;
 
@@ -31,6 +32,10 @@ export async function ConversaComResultado({ usuario, conversaId, chave, cabecal
   // Só a demanda do pedido aberto (uma leitura): setor, empresa, origem, eventos (D17).
   const leituraDemanda = selecionado?.tipo === 'pedido' && selecionado.numero !== null
     ? await lerDemandaDoPedido(sb, selecionado.numero, verPedidos) : null;
+  const acao = perguntarAoAssistente.bind(null, conversaId);
+  // D7: só na prévia que o "sim" vai gravar (última mensagem, única, com número) e ainda sem selo (o PainelPedido sabe do selo).
+  const responder = selecionado?.tipo === 'pedido' && podeResponderPrevia(mensagens, selecionado);
+  const rodapePedido = responder ? (gravado: boolean) => (gravado ? null : <RespostaDaPrevia acao={acao} />) : undefined;
   return (
     <>
       <section aria-labelledby="titulo-assistente" className={COLUNA_CHAT}>
@@ -39,11 +44,11 @@ export async function ConversaComResultado({ usuario, conversaId, chave, cabecal
         <ChatAssistente mensagens={mensagens} respostas={leitura.respostas} conversaId={conversaId} selecionada={selecionado?.chave ?? null} />
         <div className="flex flex-col gap-2 border-t border-border p-4">
           <Sugestoes itens={conversaId ? SUGESTOES_CONVERSA : SUGESTOES_GERAL} className="justify-start" />
-          <CompositorAssistente acao={perguntarAoAssistente.bind(null, conversaId)} />
+          <CompositorAssistente acao={acao} />
         </div>
       </section>
       <PainelResultado leitura={leitura} selecionado={selecionado} conversaId={conversaId} leituraDemanda={leituraDemanda}
-        mensagens={mensagens} usuario={usuario} podeCsv={podeCsv} />
+        mensagens={mensagens} usuario={usuario} podeCsv={podeCsv} rodapePedido={rodapePedido} />
     </>
   );
 }

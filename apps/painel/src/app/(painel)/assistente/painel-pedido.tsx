@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { variantesBotao } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
-import { formatarHora } from '@/lib/formatos';
+import { formatarHora, formatarHoraOuDia } from '@/lib/formatos';
 import { historicoDoPedido, montarPedidoNoPainel, origemDoPedido, seloGravado, type ItemComparado } from '@/lib/pedido-assistente';
 import { arquivoDoPedido, type LeituraConversa, type MensagemTela, type ResultadoPedido } from '@/lib/resultados-assistente';
 import type { LeituraDemanda } from './dados-assistente';
@@ -165,7 +165,7 @@ export function PainelPedido({ resultado, leituraDemanda, leitura, mensagens, us
                     <span className="min-w-0">
                       <span className="block truncate font-extrabold text-foreground">{arquivo.arquivo.nome}</span>
                       <span className="block text-sm text-muted">
-                        {arquivo.arquivo.chamados.length === 1 ? '1 pedido' : `${arquivo.arquivo.chamados.length} pedidos`} · gerado {formatarHora(arquivo.em)}
+                        {arquivo.arquivo.chamados.length === 1 ? '1 pedido' : `${arquivo.arquivo.chamados.length} pedidos`} · gerado {formatarHoraOuDia(arquivo.em)}
                       </span>
                     </span>
                   </div>

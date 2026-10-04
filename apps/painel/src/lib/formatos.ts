@@ -126,6 +126,13 @@ export function formatarHora(data: Data): string {
   return p ? `${p.hour}:${p.minute}` : '';
 }
 
+/** "14:05" se for hoje (Brasília); senão "29/09 14:05" — a hora sozinha de outro dia enganaria. */
+export function formatarHoraOuDia(data: Data, agora: Data = Date.now()): string {
+  const p = partes(paraData(data));
+  if (!p) return '';
+  return formatarData(data) === formatarData(agora) ? `${p.hour}:${p.minute}` : `${p.day}/${p.month} ${p.hour}:${p.minute}`;
+}
+
 /** "30/09/2026 às 14:05" no horário de Brasília (tooltip do RelativeTime). */
 export function formatarDataHora(data: Data): string {
   const p = partes(paraData(data));

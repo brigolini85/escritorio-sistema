@@ -1,9 +1,7 @@
 import { FileSpreadsheet } from 'lucide-react';
-import { formatarData, formatarHora } from '@/lib/formatos';
+import { formatarHoraOuDia } from '@/lib/formatos';
 import type { ResultadoArquivos } from '@/lib/resultados-assistente';
 import { LinksCsv } from './links-csv';
-
-const quando = (iso: string) => (formatarData(iso) === formatarData(new Date()) ? formatarHora(iso) : `${formatarData(iso).slice(0, 5)} ${formatarHora(iso)}`);
 
 /** Arquivos do Bling desta conversa, do mais novo para o mais antigo (só para quem tem "Corrigir e gerar"). */
 export function PainelArquivos({ resultado }: { resultado: ResultadoArquivos }) {
@@ -20,7 +18,7 @@ export function PainelArquivos({ resultado }: { resultado: ResultadoArquivos }) 
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-extrabold text-foreground">{a.arquivo.nome}</span>
-                <span className="block text-sm text-muted">{n === 1 ? '1 pedido' : `${n} pedidos`} · gerado {quando(a.em)}</span>
+                <span className="block text-sm text-muted">{n === 1 ? '1 pedido' : `${n} pedidos`} · gerado {formatarHoraOuDia(a.em)}</span>
               </span>
               <LinksCsv mensagemId={a.mensagemId} arquivo={a.arquivo} onde="painel" variante="primary" />
             </li>
