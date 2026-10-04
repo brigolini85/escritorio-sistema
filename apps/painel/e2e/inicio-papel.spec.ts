@@ -20,7 +20,11 @@ test('administrador abre o Painel de situação; quem atende, a Minha mesa (tamb
 
   await page.context().clearCookies();
   const conf = await criarUsuarioTeste({ email: 'conf-papel@e2e.local', senha: SENHA, nome: 'Cláudia Papel', papel: 'atendente' });
-  await db.from('usuario_permissoes').update({ nivel: 'sim' }).eq('usuario_id', conf).eq('modulo', 'configuracoes');
+  const { data, error } = await db.from('usuario_permissoes').update({ nivel: 'sim' })
+    .eq('usuario_id', conf).eq('modulo', 'configuracoes').select();
+  expect(error).toBeNull();
+  expect(data).toHaveLength(1);
+  expect(data?.[0]?.nivel).toBe('sim');
   await entrar(page, 'conf-papel@e2e.local', SENHA);
   await abrirInicio(page, 'mesa');
 });

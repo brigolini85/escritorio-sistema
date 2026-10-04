@@ -47,8 +47,8 @@ export const lerGastoSituacao = cache(async (usuarioId: string) => {
 
 /** agente_numeros_hoje (Task 1); null sem a migração (homologação antes do "ok", D21). */
 export const lerNumerosAgente = cache(async () => {
-  const { sb } = await paginaInicio();
-  const { data, error } = await sb.rpc('agente_numeros_hoje');
+  const { sb, agora } = await paginaInicio();
+  const { data, error } = await sb.rpc('agente_numeros_hoje', { p_agora: agora.toISOString() });
   if (error || !data) return null;
   const o = data as { conversas?: unknown; resolvidas_agente?: unknown };
   return { conversas: Number(o.conversas) || 0, resolvidas: Number(o.resolvidas_agente) || 0 };
@@ -77,9 +77,10 @@ const UM_DIA_MS = 24 * 60 * 60 * 1000;
 
 /** demandas_por_setor (Task 1): os cinco números são a soma das linhas (D5). null sem a migração (D21). */
 export const lerSetoresSituacao = cache(async () => {
-  const { sb } = await paginaInicio();
-  const { data, error } = await sb.rpc('demandas_por_setor');
-  if (error) console.error('[inicio] falha ao ler as demandas por setor', error);
+  const { sb, agora } = await paginaInicio();
+  // O mesmo instante das outras leituras da página (vencem hoje, sem responsável antigas), não o now() do banco.
+  const { data, error } = await sb.rpc('demandas_por_setor', { p_agora: agora.toISOString() });
+  if (error && error.code !== 'PGRST202') console.error('[inicio] falha ao ler as demandas por setor', error);
   return error ? null : lerLinhasSetor(data);
 });
 

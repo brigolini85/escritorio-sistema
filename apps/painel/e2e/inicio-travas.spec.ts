@@ -12,18 +12,33 @@ test('quem atende nunca recebe custo: nem na página, nem no pacote RSC (também
   await entrar(page, 'admin-travas@e2e.local', SENHA);
   await abrirInicio(page, 'situacao');
   expect(await page.content()).toMatch(/US\$/);
+  // Controle do caminho RSC: o mesmo pedido, como administrador, traz custo (o filtro acha custo no pacote quando há).
+  const rscAdmin = await page.request.get('/inicio', { headers: { RSC: '1' } });
+  expect(rscAdmin.status()).toBe(200);
+  const textoAdmin = await rscAdmin.text();
+  expect(textoAdmin, 'pacote RSC do Painel de situação').toContain('"data-inicio":"situacao"');
+  expect(textoAdmin, 'pacote RSC do Painel de situação').toMatch(/US\$/);
 
   for (const comConfiguracoes of [false, true]) {
     await page.context().clearCookies();
     const email = `mesa-travas-${comConfiguracoes ? 'conf' : 'comum'}@e2e.local`;
     const id = await criarUsuarioTeste({ email, senha: SENHA, nome: 'Ana Travas', papel: 'atendente', setores: ['Fiscal'] });
-    if (comConfiguracoes) await db.from('usuario_permissoes').update({ nivel: 'sim' }).eq('usuario_id', id).eq('modulo', 'configuracoes');
+    if (comConfiguracoes) {
+      const { data, error } = await db.from('usuario_permissoes').update({ nivel: 'sim' })
+        .eq('usuario_id', id).eq('modulo', 'configuracoes').select();
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+      expect(data?.[0]?.nivel).toBe('sim');
+    }
     await entrar(page, email, SENHA);
     await abrirInicio(page, 'mesa');
     expect(await page.content(), `HTML da Minha mesa (${email})`).not.toMatch(CUSTO);
     const rsc = await page.request.get('/inicio', { headers: { RSC: '1' } });
     expect(rsc.status()).toBe(200);
-    expect(await rsc.text(), `pacote RSC da Minha mesa (${email})`).not.toMatch(CUSTO);
+    const texto = await rsc.text();
+    // É mesmo o pacote da Minha mesa (não um redirecionamento ou página vazia, que passariam sem custo).
+    expect(texto, `pacote RSC da Minha mesa (${email})`).toContain('"data-inicio":"mesa"');
+    expect(texto, `pacote RSC da Minha mesa (${email})`).not.toMatch(CUSTO);
   }
 });
 

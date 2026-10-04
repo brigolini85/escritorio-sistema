@@ -87,6 +87,7 @@ export const contarComAgenteHoje = cache(async () => {
 export const lerEstadoSistemaMesa = cache(async () => {
   const { sb } = await paginaInicio();
   const { data, error } = await sb.rpc('estado_sistema_resumo');
-  if (error) console.error('[inicio] falha ao ler estado_sistema_resumo', error);
+  // PGRST202: a função não existe (banco sem a migração, D21) — esperado, não é falha para o log.
+  if (error && error.code !== 'PGRST202') console.error('[inicio] falha ao ler estado_sistema_resumo', error);
   return error ? null : lerEstadoSistema(data);
 });

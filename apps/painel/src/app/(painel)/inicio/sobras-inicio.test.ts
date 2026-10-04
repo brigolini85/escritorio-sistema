@@ -9,11 +9,14 @@ vi.mock('server-only', () => ({}));
 
 // Banco falso: cada teste diz o que cada tabela/função responde; o que não estiver no cenário falha.
 const FALHA = { data: null, count: null, error: { code: '42883', message: 'não existe' } };
-const cenario = { tabelas: {} as Record<string, unknown>, rpc: {} as Record<string, unknown> };
+const cenario = { tabelas: {} as Record<string, unknown>, rpc: {} as Record<string, unknown>, chamadas: [] as [string, unknown][] };
 
 function clienteFalso() {
   return {
-    rpc: (nome: string) => Promise.resolve(nome in cenario.rpc ? cenario.rpc[nome] : FALHA),
+    rpc: (nome: string, args?: unknown) => {
+      cenario.chamadas.push([nome, args]);
+      return Promise.resolve(nome in cenario.rpc ? cenario.rpc[nome] : FALHA);
+    },
     from: (tabela: string) => {
       const resposta = () => (tabela in cenario.tabelas ? cenario.tabelas[tabela] : FALHA);
       const cadeia: Record<string, unknown> = {};
@@ -29,11 +32,13 @@ vi.mock('@/lib/supabase/servidor', () => ({ supabaseServidor: async () => client
 const { lerAvisos, lerLimitesEspera, lerNomesPessoas } = await import('./dados-inicio');
 const { ListaVencidas } = await import('./lista-vencidas');
 const { TabelaSetores } = await import('./tabela-setores');
+const { lerNumerosAgente, lerSetoresSituacao } = await import('./dados-situacao');
+const { lerEstadoSistemaMesa } = await import('./dados-mesa');
 
 const logs = () => vi.mocked(console.error).mock.calls.map((c) => String(c[0]));
 
 beforeEach(() => {
-  Object.assign(cenario, { tabelas: {}, rpc: {} });
+  Object.assign(cenario, { tabelas: {}, rpc: {}, chamadas: [] });
   vi.spyOn(console, 'error').mockReset().mockImplementation(() => {});
 });
 
@@ -84,5 +89,36 @@ describe('Demandas por setor sem nenhuma aberta', () => {
     const html = renderToStaticMarkup(await TabelaSetores());
     expect(html).toContain('<table');
     expect(html).not.toContain('Nenhuma demanda aberta.');
+  });
+});
+
+describe('Funções do Início ausentes no banco (PGRST202, homologação antes do "ok", D21)', () => {
+  const SEM_FUNCAO = { data: null, error: { code: 'PGRST202', message: 'Could not find the function' } };
+  it('demandas por setor e estado do sistema devolvem null sem poluir o log', async () => {
+    cenario.rpc = { demandas_por_setor: SEM_FUNCAO, estado_sistema_resumo: SEM_FUNCAO };
+    expect(await lerSetoresSituacao()).toBeNull();
+    expect(await lerEstadoSistemaMesa()).toBeNull();
+    expect(logs()).toEqual([]);
+  });
+  it('outros erros continuam no log', async () => {
+    expect(await lerSetoresSituacao()).toBeNull();
+    expect(await lerEstadoSistemaMesa()).toBeNull();
+    expect(logs()).toEqual(['[inicio] falha ao ler as demandas por setor', '[inicio] falha ao ler estado_sistema_resumo']);
+  });
+});
+
+describe('Um só instante para as contagens do Painel de situação', () => {
+  it('demandas_por_setor e agente_numeros_hoje recebem p_agora (o "agora" da página)', async () => {
+    const agora = new Date('2026-10-08T13:45:00.000Z');
+    vi.useFakeTimers({ now: agora, toFake: ['Date'] });
+    try {
+      await lerSetoresSituacao();
+      await lerNumerosAgente();
+    } finally {
+      vi.useRealTimers();
+    }
+    const args = Object.fromEntries(cenario.chamadas);
+    expect(args.demandas_por_setor).toEqual({ p_agora: agora.toISOString() });
+    expect(args.agente_numeros_hoje).toEqual({ p_agora: agora.toISOString() });
   });
 });
