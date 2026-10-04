@@ -2,7 +2,7 @@
 -- sobrescreve nada, a aba inteira salva numa chamada com a regra de quem chama, e "Só ver" não grava.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(35);
 
 insert into auth.users (id, email) values
   ('e8100000-0000-0000-0000-00000000000a', 'admin@h1.local'),
@@ -15,8 +15,11 @@ insert into public.usuarios (id, nome, email, papel, permissoes) values
 insert into public.setores (id, nome) values ('e8400000-0000-0000-0000-000000000001', 'H1 Fiscal');
 insert into public.servicos (id, nome) values ('e8200000-0000-0000-0000-000000000001', 'H1 Contábil');
 -- Antigo: só o endereço de hoje. Já Tem: já tem logradouro (o gatilho monta o endereço por extenso).
+-- Antigo simula uma linha de antes da migração: entra com o gatilho desligado (senão ele já copiaria no insert).
+alter table public.clientes disable trigger endereco_por_extenso;
 insert into public.clientes (id, razao_social, cnpj, endereco) values
   ('e8300000-0000-0000-0000-00000000000a', 'H1 Antigo Ltda', '11222333000181', 'Rua Antiga, 10 - Centro, Belo Horizonte');
+alter table public.clientes enable trigger endereco_por_extenso;
 insert into public.clientes (id, razao_social, cnpj, endereco, logradouro) values
   ('e8300000-0000-0000-0000-00000000000b', 'H1 Já Tem Ltda', '11444777000161', 'Texto velho', 'Rua Nova');
 
@@ -112,12 +115,45 @@ select throws_ok($$ select public.salvar_ficha_cliente(null, '{"razao_social":"H
 select throws_ok($$ select public.salvar_ficha_cliente(null, '{"razao_social":" ","cnpj":"17170000000132"}') $$,
   'P0001', 'Informe a razão social.', 'razão social continua obrigatória (D9)');
 
+-- 28–31 (revisão): inscrição ST sem UF; quem não é admin não mexe na pausa; mudar o número recalcula o por extenso
+select throws_ok($$ select public.salvar_ficha_cliente(null, '{"razao_social":"H1 Sem UF","cnpj":"17170000000132",
+  "inscricoes_st":[{"uf":" ","inscricao":"1"}]}') $$,
+  'P0001', 'Informe a UF de cada inscrição de substituto tributário.', 'inscrição ST sem UF recusa a ficha com aviso claro');
+select lives_ok($$ select public.salvar_ficha_cliente((select id from public.clientes where cnpj = '12345678000195'), '{
+  "razao_social": "H1 Padaria Sol Comércio de Alimentos ME", "cnpj": "12345678000195", "agente_pausado": false,
+  "cep": "36404450", "logradouro": "Rua Rosa Figueiredo", "numero": "431", "bairro": "São Marcos",
+  "cidade": "Conselheiro Lafaiete", "uf": "MG", "inscricoes_st": [{"uf": "SP", "inscricao": "123456789110"}]}') $$,
+  'Bia salva com outro número e pedindo para tirar a pausa');
+select is((select agente_pausado from public.clientes where cnpj = '12345678000195'), true,
+  'quem não é admin não tira a pausa do agente (chave ignorada, D14)');
+select is((select endereco from public.clientes where cnpj = '12345678000195'),
+  'Rua Rosa Figueiredo, 431 - São Marcos, Conselheiro Lafaiete/MG, CEP 36404-450', 'novo número pela ficha: o por extenso acompanha');
+
 -- 26–27: última alteração (só nome e hora) para quem vê a ficha
 select set_config('request.jwt.claims', '{"sub":"e8100000-0000-0000-0000-00000000000c","role":"authenticated"}', true);
 select is(public.ultima_alteracao_cliente((select id from public.clientes where cnpj = '12345678000195')) ->> 'pessoa', 'Bia H1',
   'Ana ("Só ver") lê quem mudou por último');
 reset role;
 select ok(not has_function_privilege('anon', 'public.ultima_alteracao_cliente(uuid)', 'execute'), 'visitante não lê a última alteração');
+
+-- 32–35 (revisão): o painel antigo grava endereco (+ uf); o texto digitado vale e vai inteiro para Logradouro (D12)
+update public.clientes set endereco = 'Rua Nova, 5', uf = 'MG' where id = 'e8300000-0000-0000-0000-00000000000b';
+select results_eq(
+  $$ select endereco, logradouro from public.clientes where id = 'e8300000-0000-0000-0000-00000000000b' $$,
+  $$ values ('Rua Nova, 5'::text, 'Rua Nova, 5'::text) $$,
+  'painel antigo: endereço digitado fica e vai para Logradouro (não é trocado pelo por extenso velho)');
+update public.clientes set nome_fantasia = 'H1 Já Tem' where id = 'e8300000-0000-0000-0000-00000000000b';
+select is((select endereco from public.clientes where id = 'e8300000-0000-0000-0000-00000000000b'), 'Rua Nova, 5',
+  'mudar outra coluna não mexe no endereço');
+insert into public.clientes (id, razao_social, cnpj, endereco) values
+  ('e8300000-0000-0000-0000-00000000000c', 'H1 Painel Antigo Ltda', '17170000000132', 'Av. Brasil, 100');
+select results_eq(
+  $$ select endereco, logradouro from public.clientes where id = 'e8300000-0000-0000-0000-00000000000c' $$,
+  $$ values ('Av. Brasil, 100'::text, 'Av. Brasil, 100'::text) $$,
+  'cliente criado só com endereço já ganha Logradouro');
+update public.clientes set numero = '12' where id = 'e8300000-0000-0000-0000-00000000000a';
+select is((select endereco from public.clientes where id = 'e8300000-0000-0000-0000-00000000000a'),
+  'Rua Antiga, 12 - Centro, Belo Horizonte/MG, CEP 30110-000', 'mudar só o número recalcula o por extenso');
 
 select * from finish();
 rollback;

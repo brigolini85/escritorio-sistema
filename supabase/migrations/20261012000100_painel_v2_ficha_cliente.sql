@@ -91,15 +91,27 @@ begin
 end $$;
 
 -- Depois da cópia: com logradouro, endereco (o que o agente lê em consultar_cadastro) acompanha os campos novos.
+-- O painel antigo grava só endereco (+ uf): o texto digitado vale e vai inteiro para Logradouro (D12), sem ser
+-- trocado pelo por extenso dos campos velhos. Recalcula só quando uma parte do endereço muda de fato.
 create function public.clientes_endereco_por_extenso() returns trigger
 language plpgsql set search_path = '' as $$
 begin
-  if new.logradouro is not null then
+  if tg_op = 'INSERT' then
+    if new.logradouro is null then
+      new.logradouro := nullif(btrim(new.endereco), '');
+    else
+      new.endereco := public.montar_endereco(new.logradouro, new.numero, new.complemento, new.bairro, new.cidade, new.uf, new.cep);
+    end if;
+  elsif new.endereco is distinct from old.endereco and new.logradouro is not distinct from old.logradouro then
+    new.logradouro := nullif(btrim(new.endereco), '');
+  elsif (new.logradouro, new.numero, new.complemento, new.bairro, new.cidade, new.uf, new.cep)
+        is distinct from (old.logradouro, old.numero, old.complemento, old.bairro, old.cidade, old.uf, old.cep)
+        and new.logradouro is not null then
     new.endereco := public.montar_endereco(new.logradouro, new.numero, new.complemento, new.bairro, new.cidade, new.uf, new.cep);
   end if;
   return new;
 end $$;
-create trigger endereco_por_extenso before insert or update of logradouro, numero, complemento, bairro, cidade, uf, cep
+create trigger endereco_por_extenso before insert or update of endereco, logradouro, numero, complemento, bairro, cidade, uf, cep
   on public.clientes for each row execute function public.clientes_endereco_por_extenso();
 
 -- ---------- Salvar a aba inteira numa transação (D13, D14) ----------
@@ -122,7 +134,10 @@ declare
 begin
   if not public.tem_permissao('editar_clientes') then raise exception 'Você não tem permissão para editar clientes.'; end if;
   if char_length(v_razao) < 2 then raise exception 'Informe a razão social.'; end if;
-  if (select count(*) <> count(distinct upper(e ->> 'uf')) from jsonb_array_elements(v_st) e) then
+  if exists (select 1 from jsonb_array_elements(v_st) e where nullif(btrim(e ->> 'uf'), '') is null) then
+    raise exception 'Informe a UF de cada inscrição de substituto tributário.';
+  end if;
+  if (select count(*) <> count(distinct upper(btrim(e ->> 'uf'))) from jsonb_array_elements(v_st) e) then
     raise exception 'UF repetida nas inscrições de substituto tributário.';
   end if;
 
@@ -170,14 +185,15 @@ begin
     certificado_tipo = public.texto_da_ficha(p_dados, 'certificado_tipo'),
     certificado_vencimento = public.texto_da_ficha(p_dados, 'certificado_vencimento')::date,
     certificado_avisar_dias = coalesce(public.texto_da_ficha(p_dados, 'certificado_avisar_dias')::smallint, 30),
-    agente_pausado = case when p_dados ? 'agente_pausado'
+    -- Pausar o agente é decisão só do administrador (spec, seção 5): de outra pessoa, a chave é ignorada.
+    agente_pausado = case when p_dados ? 'agente_pausado' and public.eh_admin()
                           then coalesce((p_dados ->> 'agente_pausado')::boolean, false) else agente_pausado end
   where id = v_id;
 
   delete from public.cliente_inscricoes_st s
-  where s.cliente_id = v_id and not exists (select 1 from jsonb_array_elements(v_st) e where upper(e ->> 'uf') = s.uf::text);
+  where s.cliente_id = v_id and not exists (select 1 from jsonb_array_elements(v_st) e where upper(btrim(e ->> 'uf')) = s.uf::text);
   insert into public.cliente_inscricoes_st as s (cliente_id, uf, inscricao)
-  select v_id, upper(e ->> 'uf'), nullif(btrim(e ->> 'inscricao'), '') from jsonb_array_elements(v_st) e
+  select v_id, upper(btrim(e ->> 'uf')), nullif(btrim(e ->> 'inscricao'), '') from jsonb_array_elements(v_st) e
   on conflict (cliente_id, uf) do update set inscricao = excluded.inscricao where s.inscricao is distinct from excluded.inscricao;
 
   delete from public.cliente_servicos where cliente_id = v_id and not (servico_id = any (v_servicos));
