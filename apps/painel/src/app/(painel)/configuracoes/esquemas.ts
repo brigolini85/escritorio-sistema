@@ -83,3 +83,19 @@ export const RespostaForm = z.object({
   resposta: z.string().trim().min(1, 'Escreva a resposta.').max(2000, 'Até 2.000 letras.'),
   ativo: z.boolean(),
 });
+
+/** Setor (Configurações: Sim): o agente usa a descrição dos assuntos para escolher o setor da demanda. */
+export const SetorForm = z.object({
+  nome: z.string().trim().min(1, 'Dê um nome ao setor.').max(60, 'Até 60 letras.'),
+  descricao_assuntos: z.string().trim().max(500, 'Até 500 letras.'),
+});
+/** Serviço do contrato e o setor que cuida dele (Configurações: Sim). */
+export const ServicoForm = z.object({
+  nome: z.string().trim().min(1, 'Dê um nome ao serviço.').max(80, 'Até 80 letras.'),
+  setor_id: z.string().uuid().nullable(),
+});
+/** Cargos, um por linha (D10). A mesma regra do banco (cargos_validos), para a mensagem ser a certa em vez do check 23514. */
+export const CargosForm = z.object({ cargos: z.string() })
+  .transform(({ cargos }) => cargos.replace(/\r\n/g, '\n').split('\n').map((c) => c.trim()).filter(Boolean))
+  .pipe(z.array(z.string().max(60, 'Cada cargo tem até 60 letras.')).max(30, 'Até 30 cargos.')
+    .refine((l) => new Set(l.map((c) => c.toLocaleLowerCase('pt-BR'))).size === l.length, 'Há cargo repetido na lista.'));

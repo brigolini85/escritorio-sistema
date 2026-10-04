@@ -20,11 +20,13 @@ export default async function PaginaPessoa({ params }: { params: Promise<{ id: s
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const sb = await supabaseServidor();
-  const [{ data: u }, { data: setores }, { data: cargos }] = await Promise.all([
+  const [{ data: u }, { data: setores }, { data: cargos }, { data: cfgCargos }] = await Promise.all([
     sb.from('usuarios').select('*, usuario_setores(setor_id), usuario_permissoes(modulo, nivel)').eq('id', id).maybeSingle(),
     // Todos os setores, inclusive os inativos: senão salvar a pessoa apagaria a ligação dela com um setor desativado.
     sb.from('setores').select('id, nome, ativo').order('nome'),
     sb.from('usuarios').select('cargo').not('cargo', 'is', null),
+    // Lista de Configurações › Cargos (D10); homologação sem a migração: a leitura falha e vale a lista padrão (D25).
+    sb.from('configuracoes').select('cargos').eq('id', 1).maybeSingle(),
   ]);
   if (!u) notFound();
   const migalhas = [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões', href: '/usuarios' }, { rotulo: u.nome }];
@@ -59,7 +61,7 @@ export default async function PaginaPessoa({ params }: { params: Promise<{ id: s
         usuario={dados}
         eu={eu.id}
         setores={setores ?? []}
-        cargos={sugestoesDeCargo((cargos ?? []).map((c) => c.cargo))}
+        cargos={sugestoesDeCargo((cargos ?? []).map((c) => c.cargo), cfgCargos?.cargos ?? undefined)}
         acao={salvarUsuario.bind(null, u.id)}
         aviso={contato && <AvisoContato contato={contato} />}
         situacao={(

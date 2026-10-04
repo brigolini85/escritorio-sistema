@@ -9,9 +9,11 @@ import { FichaUsuario } from '../ficha-usuario';
 export default async function NovaPessoa() {
   const eu = await exigirAdmin();
   const sb = await supabaseServidor();
-  const [{ data: setores }, { data: cargos }] = await Promise.all([
+  const [{ data: setores }, { data: cargos }, { data: cfgCargos }] = await Promise.all([
     sb.from('setores').select('id, nome, ativo').eq('ativo', true).order('nome'),
     sb.from('usuarios').select('cargo').not('cargo', 'is', null),
+    // Lista de Configurações › Cargos (D10); homologação sem a migração: a leitura falha e vale a lista padrão (D25).
+    sb.from('configuracoes').select('cargos').eq('id', 1).maybeSingle(),
   ]);
   return (
     <section>
@@ -20,7 +22,7 @@ export default async function NovaPessoa() {
         usuario={null}
         eu={eu.id}
         setores={setores ?? []}
-        cargos={sugestoesDeCargo((cargos ?? []).map((c) => c.cargo))}
+        cargos={sugestoesDeCargo((cargos ?? []).map((c) => c.cargo), cfgCargos?.cargos ?? undefined)}
         acao={convidarUsuario}
         situacao={<p className="text-muted">Ativa ao salvar.</p>}
         rodape="Senha: a pessoa recebe um convite por e-mail para criar a senha."

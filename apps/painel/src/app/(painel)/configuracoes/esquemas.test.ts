@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, RespostaForm, TetoAlertasForm } from './esquemas';
+import { CargosForm, CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, RespostaForm, ServicoForm, SetorForm, TetoAlertasForm } from './esquemas';
 
 describe('ExpedienteForm e TetoAlertasForm (separados na Parte D: teto e alertas são só do administrador)', () => {
   it('expediente: horários e dias úteis', () => {
@@ -119,5 +119,22 @@ describe('RespostaForm (Parte G1, D19)', () => {
   it('pergunta curta ou resposta vazia: recusa', () => {
     expect(RespostaForm.safeParse({ pergunta: 'Oi', resposta: 'x', ativo: true }).error?.issues[0]?.message).toBe('A pergunta precisa de pelo menos 3 letras.');
     expect(RespostaForm.safeParse({ pergunta: 'Horário?', resposta: ' ', ativo: true }).error?.issues[0]?.message).toBe('Escreva a resposta.');
+  });
+});
+
+describe('CargosForm (Parte G1, D10)', () => {
+  it('um por linha; aparado; sem vazias', () => {
+    expect(CargosForm.parse({ cargos: ' Auxiliar \r\nAnalista\n\nSócio ' })).toEqual(['Auxiliar', 'Analista', 'Sócio']);
+  });
+  it('repetido (ignora maiúsculas), longo demais, mais de 30: recusa', () => {
+    expect(CargosForm.safeParse({ cargos: 'Analista\nanalista' }).error?.issues[0]?.message).toBe('Há cargo repetido na lista.');
+    expect(CargosForm.safeParse({ cargos: 'a'.repeat(61) }).error?.issues[0]?.message).toBe('Cada cargo tem até 60 letras.');
+    expect(CargosForm.safeParse({ cargos: Array.from({ length: 31 }, (_, i) => `C${i}`).join('\n') }).error?.issues[0]?.message).toBe('Até 30 cargos.');
+  });
+});
+describe('SetorForm e ServicoForm', () => {
+  it('nome obrigatório', () => {
+    expect(SetorForm.safeParse({ nome: ' ', descricao_assuntos: '' }).error?.issues[0]?.message).toBe('Dê um nome ao setor.');
+    expect(ServicoForm.safeParse({ nome: '', setor_id: null }).error?.issues[0]?.message).toBe('Dê um nome ao serviço.');
   });
 });

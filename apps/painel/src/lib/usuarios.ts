@@ -16,10 +16,11 @@ export function dataCadastro(iso: string): string {
   return dia.format(new Date(iso));
 }
 
-/** Cargo é informativo (spec 7.1); a lista "editável" são estas sugestões mais os cargos já usados (P13). */
+/** Lista padrão (igual ao padrão de configuracoes.cargos): vale quando o banco ainda não tem a coluna (D25). */
 export const CARGOS_SUGERIDOS = ['Auxiliar', 'Analista', 'Coordenador', 'Sócio'];
 
-export function sugestoesDeCargo(usados: (string | null)[]): string[] {
+/** Cargo é informativo (spec 7.1): a lista de Configurações › Cargos (D10) mais os cargos já usados. */
+export function sugestoesDeCargo(usados: (string | null)[], lista: string[] = CARGOS_SUGERIDOS): string[] {
   const outros = usados.map((c) => c?.trim() ?? '').filter((c) => c !== '');
-  return [...new Set([...CARGOS_SUGERIDOS, ...outros])];
+  return [...new Set([...lista, ...outros])];
 }

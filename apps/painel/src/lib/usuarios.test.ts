@@ -17,4 +17,7 @@ describe('ficha da pessoa (Parte D)', () => {
     expect(sugestoesDeCargo(['Analista', 'Contadora', null, ' ', 'Contadora']))
       .toEqual(['Auxiliar', 'Analista', 'Coordenador', 'Sócio', 'Contadora']);
   });
+  it('cargos: a lista de Configurações no lugar das quatro de sempre (Parte G1)', () => {
+    expect(sugestoesDeCargo(['Contadora', null], ['Auxiliar', 'Estagiário'])).toEqual(['Auxiliar', 'Estagiário', 'Contadora']);
+  });
 });

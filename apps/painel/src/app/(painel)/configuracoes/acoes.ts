@@ -7,7 +7,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import type { z } from 'zod';
 import { COLUNA_PRAZO, PRIORIDADES, type ImpactoPrazo, type Resultado } from '@/lib/configuracoes';
 import { ROTULO_PRIORIDADE } from '@/lib/demandas';
-import { CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, RespostaForm, TetoAlertasForm } from './esquemas';
+import { CargosForm, CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, RespostaForm, ServicoForm, SetorForm, TetoAlertasForm } from './esquemas';
 
 // Respostas dos cartões (D21): nada de redirect com ?erro=; o cartão mostra o erro e mantém o que foi digitado.
 const ok = (mensagem: string): Resultado => ({ ok: true, mensagem });
@@ -29,20 +29,49 @@ function checar(r: { error: { message: string } | null }) {
   if (r.error) throw new Error(r.error.message);
 }
 
-export async function salvarSetor(id: string | null, formData: FormData) {
-  await exigirConfiguracoes();
-  const sb = await supabaseServidor();
-  const dados = { nome: String(formData.get('nome')).trim(), descricao_assuntos: String(formData.get('descricao_assuntos') ?? '').trim(), ativo: formData.get('ativo') !== null || !id };
-  checar(id ? await sb.from('setores').update(dados).eq('id', id) : await sb.from('setores').insert(dados));
+/** Setores e serviços aparecem em demandas, atendimento, empresas, usuários, início e no treino do agente: sem revalidar, essas telas mostrariam a lista velha. */
+function recarregarCadastros() {
   recarregar();
+  for (const p of ['/demandas', '/atendimento', '/clientes', '/usuarios', '/inicio', '/treinar-agente']) revalidatePath(p, 'layout');
+}
+/** Nome repetido (unique de setores/servicos, 23505): a frase certa em vez do "não consegui salvar". */
+const nomeRepetido = (e: { message: string; code?: string }, frase: string): Resultado => (e.code === '23505' ? falha(frase) : doBanco(e));
+
+export async function salvarSetor(id: string | null, formData: FormData): Promise<Resultado> {
+  await exigirConfiguracoes();
+  const v = SetorForm.safeParse({ nome: String(formData.get('nome') ?? ''), descricao_assuntos: String(formData.get('descricao_assuntos') ?? '') });
+  if (!v.success) return primeiroErro(v.error);
+  const dados = { ...v.data, ativo: formData.get('ativo') !== null || !id };
+  const sb = await supabaseServidor();
+  const { error } = id ? await sb.from('setores').update(dados).eq('id', id) : await sb.from('setores').insert(dados);
+  if (error) return nomeRepetido(error, 'Já existe um setor com este nome.');
+  recarregarCadastros();
+  return ok(id ? 'Setor salvo.' : 'Setor criado.');
 }
 
-export async function salvarServico(id: string | null, formData: FormData) {
+export async function salvarServico(id: string | null, formData: FormData): Promise<Resultado> {
   await exigirConfiguracoes();
+  const v = ServicoForm.safeParse({ nome: String(formData.get('nome') ?? ''), setor_id: String(formData.get('setor_id') || '') || null });
+  if (!v.success) return primeiroErro(v.error);
+  const dados = { ...v.data, ativo: formData.get('ativo') !== null || !id };
   const sb = await supabaseServidor();
-  const dados = { nome: String(formData.get('nome')).trim(), setor_id: String(formData.get('setor_id') || '') || null, ativo: formData.get('ativo') !== null || !id };
-  checar(id ? await sb.from('servicos').update(dados).eq('id', id) : await sb.from('servicos').insert(dados));
+  const { error } = id ? await sb.from('servicos').update(dados).eq('id', id) : await sb.from('servicos').insert(dados);
+  if (error) return nomeRepetido(error, 'Já existe um serviço com este nome.');
+  recarregarCadastros();
+  return ok(id ? 'Serviço salvo.' : 'Serviço criado.');
+}
+
+/** Lista de cargos da ficha da pessoa (D10): Configurações: Sim; o banco confere de novo (cargos_validos). */
+export async function salvarCargos(formData: FormData): Promise<Resultado> {
+  await exigirConfiguracoes();
+  const v = CargosForm.safeParse({ cargos: String(formData.get('cargos') ?? '') });
+  if (!v.success) return primeiroErro(v.error);
+  const { error } = await (await supabaseServidor()).from('configuracoes').update({ cargos: v.data }).eq('id', 1);
+  // O check cargos_validos (23514) só pega o que o Zod deixou passar (ex.: maiúsculas que o lower do banco junta e o pt-BR não).
+  if (error) return error.code === '23514' ? falha('A lista de cargos tem cargo repetido, vazio ou longo demais.') : doBanco(error);
   recarregar();
+  revalidatePath('/usuarios', 'layout');
+  return ok('Cargos salvos.');
 }
 
 /** A conversa do Atendimento lê as respostas ativas: sem revalidar, o compositor mostraria a lista velha. */
