@@ -7,15 +7,19 @@ import type { TipoConfirmacao } from '@/components/patterns/confirmacao';
 import { BarraSelecao, CamposSelecionados, DataTable, type ColunaTabela } from '@/components/patterns/data-table';
 import { DocumentText } from '@/components/patterns/document-text';
 import { FilterBar } from '@/components/patterns/filter-bar';
+import { FormField } from '@/components/patterns/form-field';
+import { Antes } from '@/components/patterns/formulario-alteravel';
 import { MoneyText } from '@/components/patterns/money-text';
 import { RelativeTime } from '@/components/patterns/relative-time';
 import { StatusBadge, type StatusDemanda } from '@/components/patterns/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { toast } from '@/components/ui/toaster';
 import type { Ordem, Paginacao, ParamsBusca } from '@/lib/tabela-url';
+import { FormularioConfig, RodapeConfig } from '../configuracoes/formulario-config';
 
 // Exemplos interativos dos padrões de domínio no /_design (ações falsas: só mostram um aviso).
 
@@ -176,5 +180,20 @@ export function DemoTabela({
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+/** Configurações (Parte G1): cartão que salva sozinho; o exemplo não grava nada. */
+export function DemoConfiguracoes() {
+  return (
+    <FormularioConfig acao={async () => ({ ok: true, mensagem: 'Exemplo salvo.' })} rotulo="Exemplo de configuração">
+      <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
+        <FormField id="demo-config-campo" rotulo="Horário de fim (exemplo)">
+          <Input name="exemplo" defaultValue="18:00" />
+        </FormField>
+        <Antes campo="exemplo" texto="18:00" />
+        <RodapeConfig />
+      </div>
+    </FormularioConfig>
   );
 }

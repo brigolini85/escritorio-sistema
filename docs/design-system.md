@@ -86,6 +86,8 @@ O painel não tem zoom: o tamanho da letra sobe sozinho com a tela, e a pessoa a
 
 **Ficha em página inteira** (Parte D, `usuarios/ficha-usuario.tsx`): cadastros com muitos campos usam página inteira com trilha, 3 colunas e rodapé com Voltar e Salvar, em vez de painel lateral. Campos que somem por uma escolha (ex.: "Administrador = Sim") ficam num `fieldset` desligado e escondido pela classe `hidden`: não vão no envio e voltam com o valor de antes.
 
+**Cartão de Configurações** (`FormularioConfig` + `RodapeConfig`): cada cartão salva sozinho, sem recarregar a página; o erro aparece no cartão e o que foi digitado fica. Campo alterado fica âmbar (`data-alterado`, CSS em `globals.css`) e ganha "antes: X" em texto (a cor nunca está sozinha); o rodapé diz "N alterações não salvas" e tem DESCARTAR. Sair com alteração abre a janela SALVAR E SAIR · DESCARTAR · CONTINUAR AQUI (`GuardaSaida`; só em Configurações — as outras telas usam a pergunta do navegador).
+
 ## Criar um componente novo
 
 1. Veja no catálogo `/_design` se já existe algo parecido.
@@ -126,6 +128,7 @@ Use sempre estes termos, em português do Brasil:
 - **Pessoa** (usuário da equipe): "Nova pessoa", "Cadastro de <nome>". **Nível** (de uma permissão): "Só as minhas", "Do meu setor", "Todas", "Só ver", "Ver e editar", "Editar e arquivar", "Corrigir e gerar", "Site e WhatsApp". **Horário de acesso**: "Permitido", "Bloqueado", "Fora do seu horário de acesso".
 
 - **Gastos com IA:** "Gastos com IA", "Total do mês × teto", "Previsão até o fim do mês", "Chamadas à IA", "Custo por atendimento", "Áudios transcritos", "Por funcionalidade", "Por dia", "Quem mais gasta na equipe", "Onde gastou", "Gastos por cliente", "Atendimentos", "Resolvidos pelo agente", "passou para pessoa", "resolvido pelo agente", "Não identificado", "Exportar". **Atendimento** nesta tela = as mensagens de um telefone num mesmo dia.
+- **Configurações:** grupos "Escritório", "Agente e atendimento", "Cadastros", "Sistema"; "não salvo", "antes: X", "N alterações não salvas", "Sem alterações", "Descartar", "Salvar e sair", "Continuar aqui", "Só para as novas", "Aplicar também às N abertas", "prazo recalculado por mudança de regra (<pessoa>)".
 
 Os dois robôs têm nomes e cores diferentes:
 

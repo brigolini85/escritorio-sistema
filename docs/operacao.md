@@ -130,7 +130,7 @@ Cada módulo tem um nível:
 
 Quando a Parte D entrou, cada pessoa recebeu o nível que reproduz o que ela já fazia: ninguém passou a ver nem a fazer mais ou menos sem você mexer. Quem só tinha o assistente pelo WhatsApp ficou com "Site e WhatsApp".
 
-**Configurações: Sim** não é o mesmo que ser administrador. A pessoa abre Configurações e mexe em Expediente, Mensagens, Respostas prontas, Prazos, Setores, Serviços, Feriados e no aviso da tela de login (o recado que todos veem antes de entrar). Setores e serviços ela cadastra, altera e desativa, mas não exclui de vez: isso continua com você. Ficam só com o administrador: Usuários e permissões, Teto de IA e alertas, Integrações e a pausa do agente. Assim ninguém se faz administrador, muda o gasto com IA ou pausa o agente sem você saber. No submenu de Configurações, o item aparece como Expediente (sem a parte de IA).
+**Configurações: Sim** não é o mesmo que ser administrador. A pessoa abre Configurações e mexe em Expediente, Prazos, Feriados, Mensagens (inclusive o aviso da tela de login), Respostas prontas, Limites de espera, Setores, Serviços e Cargos. Setores e serviços ela cadastra, altera e desativa, mas não exclui de vez: isso continua com você. Ficam só com o administrador: Teto e modelos de IA (teto, alertas, modelos, cotação e custo da transcrição), Integrações, Usuários e permissões e a pausa do agente.
 
 **Pedidos de nota: Sem acesso** esconde o bloco "Pedido de nota" e o CSV do Bling na demanda, a descrição e os itens do pedido e o antes e depois das correções. O assistente da pessoa também deixa de consultar e corrigir pedidos de nota e vendas. É uma proteção de tela e de assistente: a demanda continua visível pelo nível de Demandas.
 
@@ -178,7 +178,10 @@ De segunda a sábado, às 18h, você recebe o **resumo do dia** no WhatsApp e no
 ### Prioridade e prazo das demandas
 
 - O agente dá a prioridade ao abrir a demanda: **urgente** quando o cliente diz que é urgente (ou nota errada, golpe, funcionário sem registro), **alta** em assunto sensível e cobrança, **normal** no resto, **baixa** só quando o cliente diz que não tem pressa.
-- O prazo é calculado em **dias úteis** (expediente e feriados das Configurações): urgente no mesmo dia, alta 1, normal 2, baixa 5. Mude em **Configurações › Prazos**.
+- O prazo é calculado em **dias úteis** (expediente e feriados das Configurações): urgente no mesmo dia, alta 1, normal 2, baixa 5.
+- Mude em **Configurações › Prazos**: a tabela mostra, para cada prioridade, quando vence uma demanda aberta hoje às 10:00 e quantas demandas abertas a usam. Ao salvar, se houver demandas abertas daquela prioridade, o sistema mostra o impacto ("14 demandas Normais abertas; 9 ganham 1 dia útil; nenhuma fica vencida" — ao diminuir, em vermelho, quantas passariam a vencidas) e pergunta:
+  - **Só para as novas** (padrão): as abertas mantêm o prazo.
+  - **Aplicar também às abertas**: cada demanda aberta daquela prioridade anda a mesma diferença de dias úteis e ganha na linha do tempo "prazo recalculado por mudança de regra (seu nome)". Prazo que alguém escolheu à mão na demanda não muda. Demanda "Com o cliente" continua pausada e, ao sair, ainda anda o tempo parado.
 - Em **"Com o cliente"** o prazo para de correr; quando a demanda volta, o prazo anda o tempo que ficou parado.
 - Demanda vencida avisa o responsável (sem responsável, o setor) na lista de avisos do Início.
 
@@ -194,6 +197,12 @@ Menu **Gastos com IA** (moeda). Mostra tudo o que gasta com IA: o agente com os 
 - **Em reais:** preencha a cotação em Configurações › Teto de IA (manual; nada busca na internet). Lá também fica o **custo por minuto da transcrição** (veja no painel da Groq); sem ele, os áudios aparecem sem custo.
 - **"Não identificado":** gastos de antes desta versão sem como saber de onde vieram, ou gravados por um trabalhador desatualizado. Se aparecer número novo depois da troca do trabalhador, avise: é erro.
 - O **teto mensal** soma tudo, inclusive a transcrição. Ao chegar no teto, o agente para; a transcrição continua (a equipe precisa do texto).
+
+### Configurações: uma seção por vez
+
+O menu de Configurações fica à esquerda, em grupos, com um resumo do que está valendo em cada seção ("seg–sex 08–18", "teto US$ 100 · 41%"). Cada cartão tem o próprio **Salvar** e **Descartar**; o campo que você mudou fica âmbar com "antes: …". Se tentar sair com alguma alteração, o painel pergunta: **Salvar e sair**, **Descartar** ou **Continuar aqui**. Cada seção tem endereço próprio (ex.: `/configuracoes?secao=prazos`), bom para mandar a alguém.
+
+**Cargos:** a lista que o campo Cargo da ficha da pessoa sugere, um por linha. Mudar a lista não muda o cargo de quem já tem.
 
 ## 4. Pedir mudanças ao Claude
 

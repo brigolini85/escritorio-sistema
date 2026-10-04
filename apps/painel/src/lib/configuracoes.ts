@@ -140,7 +140,7 @@ export function resumosDasSecoes(d: DadosResumo): Record<IdSecao, ResumoSecao> {
     mensagens: { contagem: 4, resumo: c.aviso_login.trim() ? 'aviso do login ligado' : 'aviso do login desligado' },
     respostas: { contagem: d.respostas.length, resumo: pl(d.respostas.filter((r) => r.ativo).length, 'ativa', 'ativas') },
     espera: { resumo: `verde até ${c.espera_verde_min} · âmbar até ${c.espera_ambar_min} min` },
-    ia: { resumo: d.fracaoTeto === null ? teto : `${teto} · ${Math.round(d.fracaoTeto * 100)}%`, atencao: (d.fracaoTeto ?? 0) >= 0.8 },
+    ia: { resumo: d.fracaoTeto === null ? teto : `${teto} · ${Number.isFinite(d.fracaoTeto) ? `${Math.round(d.fracaoTeto * 100)}%` : 'teto atingido'}`, atencao: (d.fracaoTeto ?? 0) >= 0.8 },
     setores: { contagem: ativos, resumo: inativos ? `${pl(ativos, 'ativo', 'ativos')} · ${pl(inativos, 'inativo', 'inativos')}` : pl(ativos, 'ativo', 'ativos') },
     servicos: semSetor
       ? { contagem: d.servicos.length, resumo: `${semSetor} sem setor`, atencao: true }

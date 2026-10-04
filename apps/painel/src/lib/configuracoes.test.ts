@@ -121,3 +121,12 @@ describe('textoImpacto (janela de Prazos, D6)', () => {
     expect(t.recalcula).toBe(1);
   });
 });
+
+describe('resumo da IA com teto zerado', () => {
+  it('teto 0 com gasto (fração infinita) mostra "teto atingido", nunca Infinity%', () => {
+    const cfg = { dias_uteis: [1, 2, 3, 4, 5], horario_inicio: '08:00', horario_fim: '18:00', prazo_urgente_dias: 0, prazo_alta_dias: 1, prazo_normal_dias: 2, prazo_baixa_dias: 5, espera_verde_min: 5, espera_ambar_min: 15, aviso_login: '', teto_ia_usd: 0, cargos: [] };
+    const r = resumosDasSecoes({ cfg, feriados: [], respostas: [], setores: [], servicos: [], fracaoTeto: Infinity, integracoesOk: null, hoje: '2026-10-02' } as never);
+    expect(r.ia.resumo).toBe('teto US$ 0 · teto atingido');
+    expect(r.ia.atencao).toBe(true);
+  });
+});

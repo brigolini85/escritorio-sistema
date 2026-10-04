@@ -29,7 +29,7 @@ import { INFO_FUNCIONALIDADE } from '@/lib/gastos';
 import { lerOrdem, lerPagina, ordenarLinhas, paginar, valorParam, type ParamsBusca } from '@/lib/tabela-url';
 import { CronometroEspera } from '../atendimento/cronometro-espera';
 import { MarcoConversa } from '../atendimento/[id]/itens-historico';
-import { DemoConfirmacoes, DemoTabela, DemoTiposConfirmacao, type DemandaExemplo } from './demos-padroes';
+import { DemoConfiguracoes, DemoConfirmacoes, DemoTabela, DemoTiposConfirmacao, type DemandaExemplo } from './demos-padroes';
 
 // Seção "Padrões de domínio" do /_design (fase 3): cada padrão de components/patterns com dados de exemplo.
 
@@ -353,6 +353,10 @@ export function Padroes({ params }: { params: ParamsBusca }) {
             ))}
           </ul>
         </div>
+      </Exemplo>
+
+      <Exemplo titulo="Configurações (Parte G1): FormularioConfig, Antes e RodapeConfig (mude o campo: âmbar, “antes: 18:00”, “1 alteração não salva”)" className="block">
+        <DemoConfiguracoes />
       </Exemplo>
     </Secao>
   );

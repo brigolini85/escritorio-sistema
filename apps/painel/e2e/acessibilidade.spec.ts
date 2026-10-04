@@ -1,6 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
+import { abrirSecao } from './apoio-configuracoes';
+import { demandaE2e, limparDemandasE2e } from './apoio-demandas';
 import { limparGastos, semearGastos } from './apoio-gastos';
 
 // Auditoria automática de acessibilidade (axe, WCAG 2.0/2.1 A e AA) em todas as telas, no tema claro e no escuro.
@@ -139,7 +141,7 @@ for (const tema of ['claro', 'escuro'] as const) {
         '/usuarios?ver=arquivados',
         `/usuarios/${ids.usuario}`,
         '/usuarios/novo',
-        '/configuracoes',
+        ...['expediente', 'prazos', 'feriados', 'mensagens', 'respostas', 'espera', 'ia', 'setores', 'servicos', 'cargos', 'integracoes'].map((s) => `/configuracoes?secao=${s}`),
         '/_design',
       ];
       const erros: string[] = [];
@@ -148,6 +150,38 @@ for (const tema of ['claro', 'escuro'] as const) {
         // Painel da demanda: espera o conteúdo de verdade (não o esqueleto) antes do axe.
         if (rota.includes('demanda=')) await expect(page.getByRole('dialog', { name: /Nº [0-9]+/ }).getByLabel('Responsável')).toBeVisible({ timeout: 30_000 });
         erros.push(...(await auditar(page, rota, tema)));
+      }
+      // Janela de impacto de Prazos (com uma demanda Normal aberta, a janela abre ao salvar) e janela de saída do Expediente.
+      const PREFIXO_PRAZO = 'a11y prazo';
+      try {
+        await demandaE2e({ titulo: `${PREFIXO_PRAZO} A`, setor: 'Fiscal', prioridade: 'normal' });
+        await abrirSecao(page, 'prazos');
+        const prazos = page.getByRole('region', { name: 'Prazos por prioridade' });
+        await prazos.getByLabel('Normal (dias úteis)').fill('7', { timeout: 30_000 });
+        await prazos.getByRole('button', { name: 'Salvar prazos' }).click();
+        const impacto = page.getByRole('dialog', { name: 'Mudar o prazo das demandas abertas também?' });
+        await expect(impacto).toBeVisible({ timeout: 30_000 });
+        erros.push(...(await auditar(page, '/configuracoes?secao=prazos (janela de impacto)', tema)));
+        await page.keyboard.press('Escape');
+        await expect(impacto).toHaveCount(0);
+
+        await abrirSecao(page, 'expediente');
+        const fim = page.getByLabel('às', { exact: true });
+        const atual = await fim.inputValue();
+        await fim.fill(atual === '19:15' ? '18:45' : '19:15', { timeout: 30_000 });
+        const menuSecoes = page.getByRole('navigation', { name: 'Seções das configurações' });
+        await menuSecoes.getByRole('link', { name: /^Feriados/ }).click();
+        const saida = page.getByRole('dialog', { name: 'Há alterações não salvas' });
+        await expect(saida).toBeVisible();
+        erros.push(...(await auditar(page, '/configuracoes?secao=expediente (janela de saída)', tema)));
+        await saida.getByRole('button', { name: 'Continuar aqui' }).click();
+        await expect(saida).toHaveCount(0);
+        await menuSecoes.getByRole('link', { name: /^Feriados/ }).click();
+        await saida.getByRole('button', { name: 'Descartar' }).click();
+        await expect(page).toHaveURL(/secao=feriados/);
+      } finally {
+        await db.from('configuracoes').update({ prazo_normal_dias: 2 }).eq('id', 1);
+        await limparDemandasE2e(PREFIXO_PRAZO);
       }
       // Quadro (preferência da pessoa): liga, audita e volta para a tabela, para os outros testes.
       await db.from('usuarios').update({ visao_demandas: 'quadro' }).eq('email', EMAIL);

@@ -4,7 +4,7 @@ import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { exigirAdmin, exigirConfiguracoes } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { COLUNA_PRAZO, PRIORIDADES, type ImpactoPrazo, type Resultado } from '@/lib/configuracoes';
 import { ROTULO_PRIORIDADE } from '@/lib/demandas';
 import { CargosForm, CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, RespostaForm, ServicoForm, SetorForm, TetoAlertasForm } from './esquemas';
@@ -80,14 +80,22 @@ const recarregarRespostas = () => { recarregar(); revalidatePath('/atendimento',
 /** Cria (id null) ou edita uma resposta pronta. Nova nasce ativa. */
 export async function salvarResposta(id: string | null, formData: FormData): Promise<Resultado> {
   await exigirConfiguracoes();
+  if (id !== null && !z.string().uuid().safeParse(id).success) return falha('Essa resposta não existe mais. Recarregue a página.');
   const v = RespostaForm.safeParse({
     pergunta: String(formData.get('pergunta') ?? ''), resposta: String(formData.get('resposta') ?? ''),
     ativo: id ? formData.get('ativo') !== null : true,
   });
   if (!v.success) return primeiroErro(v.error);
   const sb = await supabaseServidor();
-  const { error } = id ? await sb.from('respostas_prontas').update(v.data).eq('id', id) : await sb.from('respostas_prontas').insert(v.data);
-  if (error) return doBanco(error);
+  if (id) {
+    // .select('id'): update que não achou a linha (apagada por outra pessoa) não pode dizer "salva".
+    const { data, error } = await sb.from('respostas_prontas').update(v.data).eq('id', id).select('id');
+    if (error) return doBanco(error);
+    if (!data?.length) return falha('Essa resposta não existe mais. Recarregue a página.');
+  } else {
+    const { error } = await sb.from('respostas_prontas').insert(v.data);
+    if (error) return doBanco(error);
+  }
   recarregarRespostas();
   return ok(id ? 'Resposta pronta salva.' : 'Resposta pronta adicionada.');
 }
@@ -132,7 +140,8 @@ export async function salvarCotacao(formData: FormData): Promise<Resultado> {
 export async function salvarModelos(formData: FormData): Promise<Resultado> {
   await exigirAdmin();
   const sb = await supabaseServidor();
-  const { data: cfg } = await sb.from('configuracoes').select('precos_modelos').eq('id', 1).single();
+  const { data: cfg, error: erroPrecos } = await sb.from('configuracoes').select('precos_modelos').eq('id', 1).single();
+  if (erroPrecos) return doBanco(erroPrecos);
   const v = modelosForm(Object.keys((cfg?.precos_modelos ?? {}) as Record<string, unknown>)).safeParse(formData);
   if (!v.success) return primeiroErro(v.error);
   const { error } = await sb.from('configuracoes').update(v.data).eq('id', 1);
