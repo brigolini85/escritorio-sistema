@@ -332,6 +332,12 @@ function useContagem(ancora: RefObject<Element | null>): number {
   return n;
 }
 
+/** Quantos campos do formulário em volta (inteiro, sem escopo) têm alteração não salva: para quem mostra o próprio aviso ou desliga um botão. */
+export function useAlteracoes(): number {
+  const ancora = useRef<Element | null>(null);
+  return useContagem(ancora);
+}
+
 /**
  * "Alterações não salvas" (ponto amarelo + texto) quando algum campo mudou. Dentro de um elemento com
  * `data-escopo-alteracoes`, só os campos desse elemento contam (ex.: um card de um formulário que ocupa dois cards).
