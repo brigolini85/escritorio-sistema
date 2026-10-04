@@ -1,30 +1,29 @@
-import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
-/** Esqueleto do Início no formato real: cartões do agente e sinais, números do dia e avisos. */
+/** Esqueleto do Início: o carregamento não sabe o papel (D22), então serve às duas versões. */
 export default function CarregandoInicio() {
   return (
-    <div role="status" aria-label="Carregando o Início" className="flex max-w-5xl flex-col gap-6">
-      <PageHeader titulo="Início" descricao="Como está o atendimento agora." className="mb-0" />
-      <div className="grid gap-4 lg:grid-cols-2">
-        {[0, 1].map((i) => (
-          <Card key={i} className="gap-3 p-4">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-8 w-28" />
-          </Card>
-        ))}
+    <div role="status" aria-label="Carregando o Início" className="flex max-w-7xl flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-9 w-80" />
+        <Skeleton className="h-4 w-64" />
       </div>
-      <Skeleton className="h-6 w-40" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
           <Card key={i} className="gap-2 p-4">
             <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-3 w-1/2" />
+            <Skeleton className="h-9 w-16" />
           </Card>
         ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card className="gap-3 p-4 xl:col-span-2">
+          {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+        </Card>
+        <Card className="gap-3 p-4">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+        </Card>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
+import { abrirInicio, numeroInicio } from './apoio-inicio';
 
 const SENHA = 'senha-forte-123';
 const PREFIXO = '553197001';
@@ -50,9 +51,9 @@ test('grupos, ordem por espera, cronômetro colorido, não lidas e o título "es
   // Não lidas: 3 na Carla (nenhuma resposta ainda, P8). Zerar ao abrir é da Task 10.
   const itemCarla = page.locator(`a[href^="/atendimento/${carla}"]`);
   await expect(itemCarla.getByLabel('3 mensagens não lidas')).toBeVisible();
-  // O número do cartão do Início é o mesmo do título do Atendimento (P2).
-  await page.goto('/inicio');
-  await expect(page.getByText('Esperando você', { exact: true }).locator('xpath=following-sibling::p[1]')).toHaveText('2', { timeout: 30_000 });
+  // O número do cartão da Minha mesa é o mesmo do título do Atendimento (P2); contrato data-numero (G2, D20).
+  await abrirInicio(page, 'mesa');
+  await expect.poll(() => numeroInicio(page, 'esperando-voce')).toBe(2);
 });
 
 test('o menu abre recolhido no Atendimento sem mudar a preferência; J/K continuam', async ({ page }) => {
