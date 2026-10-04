@@ -69,6 +69,12 @@ isOneToOne: false
       foreignKeyName: "assistente_mensagens_conversa_id_fkey"
       columns: ["conversa_id"]
 isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
+    },{
+      foreignKeyName: "assistente_mensagens_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
       referencedRelation: "conversas"
       referencedColumns: ["id"]
     },{
@@ -153,11 +159,23 @@ isOneToOne: false
       referencedRelation: "contatos"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "chamados_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "chamados_conversa_id_fkey"
       columns: ["conversa_id"]
 isOneToOne: false
       referencedRelation: "caixa_entrada"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chamados_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
     },{
       foreignKeyName: "chamados_conversa_id_fkey"
       columns: ["conversa_id"]
@@ -289,6 +307,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "contatos"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "contato_clientes_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["id"]
     }
                   ]
                 },"contatos": {
@@ -331,6 +355,12 @@ isOneToOne: false
       foreignKeyName: "conversa_eventos_conversa_id_fkey"
       columns: ["conversa_id"]
 isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
+    },{
+      foreignKeyName: "conversa_eventos_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
       referencedRelation: "conversas"
       referencedColumns: ["id"]
     },{
@@ -358,6 +388,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "caixa_entrada"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversa_leituras_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
     },{
       foreignKeyName: "conversa_leituras_conversa_id_fkey"
       columns: ["conversa_id"]
@@ -401,6 +437,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "contatos"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversas_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["id"]
     }
                   ]
                 },"decisoes_agente": {
@@ -426,6 +468,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "caixa_entrada"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "decisoes_agente_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
     },{
       foreignKeyName: "decisoes_agente_conversa_id_fkey"
       columns: ["conversa_id"]
@@ -501,6 +549,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "caixa_entrada"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "mensagens_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
     },{
       foreignKeyName: "mensagens_conversa_id_fkey"
       columns: ["conversa_id"]
@@ -664,6 +718,12 @@ isOneToOne: false
       referencedRelation: "contatos"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "precos_alterado_por_contato_fkey"
+      columns: ["alterado_por_contato"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "precos_alterado_por_fkey"
       columns: ["alterado_por"]
 isOneToOne: false
@@ -818,6 +878,12 @@ isOneToOne: false
       foreignKeyName: "sugestoes_resposta_conversa_id_fkey"
       columns: ["conversa_id"]
 isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
+    },{
+      foreignKeyName: "sugestoes_resposta_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
       referencedRelation: "conversas"
       referencedColumns: ["id"]
     },{
@@ -851,6 +917,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "caixa_entrada"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "uso_ia_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
     },{
       foreignKeyName: "uso_ia_conversa_id_fkey"
       columns: ["conversa_id"]
@@ -962,6 +1034,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"contatos_lista": {
+                  Row: {
+                    "agente_pausado": boolean | null,"atendente_id": string | null,"atendente_nome": string | null,"ativo": boolean | null,"conversa_id": string | null,"criado_em": string | null,"empresa_ids": (string)[] | null,"empresas": Json | null,"empresas_busca": string | null,"espera_desde": string | null,"estado_conversa": Database["public"]['Enums']["estado_conversa"] | null,"id": string | null,"muda_preco_alguma": boolean | null,"n_empresas": number | null,"nome": string | null,"pode_pedir_nota_alguma": boolean | null,"telefone": string | null,"ultimo_contato_em": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversas_atendente_id_fkey"
+      columns: ["atendente_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"demandas_lista": {
                   Row: {
                     "atualizado_em": string | null,"cliente_id": string | null,"concluido_em": string | null,"contato": string | null,"contato_id": string | null,"conversa_id": string | null,"criado_em": string | null,"criado_por": string | null,"criado_por_nome": string | null,"empresa": string | null,"fora_do_contrato": boolean | null,"id": string | null,"numero": number | null,"origem": string | null,"pedido_venda": Json | null,"prazo_em": string | null,"prazo_pausado_desde": string | null,"prioridade": Database["public"]['Enums']["prioridade_demanda"] | null,"responsavel": string | null,"responsavel_id": string | null,"resumo": string | null,"setor": string | null,"setor_id": string | null,"status": Database["public"]['Enums']["status_chamado"] | null,"tem_pedido": boolean | null,"titulo": string | null,"vencida": boolean | null
@@ -980,11 +1065,23 @@ isOneToOne: false
       referencedRelation: "contatos"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "chamados_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "chamados_conversa_id_fkey"
       columns: ["conversa_id"]
 isOneToOne: false
       referencedRelation: "caixa_entrada"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "chamados_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
     },{
       foreignKeyName: "chamados_conversa_id_fkey"
       columns: ["conversa_id"]
@@ -1061,6 +1158,9 @@ isOneToOne: false
                            },
 "contato_da_empresa":
 { Args: { "p_cliente": string,"p_contato": string }; Returns: boolean
+                           },
+"contato_whatsapp_resumo":
+{ Args: { "p_contato": string }; Returns: Json
                            },
 "criar_demanda":
 { Args: { "p_cliente": string,"p_contato"?: string,"p_descricao": string,"p_prazo"?: string,"p_prioridade"?: Database["public"]['Enums']["prioridade_demanda"],"p_responsavel"?: string,"p_setor": string,"p_titulo": string }; Returns: Json
