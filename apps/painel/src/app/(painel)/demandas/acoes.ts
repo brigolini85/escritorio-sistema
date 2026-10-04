@@ -20,6 +20,8 @@ async function acao(nome: string, args: Record<string, unknown>, mensagem: strin
   const { error } = await sb.rpc(nome as never, args as never);
   if (error) return { ok: false, erro: mensagemDoBanco(error.message) };
   revalidatePath('/demandas');
+  // ASSUMIR e CONCLUIR também saem da Minha mesa (G2, D14): o Início relê na hora.
+  revalidatePath('/inicio');
   return { ok: true, mensagem };
 }
 

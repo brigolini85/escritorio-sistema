@@ -117,4 +117,12 @@ describe('ações da demanda', () => {
     falso.erro = 'A demanda já está com Ana.';
     expect(await alterarStatusDemanda(ID, 'em_andamento')).toEqual({ ok: false, erro: 'A demanda já está com Ana.' });
   });
+  it('assumir e concluir revalidam também o Início (G2, D14)', async () => {
+    const { revalidatePath } = await import('next/cache');
+    vi.mocked(revalidatePath).mockClear();
+    const { assumirDemanda, concluirDemanda } = await import('./acoes');
+    expect(await assumirDemanda(ID)).toEqual({ ok: true, mensagem: 'Demanda assumida.' });
+    expect(await concluirDemanda(ID)).toEqual({ ok: true, mensagem: 'Demanda concluída.' });
+    expect(vi.mocked(revalidatePath).mock.calls.map((c) => c[0])).toEqual(['/demandas', '/inicio', '/demandas', '/inicio']);
+  });
 });

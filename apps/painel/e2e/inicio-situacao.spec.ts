@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
 import { demandaE2e, limparDemandasE2e } from './apoio-demandas';
-import { abrirInicio, cartaoNumero, numeroInicio } from './apoio-inicio';
+import { abrirInicio, cartaoNumero, fimDeHoje, numeroInicio } from './apoio-inicio';
 
 const SENHA = 'senha-forte-123';
 const ADMIN = { email: 'thiago-situacao@e2e.local', nome: 'Thiago Situação' };
@@ -55,12 +55,6 @@ test('sinais de vida: WhatsApp, fila, último batimento e avisos não vistos', a
 });
 
 const P = 'E2E-G2S';
-/** Fim do dia de hoje em Brasília (UTC-3) menos 1 minuto: ainda hoje e no futuro (mesmo cálculo do inicio-vencimentos). */
-function fimDeHoje(): string {
-  const UM_DIA = 24 * 3600_000;
-  const inicio = Math.floor((Date.now() - 3 * 3600_000) / UM_DIA) * UM_DIA + 3 * 3600_000;
-  return new Date(inicio + UM_DIA - 60_000).toISOString();
-}
 
 test('cabeçalho e os cinco números: contam as novas, com detalhes e links', async ({ page }) => {
   await limparDemandasE2e(P);
