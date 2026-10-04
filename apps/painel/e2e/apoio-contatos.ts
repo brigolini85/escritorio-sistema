@@ -77,3 +77,26 @@ export async function semearContatos() {
   await conversaCom('5531980020002', roberto, [{ autor: 'cliente', em: minAtras(121) }, { autor: 'agente', em: minAtras(120) }]);
   return { rede, mercado, zeta, padaria, carla, roberto, sandra, conversaCarla };
 }
+
+/**
+ * Histórico da Carla para o bloco WhatsApp e as demandas: há 2 dias a equipe respondeu; ontem só o agente; hoje passou para
+ * pessoa (semearContatos) → 3 atendimentos, 1 resolvido pelo agente (33%). Demandas: uma urgente e uma normal abertas no
+ * Fiscal e uma concluída (não aparece).
+ */
+export async function semearHistorico(s: Awaited<ReturnType<typeof semearContatos>>) {
+  await db.from('mensagens').insert([
+    { conversa_id: s.conversaCarla, direcao: 'entrada', autor: 'cliente', tipo: 'texto', conteudo: 'oi', criado_em: minAtras(48 * 60), processada_em: minAtras(48 * 60) },
+    { conversa_id: s.conversaCarla, direcao: 'saida', autor: 'atendente', tipo: 'texto', conteudo: 'pois não', criado_em: minAtras(48 * 60 - 5) },
+    { conversa_id: s.conversaCarla, direcao: 'entrada', autor: 'cliente', tipo: 'texto', conteudo: 'oi', criado_em: minAtras(24 * 60), processada_em: minAtras(24 * 60) },
+    { conversa_id: s.conversaCarla, direcao: 'saida', autor: 'agente', tipo: 'texto', conteudo: 'olá', criado_em: minAtras(24 * 60 - 1) },
+  ]);
+  const { data: fiscal } = await db.from('setores').select('id').eq('nome', 'Fiscal').single();
+  const demanda = async (titulo: string, prioridade: 'urgente' | 'normal', concluida = false) => (await db.from('chamados').insert({
+    conversa_id: s.conversaCarla, setor_id: fiscal!.id, titulo: `${PREFIXO} ${titulo}`, prioridade,
+    ...(concluida ? { status: 'concluido', concluido_em: new Date().toISOString() } : {}),
+  }).select('id, numero').single()).data!;
+  const urgente = await demanda('Nota de venda', 'urgente');
+  await demanda('Alteração de sócio', 'normal');
+  await demanda('Antiga', 'normal', true);
+  return { urgente };
+}

@@ -1,5 +1,6 @@
 import { Building2, ExternalLink, Pencil, SearchX, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { ApagarDadosContato } from '@/components/patterns/apagar-dados-contato';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
@@ -20,7 +21,9 @@ import { alternarAgenteContato } from '../atendimento/acoes';
 import { anonimizarContato } from '../clientes/acoes';
 import { marcarEmpresaDoContato, renomearContato, vincularEmpresaAoContato } from './acoes';
 import { BotaoAbrirConversa } from './acoes-linha';
+import { BlocoWhatsapp } from './bloco-whatsapp';
 import { lerContato, lerEmpresasAtivas, lerWhatsappDoContato } from './dados-contatos';
+import { DemandasDoContato, EsqueletoDemandasDoContato } from './demandas-do-contato';
 import { EditarNomeContato } from './editar-nome-contato';
 import { MarcacoesEmpresa } from './marcacoes-empresa';
 import { SecaoPainel } from './secao-painel';
@@ -28,13 +31,14 @@ import { SecaoEmpresas } from './vincular-empresa';
 
 /**
  * Painel lateral do contato (?contato=<id>, imagem A): ABRIR CONVERSA e EDITAR no topo, agente, empresas com as marcações
- * por empresa e o vincular, Excluir… (Parte B) e Apagar dados (LGPD, só admin, inalterado). Lê só o que já está no banco de
- * todos (D14). As permissões são as de hoje e as ações conferem de novo no servidor.
+ * por empresa e o vincular, WhatsApp, demandas abertas, Excluir… (Parte B) e Apagar dados (LGPD, só admin, inalterado). Lê só
+ * o que já está no banco de todos (D14). As permissões são as de hoje e as ações conferem de novo no servidor.
  */
 export async function DetalheContato({ id, u, editar, hrefEditar }: { id: string; u: UsuarioPainel; editar: boolean; hrefEditar: string }) {
   const pode = temNivel(u, 'clientes', 'editar');
   const podeArquivar = temNivel(u, 'clientes', 'arquivar');
   const podeConversa = temNivel(u, 'atendimento', 'meus_setores');
+  const veTodas = temNivel(u, 'atendimento', 'todas');
   const admin = u.papel === 'admin';
   const sb = await supabaseServidor();
   const c = await lerContato(sb, id);
@@ -127,15 +131,19 @@ export async function DetalheContato({ id, u, editar, hrefEditar }: { id: string
         </SecaoEmpresas>
 
         {/* Parte H: o bloco de acesso por empresa (perfil, setores, documentos, prévia do agente) entra aqui, D18. */}
+        <BlocoWhatsapp w={whats} euId={u.id} veTodas={veTodas} agora={agora} />
+        <Suspense fallback={<EsqueletoDemandasDoContato />}>
+          <DemandasDoContato contatoId={c.id} agora={agora} />
+        </Suspense>
 
         {podeArquivar && c.ativo && (
           <div className="py-4"><ExcluirCadastro tipo="contato" id={c.id} nome={c.nome} variante="area" voltarPara="/contatos" /></div>
         )}
         {admin && !anonimizado && (
-          <section aria-labelledby="zona-perigo" className="my-4 flex flex-col gap-2 rounded-md border border-danger p-4">
-            <h3 id="zona-perigo" className="flex items-center gap-2 text-base font-semibold text-danger">
+          <section aria-labelledby="apagar-dados" className="my-4 flex flex-col gap-2 rounded-md border border-dashed border-danger p-4">
+            <h3 id="apagar-dados" className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-danger">
               <ShieldAlert aria-hidden size={16} strokeWidth={1.75} />
-              Zona de perigo
+              Apagar dados (LGPD) · só admin
             </h3>
             <p className="text-sm text-foreground">
               Apagar os dados a pedido do titular (LGPD): nome, telefone, mensagens, áudios e arquivos deste contato somem de vez, em todas as empresas. Não dá para desfazer.

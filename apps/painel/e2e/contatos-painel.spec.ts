@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
-import { abrirContatos, limparG3, linhaContato, PREFIXO, semearContatos } from './apoio-contatos';
+import { abrirContatos, limparG3, linhaContato, PREFIXO, semearContatos, semearHistorico } from './apoio-contatos';
 
 const SENHA = 'senha-forte-123';
 test.beforeEach(limparG3);
@@ -85,4 +85,51 @@ test('painel com "Só ver" e Atendimento "Sem acesso": sem Editar, marcações e
 
   // Nada mudou no banco.
   expect(await vinculo(s.carla, s.mercado)).toEqual({ pode_pedir_nota: false, pode_atualizar_preco: false });
+});
+
+test('painel: WhatsApp (último contato, conversa agora, % resolvida) e demandas abertas; LGPD separado com borda tracejada', async ({ page }) => {
+  const s = await semearContatos();
+  const h = await semearHistorico(s);
+  await criarUsuarioTeste({ email: 'admin-g3p@e2e.local', senha: SENHA, nome: 'Thiago G3', papel: 'admin' });
+  await entrar(page, 'admin-g3p@e2e.local', SENHA);
+  await abrirContatos(page, `?q=${PREFIXO}&contato=${s.carla}`);
+  const painel = page.getByRole('dialog', { name: `${PREFIXO} Carla Mendes` });
+
+  const whats = painel.getByRole('region', { name: 'WhatsApp' });
+  await expect(whats).toContainText('3 atendimentos');
+  await expect(whats).toContainText(/Último contato\s*(hoje|ontem) \d{2}:\d{2}/);
+  await expect(whats).toContainText(/esperando pessoa · \d+ min/);
+  await expect(whats).toContainText('33%');
+
+  const demandas = painel.getByRole('region', { name: 'Demandas abertas' });
+  await expect(demandas).toContainText(`#${h.urgente.numero} ${PREFIXO} Nota de venda`);
+  await expect(demandas).toContainText('Urgente');
+  await expect(demandas).toContainText(`${PREFIXO} Alteração de sócio`);
+  await expect(demandas).not.toContainText('Antiga');
+  await expect(demandas.getByRole('link', { name: new RegExp(`${PREFIXO} Nota de venda`) })).toHaveAttribute('href', `/demandas?demanda=${h.urgente.id}`);
+
+  await expect(painel.getByRole('button', { name: 'Excluir…' })).toBeVisible();
+  const lgpd = painel.getByRole('region', { name: 'Apagar dados (LGPD) · só admin' });
+  await expect(lgpd).toHaveCSS('border-top-style', 'dashed');
+  await expect(lgpd.getByRole('button', { name: 'Apagar dados (LGPD)' })).toBeVisible();
+});
+
+test('"Só ver" (o padrão de quem atende): vê o painel, mas não muda nada; sem Excluir… e sem LGPD', async ({ page }) => {
+  const s = await semearContatos();
+  await semearHistorico(s); // as demandas no Fiscal deixam a Ana ver a conversa (Parte D)
+  await criarUsuarioTeste({ email: 'ana-g3p@e2e.local', senha: SENHA, nome: 'Ana G3', papel: 'atendente', setores: ['Fiscal'] });
+  await entrar(page, 'ana-g3p@e2e.local', SENHA);
+  await abrirContatos(page, `?q=${PREFIXO}&contato=${s.carla}`);
+  const painel = page.getByRole('dialog', { name: `${PREFIXO} Carla Mendes` });
+  await expect(painel.getByRole('region', { name: 'WhatsApp' })).toContainText('esperando pessoa');
+  await expect(painel.getByRole('region', { name: 'Demandas abertas' })).toContainText(`${PREFIXO} Nota de venda`);
+  await expect(painel.getByRole('link', { name: /^Editar / })).toHaveCount(0);
+  await expect(painel.getByRole('button', { name: 'Vincular empresa' })).toHaveCount(0);
+  await expect(painel.getByRole('button', { name: 'Excluir…' })).toHaveCount(0);
+  await expect(painel.getByRole('button', { name: 'Apagar dados (LGPD)' })).toHaveCount(0);
+  await expect(painel.getByRole('switch', { name: /o agente para/ })).toBeDisabled();
+  for (const caixa of await painel.getByRole('group', { name: `${PREFIXO} Rede Bom Preço Ltda` }).getByRole('checkbox').all()) {
+    await expect(caixa).toBeDisabled();
+  }
+  await expect(painel).toContainText('Só quem pode editar clientes muda as marcações.');
 });
