@@ -102,7 +102,7 @@ Com o número de teste conectado, mande mensagens do seu celular pessoal e confi
 
 ### Pausar o agente
 
-Em **Início** (o seu Painel de situação), no cartão **Agente**, clique em **Pausar agente**. A partir daí, o cliente **não recebe nenhuma resposta automática**: as mensagens aparecem para a equipe no painel (Atendimento) e viram uma demanda de triagem, e alguém da equipe responde. Use quando o agente estiver respondendo algo errado, em época de muito movimento em que você prefira atendimento só humano, ou enquanto pede uma correção ao Claude. Para voltar, clique em **Retomar agente**. Também dá para pausar só para um cliente, na ficha dele (Clientes → cliente → "Pausar o agente para este cliente"), ou só para um contato: na conversa (Atendimento → conversa → "Desligar o agente para este contato") ou na aba Contatos da ficha. Número que não está cadastrado pode ser cadastrado direto na conversa, no quadro "Contato não cadastrado", com ou sem empresa. A aba **Contatos** do menu mostra todos os contatos, com as empresas de cada um e se o agente atende; para ligar um contato já cadastrado a uma empresa, abra a empresa em Clientes → aba Contatos → "Vincular contato já cadastrado".
+Em **Início** (o seu Painel de situação), no cartão **Agente**, clique em **Pausar agente**. A partir daí, o cliente **não recebe nenhuma resposta automática**: as mensagens aparecem para a equipe no painel (Atendimento) e viram uma demanda de triagem, e alguém da equipe responde. Use quando o agente estiver respondendo algo errado, em época de muito movimento em que você prefira atendimento só humano, ou enquanto pede uma correção ao Claude. Para voltar, clique em **Retomar agente**. Também dá para pausar só para um cliente, na ficha dele (Clientes → cliente → "Pausar o agente para este cliente"), ou só para um contato: na conversa (Atendimento → conversa → "Desligar o agente para este contato") ou na aba Contatos da ficha. Número que não está cadastrado pode ser cadastrado direto na conversa, no quadro "Contato não cadastrado", com ou sem empresa. A tela **Contatos** do menu mostra todos os contatos (veja "Contatos: lista e painel" abaixo); para ligar um contato a uma empresa, abra o contato e use **Vincular empresa**, ou abra a empresa em Clientes → aba Contatos → "Vincular contato já cadastrado".
 
 ### O Início: Painel de situação (você) e Minha mesa (a equipe)
 
@@ -111,6 +111,14 @@ O Início muda conforme quem entra:
 - **A equipe** vê a **Minha mesa**: as conversas esperando por ela, as demandas dela por prazo (vencida, vence hoje, próximos dias) com **Abrir** e **Concluir**, as demandas sem responsável dos setores dela com **Assumir**, atalhos e um bloco **Sistema** que diz se o agente está atendendo ou pausado e se o WhatsApp está conectado. **A equipe nunca vê valores de gasto**: no máximo "pausado: limite de IA do mês".
 
 A página se atualiza sozinha: conversas e demandas na hora; pausa do agente, sinais de vida e gasto em até um minuto.
+
+### Contatos: lista e painel
+
+A tela **Contatos** mostra quem fala pelas empresas no WhatsApp, **do contato mais recente para o mais antigo**. Cada linha diz as empresas (só as ativas), o que a pessoa pode pedir (**Pede nota**, **Muda preço e cadastra produto**; "1 de 2" quando vale só numa das empresas; **Só conversa** quando não pede nada), quando falou por último e como está a conversa agora (esperando pessoa, com alguém da equipe, com o agente), e a chave do agente.
+- **Buscar:** por nome, telefone **ou empresa**. Os botões **Agente desligado**, **Sem empresa**, **Pode pedir nota** e **Muda preço** mostram quantos há e filtram com um clique; dá para escolher uma empresa e o período do último contato (inclusive "Sem conversa").
+- **Abrir um contato:** clique na linha. No painel: **Abrir conversa**, **Editar** (o nome), a chave do agente, as empresas com as marcações (marque ou desmarque: grava na hora), **Vincular empresa**, o bloco **WhatsApp** (último contato, conversa agora e quanto o agente resolveu sozinho — "atendimento" é cada dia em que o contato escreveu) e as **demandas abertas** dele. Embaixo, **Excluir…** (arquiva quem tem histórico) e, separado, **Apagar dados (LGPD)**, só para você.
+- **Quem vê o quê:** toda a equipe vê os contatos; a hora e o estado da conversa só aparecem para quem pode ver aquela conversa (por isso alguém da equipe pode ler "nenhuma conversa visível"). Mudar marcações, vincular empresa, editar e a chave do agente pedem "Clientes e contatos: Ver e editar"; arquivar pede "Editar e arquivar".
+- **Tirar uma empresa do contato** continua na ficha da empresa (Clientes → empresa → aba Contatos → Remover).
 
 ### Quando chegar o e-mail "WhatsApp desconectado"
 

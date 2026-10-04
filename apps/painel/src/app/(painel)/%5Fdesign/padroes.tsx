@@ -30,7 +30,7 @@ import { lerOrdem, lerPagina, ordenarLinhas, paginar, valorParam, type ParamsBus
 import { CronometroEspera } from '../atendimento/cronometro-espera';
 import { MarcoConversa } from '../atendimento/[id]/itens-historico';
 import { NumeroInicio } from '../inicio/numero-inicio';
-import { DemoConfiguracoes, DemoConfirmacoes, DemoTabela, DemoTiposConfirmacao, type DemandaExemplo } from './demos-padroes';
+import { DemoConfiguracoes, DemoConfirmacoes, DemoContatos, DemoTabela, DemoTiposConfirmacao, type DemandaExemplo } from './demos-padroes';
 
 // Seção "Padrões de domínio" do /_design (fase 3): cada padrão de components/patterns com dados de exemplo.
 
@@ -363,6 +363,10 @@ export function Padroes({ params }: { params: ParamsBusca }) {
       <Exemplo titulo="Início (Parte G2): NumeroInicio — variante situacao (faixa no topo, detalhe e link) e variante mesa (ícone; o cartão inteiro é o link)" className="grid gap-4 sm:grid-cols-2">
         <NumeroInicio chave="exemplo-vencem-hoje" titulo="Vencem hoje" valor={6} tom="atencao" detalhe="2 urgentes" link={{ href: '/demandas?prazo=hoje', rotulo: 'Ver na lista' }} />
         <NumeroInicio chave="exemplo-esperando-voce" variante="mesa" icone={MessageCircle} titulo="conversas esperando você" valor={2} tom="perigo" link={{ href: '/atendimento', rotulo: 'Abrir o Atendimento' }} />
+      </Exemplo>
+
+      <Exemplo titulo="Contatos (Parte G3): SelosContato (“Pede nota · 1 de 2”, as duas marcações, “Só conversa”) e SwitchAgenteContato com estadoCurto, sem permissão" className="block">
+        <DemoContatos />
       </Exemplo>
     </Secao>
   );

@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
 import { abrirSecao } from './apoio-configuracoes';
+import { abrirContatos } from './apoio-contatos';
 import { demandaE2e, limparDemandasE2e } from './apoio-demandas';
 import { abrirInicio } from './apoio-inicio';
 import { limparGastos, semearGastos } from './apoio-gastos';
@@ -133,6 +134,8 @@ for (const tema of ['claro', 'escuro'] as const) {
         '/contatos',
         '/contatos?ver=arquivados',
         `/contatos?contato=${ids.contato}`,
+        `/contatos?contato=${ids.contato}&editar=1`,
+        '/contatos?filtro=nota',
         '/assistente',
         '/treinar-agente',
         `/treinar-agente?orientacao=${ids.orientacao}`,
@@ -348,6 +351,17 @@ for (const tema of ['claro', 'escuro'] as const) {
         await db.auth.admin.deleteUser(ana);
         await db.from('usuarios').delete().eq('email', EMAIL_MESA);
       }
+    });
+
+    test(`Contatos: vincular empresa aberto sem violações graves (${tema})`, async ({ page }) => {
+      const ids = await semear();
+      await entrar(page, EMAIL, SENHA);
+      await abrirContatos(page, `?contato=${ids.contato}`);
+      const painel = page.getByRole('dialog', { name: 'Clara Acessível' });
+      await painel.getByRole('button', { name: 'Vincular empresa' }).click();
+      await expect(painel.getByRole('form', { name: 'Vincular empresa' })).toBeVisible();
+      const erros = await auditar(page, '/contatos (vincular empresa)', tema);
+      expect(erros, erros.join('\n')).toEqual([]);
     });
   });
 }

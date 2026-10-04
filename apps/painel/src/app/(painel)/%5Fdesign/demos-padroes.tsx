@@ -12,6 +12,7 @@ import { Antes } from '@/components/patterns/formulario-alteravel';
 import { MoneyText } from '@/components/patterns/money-text';
 import { RelativeTime } from '@/components/patterns/relative-time';
 import { StatusBadge, type StatusDemanda } from '@/components/patterns/status-badge';
+import { SwitchAgenteContato } from '@/components/patterns/switch-agente-contato';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -20,6 +21,7 @@ import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTit
 import { toast } from '@/components/ui/toaster';
 import type { Ordem, Paginacao, ParamsBusca } from '@/lib/tabela-url';
 import { FormularioConfig, RodapeConfig } from '../configuracoes/formulario-config';
+import { SelosContato } from '../contatos/marcacoes';
 
 // Exemplos interativos dos padrões de domínio no /_design (ações falsas: só mostram um aviso).
 
@@ -195,5 +197,20 @@ export function DemoConfiguracoes() {
         <RodapeConfig />
       </div>
     </FormularioConfig>
+  );
+}
+
+const EMPRESA_A = { empresaId: 'exemplo-a', empresa: 'Rede Bom Preço Ltda' };
+const EMPRESA_B = { empresaId: 'exemplo-b', empresa: 'Mercado Central' };
+
+/** Contatos (Parte G3): selos das marcações por empresa e a chave do agente da linha, com dados fixos (sem banco). */
+export function DemoContatos() {
+  return (
+    <div className="flex flex-wrap items-center gap-6">
+      <SelosContato vinculos={[{ ...EMPRESA_A, podePedirNota: true, podeMudarPreco: false }, { ...EMPRESA_B, podePedirNota: false, podeMudarPreco: false }]} />
+      <SelosContato vinculos={[{ ...EMPRESA_A, podePedirNota: true, podeMudarPreco: true }]} />
+      <SelosContato vinculos={[{ ...EMPRESA_B, podePedirNota: false, podeMudarPreco: false }]} />
+      <SwitchAgenteContato acao={async () => {}} desligado={false} nome="Carla Mendes (exemplo)" pode={false} mostrarEstado estadoCurto />
+    </div>
   );
 }
