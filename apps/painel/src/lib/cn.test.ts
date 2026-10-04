@@ -19,6 +19,12 @@ describe('cn', () => {
     expect(cn('text-base text-muted', 'text-lg')).toBe('text-muted text-lg');
   });
 
+  it('mantém 3xl e display quando seguidos de cor de texto', () => {
+    expect(cn('tabular text-3xl font-extrabold', 'text-warning')).toBe('tabular text-3xl font-extrabold text-warning');
+    expect(cn('text-display', 'text-brand')).toBe('text-display text-brand');
+    expect(cn('text-2xl', 'text-3xl')).toBe('text-3xl');
+  });
+
   it('cores de token do mesmo tipo se substituem', () => {
     expect(cn('bg-brand text-brand-foreground', 'bg-danger')).toBe('text-brand-foreground bg-danger');
     expect(cn('border-border', 'border-input')).toBe('border-input');
