@@ -359,15 +359,40 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
-                },"contato_clientes": {
+                },"contato_cliente_setores": {
                   Row: {
-                    "cliente_id": string,"contato_id": string,"pode_atualizar_preco": boolean,"pode_pedir_nota": boolean
+                    "cliente_id": string,"contato_id": string,"pode_ser_procurado": boolean,"setor_id": string
                   }
                   Insert: {
-                    "cliente_id": string,"contato_id": string,"pode_atualizar_preco"?: boolean,"pode_pedir_nota"?: boolean
+                    "cliente_id": string,"contato_id": string,"pode_ser_procurado"?: boolean,"setor_id": string
                   }
                   Update: {
-                    "cliente_id"?: string,"contato_id"?: string,"pode_atualizar_preco"?: boolean,"pode_pedir_nota"?: boolean
+                    "cliente_id"?: string,"contato_id"?: string,"pode_ser_procurado"?: boolean,"setor_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "contato_cliente_setores_contato_id_cliente_id_fkey"
+      columns: ["contato_id","cliente_id"]
+isOneToOne: false
+      referencedRelation: "contato_clientes"
+      referencedColumns: ["contato_id","cliente_id"]
+    },{
+      foreignKeyName: "contato_cliente_setores_setor_id_fkey"
+      columns: ["setor_id"]
+isOneToOne: false
+      referencedRelation: "setores"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"contato_clientes": {
+                  Row: {
+                    "avisar_documento_novo": (string)[],"cliente_id": string,"contato_id": string,"perfil": string,"pode_atualizar_preco": boolean,"pode_pedir_nota": boolean,"recebe_alertas_acesso": boolean,"receber_documentos": boolean,"ver_valores": boolean
+                  }
+                  Insert: {
+                    "avisar_documento_novo"?: (string)[],"cliente_id": string,"contato_id": string,"perfil"?: string,"pode_atualizar_preco"?: boolean,"pode_pedir_nota"?: boolean,"recebe_alertas_acesso"?: boolean,"receber_documentos"?: boolean,"ver_valores"?: boolean
+                  }
+                  Update: {
+                    "avisar_documento_novo"?: (string)[],"cliente_id"?: string,"contato_id"?: string,"perfil"?: string,"pode_atualizar_preco"?: boolean,"pode_pedir_nota"?: boolean,"recebe_alertas_acesso"?: boolean,"receber_documentos"?: boolean,"ver_valores"?: boolean
                   }
                   Relationships: [
                     {
@@ -392,13 +417,13 @@ isOneToOne: false
                   ]
                 },"contatos": {
                   Row: {
-                    "agente_pausado": boolean,"arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"criado_em": string,"id": string,"nome": string,"telefone": string
+                    "agente_pausado": boolean,"arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cargo": string | null,"criado_em": string,"email": string | null,"id": string,"nome": string,"telefone": string
                   }
                   Insert: {
-                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"id"?: string,"nome": string,"telefone": string
+                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email"?: string | null,"id"?: string,"nome": string,"telefone": string
                   }
                   Update: {
-                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"criado_em"?: string,"id"?: string,"nome"?: string,"telefone"?: string
+                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email"?: string | null,"id"?: string,"nome"?: string,"telefone"?: string
                   }
                   Relationships: [
                     {
@@ -559,13 +584,13 @@ isOneToOne: false
                   ]
                 },"documentos_empresa": {
                   Row: {
-                    "arquivo_mime": string,"arquivo_nome": string,"arquivo_path": string,"cliente_id": string,"criado_em": string,"enviado_por": string | null,"ia_pode_enviar": boolean,"id": string,"nome": string
+                    "arquivo_mime": string,"arquivo_nome": string,"arquivo_path": string,"cliente_id": string,"criado_em": string,"enviado_por": string | null,"ia_pode_enviar": boolean,"id": string,"nome": string,"setor_id": string | null,"tem_valores": boolean
                   }
                   Insert: {
-                    "arquivo_mime"?: string,"arquivo_nome": string,"arquivo_path": string,"cliente_id": string,"criado_em"?: string,"enviado_por"?: string | null,"ia_pode_enviar"?: boolean,"id"?: string,"nome": string
+                    "arquivo_mime"?: string,"arquivo_nome": string,"arquivo_path": string,"cliente_id": string,"criado_em"?: string,"enviado_por"?: string | null,"ia_pode_enviar"?: boolean,"id"?: string,"nome": string,"setor_id"?: string | null,"tem_valores"?: boolean
                   }
                   Update: {
-                    "arquivo_mime"?: string,"arquivo_nome"?: string,"arquivo_path"?: string,"cliente_id"?: string,"criado_em"?: string,"enviado_por"?: string | null,"ia_pode_enviar"?: boolean,"id"?: string,"nome"?: string
+                    "arquivo_mime"?: string,"arquivo_nome"?: string,"arquivo_path"?: string,"cliente_id"?: string,"criado_em"?: string,"enviado_por"?: string | null,"ia_pode_enviar"?: boolean,"id"?: string,"nome"?: string,"setor_id"?: string | null,"tem_valores"?: boolean
                   }
                   Relationships: [
                     {
@@ -579,6 +604,12 @@ isOneToOne: false
       columns: ["enviado_por"]
 isOneToOne: false
       referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "documentos_empresa_setor_id_fkey"
+      columns: ["setor_id"]
+isOneToOne: false
+      referencedRelation: "setores"
       referencedColumns: ["id"]
     }
                   ]
@@ -1500,6 +1531,9 @@ isOneToOne: false
                            },
 "salvar_acesso":
 { Args: { "p_cliente": string,"p_id": string,"p_portal": string,"p_senha_cifrada": string,"p_usuario": string }; Returns: string
+                           },
+"salvar_acesso_contato":
+{ Args: { "p_cliente": string,"p_contato": string,"p_dados": Json }; Returns: undefined
                            },
 "salvar_ficha_cliente":
 { Args: { "p_dados": Json,"p_id": string }; Returns: string
