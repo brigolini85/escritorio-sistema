@@ -1008,7 +1008,10 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "alterar_status_chamado":
+            "agente_numeros_hoje":
+{ Args: { "p_agora"?: string }; Returns: Json
+                           },
+"alterar_status_chamado":
 { Args: { "p_chamado": string,"p_status": Database["public"]['Enums']["status_chamado"] }; Returns: undefined
                            },
 "alternar_orientacao":
@@ -1119,6 +1122,11 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"demandas_por_setor":
+{ Args: { "p_agora"?: string }; Returns: {
+              "abertas": number,"no_prazo": number,"sem_responsavel": number,"setor": string,"setor_id": string,"urgentes": number,"vencem_hoje": number,"vencidas": number
+            }[]
+                           },
 "deslocar_dias_uteis":
 { Args: { "p_dias": number,"p_prazo": string }; Returns: string
                            },
@@ -1145,6 +1153,9 @@ isOneToOne: false
                            },
 "eh_usuario_ativo":
 { Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"estado_sistema_resumo":
+{ Args: Record<PropertyKey, never>; Returns: Json
                            },
 "excluir_cadastro_definitivo":
 { Args: { "p_id": string,"p_tipo": string }; Returns: undefined
