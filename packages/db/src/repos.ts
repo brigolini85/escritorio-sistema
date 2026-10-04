@@ -1,4 +1,4 @@
-import { lerNiveis, FUNCIONALIDADES_IA, type FuncionalidadeGravavel, type ProvedorIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo } from '@escritorio/core';
+import { lerNiveis, FUNCIONALIDADES_IA, type FuncionalidadeGravavel, type ProvedorIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo, PERFIS, type AcessoContato, type CanalAviso, type Perfil } from '@escritorio/core';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { Db } from './cliente';
 import type { Database, Json } from './tipos.gen';
@@ -75,6 +75,8 @@ export type DadosEmpresa = { razaoSocial: string; nomeFantasia: string | null; c
   regime: string | null; endereco: string | null; uf: string | null; ativo: boolean };
 export type ProdutoEmpresa = { id: string; codigo: string; descricao: string; unidade: string; apelidos: string[] };
 export type DocumentoEmpresa = { id: string; nome: string; arquivoPath: string; arquivoNome: string; arquivoMime: string; iaPodeEnviar: boolean };
+export type DemandaParaContato = { numero: number; titulo: string; status: string; setor_nome: string | null; criado_em: string };
+export type PessoaParaAviso = { contatoId: string; nome: string; telefone: string };
 export type TipoOrientacao = 'jeito' | 'regra' | 'situacao';
 export type OrientacaoAgente = {
   id: string; titulo: string; texto: string; tipo: TipoOrientacao; clienteId: string | null; setorId: string | null;
@@ -117,6 +119,22 @@ function paraChamadoResumo(c: any): ChamadoResumo {
 const PAGINA = 1000;
 
 const semAcento = (t: string) => t.normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '').toLowerCase();
+
+/** acesso_do_contato (jsonb) → AcessoContato; o que vier estranho vira o mínimo (Básico). */
+function paraAcesso(j: unknown): AcessoContato | null {
+  if (!j || typeof j !== 'object') return null;
+  const o = j as Record<string, unknown>;
+  const perfil = (PERFIS as readonly string[]).includes(String(o.perfil)) ? (o.perfil as Perfil) : 'basico';
+  const setores = Array.isArray(o.setores) ? o.setores as { id: string; nome: string; pode_ser_procurado: boolean }[] : [];
+  return {
+    perfil,
+    setores: perfil === 'basico' ? [] : setores.map((s) => ({ id: s.id, nome: s.nome, podeSerProcurado: s.pode_ser_procurado === true })),
+    podePedirNota: o.pode_pedir_nota === true, podeAtualizarPreco: o.pode_atualizar_preco === true,
+    verValores: o.ver_valores === true, receberDocumentos: o.receber_documentos === true,
+    avisarDocumentoNovo: (Array.isArray(o.avisar_documento_novo) ? o.avisar_documento_novo : []).filter((c): c is CanalAviso => c === 'whatsapp' || c === 'email'),
+    recebeAlertasAcesso: o.recebe_alertas_acesso === true,
+  };
+}
 
 export function criarRepos(db: Db) {
   return {
@@ -507,6 +525,47 @@ export function criarRepos(db: Db) {
         .eq('id', clienteId).single(), 'dadosDaEmpresa');
       return { razaoSocial: c.razao_social, nomeFantasia: c.nome_fantasia, cnpj: c.cnpj, inscricaoEstadual: c.inscricao_estadual,
         regime: c.regime, endereco: c.endereco, uf: c.uf, ativo: c.ativo };
+    },
+
+    /** Acesso do contato na empresa (Parte H2): lido a cada ferramenta, para a mudança no painel valer na hora. */
+    async acessoDoContato(contatoId: string, clienteId: string): Promise<AcessoContato | null> {
+      return paraAcesso(checar(await db.rpc('acesso_do_contato', { p_contato: contatoId, p_cliente: clienteId }), 'acessoDoContato'));
+    },
+
+    async documentosParaContato(contatoId: string, clienteId: string): Promise<DocumentoEmpresa[]> {
+      const linhas = checar(await db.rpc('documentos_para_contato', { p_contato: contatoId, p_cliente: clienteId }), 'documentosParaContato');
+      return (linhas ?? []).map((d) => ({ id: d.id, nome: d.nome, arquivoPath: d.arquivo_path, arquivoNome: d.arquivo_nome, arquivoMime: d.arquivo_mime, iaPodeEnviar: d.ia_pode_enviar }));
+    },
+
+    async demandasParaContato(contatoId: string, clienteId: string, conversaId: string): Promise<DemandaParaContato[]> {
+      const linhas = checar(await db.rpc('demandas_para_contato', { p_contato: contatoId, p_cliente: clienteId, p_conversa: conversaId }), 'demandasParaContato');
+      return (linhas ?? []).map((c) => ({ numero: Number(c.numero), titulo: c.titulo, status: c.status, setor_nome: c.setor_nome ?? null, criado_em: c.criado_em }));
+    },
+
+    async registrarPedidoForaDoAcesso(p: { contatoId: string; clienteId: string; setorId: string; dia: string }): Promise<{ id: string; novo: boolean; chamadoId: string | null }> {
+      const r = checar(await db.rpc('registrar_pedido_fora_do_acesso', { p_contato: p.contatoId, p_cliente: p.clienteId, p_setor: p.setorId, p_dia: p.dia }),
+        'registrarPedidoForaDoAcesso') as { id: string; novo: boolean; chamado_id: string | null };
+      return { id: r.id, novo: r.novo, chamadoId: r.chamado_id };
+    },
+
+    async concluirPedidoForaDoAcesso(id: string, chamadoId: string, sociosAvisados: number): Promise<void> {
+      checar(await db.from('pedidos_fora_do_acesso').update({ chamado_id: chamadoId, socios_avisados: sociosAvisados }).eq('id', id), 'concluirPedidoForaDoAcesso');
+    },
+
+    async sociosParaAlerta(clienteId: string, excetoContatoId: string): Promise<PessoaParaAviso[]> {
+      const linhas = checar(await db.rpc('socios_para_alerta', { p_cliente: clienteId, p_exceto: excetoContatoId }), 'sociosParaAlerta');
+      return (linhas ?? []).map((l) => ({ contatoId: l.contato_id, nome: l.nome, telefone: l.telefone }));
+    },
+
+    /** Base dos agentes ativos (Parte I): só quem pode ser procurado no setor (D17). Ninguém chama ainda. */
+    async contatosProcuraveis(clienteId: string, setorId: string): Promise<PessoaParaAviso[]> {
+      const linhas = checar(await db.rpc('contatos_procuraveis', { p_cliente: clienteId, p_setor: setorId }), 'contatosProcuraveis');
+      return (linhas ?? []).map((l) => ({ contatoId: l.contato_id, nome: l.nome, telefone: l.telefone }));
+    },
+
+    /** Nota interna escrita pelo agente (sem pessoa): a explicação do pedido fora do acesso (D13). */
+    async registrarNotaDoSistema(chamadoId: string, clienteId: string | null, texto: string): Promise<void> {
+      checar(await db.from('chamado_eventos').insert({ chamado_id: chamadoId, cliente_id: clienteId, tipo: 'nota_interna', usuario_id: null, texto }), 'registrarNotaDoSistema');
     },
 
     /** Certificado digital perto de vencer vira demanda no Fiscal (Parte H1, D21). `hoje` = dia em São Paulo; devolve quantas criou. */
