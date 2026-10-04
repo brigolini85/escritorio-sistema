@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/cn';
+import { botoesDoHistorico } from '@/lib/conversas-assistente';
 import { formatarDataHora } from '@/lib/formatos';
 import type { ConversaDoHistorico } from './dados-assistente';
 
@@ -28,12 +29,12 @@ function Botao({ href, ativo, Icone, titulo, detalhe }: { href: string; ativo: b
 }
 
 /** Histórico em botões no topo da conversa (D14): Geral, as 2 conversas mais recentes (a aberta sempre aparece) e "+n". */
-export function HistoricoEmBotoes({ conversaId, ultimaGeral, conversas }: { conversaId: string | null; ultimaGeral: string | null; conversas: ConversaDoHistorico[] }) {
-  const visiveis = conversas.slice(0, VISIVEIS);
-  const aberta = conversaId ? conversas.find((c) => c.id === conversaId) : undefined;
-  if (aberta && !visiveis.includes(aberta)) visiveis.splice(VISIVEIS - 1, 1, aberta);
-  const resto = conversas.filter((c) => !visiveis.includes(c));
-  const detalhe = (c: ConversaDoHistorico) => `${c.empresa ?? 'Empresa não definida'} · ${c.mensagens === 1 ? '1 mensagem recente' : `${c.mensagens} mensagens recentes`}`;
+export function HistoricoEmBotoes({ conversaId, ultimaGeral, conversas, aberta }: {
+  conversaId: string | null; ultimaGeral: string | null; conversas: ConversaDoHistorico[]; aberta: ConversaDoHistorico | null;
+}) {
+  const { botoes: visiveis, resto } = botoesDoHistorico(conversas, aberta, VISIVEIS);
+  const detalhe = (c: ConversaDoHistorico) => `${c.empresa ?? 'Empresa não definida'} · ${c.mensagens === 0 ? 'nenhuma mensagem recente'
+    : c.mensagens === 1 ? '1 mensagem recente' : `${c.mensagens} mensagens recentes`}`;
   return (
     <nav aria-label="Histórico do assistente">
       <ul className="flex flex-wrap items-center gap-1.5">

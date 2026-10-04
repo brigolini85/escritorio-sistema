@@ -1,18 +1,15 @@
 import { FileSpreadsheet, PanelRight, Receipt, Table2 } from 'lucide-react';
 import Link from 'next/link';
-import { DiffPreview } from '@/components/patterns/diff-preview';
+import type { ReactNode } from 'react';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { cn } from '@/lib/cn';
-import type { LadoPrevia } from '@/lib/previa-pedido';
-import { abasVisiveis, hrefResultado, type LeituraConversa, type Resultado } from '@/lib/resultados-assistente';
+import { abasVisiveis, hrefResultado, type LeituraConversa, type MensagemTela, type Resultado } from '@/lib/resultados-assistente';
+import type { LeituraDemanda } from './dados-assistente';
 import { PainelArquivos } from './painel-arquivos';
+import { PainelPedido } from './painel-pedido';
 import { PainelTabela } from './painel-tabela';
 
 const ICONE = { pedido: Receipt, tabela: Table2, arquivos: FileSpreadsheet } as const;
-
-// Provisório (Task 6 troca pelo painel do pedido): reescreve o lado da prévia para o DiffPreview de hoje.
-const ladoComoTexto = (l: LadoPrevia) =>
-  l.linhas.map((x) => (x.tipo === 'item' ? `• ${x.item.texto}` : x.tipo === 'campo' ? `${x.campo.rotulo}: ${x.campo.valor}` : x.texto)).join('\n');
 
 function Abas({ abas, selecionada, conversaId }: { abas: Resultado[]; selecionada: string; conversaId: string | null }) {
   return (
@@ -53,7 +50,10 @@ function Abas({ abas, selecionada, conversaId }: { abas: Resultado[]; selecionad
 }
 
 /** Painel de resultado à direita (spec 7C.3): abas com o que as respostas desta conversa trouxeram. */
-export function PainelResultado({ leitura, selecionado, conversaId }: { leitura: LeituraConversa; selecionado: Resultado | null; conversaId: string | null }) {
+export function PainelResultado({ leitura, selecionado, conversaId, leituraDemanda, mensagens, usuario, podeCsv, rodapePedido }: {
+  leitura: LeituraConversa; selecionado: Resultado | null; conversaId: string | null; leituraDemanda: LeituraDemanda | null;
+  mensagens: MensagemTela[]; usuario: { id: string; nome: string }; podeCsv: boolean; rodapePedido?: (gravado: boolean) => ReactNode;
+}) {
   return (
     <section aria-label="Resultado" className="flex min-w-0 flex-1 flex-col gap-4 bg-background p-4 lg:overflow-y-auto lg:px-6">
       {!selecionado ? (
@@ -66,11 +66,9 @@ export function PainelResultado({ leitura, selecionado, conversaId }: { leitura:
       ) : (
         <>
           <Abas abas={abasVisiveis(leitura, selecionado.chave)} selecionada={selecionado.chave} conversaId={conversaId} />
-          {/* Provisório: a Task 6 troca este bloco pelo painel do pedido. */}
           {selecionado.tipo === 'pedido' && (
-            <article aria-label={selecionado.rotulo} className="rounded-lg border border-border bg-surface p-4">
-              <DiffPreview texto={`Antes:\n${ladoComoTexto(selecionado.previa.antes)}\nDepois:\n${ladoComoTexto(selecionado.previa.depois)}`} />
-            </article>
+            <PainelPedido resultado={selecionado} leituraDemanda={leituraDemanda} leitura={leitura} mensagens={mensagens}
+              usuario={usuario} podeCsv={podeCsv} rodape={rodapePedido} />
           )}
           {selecionado.tipo === 'tabela' && <PainelTabela resultado={selecionado} />}
           {selecionado.tipo === 'arquivos' && <PainelArquivos resultado={selecionado} />}

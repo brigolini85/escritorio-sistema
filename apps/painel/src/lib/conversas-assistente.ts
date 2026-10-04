@@ -31,6 +31,17 @@ export function agruparConversasAssistente(linhas: MensagemDoHistorico[], limite
   return [...grupos.values()];
 }
 
+/**
+ * Botões do histórico (D14): as `visiveis` conversas mais recentes e o resto no "+n". A aberta sempre vira botão (no
+ * último lugar), mesmo quando não está na lista (aberta por ?conversa= sem mensagens da pessoa, ou além do limite).
+ */
+export function botoesDoHistorico<C extends { id: string }>(conversas: C[], aberta: C | null, visiveis = 2): { botoes: C[]; resto: C[] } {
+  const botoes = conversas.slice(0, visiveis);
+  const escolhida = aberta ? conversas.find((c) => c.id === aberta.id) ?? aberta : null;
+  if (escolhida && !botoes.includes(escolhida)) botoes.splice(visiveis - 1, 1, escolhida);
+  return { botoes, resto: conversas.filter((c) => !botoes.includes(c)) };
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** ?conversa= da tela Assistente: só um id válido; qualquer outra coisa volta para a "Geral". */

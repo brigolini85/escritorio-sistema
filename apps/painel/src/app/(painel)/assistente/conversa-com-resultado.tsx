@@ -8,7 +8,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import { perguntarAoAssistente } from './acoes';
 import { ChatAssistente } from './chat-assistente';
 import { CompositorAssistente, Sugestoes } from './compositor-assistente';
-import { lerMensagensAssistente } from './dados-assistente';
+import { lerDemandaDoPedido, lerMensagensAssistente } from './dados-assistente';
 import { PainelResultado } from './painel-resultado';
 
 type Usuario = Awaited<ReturnType<typeof obterUsuario>>;
@@ -27,6 +27,10 @@ export async function ConversaComResultado({ usuario, conversaId, chave, cabecal
   const mensagens = await lerMensagensAssistente(sb, usuario.id, conversaId);
   const leitura = lerConversa(mensagens, podeCsv);
   const selecionado = escolherResultado(leitura, chave);
+  const verPedidos = temNivel(usuario, 'notas', 'ver');
+  // Só a demanda do pedido aberto (uma leitura): setor, empresa, origem, eventos (D17).
+  const leituraDemanda = selecionado?.tipo === 'pedido' && selecionado.numero !== null
+    ? await lerDemandaDoPedido(sb, selecionado.numero, verPedidos) : null;
   return (
     <>
       <section aria-labelledby="titulo-assistente" className={COLUNA_CHAT}>
@@ -38,7 +42,8 @@ export async function ConversaComResultado({ usuario, conversaId, chave, cabecal
           <CompositorAssistente acao={perguntarAoAssistente.bind(null, conversaId)} />
         </div>
       </section>
-      <PainelResultado leitura={leitura} selecionado={selecionado} conversaId={conversaId} />
+      <PainelResultado leitura={leitura} selecionado={selecionado} conversaId={conversaId} leituraDemanda={leituraDemanda}
+        mensagens={mensagens} usuario={usuario} podeCsv={podeCsv} />
     </>
   );
 }

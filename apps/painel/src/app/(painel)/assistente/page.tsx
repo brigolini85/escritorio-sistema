@@ -47,7 +47,7 @@ export default async function Assistente({ searchParams }: { searchParams: Promi
       {aberta && (
         <p className="text-sm text-muted">{aberta.empresa ? `${aberta.empresa} · ` : ''}O assistente conhece este cliente e as demandas desta conversa.</p>
       )}
-      <HistoricoEmBotoes conversaId={conversaId} ultimaGeral={historico.ultimaGeral} conversas={historico.conversas} />
+      <HistoricoEmBotoes conversaId={conversaId} ultimaGeral={historico.ultimaGeral} conversas={historico.conversas} aberta={aberta} />
     </header>
   );
 

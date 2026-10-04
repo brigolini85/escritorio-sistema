@@ -151,14 +151,22 @@ export function lerConversa(mensagens: MensagemTela[], podeCsv: boolean): Leitur
   const pedidos = new Map<string, ResultadoPedido>();
   const tabelas: ResultadoTabela[] = [];
   const arquivos: ArquivoGerado[] = [];
+  const cartoesDePedido: { cartao: Extract<Cartao, { tipo: 'pedido' }>; pedido: ResultadoPedido }[] = [];
   for (const m of mensagens) {
     if (m.papel !== 'assistente') continue;
     const r = lerResposta(m, podeCsv);
     respostas.set(m.id, r.pedacos);
+    // Os cartões de pedido saem na mesma ordem das prévias da resposta.
+    const cartoes = r.pedacos.flatMap((x) => (x.tipo === 'cartao' && x.cartao.tipo === 'pedido' ? [x.cartao] : []));
+    cartoes.forEach((cartao, i) => cartoesDePedido.push({ cartao, pedido: r.pedidos[i]! }));
     // O mesmo pedido de novo: fica a prévia mais nova.
     for (const p of r.pedidos) pedidos.set(p.chave, p);
     tabelas.push(...r.tabelas);
     if (r.arquivo) arquivos.push(r.arquivo);
+  }
+  // Cartão de prévia antiga abre a mais nova do mesmo pedido: o rótulo não pode contar as mudanças da antiga.
+  for (const { cartao, pedido } of cartoesDePedido) {
+    if (pedidos.get(cartao.chave) !== pedido) cartao.rotulo = `Prévia #${pedido.numero} anterior · o painel mostra a mais recente`;
   }
   const porData: Resultado[] = [...pedidos.values(), ...tabelas].sort((a, b) => tempo(b.em) - tempo(a.em));
   const resultados: Resultado[] = arquivos.length
