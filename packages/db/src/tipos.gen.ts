@@ -196,6 +196,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"cliente_inscricoes_st": {
+                  Row: {
+                    "cliente_id": string,"inscricao": string | null,"uf": string
+                  }
+                  Insert: {
+                    "cliente_id": string,"inscricao"?: string | null,"uf": string
+                  }
+                  Update: {
+                    "cliente_id"?: string,"inscricao"?: string | null,"uf"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "cliente_inscricoes_st_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"cliente_responsaveis": {
                   Row: {
                     "cliente_id": string,"setor_id": string,"usuario_id": string
@@ -254,13 +273,13 @@ isOneToOne: false
                   ]
                 },"clientes": {
                   Row: {
-                    "agente_pausado": boolean,"arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cnpj": string,"criado_em": string,"endereco": string | null,"id": string,"inscricao_estadual": string | null,"nome_fantasia": string | null,"razao_social": string,"regime": string | null,"uf": string | null
+                    "agente_pausado": boolean,"arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"bairro": string | null,"celular": string | null,"cep": string | null,"certificado_avisar_dias": number,"certificado_tipo": string | null,"certificado_vencimento": string | null,"cidade": string | null,"cnae_principal": string | null,"cnpj": string,"complemento": string | null,"contrato_fim": string | null,"contrato_inicio": string | null,"criado_em": string,"decimo_terceiro": boolean | null,"dia_vencimento": number | null,"email": string | null,"email_cobranca": string | null,"endereco": string | null,"faturamento_ultimo_ano": number | null,"funcionarios": number | null,"honorario_mensal": number | null,"id": string,"inscricao_estadual": string | null,"inscricao_municipal": string | null,"inscricao_suframa": string | null,"isento_ie": boolean,"logradouro": string | null,"nome_fantasia": string | null,"numero": string | null,"porte": string | null,"razao_social": string,"reajuste": string | null,"reajuste_mes": number | null,"regime": string | null,"segmentos": (string)[],"site": string | null,"telefone": string | null,"tipo_pessoa": string,"uf": string | null
                   }
                   Insert: {
-                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cnpj": string,"criado_em"?: string,"endereco"?: string | null,"id"?: string,"inscricao_estadual"?: string | null,"nome_fantasia"?: string | null,"razao_social": string,"regime"?: string | null,"uf"?: string | null
+                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"bairro"?: string | null,"celular"?: string | null,"cep"?: string | null,"certificado_avisar_dias"?: number,"certificado_tipo"?: string | null,"certificado_vencimento"?: string | null,"cidade"?: string | null,"cnae_principal"?: string | null,"cnpj": string,"complemento"?: string | null,"contrato_fim"?: string | null,"contrato_inicio"?: string | null,"criado_em"?: string,"decimo_terceiro"?: boolean | null,"dia_vencimento"?: number | null,"email"?: string | null,"email_cobranca"?: string | null,"endereco"?: string | null,"faturamento_ultimo_ano"?: number | null,"funcionarios"?: number | null,"honorario_mensal"?: number | null,"id"?: string,"inscricao_estadual"?: string | null,"inscricao_municipal"?: string | null,"inscricao_suframa"?: string | null,"isento_ie"?: boolean,"logradouro"?: string | null,"nome_fantasia"?: string | null,"numero"?: string | null,"porte"?: string | null,"razao_social": string,"reajuste"?: string | null,"reajuste_mes"?: number | null,"regime"?: string | null,"segmentos"?: (string)[],"site"?: string | null,"telefone"?: string | null,"tipo_pessoa"?: string,"uf"?: string | null
                   }
                   Update: {
-                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cnpj"?: string,"criado_em"?: string,"endereco"?: string | null,"id"?: string,"inscricao_estadual"?: string | null,"nome_fantasia"?: string | null,"razao_social"?: string,"regime"?: string | null,"uf"?: string | null
+                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"bairro"?: string | null,"celular"?: string | null,"cep"?: string | null,"certificado_avisar_dias"?: number,"certificado_tipo"?: string | null,"certificado_vencimento"?: string | null,"cidade"?: string | null,"cnae_principal"?: string | null,"cnpj"?: string,"complemento"?: string | null,"contrato_fim"?: string | null,"contrato_inicio"?: string | null,"criado_em"?: string,"decimo_terceiro"?: boolean | null,"dia_vencimento"?: number | null,"email"?: string | null,"email_cobranca"?: string | null,"endereco"?: string | null,"faturamento_ultimo_ano"?: number | null,"funcionarios"?: number | null,"honorario_mensal"?: number | null,"id"?: string,"inscricao_estadual"?: string | null,"inscricao_municipal"?: string | null,"inscricao_suframa"?: string | null,"isento_ie"?: boolean,"logradouro"?: string | null,"nome_fantasia"?: string | null,"numero"?: string | null,"porte"?: string | null,"razao_social"?: string,"reajuste"?: string | null,"reajuste_mes"?: number | null,"regime"?: string | null,"segmentos"?: (string)[],"site"?: string | null,"telefone"?: string | null,"tipo_pessoa"?: string,"uf"?: string | null
                   }
                   Relationships: [
                     {
@@ -1162,6 +1181,9 @@ isOneToOne: false
 "contato_whatsapp_resumo":
 { Args: { "p_contato": string }; Returns: Json
                            },
+"copiar_endereco_para_logradouro":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
 "criar_demanda":
 { Args: { "p_cliente": string,"p_contato"?: string,"p_descricao": string,"p_prazo"?: string,"p_prioridade"?: Database["public"]['Enums']["prioridade_demanda"],"p_responsavel"?: string,"p_setor": string,"p_titulo": string }; Returns: Json
                            } |
@@ -1333,6 +1355,9 @@ isOneToOne: false
 "meus_setores":
 { Args: Record<PropertyKey, never>; Returns: string[]
                            },
+"montar_endereco":
+{ Args: { "p_bairro": string,"p_cep": string,"p_cidade": string,"p_complemento": string,"p_logradouro": string,"p_numero": string,"p_uf": string }; Returns: string
+                           },
 "niveis_com_padrao":
 { Args: { "p_parcial": Json }; Returns: Json
                            },
@@ -1399,6 +1424,9 @@ isOneToOne: false
 "restaurar_unidade":
 { Args: { "p_com_rede"?: boolean,"p_id": string }; Returns: Json
                            },
+"salvar_ficha_cliente":
+{ Args: { "p_dados": Json,"p_id": string }; Returns: string
+                           },
 "salvar_orientacao":
 { Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
                            },
@@ -1431,6 +1459,9 @@ isOneToOne: false
 "tempo_util_entre":
 { Args: { "p_ate": string,"p_de": string }; Returns: string
                            },
+"texto_da_ficha":
+{ Args: { "k": string,"p": Json }; Returns: string
+                           },
 "texto_prazo":
 { Args: { "p": string }; Returns: string
                            },
@@ -1439,6 +1470,9 @@ isOneToOne: false
                            },
 "trocar_empresa_conversa":
 { Args: { "p_cliente": string,"p_conversa": string }; Returns: Json
+                           },
+"ultima_alteracao_cliente":
+{ Args: { "p_cliente": string }; Returns: Json
                            },
 "uso_do_cadastro":
 { Args: { "p_id": string,"p_tipo": string }; Returns: Json
