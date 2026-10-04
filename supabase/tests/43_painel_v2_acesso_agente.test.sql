@@ -2,7 +2,7 @@
 -- demandas; o filtro é por setor e por empresa; pedido fora do acesso conta um por contato, empresa, setor e dia.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(41);
 
 create function pg_temp.setor(p text) returns uuid language sql stable as $$ select id from public.setores where nome = p $$;
 
@@ -116,6 +116,49 @@ select ok(not has_function_privilege('authenticated', 'public.documentos_para_co
 select ok(has_function_privilege('service_role', 'public.demandas_para_contato(uuid, uuid, uuid)', 'execute'), 'o trabalhador chama demandas_para_contato');
 select ok(has_function_privilege('service_role', 'public.registrar_pedido_fora_do_acesso(uuid, uuid, uuid, date)', 'execute'), 'o trabalhador registra o pedido');
 select ok(not has_table_privilege('authenticated', 'public.pedidos_fora_do_acesso', 'insert'), 'a equipe não grava pedidos');
+
+-- 31–35: setor desativado pelo escritório e contato arquivado não liberam nada (revisão de segurança, rodada 1)
+update public.contato_clientes set ver_valores = true where contato_id = 'f5400000-0000-0000-0000-00000000000d';
+select results_eq($$ select titulo from public.demandas_para_contato('f5400000-0000-0000-0000-00000000000d', 'f5300000-0000-0000-0000-00000000000a', null) $$,
+  $$ values ('Admissão do João'::text) $$, 'Patrícia (RH) vê a demanda do Pessoal');
+update public.setores set ativo = false where nome = 'Pessoal';
+select results_eq($$ select nome from public.documentos_para_contato('f5400000-0000-0000-0000-00000000000d', 'f5300000-0000-0000-0000-00000000000a') $$,
+  $$ values ('Contrato social'::text) $$, 'Pessoal desativado: a folha e o recibo somem');
+select is((select count(*)::int from public.demandas_para_contato('f5400000-0000-0000-0000-00000000000d', 'f5300000-0000-0000-0000-00000000000a', null)), 0,
+  'Pessoal desativado: a demanda do Pessoal some');
+update public.setores set ativo = true where nome = 'Pessoal';
+update public.contatos set ativo = false where id = 'f5400000-0000-0000-0000-00000000000d';
+select is((select count(*)::int from public.documentos_para_contato('f5400000-0000-0000-0000-00000000000d', 'f5300000-0000-0000-0000-00000000000a')), 0,
+  'contato arquivado não lê documentos');
+select is((select count(*)::int from public.demandas_para_contato('f5400000-0000-0000-0000-00000000000d', 'f5300000-0000-0000-0000-00000000000a', null)), 0,
+  'contato arquivado não lê demandas');
+update public.contatos set ativo = true where id = 'f5400000-0000-0000-0000-00000000000d';
+
+-- 36–38: empresa arquivada não libera nada nem avisa ninguém
+update public.clientes set ativo = false where id = 'f5300000-0000-0000-0000-00000000000a';
+select is((select count(*)::int from public.documentos_para_contato('f5400000-0000-0000-0000-00000000000d', 'f5300000-0000-0000-0000-00000000000a')), 0,
+  'empresa arquivada: nenhum documento');
+select is((select count(*)::int from public.demandas_para_contato('f5400000-0000-0000-0000-00000000000d', 'f5300000-0000-0000-0000-00000000000a', null)), 0,
+  'empresa arquivada: nenhuma demanda');
+select is((select count(*)::int from public.socios_para_alerta('f5300000-0000-0000-0000-00000000000a', 'f5400000-0000-0000-0000-00000000000a')), 0,
+  'empresa arquivada: ninguém recebe alerta');
+update public.clientes set ativo = true where id = 'f5300000-0000-0000-0000-00000000000a';
+
+-- 39–40: sem "quem pediu" (null) o sócio ainda é avisado; Básico com a marcação não recebe alerta
+select results_eq($$ select nome from public.socios_para_alerta('f5300000-0000-0000-0000-00000000000a', null) $$,
+  $$ values ('Roberto Faria'::text) $$, 'sem quem pediu: avisa o Roberto');
+update public.contato_clientes set recebe_alertas_acesso = true where contato_id = 'f5400000-0000-0000-0000-00000000000c';
+select results_eq($$ select nome from public.socios_para_alerta('f5300000-0000-0000-0000-00000000000a', 'f5400000-0000-0000-0000-00000000000a') $$,
+  $$ values ('Roberto Faria'::text) $$, 'Básico com "recebe alertas" não é avisado');
+
+-- 41: visitante não chama nenhuma função do agente
+select ok(not (has_function_privilege('anon', 'public.acesso_do_contato(uuid, uuid)', 'execute')
+  or has_function_privilege('anon', 'public.documentos_para_contato(uuid, uuid)', 'execute')
+  or has_function_privilege('anon', 'public.demandas_para_contato(uuid, uuid, uuid)', 'execute')
+  or has_function_privilege('anon', 'public.registrar_pedido_fora_do_acesso(uuid, uuid, uuid, date)', 'execute')
+  or has_function_privilege('anon', 'public.socios_para_alerta(uuid, uuid)', 'execute')
+  or has_function_privilege('anon', 'public.contatos_procuraveis(uuid, uuid)', 'execute')), 'visitante não chama as funções do agente');
+
 
 select * from finish();
 rollback;

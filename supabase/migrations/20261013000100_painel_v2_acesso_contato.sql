@@ -83,6 +83,10 @@ begin
   if exists (select 1 from unnest(v_ids) x where x is null or not exists (select 1 from public.setores st where st.id = x and st.ativo)) then
     raise exception 'Setor inválido ou desativado.';
   end if;
+  -- Direção recebe os assuntos sensíveis e nunca é um setor que o contato trata (D5).
+  if exists (select 1 from public.setores st where st.id = any (v_ids) and st.nome = 'Direção') then
+    raise exception 'A Direção não entra no acesso do contato.';
+  end if;
   select coalesce(array_agg(distinct x order by x), '{}') into v_avisar
     from jsonb_array_elements_text(coalesce(p_dados -> 'avisar_documento_novo', '[]'::jsonb)) x;
 

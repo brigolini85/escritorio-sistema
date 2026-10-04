@@ -33,6 +33,8 @@ language sql stable security invoker set search_path = '' as $$
      and cc.perfil <> 'basico' and cc.receber_documentos
      and (not d.tem_valores or cc.ver_valores)
      and (d.setor_id is null or exists (select 1 from public.contato_cliente_setores cs
+           -- Setor desativado pelo escritório não libera mais nada (o painel nem mostra).
+           join public.setores st on st.id = cs.setor_id and st.ativo
            where cs.contato_id = cc.contato_id and cs.cliente_id = cc.cliente_id and cs.setor_id = d.setor_id))
    order by d.nome
 $$;
@@ -49,6 +51,7 @@ language sql stable security invoker set search_path = '' as $$
     left join public.setores st on st.id = ch.setor_id
    where ch.cliente_id = p_cliente and ch.status <> 'concluido'
      and (exists (select 1 from public.contato_cliente_setores cs
+                   join public.setores sa on sa.id = cs.setor_id and sa.ativo
                    where cs.contato_id = cc.contato_id and cs.cliente_id = cc.cliente_id and cs.setor_id = ch.setor_id)
           or (ch.setor_id is null and ch.conversa_id = p_conversa))
    order by ch.criado_em
@@ -88,7 +91,9 @@ returns table (contato_id uuid, nome text, telefone text)
 language sql stable security invoker set search_path = '' as $$
   select ct.id, ct.nome, ct.telefone
     from public.contato_clientes cc join public.contatos ct on ct.id = cc.contato_id and ct.ativo
-   where cc.cliente_id = p_cliente and cc.recebe_alertas_acesso and ct.id <> p_exceto
+    join public.clientes cl on cl.id = cc.cliente_id and cl.ativo
+   -- Básico ainda não foi conferido pela empresa: não recebe alerta. Sem p_exceto (null), ninguém fica de fora.
+   where cc.cliente_id = p_cliente and cc.recebe_alertas_acesso and cc.perfil <> 'basico' and ct.id is distinct from p_exceto
    order by ct.nome
 $$;
 

@@ -2,7 +2,7 @@
 -- marcações numa transação, com a permissão de hoje; caminho antigo que muda nota/preço vira Personalizado (D6).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(33);
 
 insert into auth.users (id, email) values
   ('f4200000-0000-0000-0000-00000000000a', 'admin@h2a.local'),
@@ -125,6 +125,16 @@ select is((select (cargo, email)::text from public.contatos where id = 'f4400000
   'cargo e e-mail apagados');
 select ok(not exists (select 1 from public.auditoria_acessos where entidade = 'contato_cliente_setores'
   and detalhes::text like '%f4400000-0000-0000-0000-00000000000a%'), 'auditoria dos setores dela apagada');
+
+-- 33: Direção nunca entra no acesso do contato (D5; revisão de segurança, rodada 1)
+insert into public.setores (nome, descricao_assuntos) values ('Direção', 'Assuntos sensíveis') on conflict (nome) do nothing;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"f4200000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
+select throws_ok($$ select public.salvar_acesso_contato('f4400000-0000-0000-0000-00000000000b', 'f4300000-0000-0000-0000-00000000000a',
+  jsonb_build_object('perfil', 'personalizado',
+    'setores', jsonb_build_array(jsonb_build_object('setor_id', (select id from public.setores where nome = 'Direção'))))) $$,
+  'P0001', 'A Direção não entra no acesso do contato.', 'Direção não é setor que o contato trata');
+reset role;
 
 select * from finish();
 rollback;
