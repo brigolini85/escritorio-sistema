@@ -3,13 +3,19 @@ import Link from 'next/link';
 import { CardContent } from '@/components/ui/card';
 import { COLUNA_PRAZO, hrefSecao, inicioExemplo, PRIORIDADES, textoDiasUteis, diaCurto, type ResumoPrazos } from '@/lib/configuracoes';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { salvarPrazos } from '../acoes';
 import { Cartao } from '../cartao';
-import { FormularioConfig, RodapeConfig } from '../formulario-config';
+import { RodapeConfig } from '../formulario-config';
 import type { Config } from '../tipos';
+import { FormularioPrazos } from './formulario-prazos';
 import { TabelaPrazos } from './prazos-tabela';
 
 const LINK = 'font-semibold text-brand underline-offset-4 hover:underline';
+
+/** Rodapé: a janela de impacto só abre se a prioridade mudada tiver aberta, e só oferece aplicar se alguma mudaria (D6). */
+const avisoRodape = (total: number | null) =>
+  !total
+    ? 'Vale para as demandas novas.'
+    : `Vale para as novas. ${total === 1 ? 'Há 1 demanda aberta' : `Há ${total} demandas abertas`}; se a prioridade mudada tiver alguma, você vê o impacto antes de salvar.`;
 
 /** Prazos por prioridade (spec 6.5 e 7C.4): tabela com exemplo e abertas, como o prazo é contado e quem pode mudá-lo. */
 export async function SecaoPrazos({ cfg, feriados, hoje, admin, agora }: {
@@ -23,6 +29,8 @@ export async function SecaoPrazos({ cfg, feriados, hoje, admin, agora }: {
       ? sb.from('usuarios').select('nome, papel, usuario_permissoes(modulo, nivel)').eq('ativo', true).order('nome')
       : Promise.resolve({ data: null }),
   ]);
+  if (error) console.error('configuracoes: prazos_resumo', error.code, error.message);
+  if ('error' in pessoas && pessoas.error) console.error('configuracoes: pessoas com a permissão de prazo', pessoas.error.code, pessoas.error.message);
   // Homologação sem a migração (D25): a tabela continua editável, sem exemplo nem contagem.
   const resumo = error ? null : (data as unknown as ResumoPrazos);
   const linhas = PRIORIDADES.map((p) => ({ prioridade: p, dias: cfg[COLUNA_PRAZO[p]], abertas: resumo ? resumo.abertas[p] ?? 0 : null }));
@@ -34,7 +42,7 @@ export async function SecaoPrazos({ cfg, feriados, hoje, admin, agora }: {
 
   return (
     <>
-      <FormularioConfig acao={salvarPrazos} rotulo="Prazos por prioridade">
+      <FormularioPrazos>
         <Cartao id="prazos" titulo="Prazos por prioridade" descricao="Quando a demanda é aberta (pelo agente ou pela equipe), o prazo é calculado em dias úteis a partir destes valores. Quem atende pode mudar o prazo de cada demanda depois.">
           <CardContent className="flex flex-col gap-3">
             {!resumo && (
@@ -46,10 +54,10 @@ export async function SecaoPrazos({ cfg, feriados, hoje, admin, agora }: {
           </CardContent>
           <RodapeConfig
             salvar="Salvar prazos"
-            aviso={total === null ? 'Vale para as demandas novas.' : `Vale para as novas. As ${total} abertas mantêm o prazo, a menos que você escolha aplicar.`}
+            aviso={avisoRodape(total)}
           />
         </Cartao>
-      </FormularioConfig>
+      </FormularioPrazos>
 
       <div className="grid gap-5 xl:grid-cols-5">
         <Cartao id="prazo-como" titulo="Como o prazo é contado" className="xl:col-span-3">

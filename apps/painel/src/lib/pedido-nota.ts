@@ -12,7 +12,7 @@ export function ehPedidoDeNota(c: { titulo: string | null; pedido_venda?: unknow
 // Eventos cujo texto é só um valor da própria demanda (status, prazo, setor...): continuam aparecendo.
 const SEM_TEXTO_LIVRE = new Set([
   'criacao', 'prioridade_alterada', 'prazo_alterado', 'assumido', 'status_alterado', 'responsavel_alterado',
-  'transferencia', 'editado', 'conclusao', 'reaberto',
+  'transferencia', 'editado', 'conclusao', 'reaberto', 'prazo_recalculado',
 ]);
 
 /** Notas e eventos com texto livre (onde moram itens, preços e o antes/depois) perdem o texto. */

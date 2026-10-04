@@ -6,20 +6,22 @@ import { exigirAdmin, exigirConfiguracoes } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import type { z } from 'zod';
-import { COLUNA_PRAZO, PRIORIDADES, type Resultado } from '@/lib/configuracoes';
+import { COLUNA_PRAZO, PRIORIDADES, type ImpactoPrazo, type Resultado } from '@/lib/configuracoes';
+import { ROTULO_PRIORIDADE } from '@/lib/demandas';
 import { EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, PrazosForm, TetoAlertasForm } from './esquemas';
 
 // Respostas dos cartões (D21): nada de redirect com ?erro=; o cartão mostra o erro e mantém o que foi digitado.
 const ok = (mensagem: string): Resultado => ({ ok: true, mensagem });
 const falha = (erro: string): Resultado => ({ ok: false, erro });
 /** Só o "raise exception" do banco (P0001) é frase para a pessoa; o resto do Postgres fica no log do servidor. */
-const doBanco = (e: { message: string; code?: string }): Resultado => {
-  if (e.code === 'P0001') return falha(mensagemDoBanco(e.message));
+const textoDoBanco = (e: { message: string; code?: string }, generico = 'Não consegui salvar. Tente de novo.'): string => {
+  if (e.code === 'P0001') return mensagemDoBanco(e.message);
   console.error('configuracoes: erro do banco', e.code, e.message);
-  if (e.code === '42501') return falha('Você não tem permissão para mudar isto.');
-  if (e.code === '23514') return falha('Algum valor está fora do permitido. Confira os campos.');
-  return falha('Não consegui salvar. Tente de novo.');
+  if (e.code === '42501') return 'Você não tem permissão para mudar isto.';
+  if (e.code === '23514') return 'Algum valor está fora do permitido. Confira os campos.';
+  return generico;
 };
+const doBanco = (e: { message: string; code?: string }): Resultado => falha(textoDoBanco(e));
 const primeiroErro = (e: z.ZodError): Resultado => falha(e.issues[0]?.message ?? 'Confira os campos.');
 const lerPrazos = (f: FormData) => Object.fromEntries(PRIORIDADES.map((p) => [COLUNA_PRAZO[p], String(f.get(COLUNA_PRAZO[p]) ?? '')]));
 
@@ -107,15 +109,59 @@ export async function salvarAvisoLogin(formData: FormData) {
   recarregar();
 }
 
-/** Prazos por prioridade, só para as demandas novas (a janela de impacto entra na Task 6). */
+const COLUNAS_PRAZO = 'prazo_urgente_dias, prazo_alta_dias, prazo_normal_dias, prazo_baixa_dias';
+
+/** Impacto de cada prioridade mudada nas demandas abertas, sem gravar (simular_mudanca_prazo é stable). */
+export async function simularPrazos(formData: FormData): Promise<{ ok: true; impactos: ImpactoPrazo[] } | { ok: false; erro: string }> {
+  await exigirConfiguracoes();
+  const v = PrazosForm.safeParse(lerPrazos(formData));
+  if (!v.success) return { ok: false, erro: 'Cada prazo vai de 0 a 30 dias úteis.' };
+  const sb = await supabaseServidor();
+  const { data: cfg, error } = await sb.from('configuracoes').select(COLUNAS_PRAZO).eq('id', 1).single();
+  if (error || !cfg) return { ok: false, erro: error ? textoDoBanco(error, 'Não consegui ler os prazos.') : 'Não consegui ler os prazos.' };
+  const impactos: ImpactoPrazo[] = [];
+  for (const p of PRIORIDADES) {
+    const col = COLUNA_PRAZO[p];
+    // Diferença 0 não recalcula nada (D1 desloca pela diferença): a prioridade nem entra na janela.
+    if (v.data[col] === cfg[col]) continue;
+    const r = await sb.rpc('simular_mudanca_prazo', { p_prioridade: p, p_dias: v.data[col] });
+    // Homologação sem a migração (D25) cai aqui: a janela não abre e o cartão avisa.
+    if (r.error) return { ok: false, erro: `Não consegui calcular o impacto: ${textoDoBanco(r.error, 'o banco não respondeu. Nada foi salvo.')}` };
+    impactos.push(r.data as unknown as ImpactoPrazo);
+  }
+  return { ok: true, impactos };
+}
+
+/** Prazos por prioridade. Com aplicar=sim, cada prioridade mudada grava a regra e recalcula as abertas na mesma transação (D2). */
 export async function salvarPrazos(formData: FormData): Promise<Resultado> {
   await exigirConfiguracoes();
   const v = PrazosForm.safeParse(lerPrazos(formData));
   if (!v.success) return falha('Cada prazo vai de 0 a 30 dias úteis.');
-  const { error } = await (await supabaseServidor()).from('configuracoes').update(v.data).eq('id', 1);
-  if (error) return doBanco(error);
+  const sb = await supabaseServidor();
+  if (formData.get('aplicar') !== 'sim') {
+    const { error } = await sb.from('configuracoes').update(v.data).eq('id', 1);
+    if (error) return doBanco(error);
+    recarregar();
+    return ok('Prazos salvos. Valem para as demandas novas.');
+  }
+  const { data: cfg, error } = await sb.from('configuracoes').select(COLUNAS_PRAZO).eq('id', 1).single();
+  if (error || !cfg) return error ? doBanco(error) : falha('Não consegui ler os prazos.');
+  let mudaram = 0;
+  const feitas: string[] = [];
+  for (const p of PRIORIDADES) {
+    const col = COLUNA_PRAZO[p];
+    if (v.data[col] === cfg[col]) continue;
+    const r = await sb.rpc('aplicar_prazo_abertas', { p_prioridade: p, p_dias: v.data[col] });
+    if (r.error) {
+      recarregar();
+      return falha(`${feitas.length ? `Já aplicado: ${feitas.join(', ')}. ` : ''}${ROTULO_PRIORIDADE[p]}: ${textoDoBanco(r.error)}`);
+    }
+    mudaram += Number(r.data ?? 0);
+    feitas.push(ROTULO_PRIORIDADE[p]);
+  }
   recarregar();
-  return ok('Prazos salvos. Valem para as demandas novas.');
+  revalidatePath('/demandas');
+  return ok(`Prazos salvos e aplicados: ${mudaram === 1 ? '1 demanda aberta mudou de prazo' : `${mudaram} demandas abertas mudaram de prazo`}.`);
 }
 
 /** Limites do cronômetro de espera (P18): "Configurações: Sim" como as outras seções; o banco valida de novo (check das colunas). */

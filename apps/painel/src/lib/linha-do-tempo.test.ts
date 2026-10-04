@@ -22,4 +22,8 @@ describe('fraseDoEvento (imagem 05)', () => {
     expect(fraseDoEvento(ev('nota_interna', 'Cliente ligou', 'Ana'), 'agente')).toEqual({ ator: 'Ana', acao: 'nota interna', detalhe: 'Cliente ligou' });
     expect(fraseDoEvento(ev('nota_interna', 'Mandou o extrato'), 'agente').ator).toBe('Agente');
   });
+  it('prazo recalculado por mudança de regra, com a pessoa (Parte G1)', () => {
+    expect(fraseDoEvento(ev('prazo_recalculado', '2026-10-13T21:00:00Z', 'Thiago'), 'agente'))
+      .toEqual({ ator: 'Sistema', acao: 'prazo 13/10 18h · recalculado por mudança de regra (Thiago)', detalhe: null });
+  });
 });

@@ -15,12 +15,14 @@ describe('pedido de nota para quem tem "Pedidos de nota: Sem acesso" (P11)', () 
       { tipo: 'status_alterado', texto: 'em_andamento', criado_em: 't2', usuario: null },
       { tipo: 'transferencia', texto: 'Fiscal', criado_em: 't3', usuario: null },
       { tipo: 'outro_tipo', texto: 'R$ 9,50', criado_em: 't4', usuario: null },
+      { tipo: 'prazo_recalculado', texto: '2026-10-13T21:00:00Z', criado_em: 't5', usuario: 'Thiago' },
     ];
     expect(ocultarEventosDoPedido(eventos)).toEqual([
       { tipo: 'nota_interna', texto: AVISO_SEM_ACESSO_PEDIDO, criado_em: 't1', usuario: 'Ana' },
       { tipo: 'status_alterado', texto: 'em_andamento', criado_em: 't2', usuario: null },
       { tipo: 'transferencia', texto: 'Fiscal', criado_em: 't3', usuario: null },
       { tipo: 'outro_tipo', texto: AVISO_SEM_ACESSO_PEDIDO, criado_em: 't4', usuario: null },
+      { tipo: 'prazo_recalculado', texto: '2026-10-13T21:00:00Z', criado_em: 't5', usuario: 'Thiago' },
     ]);
   });
 });

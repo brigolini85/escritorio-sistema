@@ -14,6 +14,8 @@ export function fraseDoEvento(e: EventoDemanda, origem: string): { ator: string;
     case 'criacao': return so(robo, 'abriu');
     case 'prioridade_alterada': return so(robo, `prioridade ${ROTULO_PRIORIDADE[e.texto as Prioridade] ?? e.texto ?? ''}`.trim());
     case 'prazo_alterado': return so('Sistema', e.texto ? `prazo ${prazoAbsoluto(e.texto)}` : 'tirou o prazo');
+    case 'prazo_recalculado':
+      return { ator: 'Sistema', acao: `prazo ${prazoAbsoluto(e.texto ?? '')} · recalculado por mudança de regra (${e.usuario ?? 'Sistema'})`, detalhe: null };
     case 'assumido': return so('Sistema', 'assumiu');
     case 'status_alterado': return so('Sistema', `status ${ROTULO_STATUS[e.texto as StatusFiltro] ?? e.texto ?? ''}`.trim());
     case 'responsavel_alterado': return so('Sistema', e.texto ? `responsável ${e.texto}` : 'tirou o responsável');

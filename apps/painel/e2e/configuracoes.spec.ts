@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { criarUsuarioTeste, db, entrar } from './apoio';
+import { abrirSecao, salvarPrazosSoNovas } from './apoio-configuracoes';
 
 test('administrador pausa e retoma o agente pelo Início', async ({ page }) => {
   await db.from('configuracoes').update({ agente_pausado: false }).eq('id', 1);
@@ -71,11 +72,11 @@ test('administrador convida pessoa na aba Usuários e vê aviso ao faltar telefo
 test('administrador muda o prazo de uma prioridade em Configurações › Prazos', async ({ page }) => {
   await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
   await entrar(page, 'admin@teste.com', 'senha-forte-123');
-  await page.goto('/configuracoes#prazos');
+  await abrirSecao(page, 'prazos');
   const secao = page.getByRole('region', { name: 'Prazos por prioridade' });
   await expect(secao).toBeVisible({ timeout: 30_000 });
   await secao.getByLabel('Normal (dias úteis)').fill('3');
-  await secao.getByRole('button', { name: 'Salvar prazos' }).click();
+  await salvarPrazosSoNovas(page);
   await expect.poll(async () => (await db.from('configuracoes').select('prazo_normal_dias').eq('id', 1).single()).data?.prazo_normal_dias).toBe(3);
   await db.from('configuracoes').update({ prazo_normal_dias: 2 }).eq('id', 1);
 });
