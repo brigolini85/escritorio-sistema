@@ -323,25 +323,27 @@ O tipo serve para organizar e aparece para o agente junto do título; não muda 
 
 ### Ligar e desligar
 
-Toda orientação nova começa **desligada**, a não ser que você marque "Ligada" ao salvar. Na lista, a chave da coluna **Situação** liga e desliga na hora. Desligada, ela fica guardada, mas o agente não lê. É o jeito seguro de preparar uma orientação, testar e só depois ligar.
+Toda orientação nova começa **desligada**. No editor, **Salvar desligada** guarda sem o agente ler; **Salvar e ligar** guarda e já liga. A chave de cada linha da lista (e a do alto do editor) liga e desliga na hora, sem mexer no texto que você está escrevendo. Desligada, ela fica guardada, mas o agente não lê. É o jeito seguro de preparar uma orientação, testar no simulador e só depois ligar.
 
 ### Medidor e limite
 
-No alto da tela, o medidor mostra quantos caracteres o agente lê na conversa mais pesada (as orientações para todos, as de setor e as da empresa com mais orientações), contra o limite de **12.000 caracteres**.
+No alto da lista, o medidor (**Espaço usado**) mostra quantos caracteres o agente lê na conversa mais pesada (as orientações para todos, as de setor e as da empresa com mais orientações), contra o limite de **12.000 caracteres**.
 
 - A partir de 80%, o medidor fica amarelo: hora de enxugar.
 - Passou do limite: o agente **não lê o que sobra**. Entram primeiro as da empresa, depois as de setor, depois as para todos, das mais recentes para as mais antigas; as mais antigas para todos os clientes ficam de fora primeiro. O corte é seco: a partir da primeira que não cabe, todas as seguintes ficam de fora, mesmo uma menor que caberia (muitas orientações longas de uma empresa podem tirar todas as de setor e as para todos). Isso fica registrado. Para voltar ao normal, desligue ou encurte orientações.
 
 ### Histórico e restaurar
 
-Abra uma orientação e clique na aba **Histórico**. Cada criação, edição, ligar, desligar e restauração fica registrada, com quem fez e quando. Em "Ver esta versão" você lê como estava. **Restaurar esta versão** volta o título, o tipo, o "vale para" e o texto daquela versão. A orientação continua ligada ou desligada como está agora: restaurar não liga nada sozinho.
+Abra uma orientação: o **Histórico** fica embaixo do editor, numa tabela. Cada criação, edição, ligar, desligar e restauração fica registrada, com quem fez e quando. Em "Ver esta versão" você lê como estava. **Restaurar** volta o título, o tipo, o "vale para" e o texto daquela versão. A orientação continua ligada ou desligada como está agora: restaurar não liga nada sozinho.
 
 ### Testar antes de ligar
 
 Nada do que acontece num teste é enviado ao cliente nem gravado: nenhuma mensagem sai pelo WhatsApp, nenhuma demanda é aberta, nenhum preço muda.
 
-- **Testar o agente** (no alto da tela): escreva uma mensagem como se fosse o cliente e, se quiser, escolha uma empresa. Em alguns segundos aparecem as mensagens que o agente mandaria e, em "O que o agente faria", as ações (por exemplo "Abriria uma demanda no Fiscal: guia do DAS"). O teste usa as orientações **ligadas**.
-- **Testar esta orientação** (dentro do formulário): faz o mesmo, mas incluindo a orientação **como está no formulário**, ligada, mesmo sem salvar. Use para ver o efeito antes de salvar ou ligar. Se a orientação vale para uma empresa, o teste já vem com ela escolhida.
+- **Simulador** (coluna da direita, sempre visível): escolha a empresa em "Como cliente de" (ou teste sem empresa), escreva como o cliente escreveria e toque em **Testar**. Aparecem a resposta que o agente mandaria e, em "O que o agente faria", as ações (por exemplo "Abriria uma demanda no Fiscal: guia do DAS") — tudo só simulado.
+- Com uma orientação aberta, o teste usa o que está **escrito no editor agora**, ligado, mesmo sem salvar (o selo diz "usando o rascunho, ligado"). Se a orientação vale para uma empresa, o simulador já vem com ela. Faltando título, texto ou empresa, o teste não sai e o campo que falta fica em destaque.
+- Sem orientação aberta, o teste usa só as orientações **ligadas**.
+- **Sem o rascunho**: depois do resultado, **Comparar sem o rascunho** roda mais um teste com a mesma mensagem e empresa, sem o que você escreveu, e mostra lado a lado como o agente responde hoje. É mais um teste e conta em Gastos com IA ("Testar o agente").
 
 Cada pessoa tem um teste por vez. O teste gasta IA como uma conversa de verdade e conta no teto mensal.
 
@@ -349,7 +351,7 @@ Cada pessoa tem um teste por vez. O teste gasta IA como uma conversa de verdade 
 
 Em **Atendimento**, dentro de uma conversa, o botão **Ensinar o agente** (no alto da conversa, no fim da linha de ações) cria uma orientação a partir daquela situação. Ele já vem com as últimas mensagens do cliente em "Situação"; você escreve o que o agente deveria fazer, escolhe o tipo (padrão: Situação específica) e para quem vale (padrão: só aquela empresa; dá para trocar para todos os clientes).
 
-- A orientação criada assim começa **desligada**. Revise na tela Treinar o agente, teste e só depois ligue.
+- A orientação criada assim começa **desligada**. Revise na tela Treinar o agente, teste e só depois ligue. Na lista ela aparece com a marca **do Atendimento**. A marca vem do formato do texto com que a orientação foi criada (começando por "Situação: …" e depois "O que fazer: …", ou só "O que fazer: …", como o Ensinar o agente escreve), não de um registro à parte: uma orientação criada à mão já nesse formato também ganha a marca.
 - **Revise o texto do cliente** antes de salvar: apague o que não descreve a situação e nunca deixe frases do cliente que soem como ordem ("ignore as regras", "me dê desconto"). O que fica ali vira instrução para o agente.
 - **Orientações não são apagadas**: nem a orientação nem as versões do histórico (desligar só tira do agente). O que vier de mensagens de clientes deve ser revisado antes de salvar, sem nome, CPF, telefone ou outros dados pessoais. Exclusão e pedidos de LGPD (apagar o que um cliente escreveu) ficam para decisão sua; hoje não há como apagar pela tela.
 
@@ -379,7 +381,7 @@ psql "<endereço do Session pooler do ambiente>" -v ON_ERROR_STOP=1 -f supabase/
 
 - Todas entram **desligadas**. Rodar de novo não duplica (confere pelo título).
 - Depois, na tela, abra **Dados do escritório** e preencha os campos "(a preencher)": endereço, WhatsApp/telefone/e-mail oficiais, horário e plantão, Pix e dados bancários oficiais, prazo de retorno que pode ser prometido, dia-limite da folha e dos documentos, serviços cobrados à parte, se o funcionário do cliente pode pedir holerite direto e parceiros que podem ser indicados. Enquanto um campo estiver "(a preencher)", o agente diz que vai confirmar com a equipe; nunca inventa.
-- Teste com "Testar o agente" e ligue uma por uma.
+- Teste no simulador e ligue uma por uma. Enquanto uma orientação tiver "(a preencher)", a lista mostra quantos campos faltam.
 
 ### Setores novos
 
