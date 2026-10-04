@@ -17,6 +17,9 @@ export const RESPOSTA_SIM = 'sim';
 export function RespostaDaPrevia({ acao }: { acao: (dados: FormData) => void | Promise<void> }) {
   const campo = usarCampoPergunta();
   const enviando = useRef(false);
+  const gravou = useRef(false);
+  // Depois do SIM os botões somem (a última mensagem passa a ser da pessoa): o foco vai para o campo, não para o <body>.
+  useEffect(() => () => { if (gravou.current) campo?.current?.focus(); }, [campo]);
   return (
     <div role="group" aria-labelledby="titulo-resposta-previa" className="flex flex-wrap items-center gap-2 border-t border-border px-5 py-3">
       <p id="titulo-resposta-previa" className="w-full text-sm text-muted">Gravar esta prévia? Os botões só escrevem a resposta por você na conversa.</p>
@@ -25,7 +28,7 @@ export function RespostaDaPrevia({ acao }: { acao: (dados: FormData) => void | P
         onSubmit={(e) => {
           // Um clique, uma pergunta: outro envio antes de a ação terminar é barrado (como no campo).
           if (enviando.current) e.preventDefault();
-          else enviando.current = true;
+          else { enviando.current = true; gravou.current = true; }
         }}
       >
         <input type="hidden" name="pergunta" value={RESPOSTA_SIM} />

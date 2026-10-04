@@ -24,7 +24,11 @@ test('SIM, GRAVAR só grava a pergunta "sim" da pessoa: o pedido, os eventos e a
   await entrar(page, EMAIL_ANA, SENHA);
   await abrirAssistente(page);
   const botoes = page.getByRole('group', { name: /Gravar esta prévia\?/ });
-  await botoes.getByRole('button', { name: 'Sim, gravar' }).click();
+  const botaoSim = botoes.getByRole('button', { name: 'Sim, gravar' });
+  await botaoSim.focus();
+  await page.keyboard.press('Enter');
+  // Os botões somem, mas o foco do teclado não cai no <body>: vai para o campo da mensagem.
+  await expect(page.getByPlaceholder('Pergunte ao assistente')).toBeFocused();
   await expect(page.getByText('Pensando…')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Sim, gravar' })).toHaveCount(0);   // a última mensagem agora é da pessoa (D7)
   const { data: perguntas } = await db.from('assistente_mensagens').select('conteudo, papel, canal, conversa_id, processada_em')
