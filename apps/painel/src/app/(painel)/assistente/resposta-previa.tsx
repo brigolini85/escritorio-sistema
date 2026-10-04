@@ -4,12 +4,11 @@ import { Check, LoaderCircle, PenLine } from 'lucide-react';
 import { useEffect, useRef, type RefObject } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
+import { textoAoMudar } from '@/lib/pedido-assistente';
 import { preencherCampo, usarCampoPergunta } from './compositor-assistente';
 
 /** O que SIM, GRAVAR escreve pela pessoa: o mesmo "sim" que ela digitaria (D6). */
 export const RESPOSTA_SIM = 'sim';
-/** O que MUDAR OUTRA COISA põe no campo (não envia). */
-export const TEXTO_MUDAR = 'Antes de gravar, mude também: ';
 
 /**
  * Botões embaixo da prévia (spec 7C.3). Só escrevem a resposta pela pessoa: o "sim" vai pela mesma ação do campo
@@ -32,7 +31,7 @@ export function RespostaDaPrevia({ acao }: { acao: (dados: FormData) => void | P
         <input type="hidden" name="pergunta" value={RESPOSTA_SIM} />
         <BotaoSim enviando={enviando} />
       </form>
-      <Button type="button" variant="outline" size="sm" onClick={() => { const el = campo?.current; if (el) preencherCampo(el, TEXTO_MUDAR); }}>
+      <Button type="button" variant="outline" size="sm" onClick={() => { const el = campo?.current; if (el) preencherCampo(el, textoAoMudar(el.value)); }}>
         <PenLine aria-hidden size={16} strokeWidth={1.75} />
         Mudar outra coisa
       </Button>

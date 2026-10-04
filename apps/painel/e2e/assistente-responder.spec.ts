@@ -44,6 +44,11 @@ test('MUDAR OUTRA COISA põe o texto no campo e não envia nada', async ({ page 
   const campo = page.getByPlaceholder('Pergunte ao assistente');
   await expect(campo).toHaveValue('Antes de gravar, mude também: ');
   await expect(campo).toBeFocused();
+  // O que a pessoa já escreveu não se perde: o começo da frase vai na frente.
+  await campo.fill('o bolo era 8 UN');
+  await page.getByRole('button', { name: 'Mudar outra coisa' }).click();
+  await expect(campo).toHaveValue('Antes de gravar, mude também: o bolo era 8 UN');
+  await expect(campo).toBeFocused();
   const { count } = await db.from('assistente_mensagens').select('id', { count: 'exact', head: true }).eq('usuario_id', ana).eq('papel', 'usuario');
   expect(count).toBe(0);
 });
@@ -77,19 +82,23 @@ test('nota de gravação de OUTRA pessoa da equipe não vira selo nem esconde os
   const ana = await criarAna();
   const bruno = await criarUsuarioTeste({ email: 'bruno-g4@e2e.local', senha: SENHA, nome: 'Bruno G4', papel: 'atendente', setores: ['Fiscal'], permissoes: ['assistente_site', 'emitir_notas'] });
   const p = await semearPedido();
-  await conversaComAssistente(ana, [{ papel: 'assistente', conteudo: textoPrevia(p.numero), min: 4 }]);
-  const { error } = await db.from('chamado_eventos').insert({ chamado_id: p.id, tipo: 'nota_interna', usuario_id: bruno,
-    texto: 'Pedido alterado pelo assistente a pedido de Bruno G4.', criado_em: new Date(Date.now() - 60_000).toISOString() });
-  expect(error).toBeNull();
-  await entrar(page, EMAIL_ANA, SENHA);
-  await abrirAssistente(page);
-  const r = page.getByRole('region', { name: 'Resultado' });
-  // Espera positiva: o painel já mostra a gravação do Bruno no histórico (a nota foi lida) e os botões da prévia da Ana.
-  await expect(r.getByRole('region', { name: 'Histórico do pedido' })).toContainText('Bruno G4 gravou a correção pelo assistente');
-  await expect(r.getByRole('button', { name: 'Sim, gravar' })).toBeVisible();
-  await expect(r.getByText(/Gravado às/)).toHaveCount(0);
-  await db.from('chamado_eventos').delete().eq('chamado_id', p.id).eq('usuario_id', bruno);
-  await db.auth.admin.deleteUser(bruno);
+  try {
+    await conversaComAssistente(ana, [{ papel: 'assistente', conteudo: textoPrevia(p.numero), min: 4 }]);
+    const { error } = await db.from('chamado_eventos').insert({ chamado_id: p.id, tipo: 'nota_interna', usuario_id: bruno,
+      texto: 'Pedido alterado pelo assistente a pedido de Bruno G4.', criado_em: new Date(Date.now() - 60_000).toISOString() });
+    expect(error).toBeNull();
+    await entrar(page, EMAIL_ANA, SENHA);
+    await abrirAssistente(page);
+    const r = page.getByRole('region', { name: 'Resultado' });
+    // Espera positiva: o painel já mostra a gravação do Bruno no histórico (a nota foi lida) e os botões da prévia da Ana.
+    await expect(r.getByRole('region', { name: 'Histórico do pedido' })).toContainText('Bruno G4 gravou a correção pelo assistente');
+    await expect(r.getByRole('button', { name: 'Sim, gravar' })).toBeVisible();
+    await expect(r.getByText(/Gravado (às|em)/)).toHaveCount(0);
+  } finally {
+    // Limpeza do Bruno mesmo se o teste falhar no meio (senão o usuário fica no banco para os próximos specs).
+    await db.from('chamado_eventos').delete().eq('chamado_id', p.id).eq('usuario_id', bruno);
+    await db.auth.admin.deleteUser(bruno);
+  }
 });
 
 test('arquivo do Bling de outro dia: "gerado dd/mm HH:MM" no pedido e na aba Arquivos', async ({ page }) => {

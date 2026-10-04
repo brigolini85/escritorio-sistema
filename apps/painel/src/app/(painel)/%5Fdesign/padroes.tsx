@@ -40,7 +40,7 @@ import { DemoConfiguracoes, DemoConfirmacoes, DemoContatos, DemoTabela, DemoTipo
 const CARTOES_ASSISTENTE: Cartao[] = [
   { tipo: 'pedido', chave: 'pedido-536', rotulo: 'Prévia #536 · 1 alteração' },
   { tipo: 'tabela', chave: 'tabela-exemplo-0', rotulo: 'Tabela · 4 linhas' },
-  { tipo: 'arquivo', chave: 'arquivos', rotulo: 'bling-pedidos-536.csv', mensagemId: 'exemplo', arquivo: { nome: 'bling-pedidos-536.csv', partes: 1, chamados: ['exemplo'] } },
+  { tipo: 'arquivo', chave: 'arquivos', rotulo: 'bling-pedidos-536.csv', mensagemId: 'exemplo', arquivo: { nome: 'bling-pedidos-536.csv', partes: 0, chamados: ['exemplo'] } },   // partes 0: sem link de CSV de verdade no catálogo
 ];
 
 const PREVIA_REAL = [

@@ -27,7 +27,7 @@ test('painel do pedido: dados da prévia (não do banco), origem, "O que mudou" 
   await expect(linha).toContainText('antes: R$ 185,00');
   await expect(r.getByRole('row').filter({ hasText: 'Total do pedido' })).toContainText(/R\$ 389,10\s*antes: R\$ 296,60/);
   await expect(r.getByRole('link', { name: 'Abrir demanda' })).toHaveAttribute('href', `/demandas?demanda=${p.id}`);
-  await expect(r.getByText(/Gravado às/)).toHaveCount(0);
+  await expect(r.getByText(/Gravado (às|em)/)).toHaveCount(0);
   await expect(r.getByRole('region', { name: 'Arquivo para o Bling' })).toContainText('Depois de gravar, peça ao assistente o CSV do Bling deste pedido.');
   await expect(r.getByRole('region', { name: 'Histórico do pedido' })).toContainText(`Agente abriu o pedido pelo WhatsApp de ${PREFIXO} Carla Mendes`);
   await expect(r.getByRole('region', { name: 'Histórico do pedido' })).toContainText('Prévia mostrada a Ana');
@@ -69,7 +69,7 @@ test('nota de outra pessoa não vira selo (D5)', async ({ page }) => {
     texto: 'Pedido alterado pelo assistente a pedido de Bruno.', criado_em: new Date(Date.now() - 60_000).toISOString() });
   await entrar(page, EMAIL_ANA, SENHA);
   await abrirAssistente(page);
-  await expect(page.getByRole('region', { name: 'Resultado' }).getByText(/Gravado às/)).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Resultado' }).getByText(/Gravado (às|em)/)).toHaveCount(0);
 });
 
 test('demanda fora dos setores da pessoa: a prévia continua, sem dados da demanda (D17)', async ({ page }) => {

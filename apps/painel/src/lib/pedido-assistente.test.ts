@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { interpretarPrevia } from './previa-pedido';
 import {
-  historicoDoPedido, montarPedidoNoPainel, origemDoPedido, PREFIXO_GRAVADO, quandoNoHistorico, seloGravado,
+  historicoDoPedido, montarPedidoNoPainel, origemDoPedido, PREFIXO_GRAVADO, quandoNoHistorico, seloGravado, TEXTO_MUDAR, textoAoMudar,
+  textoDoSelo,
   type DemandaDoPedido, type EventoPedido,
 } from './pedido-assistente';
 import type { MensagemTela } from './resultados-assistente';
@@ -72,6 +73,31 @@ describe('seloGravado (D5)', () => {
     expect(seloGravado([nota('2026-10-10T18:41:00Z', 'u-bruno', GRAVOU, 'Bruno')], ANA, PREVIA_EM)).toBeNull();
     expect(seloGravado([nota('2026-10-10T18:39:00Z', ANA, GRAVOU)], ANA, PREVIA_EM)).toBeNull();
     expect(seloGravado([nota('2026-10-10T18:41:00Z', ANA, 'Cliente ligou.')], ANA, PREVIA_EM)).toBeNull();
+  });
+});
+
+describe('textoDoSelo', () => {
+  const AGORA = '2026-10-10T20:00:00Z';
+  it('gravado hoje (Brasília): "Gravado às HH:MM por …"', () => {
+    expect(textoDoSelo({ em: '2026-10-10T18:41:00Z', por: 'você' }, AGORA)).toBe('Gravado às 15:41 por você');
+  });
+  it('gravado em outro dia: "Gravado em dd/mm HH:MM por …"', () => {
+    expect(textoDoSelo({ em: '2026-10-07T18:41:00Z', por: 'Ana Lima' }, AGORA)).toBe('Gravado em 07/10 15:41 por Ana Lima');
+  });
+});
+
+describe('textoAoMudar (MUDAR OUTRA COISA não apaga o que a pessoa já digitou)', () => {
+  it('campo vazio ou só com espaços: o começo da frase', () => {
+    expect(textoAoMudar('')).toBe(TEXTO_MUDAR);
+    expect(textoAoMudar('  \n ')).toBe(TEXTO_MUDAR);
+  });
+  it('campo com texto: o começo da frase na frente e o texto da pessoa mantido', () => {
+    expect(textoAoMudar('o bolo era 8 UN')).toBe(`${TEXTO_MUDAR}o bolo era 8 UN`);
+    expect(textoAoMudar('  o bolo era 8 UN ')).toBe(`${TEXTO_MUDAR}o bolo era 8 UN`);
+  });
+  it('clicar de novo não repete o começo da frase', () => {
+    expect(textoAoMudar(TEXTO_MUDAR)).toBe(TEXTO_MUDAR);
+    expect(textoAoMudar(`${TEXTO_MUDAR}o bolo era 8 UN`)).toBe(`${TEXTO_MUDAR}o bolo era 8 UN`);
   });
 });
 

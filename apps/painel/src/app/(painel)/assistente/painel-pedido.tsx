@@ -3,8 +3,8 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { variantesBotao } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
-import { formatarHora, formatarHoraOuDia } from '@/lib/formatos';
-import { historicoDoPedido, montarPedidoNoPainel, origemDoPedido, seloGravado, type ItemComparado } from '@/lib/pedido-assistente';
+import { formatarHoraOuDia } from '@/lib/formatos';
+import { historicoDoPedido, montarPedidoNoPainel, origemDoPedido, seloGravado, textoDoSelo, type ItemComparado } from '@/lib/pedido-assistente';
 import { arquivoDoPedido, type LeituraConversa, type MensagemTela, type ResultadoPedido } from '@/lib/resultados-assistente';
 import type { LeituraDemanda } from './dados-assistente';
 import { HistoricoPedido } from './historico-pedido';
@@ -85,7 +85,7 @@ export function PainelPedido({ resultado, leituraDemanda, leitura, mensagens, us
             {selo && (
               <span className="inline-flex items-center gap-1.5 rounded-md bg-success-soft px-2.5 py-1 text-sm font-bold text-success">
                 <CircleCheck aria-hidden size={16} strokeWidth={2} />
-                Gravado às {formatarHora(selo.em)} por {selo.por}
+                {textoDoSelo(selo)}
               </span>
             )}
             {d && (

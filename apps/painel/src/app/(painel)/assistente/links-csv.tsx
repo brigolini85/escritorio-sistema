@@ -8,6 +8,7 @@ import type { ArquivoBling } from '@/lib/resultados-assistente';
 export function LinksCsv({ mensagemId, arquivo, onde, variante = 'outline' }: {
   mensagemId: string; arquivo: ArquivoBling; onde: 'conversa' | 'painel'; variante?: 'primary' | 'outline' | 'link';
 }) {
+  if (arquivo.partes < 1) return null;   // sem partes, sem link (o catálogo /_design mostra o cartão assim)
   return (
     <div className="flex flex-wrap gap-2">
       {Array.from({ length: arquivo.partes }, (_, i) => {

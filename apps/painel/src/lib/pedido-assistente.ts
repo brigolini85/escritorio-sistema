@@ -3,7 +3,7 @@
  * nunca do banco (D2: o "sim" grava exatamente essa prévia). Os da demanda (origem, histórico, selo) vêm do que já está
  * gravado e a pessoa pode ler: demandas_lista e chamado_eventos (D3, D4, D5).
  */
-import { formatarData, formatarHora } from './formatos';
+import { formatarData, formatarHora, formatarHoraOuDia } from './formatos';
 import { fraseDoEvento } from './linha-do-tempo';
 import { compararPrevia, interpretarPrevias, type LinhaComparada, type PreviaInterpretada } from './previa-pedido';
 import { lerArquivo, numeroDoCabecalho, type MensagemTela } from './resultados-assistente';
@@ -73,6 +73,25 @@ const gravacao = (e: EventoPedido) => e.tipo === 'nota_interna' && (e.texto ?? '
 export function seloGravado(eventos: EventoPedido[], usuarioId: string, mostradaEm: string): { em: string; por: string } | null {
   const e = [...eventos].reverse().find((x) => gravacao(x) && x.usuario_id === usuarioId && tempo(x.criado_em) >= tempo(mostradaEm));
   return e ? { em: e.criado_em, por: e.usuario ?? 'você' } : null;
+}
+
+/** Texto do selo: "Gravado às 15:41 por você" hoje; "Gravado em 07/10 15:41 por você" em outro dia (horário de Brasília). */
+export function textoDoSelo(selo: { em: string; por: string }, agora: Date | string | number = Date.now()): string {
+  const quando = formatarHoraOuDia(selo.em, agora);
+  return `${quando.includes('/') ? 'Gravado em' : 'Gravado às'} ${quando} por ${selo.por}`;
+}
+
+/** O que MUDAR OUTRA COISA põe no campo (não envia; D6). */
+export const TEXTO_MUDAR = 'Antes de gravar, mude também: ';
+
+/**
+ * Campo depois de MUDAR OUTRA COISA: o começo da frase na frente do que a pessoa já tinha escrito (nada se perde);
+ * campo vazio recebe só o começo; se o começo já está lá, o campo fica como está.
+ */
+export function textoAoMudar(atual: string): string {
+  if (atual.startsWith(TEXTO_MUDAR)) return atual;
+  const texto = atual.trim();
+  return texto ? `${TEXTO_MUDAR}${texto}` : TEXTO_MUDAR;
 }
 
 export type Marco = { em: string; tipo: 'abertura' | 'previa' | 'gravado' | 'arquivo' | 'evento'; texto: string };
