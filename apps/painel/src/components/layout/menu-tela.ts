@@ -1,6 +1,6 @@
-// Telas de três colunas abrem com o menu recolhido (spec 4.3; Assistente, 7C.3). Abrir o menu ali vale só até sair da tela (P17).
+// Telas de três colunas abrem com o menu recolhido (spec 4.3; Assistente, 7C.3; Treinar o agente, 7C.5). Abrir o menu ali vale só até sair da tela (P17).
 export function telaComMenuRecolhido(caminho: string): boolean {
-  return caminho === '/atendimento' || caminho.startsWith('/atendimento/') || caminho === '/assistente';
+  return caminho === '/atendimento' || caminho.startsWith('/atendimento/') || caminho === '/assistente' || caminho === '/treinar-agente';
 }
 
 /** Qual tela de menu recolhido está aberta: trocar de uma para a outra também esquece o "aberto aqui" (D13). */
