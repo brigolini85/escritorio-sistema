@@ -57,10 +57,16 @@ export type ConsultaContatos<Q> = {
 
 const TRINTA_DIAS_MS = 30 * 24 * 60 * 60 * 1000;
 
-/** Nome, telefone (pelos dígitos digitados) ou empresa ativa — razão social e nome fantasia (D20). */
-export function filtroBusca(q: string): string {
+/** Dígitos da busca para comparar com o telefone; com menos de 4, null ("Loja 2" casaria quase todo telefone). */
+export function digitosDaBusca(q: string): string | null {
   const digitos = q.replace(/\D/g, '');
-  return [`nome.ilike.%${q}%`, `telefone.ilike.%${digitos || q}%`, `empresas_busca.ilike.%${q}%`].join(',');
+  return digitos.length >= 4 ? digitos : null;
+}
+
+/** Nome, telefone (pelos dígitos digitados, 4 ou mais) ou empresa ativa — razão social e nome fantasia (D20). */
+export function filtroBusca(q: string): string {
+  const digitos = digitosDaBusca(q);
+  return [`nome.ilike.%${q}%`, ...(digitos ? [`telefone.ilike.%${digitos}%`] : []), `empresas_busca.ilike.%${q}%`].join(',');
 }
 
 /**

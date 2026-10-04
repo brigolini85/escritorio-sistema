@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aplicarFiltrosContatos, estadoDaConversa, lerEmpresasDaVisao, lerFiltrosContatos, lerResumoWhatsapp, selosDoContato,
+  aplicarFiltrosContatos, digitosDaBusca, estadoDaConversa, filtroBusca, lerEmpresasDaVisao, lerFiltrosContatos, lerResumoWhatsapp, selosDoContato,
   textoAtendimentos, textoCadastro, textoConversaAgora, textoResolvidas, textoUltimoContato, type ConversaDoContato, type Vinculo,
 } from './contatos';
 
@@ -30,7 +30,7 @@ describe('aplicarFiltrosContatos', () => {
     aplicarFiltrosContatos(q, { q: 'Mercado', rapido: 'sem_empresa', empresa: E, periodo: 'antigo' }, AGORA);
     expect(ops).toEqual([
       ['eq', ['ativo', true]],
-      ['or', ['nome.ilike.%Mercado%,telefone.ilike.%Mercado%,empresas_busca.ilike.%Mercado%']],
+      ['or', ['nome.ilike.%Mercado%,empresas_busca.ilike.%Mercado%']],
       ['eq', ['n_empresas', 0]],
       ['contains', ['empresa_ids', [E]]],
       ['lt', ['ultimo_contato_em', '2026-09-09T18:00:00.000Z']],
@@ -47,6 +47,34 @@ describe('aplicarFiltrosContatos', () => {
     const b = gravador();
     aplicarFiltrosContatos(b.q, { q: null, rapido: null, empresa: null, periodo: 'hoje' }, AGORA, 'desligado');
     expect(b.ops).toEqual([['eq', ['ativo', true]], ['eq', ['agente_pausado', true]], ['gte', ['ultimo_contato_em', '2026-10-09T03:00:00.000Z']]]);
+  });
+  it('telefone só com 4 dígitos ou mais: "Loja 2" não casa quase todo telefone', () => {
+    expect(filtroBusca('Loja 2')).toBe('nome.ilike.%Loja 2%,empresas_busca.ilike.%Loja 2%');
+    expect(filtroBusca('977')).toBe('nome.ilike.%977%,empresas_busca.ilike.%977%');
+    expect(filtroBusca('9777')).toBe('nome.ilike.%9777%,telefone.ilike.%9777%,empresas_busca.ilike.%9777%');
+    expect(digitosDaBusca('Loja 2')).toBeNull();
+    expect(digitosDaBusca('11 9')).toBeNull();
+    expect(digitosDaBusca('(11) 97')).toBe('1197');
+  });
+  it('filtros rápidos "Pode pedir nota" e "Muda preço" pelas colunas da visão (empresas ativas, D5)', () => {
+    const a = gravador();
+    aplicarFiltrosContatos(a.q, { q: null, rapido: 'nota', empresa: null, periodo: null }, AGORA);
+    expect(a.ops).toEqual([['eq', ['ativo', true]], ['eq', ['pode_pedir_nota_alguma', true]]]);
+    const b = gravador();
+    aplicarFiltrosContatos(b.q, { q: null, rapido: 'preco', empresa: null, periodo: null }, AGORA);
+    expect(b.ops).toEqual([['eq', ['ativo', true]], ['eq', ['muda_preco_alguma', true]]]);
+  });
+  it('"Últimos 7 dias" e "Últimos 30 dias": agora menos 7 e 30 dias; "há mais de 30" é o complemento exato do 30d', () => {
+    const a = gravador();
+    aplicarFiltrosContatos(a.q, { q: null, rapido: null, empresa: null, periodo: '7d' }, AGORA);
+    expect(a.ops).toEqual([['eq', ['ativo', true]], ['gte', ['ultimo_contato_em', '2026-10-02T18:00:00.000Z']]]);
+    const b = gravador();
+    aplicarFiltrosContatos(b.q, { q: null, rapido: null, empresa: null, periodo: '30d' }, AGORA);
+    expect(b.ops).toEqual([['eq', ['ativo', true]], ['gte', ['ultimo_contato_em', '2026-09-09T18:00:00.000Z']]]);
+    // 30d é >= o limite e "antigo" é < o mesmo limite: nenhum contato cai nos dois nem fica de fora.
+    const c = gravador();
+    aplicarFiltrosContatos(c.q, { q: null, rapido: null, empresa: null, periodo: 'antigo' }, AGORA);
+    expect(c.ops).toEqual([['eq', ['ativo', true]], ['lt', ['ultimo_contato_em', '2026-09-09T18:00:00.000Z']]]);
   });
 });
 
