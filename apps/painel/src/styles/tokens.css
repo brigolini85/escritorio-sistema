@@ -114,6 +114,7 @@
   --conversation-list-width: calc(320rem / 14); /* lista de conversas do Atendimento */
   --conversation-panel-width: calc(360rem / 14); /* painel direito da conversa */
   --reading-width: calc(760rem / 14); /* largura de leitura do Assistente */
+  --assistant-chat-width: calc(470rem / 14); /* conversa da tela Assistente, à esquerda do resultado (utilitário w-chat-assistente) */
   --shadow-sm: 0 1px 2px 0 hsl(222 30% 10% / 0.06); /* cards e campos */
   --shadow-md: 0 4px 12px -2px hsl(222 30% 10% / 0.12), 0 2px 4px -2px hsl(222 30% 10% / 0.08); /* menus, popovers, diálogos */
 

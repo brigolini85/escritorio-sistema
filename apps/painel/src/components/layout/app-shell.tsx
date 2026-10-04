@@ -14,7 +14,7 @@ import { AvisoDaUrl } from './aviso-da-url';
 import { FaixaAmbiente } from './faixa-ambiente';
 import { cookieDoMenu } from './preferencias';
 import type { TamanhoLetra } from './tamanho-letra';
-import { menuRecolhidoVisivel, telaComMenuRecolhido } from './menu-tela';
+import { menuRecolhidoVisivel, telaComMenuRecolhido, telaRecolhida } from './menu-tela';
 import { ProvedorMenuUsuario } from './menu-usuario';
 import { Sidebar, type Contadores, type ItemMenu } from './sidebar';
 import { Topbar } from './topbar';
@@ -51,12 +51,13 @@ export function AppShell({
   const [gaveta, setGaveta] = useState(false);
   const caminho = usePathname();
   const [abertoNaTela, setAbertoNaTela] = useState(false);
-  // Sair do Atendimento esquece o "aberto aqui": ao voltar, abre recolhido de novo (P17).
-  useEffect(() => { if (!telaComMenuRecolhido(caminho)) setAbertoNaTela(false); }, [caminho]);
+  // Sair da tela (Atendimento ou Assistente) esquece o "aberto aqui": ao voltar, abre recolhido de novo (P17, D13).
+  const tela = telaRecolhida(caminho);
+  useEffect(() => { setAbertoNaTela(false); }, [tela]);
   const recolhidoVisivel = menuRecolhidoVisivel(caminho, recolhido, abertoNaTela);
 
   function alternar() {
-    // No Atendimento, abrir ou recolher vale só nesta tela: a preferência guardada não muda.
+    // Nas telas de menu recolhido, abrir ou recolher vale só nesta tela: a preferência guardada não muda.
     if (telaComMenuRecolhido(caminho)) {
       setAbertoNaTela(!abertoNaTela);
       return;

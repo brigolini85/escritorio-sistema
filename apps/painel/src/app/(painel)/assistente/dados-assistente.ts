@@ -26,18 +26,21 @@ export type ConversaDoHistorico = { id: string; nome: string; empresa: string | 
 
 /** Histórico em botões (D14): a "Geral" e as conversas feitas dentro de atendimentos que a pessoa ainda vê. */
 export async function lerHistoricoAssistente(sb: Sb, usuarioId: string, conversaId: string | null) {
-  const [{ data: ultimaGeral }, { data: doHistorico }] = await Promise.all([
+  const [{ data: ultimaGeral, error: erroGeral }, { data: doHistorico, error: erroHistorico }] = await Promise.all([
     sb.from('assistente_mensagens').select('criado_em').eq('usuario_id', usuarioId).eq('canal', 'site').is('conversa_id', null)
       .order('criado_em', { ascending: false }).limit(1).maybeSingle(),
     sb.from('assistente_mensagens').select('conversa_id, criado_em').eq('usuario_id', usuarioId).eq('canal', 'site').not('conversa_id', 'is', null)
       .order('criado_em', { ascending: false }).limit(LIMITE_MENSAGENS_HISTORICO),
   ]);
+  if (erroGeral) console.error('[assistente] última mensagem da Geral', erroGeral);
+  if (erroHistorico) console.error('[assistente] histórico de conversas', erroHistorico);
   // Lê o dobro das conversas mostradas: as que o RLS esconde saem antes do limite.
   const lidas = agruparConversasAssistente(doHistorico ?? [], LIMITE_CONVERSAS_HISTORICO * 2);
   const ids = [...new Set([...lidas.map((g) => g.conversaId), ...(conversaId ? [conversaId] : [])])];
-  const { data: conversas } = ids.length
+  const { data: conversas, error: erroConversas } = ids.length
     ? await sb.from('conversas').select('id, telefone, contatos(nome), clientes:cliente_em_foco(razao_social, nome_fantasia)').in('id', ids)
-    : { data: [] };
+    : { data: [], error: null };
+  if (erroConversas) console.error('[assistente] conversas do histórico', erroConversas);
   const visiveis = new Map((conversas ?? []).map((c) => [c.id, {
     nome: c.contatos?.nome ?? mascararTelefone(c.telefone),
     empresa: c.clientes ? c.clientes.nome_fantasia ?? c.clientes.razao_social : null,

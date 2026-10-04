@@ -65,6 +65,18 @@ describe('lerHistoricoAssistente', () => {
     expect(r.conversas).toEqual([{ id: 'c1', nome: 'Carla', empresa: 'Padaria', ultimaEm: '3', mensagens: 2 }]);
     expect(r.aberta?.id).toBe('c1');
   });
+
+  it('registra no log cada uma das 3 consultas que falhar (a falha não some em silêncio)', async () => {
+    cenario.responder = (c) => {
+      if (c.tabela === 'assistente_mensagens' && tem(c, 'is', 'conversa_id', null)) return { data: null, error: { message: 'geral' } };
+      if (c.tabela === 'assistente_mensagens') return { data: [{ conversa_id: 'c1', criado_em: '3' }], error: { message: 'historico' } };
+      return { data: null, error: { message: 'conversas' } };
+    };
+    await lerHistoricoAssistente(sb(), 'u1', null);
+    const textos = vi.mocked(console.error).mock.calls.map((c) => String(c[0]));
+    expect(textos).toEqual(expect.arrayContaining([expect.stringContaining('Geral'), expect.stringContaining('histórico'), expect.stringContaining('conversas')]));
+    expect(textos).toHaveLength(3);
+  });
 });
 
 const LINHA = {

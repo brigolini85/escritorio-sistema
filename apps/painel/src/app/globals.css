@@ -91,6 +91,7 @@
   --spacing-lista-conversas: var(--conversation-list-width);
   --spacing-painel-conversa: var(--conversation-panel-width);
   --spacing-leitura: var(--reading-width);
+  --spacing-chat-assistente: var(--assistant-chat-width);
 
   /* Animações curtas (<= 150ms, ease-out) usadas pelos primitivos; zeradas com prefers-reduced-motion */
   --animate-aparecer: aparecer 150ms ease-out;
