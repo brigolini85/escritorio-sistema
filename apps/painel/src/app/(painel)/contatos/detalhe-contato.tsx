@@ -1,4 +1,4 @@
-import { Building2, ExternalLink, Pencil, SearchX, ShieldAlert } from 'lucide-react';
+import { Building2, ExternalLink, Pencil, SearchX, ShieldAlert, X } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { ApagarDadosContato } from '@/components/patterns/apagar-dados-contato';
@@ -34,7 +34,9 @@ import { SecaoEmpresas } from './vincular-empresa';
  * por empresa e o vincular, WhatsApp, demandas abertas, Excluir… (Parte B) e Apagar dados (LGPD, só admin, inalterado). Lê só
  * o que já está no banco de todos (D14). As permissões são as de hoje e as ações conferem de novo no servidor.
  */
-export async function DetalheContato({ id, u, editar, hrefEditar }: { id: string; u: UsuarioPainel; editar: boolean; hrefEditar: string }) {
+export async function DetalheContato({ id, u, editar, hrefEditar, hrefFecharEdicao }: {
+  id: string; u: UsuarioPainel; editar: boolean; hrefEditar: string; hrefFecharEdicao: string;
+}) {
   const pode = temNivel(u, 'clientes', 'editar');
   const podeArquivar = temNivel(u, 'clientes', 'arquivar');
   const podeConversa = temNivel(u, 'atendimento', 'meus_setores');
@@ -77,10 +79,17 @@ export async function DetalheContato({ id, u, editar, hrefEditar }: { id: string
         </div>
         <div className="flex flex-wrap gap-2">
           <BotaoAbrirConversa conversaId={whats.conversaId} nome={c.nome} podeConversa={podeConversa} grande />
-          {editavel && (
+          {/* Com a edição aberta, o mesmo lugar fecha (link sem ?editar). */}
+          {editavel && !editar && (
             <Link href={hrefEditar} scroll={false} aria-label={`Editar ${c.nome}`} className={variantesBotao({ variant: 'outline', size: 'sm' })}>
               <Pencil aria-hidden size={16} strokeWidth={1.75} />
               Editar
+            </Link>
+          )}
+          {editavel && editar && (
+            <Link href={hrefFecharEdicao} scroll={false} aria-label={`Fechar edição de ${c.nome}`} className={variantesBotao({ variant: 'outline', size: 'sm' })}>
+              <X aria-hidden size={16} strokeWidth={1.75} />
+              Fechar edição
             </Link>
           )}
         </div>
@@ -128,6 +137,7 @@ export async function DetalheContato({ id, u, editar, hrefEditar }: { id: string
             </ul>
           )}
           {!pode && c.vinculos.length > 0 && <p className="text-sm text-muted">Só quem pode editar clientes muda as marcações.</p>}
+          {pode && !c.ativo && c.vinculos.length > 0 && <p className="text-sm text-muted">Contato arquivado: restaure para mudar as marcações.</p>}
         </SecaoEmpresas>
 
         {/* Parte H: o bloco de acesso por empresa (perfil, setores, documentos, prévia do agente) entra aqui, D18. */}

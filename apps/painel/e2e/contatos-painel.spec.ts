@@ -133,3 +133,34 @@ test('"Só ver" (o padrão de quem atende): vê o painel, mas não muda nada; se
   }
   await expect(painel).toContainText('Só quem pode editar clientes muda as marcações.');
 });
+
+test('Editar vira "Fechar edição"; contato arquivado com ?editar=1 não mostra o Nome e diz por que as marcações não mudam', async ({ page }) => {
+  const s = await semearContatos();
+  await criarUsuarioTeste({ email: 'admin-g3p@e2e.local', senha: SENHA, nome: 'Thiago G3', papel: 'admin' });
+  await entrar(page, 'admin-g3p@e2e.local', SENHA);
+  await abrirContatos(page, `?q=${PREFIXO}&contato=${s.carla}`);
+  const painel = page.getByRole('dialog', { name: `${PREFIXO} Carla Mendes` });
+  await expect(painel.getByText('Contato arquivado: restaure para mudar as marcações.')).toHaveCount(0);
+
+  // Aberto o Editar, o mesmo lugar fecha a edição (link sem ?editar).
+  await painel.getByRole('link', { name: `Editar ${PREFIXO} Carla Mendes` }).click();
+  await expect(painel.getByLabel('Nome', { exact: true })).toBeVisible();
+  await expect(painel.getByRole('link', { name: `Editar ${PREFIXO} Carla Mendes` })).toHaveCount(0);
+  const fechar = painel.getByRole('link', { name: `Fechar edição de ${PREFIXO} Carla Mendes` });
+  await expect(fechar).toHaveText('Fechar edição');
+  await expect(fechar).not.toHaveAttribute('href', /editar=/);
+  await fechar.click();
+  await expect(painel.getByLabel('Nome', { exact: true })).toHaveCount(0);
+  await expect(painel.getByRole('link', { name: `Editar ${PREFIXO} Carla Mendes` })).toBeVisible();
+
+  // Arquivado: só leitura, mesmo com ?editar=1 no endereço; as marcações dizem o motivo.
+  await db.from('contatos').update({ ativo: false, arquivado_em: new Date().toISOString() }).eq('id', s.carla);
+  await abrirContatos(page, `?q=${PREFIXO}&contato=${s.carla}&editar=1`);
+  const arquivado = page.getByRole('dialog', { name: `${PREFIXO} Carla Mendes` });
+  await expect(arquivado.getByText(`${PREFIXO} Mercado Central`)).toBeVisible({ timeout: 30_000 });
+  await expect(arquivado.getByLabel('Nome', { exact: true })).toHaveCount(0);
+  await expect(arquivado.getByRole('link', { name: /Editar |Fechar edição/ })).toHaveCount(0);
+  await expect(arquivado.getByRole('group', { name: `${PREFIXO} Mercado Central` }).getByRole('checkbox', { name: 'Pode pedir nota' })).toBeDisabled();
+  await expect(arquivado.getByText('Contato arquivado: restaure para mudar as marcações.')).toBeVisible();
+  await expect(arquivado.getByText('Só quem pode editar clientes muda as marcações.')).toHaveCount(0);
+});

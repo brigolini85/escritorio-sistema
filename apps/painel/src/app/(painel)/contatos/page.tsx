@@ -134,6 +134,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
               u={u}
               editar={valorParam(params, 'editar') === '1'}
               hrefEditar={`/contatos${hrefComParams(params, { contato: contatoAberto, editar: '1', [PARAM_PAGINA]: pagina })}`}
+              hrefFecharEdicao={hrefContato(contatoAberto)}
             />
           </Suspense>
         )}
