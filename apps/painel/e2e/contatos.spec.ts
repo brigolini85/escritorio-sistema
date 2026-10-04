@@ -20,9 +20,9 @@ test('aba Contatos lista os cadastrados com empresas e agente, e cadastra contat
 
   await page.getByRole('link', { name: 'Contatos', exact: true }).click();
   const linha = page.getByRole('row').filter({ hasText: 'Maria Contato' });
-  await expect(linha).toContainText(TEL_A);
+  await expect(linha).toContainText('(31) 99999-0501'); // TEL_A com a máscara (G3: telefone embaixo do nome)
   await expect(linha).toContainText('Empresa Contatos Teste');
-  await expect(linha).toContainText('agente desligado');
+  await expect(linha).toContainText('desligado');
 
   await linha.getByRole('switch', { name: 'Ligar o agente' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'Maria Contato' }).getByRole('switch', { name: 'Desligar o agente' })).toBeVisible();

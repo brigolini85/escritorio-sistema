@@ -226,11 +226,11 @@ test('telefone de contato apagado pela LGPD: avisa e não cadastra', async ({ pa
   await db.from('auditoria_acessos').delete().eq('acao', 'anonimizar').eq('entidade_id', apagado!.id);
 });
 
-test('lápis abre o contato e o nome muda ali; sem permissão não há lápis', async ({ page }) => {
+test('a linha abre o contato e o nome muda ali; sem permissão não há edição', async ({ page }) => {
   await db.from('contatos').insert({ nome: 'Maria Arquivo', telefone: TEL_MARIA });
   await comoAdmin(page);
   await page.goto('/contatos');
-  await linha(page, 'Maria Arquivo').getByRole('link', { name: 'Editar Maria Arquivo' }).click();
+  await page.locator('tbody tr').filter({ hasText: 'Maria Arquivo' }).click();
   const painel = page.getByRole('dialog');
   await painel.getByLabel('Nome', { exact: true }).fill('Maria Souza');
   await painel.getByRole('button', { name: 'Salvar nome' }).click();

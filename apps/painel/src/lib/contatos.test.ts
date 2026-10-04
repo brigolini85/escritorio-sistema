@@ -22,6 +22,21 @@ describe('lerFiltrosContatos', () => {
     expect(lerFiltrosContatos({ q: '  ', filtro: 'todos', empresa: 'x', periodo: 'ontem' }))
       .toEqual({ q: null, rapido: null, empresa: null, periodo: null });
   });
+
+  it('o termo da URL não quebra o or() do PostgREST: vírgula, parênteses, aspas, asterisco, % e \\ saem', () => {
+    const { q } = lerFiltrosContatos({ q: 'Bar "do Zé", (Centro)* 50%\\ or(nome.eq.x) 3199-8765' });
+    expect(q).toBe('Bar do Zé Centro 50 or nome.eq.x 3199-8765');
+    expect(q).not.toMatch(/[,()"*%\\]/);
+    // Exatamente as três condições (nome, telefone pelos dígitos, empresa), cada uma inteira.
+    const condicoes = filtroBusca(q!).split(',');
+    expect(condicoes).toEqual([
+      'nome.ilike.%Bar do Zé Centro 50 or nome.eq.x 3199-8765%',
+      'telefone.ilike.%5031998765%',
+      'empresas_busca.ilike.%Bar do Zé Centro 50 or nome.eq.x 3199-8765%',
+    ]);
+    // Só aspas e parênteses: nada sobra para buscar (a lista não filtra por um termo vazio).
+    expect(lerFiltrosContatos({ q: ' "(),* ' }).q).toBeNull();
+  });
 });
 
 describe('aplicarFiltrosContatos', () => {

@@ -49,16 +49,18 @@ export function ChaveAgenteContato({ nome, pode, atende, pendente, mudar }: { no
 /**
  * Liga/desliga o agente só para um contato (mesma server action de antes).
  * Nome acessível: a ação ("Ligar o agente para Maria" / "Desligar o agente para Maria"); o estado vai no aria-checked.
- * `mostrarEstado`: texto ao lado ("agente atende" / "agente desligado"), que muda junto com a chave.
+ * `mostrarEstado`: texto ao lado ("agente atende" / "agente desligado"), que muda junto com a chave; `estadoCurto`: só
+ * "atende" / "desligado" (coluna Agente da lista de Contatos, G3 D12).
  * Sem permissão (`pode` falso): a chave aparece desabilitada, com o motivo no tooltip.
  */
-export function SwitchAgenteContato({ mostrarEstado = false, className, ...props }: Props & { mostrarEstado?: boolean; className?: string }) {
+export function SwitchAgenteContato({ mostrarEstado = false, estadoCurto = false, className, ...props }: Props & { mostrarEstado?: boolean; estadoCurto?: boolean; className?: string }) {
   const estado = useAgenteContato(props);
+  const texto = estadoCurto ? (estado.atende ? 'atende' : 'desligado') : (estado.atende ? 'agente atende' : 'agente desligado');
   return (
     <span className={cn('inline-flex items-center gap-2', className)} data-sem-clique-linha>
       <ChaveAgenteContato nome={props.nome} pode={props.pode} {...estado} />
       {mostrarEstado && (
-        <span className={cn('text-sm', estado.atende ? 'text-agent-active' : 'text-agent-paused')}>{estado.atende ? 'agente atende' : 'agente desligado'}</span>
+        <span className={cn('text-sm', estadoCurto && 'font-semibold', estado.atende ? 'text-agent-active' : 'text-agent-paused')}>{texto}</span>
       )}
     </span>
   );

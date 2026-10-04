@@ -7,11 +7,21 @@ export default function CarregandoContatos() {
   return (
     <section>
       <PageHeader titulo="Contatos" />
-      <div className="mb-3 flex gap-2">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-8 w-36" />
+      <div className="mb-3 flex flex-col gap-3">
+        <div className="flex gap-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-8 w-36" />
+          <Skeleton className="h-8 w-36" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-9 w-32" />
+          <Skeleton className="h-9 w-36" />
+          <Skeleton className="h-9 w-28" />
+        </div>
       </div>
-      <DataTableCarregando rotulo="Carregando contatos" colunas={['Nome', 'Telefone', 'Empresas', 'Marcações', 'Agente']} />
+      <DataTableCarregando rotulo="Carregando contatos" colunas={['Contato', 'Empresas', 'Marcações', 'Último contato', 'Agente']} />
     </section>
   );
 }

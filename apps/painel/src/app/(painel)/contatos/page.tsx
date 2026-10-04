@@ -1,39 +1,35 @@
-import { FilterX, Pencil, UserPlus, UsersRound } from 'lucide-react';
+import { FilterX, UserPlus, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
-import { DataTable, type ColunaTabela } from '@/components/patterns/data-table';
+import { DataTable } from '@/components/patterns/data-table';
 import { EmptyState } from '@/components/patterns/empty-state';
-import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
-import { FilterBar } from '@/components/patterns/filter-bar';
+import { BotaoCadastrarContato, FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
 import { LinkArquivados, TelaArquivados } from '@/components/patterns/lista-arquivados';
 import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
-import { SwitchAgenteContato } from '@/components/patterns/switch-agente-contato';
 import { variantesBotao } from '@/components/ui/button';
-import { BotaoCadastrarContato, FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { contarArquivados } from '@/lib/arquivados';
-import { termoSeguroPostgrest } from '@/lib/busca';
+import { lerFiltrosContatos, ORDEM_PADRAO_CONTATOS, ORDENS_CONTATOS, temFiltroContatos } from '@/lib/contatos';
 import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { faixaDaConsulta, hrefComParams, lerOrdem, lerPagina, paginar, PARAM_PAGINA, valorParam, type Paginacao, type ParamsBusca } from '@/lib/tabela-url';
-import { alternarAgenteContato } from '../atendimento/acoes';
+import { hrefComParams, lerOrdem, lerPagina, PARAM_PAGINA, valorParam, type ParamsBusca } from '@/lib/tabela-url';
 import { cadastrarContato } from './acoes';
+import { AcoesLinhaContato } from './acoes-linha';
+import { BarraContatos } from './barra-contatos';
+import { colunasContatos } from './colunas-contatos';
+import { lerEmpresasAtivas, lerListaContatos } from './dados-contatos';
 import { DetalheContato, EsqueletoContato } from './detalhe-contato';
-import { MarcacoesContato, nomeEmpresa, type Vinculo } from './marcacoes';
+import { Hidratado } from './hidratado';
 
-const POR_PAGINA = 50;
-const OPCOES_AGENTE = [{ valor: 'atende', rotulo: 'Agente atende' }, { valor: 'desligado', rotulo: 'Agente desligado' }];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-type Linha = { id: string; nome: string; telefone: string; agente_pausado: boolean; ativo: boolean; vinculos: Vinculo[] };
-type Filtravel<Q> = { or(filtro: string): Q; eq(coluna: string, valor: boolean): Q };
-
 /**
- * Todos os contatos cadastrados, com as empresas a que estão ligados, as marcações e se o agente atende cada um.
- * Busca (?q=, como antes), filtro do agente, ordem e página na URL; ?contato=<id> abre o painel lateral.
+ * Contatos (spec 7C.2, imagem A): tabela pelo último contato, busca por nome, telefone ou empresa, filtros rápidos com contagem,
+ * empresa e período — na URL e no servidor (visão contatos_lista, pela regra de leitura de cada pessoa).
+ * ?contato=<id> abre o painel lateral; ?ver=arquivados, os arquivados.
  */
 export default async function Contatos({ searchParams }: { searchParams: Promise<ParamsBusca> }) {
   const params = await searchParams;
@@ -41,100 +37,41 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
   const pode = temNivel(u, 'clientes', 'editar');
   // Arquivar e restaurar exigem "Editar e arquivar" (Parte D); o banco (exigir_arquivar) recusa de novo.
   const podeArquivar = temNivel(u, 'clientes', 'arquivar');
+  // Abrir conversa: a tela do Atendimento não abre com "Sem acesso"; a conversa ainda passa pela regra de leitura (D8).
+  const podeConversa = temNivel(u, 'atendimento', 'meus_setores');
+  const veTodas = temNivel(u, 'atendimento', 'todas');
   if (valorParam(params, 'ver') === 'arquivados') {
     return <TelaArquivados tipo="contato" titulo="Contatos arquivados" voltar={{ rotulo: 'Contatos', href: '/contatos' }} pode={podeArquivar} />;
   }
-  const q = termoSeguroPostgrest(valorParam(params, 'q'));
-  const agente = valorParam(params, 'agente');
+  const f = lerFiltrosContatos(params);
+  const ordem = lerOrdem(params, ORDENS_CONTATOS, ORDEM_PADRAO_CONTATOS)!;
   const aberto = valorParam(params, 'contato');
   const contatoAberto = aberto && UUID.test(aberto) ? aberto : null;
-  const ordem = lerOrdem(params, ['nome'], { coluna: 'nome', direcao: 'asc' })!;
+  const agora = new Date();
   const sb = await supabaseServidor();
-
-  const filtrar = <Q extends Filtravel<Q>>(consulta: Q): Q => {
-    // Arquivado sai da lista (spec 5.1)
-    let r = consulta.eq('ativo', true);
-    if (q) r = r.or(`nome.ilike.%${q}%,telefone.ilike.%${q.replace(/\D/g, '') || q}%`);
-    if (agente === 'atende') r = r.eq('agente_pausado', false);
-    else if (agente === 'desligado') r = r.eq('agente_pausado', true);
-    return r;
-  };
-  const contados = await filtrar(sb.from('contatos').select('id', { count: 'exact', head: true }));
-  const total = contados.count ?? 0;
-  const arquivados = await contarArquivados(sb, 'contato');
-  const lerPaginaDaLista = (p: Paginacao) => {
-    const [de, ate] = faixaDaConsulta(p, POR_PAGINA);
-    return filtrar(sb.from('contatos').select('id, nome, telefone, agente_pausado, ativo, contato_clientes(pode_pedir_nota, pode_atualizar_preco, clientes(id, razao_social, nome_fantasia))'))
-      .order('nome', { ascending: ordem.direcao === 'asc' }).order('id').range(de, ate);
-  };
-  let paginacao = paginar(total, lerPagina(params), POR_PAGINA);
-  let resultado = contados.error ? { data: null, error: contados.error } : await lerPaginaDaLista(paginacao);
-  if (resultado.error?.code === 'PGRST103') {
-    paginacao = paginar(total, 1, POR_PAGINA);
-    resultado = await lerPaginaDaLista(paginacao);
-  }
-  if (resultado.error) console.error('[contatos] falha ao ler a lista', resultado.error);
-
-  const linhas: Linha[] = (resultado.data ?? []).map((c) => ({
-    id: c.id, nome: c.nome, telefone: c.telefone, agente_pausado: c.agente_pausado, ativo: c.ativo,
-    vinculos: c.contato_clientes.flatMap((v) => (v.clientes
-      ? [{ empresaId: v.clientes.id, empresa: nomeEmpresa(v.clientes), podePedirNota: v.pode_pedir_nota, podeMudarPreco: v.pode_atualizar_preco }]
-      : [])),
-  }));
+  const [lista, arquivados, empresas] = await Promise.all([
+    lerListaContatos(sb, f, ordem, lerPagina(params), agora),
+    contarArquivados(sb, 'contato'),
+    lerEmpresasAtivas(sb),
+  ]);
 
   // Abrir e fechar o painel mantém a página da tabela.
-  const pagina = paginacao.pagina > 1 ? paginacao.pagina : null;
-  const hrefContato = (id: string | null) => `/contatos${hrefComParams(params, { contato: id, [PARAM_PAGINA]: pagina })}`;
-
-  const colunas: ColunaTabela<Linha>[] = [
-    {
-      id: 'nome', titulo: 'Nome', ordenavel: true, className: 'max-w-56',
-      celula: (c) => (
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-medium text-foreground">{c.nome}</span>
-        </span>
-      ),
-    },
-    { id: 'telefone', titulo: 'Telefone', celula: (c) => <span className="tabular text-muted">{c.telefone}</span> },
-    {
-      id: 'empresas', titulo: 'Empresas', className: 'w-full min-w-48 max-w-0',
-      celula: (c) => c.vinculos.length === 0 ? <span className="text-subtle">sem empresa</span> : (
-        <span className="block truncate">
-          {c.vinculos.map((v, i) => (
-            <span key={v.empresaId}>
-              {i > 0 && ', '}
-              <Link href={`/clientes/${v.empresaId}?aba=contatos`} className="text-foreground hover:underline">{v.empresa}</Link>
-            </span>
-          ))}
-        </span>
-      ),
-    },
-    { id: 'marcacoes', titulo: 'Marcações', celula: (c) => <MarcacoesContato vinculos={c.vinculos} vazio={<span className="text-subtle">—</span>} /> },
-    {
-      id: 'agente', titulo: 'Agente',
-      celula: (c) => (
-        <SwitchAgenteContato
-          acao={alternarAgenteContato.bind(null, c.id, null, c.agente_pausado)}
-          desligado={c.agente_pausado}
-          nome={c.nome}
-          pode={pode}
-          mostrarEstado
-        />
-      ),
-    },
-  ];
-  const filtrando = Boolean(q || agente);
+  const pagina = lista.paginacao.pagina > 1 ? lista.paginacao.pagina : null;
+  const hrefContato = (id: string | null) => `/contatos${hrefComParams(params, { contato: id, editar: null, [PARAM_PAGINA]: pagina })}`;
+  const filtrando = temFiltroContatos(f);
 
   return (
     <section>
+      <Hidratado />
       <PageHeader
         titulo="Contatos"
-        contagem={total}
-        descricao="Quem fala com o escritório pelo WhatsApp, as empresas de cada um e se o agente atende."
+        contagem={lista.paginacao.total}
+        descricao="Quem fala pelas empresas no WhatsApp."
         acoes={(
           <>
             <LinkArquivados href="/contatos?ver=arquivados" total={arquivados} />
             {pode && (
+              // D7: o cadastro continua no cartão do fim da página (a pergunta do contato arquivado da Parte B vem junto).
               <a href="#novo-contato" className={variantesBotao({ size: 'sm' })}>
                 <UserPlus aria-hidden size={16} strokeWidth={1.75} />
                 Novo contato
@@ -143,37 +80,24 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
           </>
         )}
       />
-      <FilterBar
-        className="mb-3"
-        total={total}
-        busca={{ placeholder: 'Buscar por nome ou telefone' }}
-        filtros={[{ param: 'agente', rotulo: 'Agente', todos: 'Todos', opcoes: OPCOES_AGENTE }]}
-      />
+      <BarraContatos params={params} f={f} contagens={lista.contagens} empresas={empresas} ordem={ordem} completa={lista.completa} />
       <DataTable
         rotulo="Contatos"
-        linhas={linhas}
-        colunas={colunas}
+        linhas={lista.linhas}
+        colunas={colunasContatos({ euId: u.id, veTodas, pode, agora })}
         chave={(c) => c.id}
         params={params}
         ordem={ordem}
-        paginacao={paginacao}
-        acoesLinha={pode ? (c) => (
-          // Lápis e arquivar, como em Clientes (imagem 01): o lápis abre o painel do contato.
-          <span className="flex items-center justify-end gap-1">
-            <Link href={hrefContato(c.id)} scroll={false} aria-label={`Editar ${c.nome}`} className={variantesBotao({ variant: 'outline', size: 'icon' })}>
-              <Pencil aria-hidden size={16} strokeWidth={1.75} />
-            </Link>
-            {podeArquivar && <ExcluirCadastro tipo="contato" id={c.id} nome={c.nome} />}
-          </span>
-        ) : undefined}
+        paginacao={lista.paginacao}
+        acoesLinha={(c) => <AcoesLinhaContato id={c.id} nome={c.nome} conversaId={c.conversaId} podeConversa={podeConversa} podeArquivar={podeArquivar} />}
         hrefLinha={(c) => hrefContato(c.id)}
         linhaAtiva={contatoAberto}
-        erro={resultado.error ? 'Não consegui carregar os contatos agora.' : undefined}
+        erro={lista.erro ? 'Não consegui carregar os contatos agora.' : undefined}
         vazio={filtrando ? (
           <EmptyState
             icone={FilterX}
             titulo="Nenhum contato encontrado."
-            descricao="Confira o nome ou o telefone, ou limpe os filtros."
+            descricao="Confira o nome, o telefone ou a empresa, ou limpe os filtros."
             acao={<Link href="/contatos" className={variantesBotao({ variant: 'outline', size: 'sm' })}>Limpar filtros</Link>}
           />
         ) : (
@@ -185,7 +109,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
         <Card id="novo-contato" className="mt-6 scroll-mt-20">
           <CardHeader>
             <CardTitle>Cadastrar contato</CardTitle>
-            <CardDescription>Com ou sem empresa. Para ligar a uma empresa, abra a empresa em Clientes → aba Contatos → &quot;Vincular contato já cadastrado&quot;.</CardDescription>
+            <CardDescription>Com ou sem empresa. Para ligar a uma empresa, abra o contato na lista e use &quot;Vincular empresa&quot;.</CardDescription>
           </CardHeader>
           <FormCadastroContato action={cadastrarContato}>
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">

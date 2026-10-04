@@ -16,7 +16,8 @@ import { alternarAgenteContato } from '../atendimento/acoes';
 import { anonimizarContato } from '../clientes/acoes';
 import { renomearContato } from './acoes';
 import { EditarNomeContato } from './editar-nome-contato';
-import { MarcacoesContato, nomeEmpresa, type Vinculo } from './marcacoes';
+import { nomeEmpresa, type Vinculo } from '@/lib/contatos';
+import { SelosContato } from './marcacoes';
 
 function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
@@ -92,7 +93,7 @@ export async function DetalheContato({ id, pode, podeArquivar, admin }: { id: st
                     <Building2 aria-hidden size={16} strokeWidth={1.75} className="shrink-0 text-muted" />
                     {v.empresa}
                   </Link>
-                  <MarcacoesContato vinculos={[v]} vazio={<span className="text-sm text-muted">Só conversa (não pede nota nem muda preço)</span>} />
+                  <SelosContato vinculos={[v]} />
                 </li>
               ))}
             </ul>
