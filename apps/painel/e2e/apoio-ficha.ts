@@ -56,12 +56,21 @@ export async function acessoDeMentira(clienteId: string, portal: string, email: 
   return data as string;
 }
 
-/** Junta o corpo de tudo o que o servidor do painel manda à página (HTML e o fluxo RSC das navegações e ações). */
-export function vigiarRespostas(page: Page): () => Promise<string> {
-  const corpos: Promise<string>[] = [];
-  page.on('response', (r) => {
-    const tipo = r.headers()['content-type'] ?? '';
-    if (/text\/html|text\/x-component/.test(tipo)) corpos.push(r.text().catch(() => ''));
+/**
+ * Junta o corpo de tudo o que o servidor do painel manda à página (HTML e o fluxo RSC das navegações e ações).
+ * Passa as respostas por page.route: pelo evento 'response' o Chromium às vezes já descartou o corpo do fluxo RSC
+ * ("No data found for resource"), e um corpo perdido viraria vazio, deixando a conferência "sem senha" passar às cegas.
+ */
+export async function vigiarRespostas(page: Page): Promise<() => Promise<string>> {
+  const corpos: string[] = [];
+  const painel = new URL(page.url()).origin; // chamada depois de entrar: a página já está no painel
+  await page.route((url) => url.origin === painel && !url.pathname.startsWith('/_next/'), async (route) => {
+    const resposta = await route.fetch({ maxRedirects: 0 });
+    const tipo = resposta.headers()['content-type'] ?? '';
+    if (!/text\/html|text\/x-component/.test(tipo)) return route.fulfill({ response: resposta });
+    const corpo = await resposta.text();
+    corpos.push(corpo);
+    return route.fulfill({ response: resposta, body: corpo });
   });
-  return async () => (await Promise.all(corpos)).join('\n');
+  return async () => corpos.join('\n');
 }

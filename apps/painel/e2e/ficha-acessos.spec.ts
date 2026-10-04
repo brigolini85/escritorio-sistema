@@ -19,7 +19,7 @@ test('administrador cadastra o acesso: cifrado, mascarado, e revelar e copiar v�
   const id = await empresa(CNPJ_TESTE);
   const admin = await criarUsuarioTeste({ email: ADMIN, senha: SENHA, nome: 'Admin Acessos', papel: 'admin' });
   await entrar(page, ADMIN, SENHA);
-  const respostas = vigiarRespostas(page);
+  const respostas = await vigiarRespostas(page);
   await abrirFicha(page, `/clientes/${id}`);
   const acessos = bloco(page, 'Acessos de portais');
   await acessos.getByRole('button', { name: 'Adicionar acesso' }).click();
@@ -75,7 +75,7 @@ test('sem "Ver acessos de portais": vê portal e usuário, não revela nem copia
   const acesso = await acessoDeMentira(id, 'SEFAZ-MG', ADMIN);
   await criarUsuarioTeste({ email: 'bia-acessos@e2e.local', senha: SENHA, nome: 'Bia Acessos', papel: 'atendente', permissoes: ['editar_clientes'] });
   await entrar(page, 'bia-acessos@e2e.local', SENHA);
-  const respostas = vigiarRespostas(page);
+  const respostas = await vigiarRespostas(page);
   await abrirFicha(page, `/clientes/${id}`);
   const acessos = bloco(page, 'Acessos de portais');
   const linha = acessos.getByRole('row', { name: /SEFAZ-MG/ });
