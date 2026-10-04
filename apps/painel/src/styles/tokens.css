@@ -117,6 +117,7 @@
   --assistant-chat-width: calc(470rem / 14); /* conversa da tela Assistente, à esquerda do resultado (utilitário w-chat-assistente) */
   --training-list-width: calc(330rem / 14); /* lista de orientações do Treinar o agente (utilitário w-lista-treinar) */
   --training-simulator-width: calc(410rem / 14); /* simulador do Treinar o agente (utilitário w-simulador-treinar) */
+  --client-index-width: calc(220rem / 14); /* índice de blocos da ficha do cliente (utilitário w-indice-ficha) */
   --shadow-sm: 0 1px 2px 0 hsl(222 30% 10% / 0.06); /* cards e campos */
   --shadow-md: 0 4px 12px -2px hsl(222 30% 10% / 0.12), 0 2px 4px -2px hsl(222 30% 10% / 0.08); /* menus, popovers, diálogos */
 

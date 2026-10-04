@@ -28,6 +28,7 @@ function Dado({ rotulo, children, largo = false }: { rotulo: string; children: R
 const vazio = <span className="text-subtle">—</span>;
 
 /**
+ * Só aparece quando o banco ainda não tem a migração da Parte H1 (D23); some numa parte futura.
  * Aba Dados: cadastro (leitura por padrão, "Editar" com permissão), serviços do contrato e responsável por setor.
  * Serviços e responsáveis continuam editáveis direto para quem tem a permissão (marcar e salvar); sem ela, só leitura.
  */

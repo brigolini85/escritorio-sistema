@@ -9,6 +9,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import { dataCadastro, sugestoesDeCargo, textoUltimoAcesso } from '@/lib/usuarios';
 import { salvarUsuario } from '../acoes';
 import { AvisoContato } from '../aviso-contato';
+import { ChaveVerAcessos } from '../chave-ver-acessos';
 import { FichaUsuario, type FichaDados } from '../ficha-usuario';
 import { ReenviarConvite } from '../reenviar-convite';
 
@@ -72,6 +73,8 @@ export default async function PaginaPessoa({ params }: { params: Promise<{ id: s
         )}
         rodape={<>Senha: convite enviado por e-mail · <ReenviarConvite id={u.id} /></>}
       />
+      {/* Sem a migração da Parte H1 a coluna não existe e o cartão some (D23). */}
+      {'ver_acessos_portais' in u && <ChaveVerAcessos id={u.id} nome={u.nome} inicial={Boolean(u.ver_acessos_portais)} admin={u.papel === 'admin'} />}
       {u.id !== eu.id && <div className="mt-6"><ExcluirCadastro tipo="usuario" id={u.id} nome={u.nome} variante="area" voltarPara="/usuarios" /></div>}
     </section>
   );

@@ -1,46 +1,34 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
-import { AvisoErro } from '@/components/patterns/aviso-erro';
-import { FormField } from '@/components/patterns/form-field';
-import { Button, variantesBotao } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
-import { salvarCliente } from '../acoes';
+import { supabaseServidor } from '@/lib/supabase/servidor';
+import { DadosFicha } from '../ficha/dados-ficha';
+import { NovoClienteAntigo } from './form-antigo';
 
+// Coluna ou tabela que não existe (Postgres e PostgREST): é o banco sem a migração da H1, não uma falha passageira.
+const SEM_MIGRACAO = new Set(['42703', '42P01', 'PGRST204', 'PGRST205']);
+
+/** Novo cliente = a mesma ficha, vazia (spec 7D.1, D25). Sem a migração da Parte H1 no banco, o formulário de hoje (D23). */
 export default async function NovoCliente({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
   const { erro } = await searchParams;
   const u = await obterUsuario();
   if (!temNivel(u, 'clientes', 'editar')) redirect('/clientes');
+  const sb = await supabaseServidor();
+  // GET de verdade (não HEAD): o HEAD não traz o erro de coluna inexistente no postgrest-js.
+  const { error } = await sb.from('clientes').select('logradouro').limit(1);
+  if (error && SEM_MIGRACAO.has(error.code)) return <NovoClienteAntigo erro={erro} />;
+  if (error) throw new Error(`Não consegui abrir o Novo cliente: ${error.message}`);
   return (
-    <section className="max-w-xl">
+    <div className="flex flex-col gap-4">
       <PageHeader
+        className="mb-0"
+        secao="Ficha do cliente"
         titulo="Novo cliente"
-        descricao="Depois de salvar, a ficha da empresa abre para cadastrar contatos, produtos e preços."
         migalhas={[{ rotulo: 'Clientes', href: '/clientes' }, { rotulo: 'Novo cliente' }]}
+        descricao={<>Depois de salvar, abrem as abas de contatos, produtos e preços. <span aria-hidden className="text-danger">*</span> campos obrigatórios (a ficha salva com pendências).</>}
       />
-      <AvisoErro erro={erro} prefixo="Não foi possível salvar: " />
-      <Card className="mt-4">
-        <form action={salvarCliente.bind(null, null)}>
-          <CardContent className="flex flex-col gap-4">
-            <FormField id="novo-razao" rotulo="Razão social" obrigatorio>
-              <Input name="razao_social" required autoComplete="off" />
-            </FormField>
-            <FormField id="novo-fantasia" rotulo="Nome fantasia" ajuda="Como a empresa é conhecida, se for diferente da razão social.">
-              <Input name="nome_fantasia" autoComplete="off" />
-            </FormField>
-            <FormField id="novo-cnpj" rotulo="CNPJ" obrigatorio>
-              <Input name="cnpj" required inputMode="numeric" placeholder="00.000.000/0000-00" autoComplete="off" />
-            </FormField>
-          </CardContent>
-          <CardFooter className="justify-end">
-            <Link href="/clientes" className={variantesBotao({ variant: 'outline' })}>Voltar</Link>
-            <Button type="submit">Salvar</Button>
-          </CardFooter>
-        </form>
-      </Card>
-    </section>
+      <DadosFicha c={null} u={u} />
+    </div>
   );
 }

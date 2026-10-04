@@ -94,6 +94,7 @@
   --spacing-chat-assistente: var(--assistant-chat-width);
   --spacing-lista-treinar: var(--training-list-width);
   --spacing-simulador-treinar: var(--training-simulator-width);
+  --spacing-indice-ficha: var(--client-index-width);
 
   /* Animações curtas (<= 150ms, ease-out) usadas pelos primitivos; zeradas com prefers-reduced-motion */
   --animate-aparecer: aparecer 150ms ease-out;
