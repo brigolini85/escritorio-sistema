@@ -96,6 +96,7 @@ export const lerVencidasSituacao = cache(async () => {
   const { data, error } = await sb.from('demandas_lista')
     .select('id, numero, titulo, empresa, setor, responsavel, prazo_em, prazo_pausado_desde')
     .is('vencida', true).order('prazo_em', { ascending: true }).limit(5);
+  if (error) console.error('[inicio] falha ao ler as vencidas', error);
   return error ? null : data ?? [];
 });
 
@@ -105,6 +106,7 @@ export const lerVencemHojeSituacao = cache(async () => {
   const fim = new Date(inicioDoDiaSP(agora).getTime() + UM_DIA_MS).toISOString();
   const { data, error } = await sb.from('demandas_lista').select('prioridade, prazo_em')
     .neq('status', 'concluido').is('prazo_pausado_desde', null).gte('prazo_em', agora.toISOString()).lt('prazo_em', fim).limit(500);
+  if (error) console.error('[inicio] falha ao ler as que vencem hoje', error);
   return error ? null : data ?? [];
 });
 
@@ -114,5 +116,6 @@ export const contarSemResponsavelAntigas = cache(async (minutos: number) => {
   const limite = new Date(agora.getTime() - minutos * 60_000).toISOString();
   const { count, error } = await sb.from('chamados').select('id', { count: 'exact', head: true })
     .neq('status', 'concluido').is('responsavel_id', null).lt('criado_em', limite);
+  if (error) console.error('[inicio] falha ao contar as sem responsável antigas', error);
   return error ? null : count ?? 0;
 });

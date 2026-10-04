@@ -24,14 +24,14 @@ export async function NumerosSituacao() {
         detalhe={!t ? indisponivel : doDia ? `${doDia.abertasHoje} abertas hoje · ${doDia.doAgente} do agente` : undefined}
         link={{ href: '/demandas', rotulo: 'Ver todas' }} />
       <NumeroInicio chave="vencem-hoje" titulo="Vencem hoje" valor={t?.vencemHoje ?? null} tom={(t?.vencemHoje ?? 0) > 0 ? 'atencao' : 'neutro'}
-        detalhe={detalheVencemHoje(hoje ?? []) ?? undefined}
+        detalhe={!t ? indisponivel : detalheVencemHoje(hoje ?? []) ?? undefined}
         link={{ href: '/demandas?prazo=hoje', rotulo: 'Ver na lista' }} />
       <NumeroInicio chave="vencidas" titulo="Vencidas" valor={t?.vencidas ?? null} tom={(t?.vencidas ?? 0) > 0 ? 'perigo' : 'neutro'}
-        detalhe={detalheMaisAtrasada(vencidas?.[0]?.prazo_em ?? null, agora) ?? undefined}
+        detalhe={!t ? indisponivel : detalheMaisAtrasada(vencidas?.[0]?.prazo_em ?? null, agora) ?? undefined}
         link={{ href: '/demandas?vencidas=1', rotulo: 'Ver na lista' }} />
       <NumeroInicio chave="sem-responsavel" titulo="Sem responsável" valor={t?.semResponsavel ?? null}
         tom={(antigas ?? 0) > 0 ? 'perigo' : 'neutro'}
-        detalhe={antigas === null ? undefined : `${antigas} há mais de ${minutos} min`}
+        detalhe={!t ? indisponivel : antigas === null ? undefined : `${antigas} há mais de ${minutos} min`}
         link={{ href: '/demandas?responsavel=sem', rotulo: 'Ver na lista' }} />
     </div>
   );

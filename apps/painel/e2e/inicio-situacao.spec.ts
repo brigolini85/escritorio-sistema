@@ -114,3 +114,68 @@ test('faixa: fila atrasada vira aviso âmbar que leva aos sinais de vida (D10)',
     if (antes?.length) await db.from('sinais_vida').insert(antes);
   }
 });
+
+test('Demandas por setor: linha do setor com barra em texto, link filtrado, Triagem e soma igual ao cartão', async ({ page }) => {
+  const NOME = 'E2E G2 Setor';
+  await db.from('chamados').delete().like('titulo', `${P} setor%`);
+  await db.from('setores').delete().eq('nome', NOME);
+  const { data: setor } = await db.from('setores').insert({ nome: NOME }).select('id').single();
+  const { data: admin } = await db.from('usuarios').select('id').eq('email', ADMIN.email).single();
+  try {
+    await demandaE2e({ titulo: `${P} setor hoje`, setor: NOME, status: 'em_andamento', prioridade: 'urgente', prazoEm: fimDeHoje() });
+    await demandaE2e({ titulo: `${P} setor vencida`, setor: NOME, status: 'em_andamento', prazoEm: '2020-01-02T21:00:00Z', responsavelId: admin!.id });
+    await demandaE2e({ titulo: `${P} setor depois`, setor: NOME, prazoEm: new Date(Date.now() + 10 * 86_400_000).toISOString() });
+    await entrar(page, ADMIN.email, SENHA);
+    await abrirInicio(page, 'situacao');
+    const tabela = page.getByRole('table', { name: 'Demandas por setor' });
+    const linha = tabela.getByRole('row', { name: new RegExp(NOME) });
+    // Situação (barra) · Abertas · Vencem hoje · Vencidas · Sem responsável · Urgentes
+    await expect(linha.getByRole('cell')).toHaveText(['', '3', '1', '1', '2', '1']);
+    await expect(linha.getByRole('img')).toHaveAttribute('aria-label', '1 vencida, 1 vence hoje, 1 no prazo');
+    await expect(linha.getByRole('link', { name: NOME })).toHaveAttribute('href', `/demandas?setor=${setor!.id}`);
+    // Os cartões são a soma da tabela (D5).
+    const abertas = await tabela.locator('tbody tr').evaluateAll((linhas) =>
+      linhas.reduce((s, l) => s + Number((l as HTMLTableRowElement).cells[2]?.textContent ?? 0), 0));
+    expect(abertas).toBe(await numeroInicio(page, 'demandas-abertas'));
+  } finally {
+    await db.from('chamados').delete().eq('setor_id', setor!.id);
+    await db.from('setores').delete().eq('id', setor!.id);
+  }
+});
+
+test('Esperando pessoa agora (cronômetro), Vencidas e um aviso que some com OK', async ({ page }) => {
+  // Sobras de outros specs com espera entrariam antes na lista de 5 (mesmo cuidado do atendimento-lista).
+  await db.from('conversas').delete().not('aguardando_pessoa_desde', 'is', null);
+  await db.from('conversas').delete().like('telefone', `${PREFIXO_TEL}%`);
+  await db.from('alertas').delete().like('mensagem', 'E2E G2 aviso%');
+  const { data: c } = await db.from('conversas').insert({
+    telefone: `${PREFIXO_TEL}0009`, aguardando_pessoa_desde: new Date(Date.now() - 18 * 60_000).toISOString(), motivo_pessoa: 'pediu para falar com pessoa',
+  }).select('id').single();
+  await db.from('mensagens').insert({ conversa_id: c!.id, direcao: 'entrada', autor: 'cliente', conteudo: 'quero falar com alguém', processada_em: new Date().toISOString() });
+  const vencida = await demandaE2e({ titulo: `${P} muito vencida`, setor: 'Fiscal', status: 'em_andamento', prazoEm: '2019-01-02T21:00:00Z' });
+  await db.from('alertas').insert({ nivel: 'aviso', mensagem: 'E2E G2 aviso: contato novo sem empresa' });
+  try {
+    await entrar(page, ADMIN.email, SENHA);
+    await abrirInicio(page, 'situacao');
+    const esperando = page.getByRole('region', { name: 'Esperando pessoa agora' });
+    const item = esperando.locator(`a[href="/atendimento/${c!.id}"]`);
+    await expect(item.locator('[data-espera="vermelho"]')).toContainText('18 min');
+    await expect(item).toContainText('pediu para falar com pessoa');
+
+    const vencidas = page.getByRole('region', { name: /^Vencidas/ });
+    const linhaVencida = vencidas.getByRole('link', { name: new RegExp(`#${vencida.numero}`) });
+    await expect(linhaVencida).toHaveAttribute('href', `/demandas?demanda=${vencida.id}`);
+    await expect(linhaVencida).toContainText('venceu 02/01');
+    await expect(linhaVencida).toContainText('sem responsável');
+
+    // Por id: o toaster também é uma região chamada "Avisos".
+    const avisos = page.locator('#avisos');
+    const aviso = avisos.getByRole('listitem').filter({ hasText: 'E2E G2 aviso: contato novo sem empresa' });
+    await aviso.getByRole('button', { name: 'ok' }).click();
+    await expect(aviso).toHaveCount(0);
+  } finally {
+    await db.from('conversas').delete().like('telefone', `${PREFIXO_TEL}%`);
+    await db.from('alertas').delete().like('mensagem', 'E2E G2 aviso%');
+    await limparDemandasE2e(P);
+  }
+});

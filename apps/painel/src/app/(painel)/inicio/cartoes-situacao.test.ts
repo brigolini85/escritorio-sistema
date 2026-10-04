@@ -10,6 +10,7 @@ vi.mock('./acoes', () => ({ alternarPausaGeral: vi.fn() }));
 (globalThis as { React?: unknown }).React = React;
 const { CartaoAgente } = await import('./cartao-agente');
 const { CartaoGasto } = await import('./cartao-gasto');
+const { NumerosSituacao } = await import('./numeros-situacao');
 
 // Banco falso como a homologação antes das migrações F e G2: sem a coluna cotacao_usd_brl e sem as funções novas.
 const FALHA = { data: null, count: null, error: { code: '42703', message: 'não existe' } };
@@ -35,7 +36,7 @@ function clienteFalso() {
         return FALHA;
       };
       const cadeia: Record<string, unknown> = {};
-      for (const m of ['eq', 'gte', 'in', 'is', 'order', 'limit']) cadeia[m] = () => cadeia;
+      for (const m of ['eq', 'neq', 'gte', 'lt', 'in', 'is', 'not', 'order', 'limit']) cadeia[m] = () => cadeia;
       cadeia.select = (c: string) => { colunas = c; return cadeia; };
       cadeia.maybeSingle = () => Promise.resolve(resposta());
       cadeia.then = (ok: (v: unknown) => unknown, erro?: (e: unknown) => unknown) => Promise.resolve(resposta()).then(ok, erro);
@@ -94,5 +95,16 @@ describe('Cartão do gasto', () => {
     Object.assign(cenario, { cotacao: true, rpc: { gastos_resumo: { total_usd: 2 } } });
     const html = renderToStaticMarkup(await CartaoGasto({ u: pessoa() }));
     expect(html).toContain('R$');
+  });
+});
+
+describe('Cinco números sem a demandas_por_setor (D21)', () => {
+  it('os quatro cartões de demandas dizem "indisponível" e as leituras que falharam ficam no log', async () => {
+    const html = renderToStaticMarkup(await NumerosSituacao());
+    expect(html.match(/indisponível: falta a atualização do banco/g)).toHaveLength(4);
+    const logs = vi.mocked(console.error).mock.calls.map((c) => String(c[0]));
+    expect(logs).toEqual(expect.arrayContaining([
+      '[inicio] falha ao ler as vencidas', '[inicio] falha ao ler as que vencem hoje', '[inicio] falha ao contar as sem responsável antigas',
+    ]));
   });
 });
