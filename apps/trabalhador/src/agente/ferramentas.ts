@@ -1,15 +1,22 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { MOTIVOS_PASSAGEM, escolherResponsavel, formatarMensagem } from '@escritorio/core';
+import type { AcessoContato } from '@escritorio/core';
 import type { Repos, UnidadeParceiro } from '@escritorio/db';
 import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
+import {
+  ACESSO_BASICO, INSTRUCAO_FORA_DO_ACESSO, ehBasico, observacoesDeAcesso, podeFluxoNota, SETORES_SEMPRE_ABERTOS, tituloSemValores, trataSetor,
+} from './acesso';
 import { buscarParceiros, buscarProdutos } from './cadastros';
 import type { ClienteIa } from './cliente-ia';
 import { acharResumoConferido, chaveConferencia, cnpjFormatado, formatarReais, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente, type ItemPedido } from './pedido-nota';
 import type { ContextoAgente } from './contexto';
 
 export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
-export type EstadoExecucao = { ctx: ContextoAgente; respondeu: boolean; /** Execução atual (executarAgente); liga decisões e mensagens. */ turno?: string };
+export type EstadoExecucao = {
+  ctx: ContextoAgente; respondeu: boolean; /** Execução atual (executarAgente); liga decisões e mensagens. */ turno?: string;
+  /** Já mandou a resposta neutra neste turno (Parte H2): não manda de novo. */ recusou?: boolean;
+};
 
 const TRIAGEM = 'triagem';
 const MAX_PARTES_RESPOSTA = 3;
@@ -227,6 +234,11 @@ export const AVISOS = {
   instrucaoEquipeContinua: 'Diga ao cliente que uma pessoa da equipe vai continuar o atendimento.',
   instrucaoPessoaChamada: 'A equipe já foi avisada. Diga ao cliente, curto, que já chamou alguém da equipe para continuar.',
   instrucaoResumo: 'O resumo já chegou ao cliente. Se for a última nota a resumir agora, pergunte numa mensagem curta se está tudo certo e se tem mais alguma nota. Não repita o resumo.',
+  basicoSemConsulta: 'Este contato ainda não consulta o andamento pelo WhatsApp. Diga que vai confirmar com a equipe e abra uma demanda curta no setor do assunto. Não fale em permissão, acesso nem cadastro.',
+  basicoSemDocumentos: 'Este contato ainda não recebe documentos pelo WhatsApp. Abra uma demanda para a equipe enviar. Não fale em permissão, acesso nem cadastro.',
+  basicoSemDados: 'Este contato ainda não consulta dados pelo WhatsApp. Abra uma demanda para a equipe responder. Não fale em permissão, acesso nem cadastro.',
+  semFluxoNota: 'Este contato não pede nota nem consulta preços e cadastros pelo WhatsApp. Abra uma demanda no Fiscal com o pedido exatamente como o cliente escreveu. Não fale em permissão, acesso nem cadastro.',
+  instrucaoForaDoAcesso: INSTRUCAO_FORA_DO_ACESSO,
 };
 
 /** O escritório não usa emoji com os clientes (pedido do dono, 2026-09-29): tira o que o modelo escapar. */
@@ -266,6 +278,32 @@ export function exigirEmpresa(estado: EstadoExecucao): { clienteId: string } | R
   const empresa = estado.ctx.empresaEmFoco;
   if (!empresa) return falha('Nenhuma empresa definida para este contato. Número desconhecido: use abrir_chamado com "triagem".');
   return { clienteId: empresa.id };
+}
+
+/** Acesso do contato na empresa, lido a cada ferramenta (mudança no painel vale na hora). Simulação: o fixo (D9). */
+export async function acessoNaEmpresa(d: DepsAgente, estado: EstadoExecucao, clienteId: string): Promise<AcessoContato> {
+  if (estado.ctx.acessoFixo) return estado.ctx.acessoFixo;
+  const contato = estado.ctx.contato;
+  if (!contato) return ACESSO_BASICO;
+  try {
+    return (await d.repos.acessoDoContato(contato.id, clienteId)) ?? ACESSO_BASICO;
+  } catch (erro) {
+    // Sem conseguir ler o acesso, nega como Básico: nunca acesso total (revisão das Tasks 3–4).
+    console.error('[acesso] não lido; tratado como Básico', contato.id, clienteId, erro);
+    return ACESSO_BASICO;
+  }
+}
+
+/** Documentos que este contato pode receber; na simulação, os da empresa (como antes). */
+async function documentosVisiveis(d: DepsAgente, estado: EstadoExecucao, clienteId: string) {
+  return estado.ctx.acessoFixo ? d.repos.documentosDaEmpresa(clienteId) : d.repos.documentosParaContato(estado.ctx.contato!.id, clienteId);
+}
+
+/** Nota, preço e cadastros de parceiros só para quem pode (D10); o resto vira instrução para abrir demanda no Fiscal. */
+async function exigirFluxoNota(d: DepsAgente, estado: EstadoExecucao, clienteId: string): Promise<Resultado | null> {
+  const acesso = await acessoNaEmpresa(d, estado, clienteId);
+  const fiscal = estado.ctx.setores.find((s) => s.nome === 'Fiscal')?.id ?? null;
+  return podeFluxoNota(acesso, fiscal) ? null : ok({ instrucao: AVISOS.semFluxoNota });
 }
 
 export function avisoForaDoHorario(ctx: ContextoAgente): string | null {
@@ -324,6 +362,14 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
         setorId = setor.id;
       }
       const clienteId = desconhecido ? null : ctx.empresaEmFoco?.id ?? null;
+      let resumo = entrada.resumo;
+      if (clienteId) {
+        const acesso = await acessoNaEmpresa(d, estado, clienteId);
+        const setor = ctx.setores.find((s) => s.id === setorId) ?? null;
+        const sempreAberto = setor === null || SETORES_SEMPRE_ABERTOS.includes(setor.nome);
+        // Task 6: aqui entra a recusa fora do acesso (setor não marcado e não sempre aberto, ou valores sem "Ver valores").
+        resumo = [entrada.resumo, ...observacoesDeAcesso(acesso)].join('\n\n');
+      }
       const responsavelId = clienteId ? escolherResponsavel(setorId, await d.repos.responsaveisDoCliente(clienteId)) : null;
       // Triagem já aberta nesta conversa: acrescenta as informações novas em vez de abrir outra.
       const triagemAberta = setorId === null
@@ -336,7 +382,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       } else {
         ({ numero } = await d.repos.abrirChamado({
           clienteId, conversaId: ctx.conversa.id, setorId, responsavelId,
-          titulo: entrada.titulo, resumo: entrada.resumo, foraDoContrato: entrada.fora_do_contrato, origem: 'agente',
+          titulo: entrada.titulo, resumo, foraDoContrato: entrada.fora_do_contrato, origem: 'agente',
           prioridade: entrada.prioridade,
         }));
       }
@@ -350,8 +396,15 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       const bloqueio = empresaDefinida(estado);
       if (bloqueio) return bloqueio;
       if (!ctx.empresaEmFoco) return ok({ chamados: [] });
-      const chamados = await d.repos.chamadosAbertosDoCliente(ctx.empresaEmFoco.id);
-      return ok({ chamados: chamados.map((c) => ({ numero: c.numero, titulo: c.titulo, status: c.status, setor: c.setor_nome ?? 'Triagem', aberta_em: diaMes(c.criado_em) })) });
+      const acesso = await acessoNaEmpresa(d, estado, ctx.empresaEmFoco.id);
+      if (ehBasico(acesso)) return ok({ chamados: [], instrucao: AVISOS.basicoSemConsulta });
+      // Só os setores deste contato e a Triagem da conversa dele (Parte H2); a simulação lê como antes.
+      const chamados: { numero: number; titulo: string; status: string; setor_nome: string | null; criado_em: string }[] = ctx.acessoFixo
+        ? await d.repos.chamadosAbertosDoCliente(ctx.empresaEmFoco.id)
+        : await d.repos.demandasParaContato(ctx.contato!.id, ctx.empresaEmFoco.id, ctx.conversa.id);
+      // Sem "Ver valores", o valor em reais escrito no título não sai (revisão das Tasks 1–2; o assunto fica).
+      const titulo = (t: string) => (acesso.verValores ? t : tituloSemValores(t));
+      return ok({ chamados: chamados.map((c) => ({ numero: c.numero, titulo: titulo(c.titulo), status: c.status, setor: c.setor_nome ?? 'Triagem', aberta_em: diaMes(c.criado_em) })) });
     }
 
     case 'sinalizar_nao_entendido': {
@@ -386,18 +439,24 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     case 'buscar_parceiros': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
+      const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+      if (semNota) return semNota;
       return ok({ candidatos: await buscarParceiros(d.repos, e.clienteId, entrada.texto, entrada.tipo) });
     }
 
     case 'buscar_produtos': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
+      const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+      if (semNota) return semNota;
       return ok({ resultados: await buscarProdutos(d.repos, e.clienteId, entrada.textos) });
     }
 
     case 'resumir_pedido_nota': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
+      const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+      if (semNota) return semNota;
       const p = await prepararPedido(d, e.clienteId, entrada);
       if ('erro' in p) return p;
       const atual = await d.repos.obterConversa(ctx.conversa.id);
@@ -417,6 +476,8 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     case 'abrir_pedido_nota': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
+      const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+      if (semNota) return semNota;
       if (!entrada.cliente_confirmou_resumo) {
         return falha(AVISOS.pedidoSemConfirmacao);
       }
@@ -460,14 +521,17 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     case 'listar_documentos': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
-      const docs = await d.repos.documentosDaEmpresa(e.clienteId);
+      if (ehBasico(await acessoNaEmpresa(d, estado, e.clienteId))) return ok({ documentos: [], instrucao: AVISOS.basicoSemDocumentos });
+      const docs = await documentosVisiveis(d, estado, e.clienteId);
       return ok({ documentos: docs.map((x) => ({ id: x.id, nome: x.nome, ia_pode_enviar: x.iaPodeEnviar })) });
     }
 
     case 'enviar_documento': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
-      const doc = (await d.repos.documentosDaEmpresa(e.clienteId)).find((x) => x.id === entrada.documento_id);
+      if (ehBasico(await acessoNaEmpresa(d, estado, e.clienteId))) return ok({ enviado: false, instrucao: AVISOS.basicoSemDocumentos });
+      // Fora do acesso é igual a não existir: o modelo não fica sabendo que o documento existe (spec 7D.2).
+      const doc = (await documentosVisiveis(d, estado, e.clienteId)).find((x) => x.id === entrada.documento_id);
       if (!doc) return falha(AVISOS.documentoNaoEncontrado);
       if (!doc.iaPodeEnviar) return falha(AVISOS.documentoNaoLiberado);
       const atual = await d.repos.obterConversa(ctx.conversa.id);
@@ -481,6 +545,11 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     case 'consultar_cadastro': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
+      if (ehBasico(await acessoNaEmpresa(d, estado, e.clienteId))) return ok({ instrucao: AVISOS.basicoSemDados });
+      if (entrada.unidade_id) {
+        const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+        if (semNota) return semNota;
+      }
       if (!entrada.unidade_id) {
         const x = await d.repos.dadosDaEmpresa(e.clienteId);
         return ok({ empresa: { razao_social: x.razaoSocial, nome_fantasia: x.nomeFantasia, cnpj: cnpjFormatado(x.cnpj),
@@ -497,6 +566,8 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     case 'alterar_preco': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
+      const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+      if (semNota) return semNota;
       const unidade = (await d.repos.unidadesDaEmpresa(e.clienteId, 'cliente')).find((u) => u.id === entrada.unidade_id);
       if (!unidade) return falha('Essa unidade não é um cliente cadastrado desta empresa. Use buscar_parceiros.');
       const produto = (await d.repos.produtosDaEmpresa(e.clienteId)).find((p) => p.id === entrada.produto_id);
@@ -520,6 +591,8 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     case 'cadastrar_produto': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
+      const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+      if (semNota) return semNota;
       if (!entrada.confirmado_pelo_cliente) {
         return falha(AVISOS.produtoSemConfirmacao);
       }

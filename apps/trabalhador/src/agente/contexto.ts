@@ -1,4 +1,4 @@
-import { empresaDoUso, estaNoExpediente } from '@escritorio/core';
+import { empresaDoUso, estaNoExpediente, type AcessoContato } from '@escritorio/core';
 import type { Configuracoes, ContatoEncontrado, Conversa, EmpresaDoContato, OrientacaoAgente, Repos } from '@escritorio/db';
 
 export type ContextoAgente = {
@@ -13,6 +13,8 @@ export type ContextoAgente = {
   noExpediente: boolean;
   config: Configuracoes;
   agora: Date;
+  /** Simulação (Treinar o agente): acesso fixo, sem ler o banco (o contato fictício não existe, D9). */
+  acessoFixo?: AcessoContato;
 };
 
 export async function carregarContexto(

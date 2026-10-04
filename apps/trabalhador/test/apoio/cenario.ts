@@ -1,3 +1,4 @@
+import type { Perfil } from '@escritorio/core';
 import { criarClienteServico, criarRepos } from '@escritorio/db';
 
 export const db = criarClienteServico(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -8,15 +9,49 @@ export async function setorId(nome: string): Promise<string> {
   return data!.id;
 }
 
-/** Cria empresas (CNPJs distintos), um contato ligado a elas e a conversa do contato. */
-export async function contatoComEmpresas(nomes: string[], telefone = '5531999990001') {
+/** Acesso de um contato numa empresa, para testes e cenários (Parte H2). */
+export type AcessoTeste = {
+  perfil?: Perfil; setores?: string[] | 'todos'; procurado?: string[]; verValores?: boolean; receberDocumentos?: boolean;
+  podePedirNota?: boolean; podeAtualizarPreco?: boolean; recebeAlertasAcesso?: boolean;
+};
+
+/** O que todo contato podia antes da Parte H2 (D19): todos os setores, valores e documentos; nota e preço como estão. */
+export const ACESSO_DE_ANTES: AcessoTeste = { perfil: 'personalizado', setores: 'todos', verValores: true, receberDocumentos: true };
+
+export async function definirAcessoTeste(contatoId: string, clienteId: string, a: AcessoTeste): Promise<void> {
+  const patch: {
+    perfil: Perfil; ver_valores: boolean; receber_documentos: boolean; recebe_alertas_acesso: boolean; pode_pedir_nota?: boolean; pode_atualizar_preco?: boolean;
+  } = {
+    perfil: a.perfil ?? 'personalizado', ver_valores: a.verValores ?? false, receber_documentos: a.receberDocumentos ?? false,
+    recebe_alertas_acesso: a.recebeAlertasAcesso ?? false,
+  };
+  if (a.podePedirNota !== undefined) patch.pode_pedir_nota = a.podePedirNota;
+  if (a.podeAtualizarPreco !== undefined) patch.pode_atualizar_preco = a.podeAtualizarPreco;
+  // Preparo que falha em silêncio deixaria o contato Básico e o teste mediria outra coisa: erro aqui para o teste.
+  const falhou = (r: { error: { message: string } | null }) => { if (r.error) throw new Error('definirAcessoTeste: ' + r.error.message); };
+  falhou(await db.from('contato_clientes').update(patch).eq('contato_id', contatoId).eq('cliente_id', clienteId));
+  falhou(await db.from('contato_cliente_setores').delete().eq('contato_id', contatoId).eq('cliente_id', clienteId));
+  const { data: setores } = await db.from('setores').select('id, nome').eq('ativo', true);
+  const escolhidos = (setores ?? []).filter((s) => a.setores === 'todos' || (a.setores ?? []).includes(s.nome));
+  if (escolhidos.length) {
+    falhou(await db.from('contato_cliente_setores').insert(escolhidos.map((s) => ({
+      contato_id: contatoId, cliente_id: clienteId, setor_id: s.id, pode_ser_procurado: (a.procurado ?? []).includes(s.nome),
+    }))));
+  }
+}
+
+/** Cria empresas (CNPJs distintos), um contato ligado a elas (com o acesso pedido em todas) e a conversa do contato. */
+export async function contatoComEmpresas(nomes: string[], telefone = '5531999990001', acesso: AcessoTeste = ACESSO_DE_ANTES) {
   const empresas = [];
   for (const [i, nome] of nomes.entries()) {
     const { data } = await db.from('clientes').insert({ razao_social: nome, cnpj: String(11222333000100 + i).padStart(14, '0') }).select().single();
     empresas.push(data!);
   }
   const { data: contato } = await db.from('contatos').insert({ nome: 'João', telefone }).select().single();
-  for (const e of empresas) await db.from('contato_clientes').insert({ contato_id: contato!.id, cliente_id: e.id });
+  for (const e of empresas) {
+    await db.from('contato_clientes').insert({ contato_id: contato!.id, cliente_id: e.id });
+    await definirAcessoTeste(contato!.id, e.id, acesso);
+  }
   const conversa = await repos.obterOuCriarConversa(telefone, contato!.id);
   return { empresas, contato: contato!, conversa };
 }

@@ -4,6 +4,7 @@ import { podeVerChamado } from '../assistente/visibilidade';
 import type { CanalWhatsApp } from '../canal/tipos';
 import { LimitadorEnvio } from '../envio';
 import type { ArmazenamentoMidia } from '../midia/armazenamento';
+import { acessoTotal } from './acesso';
 import { erroTemporarioIa, type ClienteIa } from './cliente-ia';
 import type { ContextoAgente } from './contexto';
 import { executarAgente, type ResultadoAgente } from './executar';
@@ -380,6 +381,7 @@ async function simular(
     noExpediente: estaNoExpediente(agora, config.expediente),
     config,
     agora,
+    acessoFixo: acessoTotal(setores),
   };
 
   const registro: Registro = { mensagens: [], acoes: [], observacoes: [], resumos: [], demandas: 0, triagemAberta: false, naoEntendido: 0 };
