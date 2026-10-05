@@ -1,8 +1,8 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { INFO_TIPO_SKILL, MOTIVOS_PASSAGEM, escolherResponsavel, formatarMensagem } from '@escritorio/core';
-import type { AcessoContato } from '@escritorio/core';
-import type { Repos, UnidadeParceiro } from '@escritorio/db';
+import type { AcessoContato, ModoContato } from '@escritorio/core';
+import type { AgenteSetor, Repos, UnidadeParceiro } from '@escritorio/db';
 import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
 import {
   ACESSO_BASICO, INSTRUCAO_FORA_DO_ACESSO, ehBasico, observacoesDeAcesso, podeFluxoNota, SETORES_SEMPRE_ABERTOS, tituloSemValores, trataSetor,
@@ -15,9 +15,16 @@ import type { ContextoAgente } from './contexto';
 import { AVISOS_SKILL, TAMANHO_PARTE_REFERENCIA } from './skills';
 
 export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
+/** Parte I2 (D4): o que o agente do setor entrega ao Thiago no modo por trás. */
+export type Devolucao = { respostaAoCliente: string; paraAEquipe: string | null };
 export type EstadoExecucao = {
   ctx: ContextoAgente; respondeu: boolean; /** Execução atual (executarAgente); liga decisões e mensagens. */ turno?: string;
   /** Já mandou a resposta neutra neste turno (Parte H2): não manda de novo. */ recusou?: boolean;
+  /** Parte I2: o agente do setor desta execução (sem ele, o Thiago) e o modo em que ele fala. */ agenteSetor?: AgenteSetor; modo?: ModoContato;
+  /** O que o cliente mandou nesta vez: vai junto para o agente do setor que o Thiago chamar (D1). */ conteudo?: Anthropic.ContentBlockParam[];
+  /** Uma chamada de agente por vez (D16). */ chamouAgente?: boolean;
+  /** Fim da parte do agente do setor: a resposta para o Thiago (por trás) ou a devolução (D4, D6). */ devolucao?: Devolucao; devolvido?: string;
+  /** O acesso do contato ao setor do agente já foi conferido nesta execução (D7). */ acessoSetorConferido?: boolean;
 };
 
 const TRIAGEM = 'triagem';
@@ -668,17 +675,19 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     }
 
     case 'ler_skill': {
-      // Só as skills do perfil: ligadas do próprio agente (e a em teste, na simulação). D5.
-      const s = ctx.agente?.skills.find((x) => x.nome === entrada.nome);
+      // Só as skills do perfil desta execução: ligadas do próprio agente (e a em teste, na simulação). D5 da I1.
+      const perfil = estado.agenteSetor ?? ctx.agente;
+      const s = perfil?.skills.find((x) => x.nome === entrada.nome);
       if (!s) return falha(AVISOS_SKILL.naoEncontrada);
       return ok({ nome: s.nome, tipo: INFO_TIPO_SKILL[s.tipo].rotulo, titulo: s.titulo, versao: s.versao, texto: s.corpo, arquivos: s.arquivos });
     }
 
     case 'ler_referencia': {
-      const s = ctx.agente?.skills.find((x) => x.nome === entrada.skill);
-      if (!s || !ctx.agente?.id) return falha(AVISOS_SKILL.naoEncontrada);
+      const perfil = estado.agenteSetor ?? ctx.agente;
+      const s = perfil?.skills.find((x) => x.nome === entrada.skill);
+      if (!s || !perfil?.id) return falha(AVISOS_SKILL.naoEncontrada);
       if (!s.arquivos.includes(entrada.arquivo)) return falha(AVISOS_SKILL.arquivoNaoEncontrado);
-      const texto = await d.repos.referenciaDaSkill(ctx.agente.id, s.nome, entrada.arquivo, ctx.agente.skillEmTeste);
+      const texto = await d.repos.referenciaDaSkill(perfil.id, s.nome, entrada.arquivo, perfil.skillEmTeste);
       if (texto === null) return falha(AVISOS_SKILL.arquivoNaoEncontrado);
       const partes = Math.max(1, Math.ceil(texto.length / TAMANHO_PARTE_REFERENCIA));
       if (entrada.parte > partes) return falha(AVISOS_SKILL.parteInvalida);
@@ -730,7 +739,7 @@ export async function executarFerramenta(d: DepsAgente, estado: EstadoExecucao, 
   if ((nome === 'ler_skill' || nome === 'ler_referencia') && typeof saida.texto === 'string') saida.texto = `(${saida.texto.length} caracteres)`;
   await d.repos.registrarDecisao({
     conversaId: estado.ctx.conversa.id, clienteId: estado.ctx.empresaEmFoco?.id ?? null,
-    etapa: nome, entrada, saida, turno: estado.turno ?? null,
+    etapa: nome, entrada, saida, turno: estado.turno ?? null, agenteId: estado.agenteSetor?.id ?? null,
   });
   return r;
 }
