@@ -1,6 +1,6 @@
 import { montarCsvVendaBling, pedidoVendaBling, type PedidoVendaSalvo } from '@escritorio/core';
 import { limparBanco } from '@escritorio/db/teste';
-import { contatoComEmpresas, criarCadastrosExemplo, db, repos, setorId } from '../../test/apoio/cenario';
+import { contatoComEmpresas, criarCadastrosExemplo, db, definirAcessoTeste, repos, setorId } from '../../test/apoio/cenario';
 import { criarClienteIa } from '../agente/cliente-ia';
 import { ORIENTACOES_SKILL_DONO } from '../agente/orientacoes-skill-dono';
 import { CanalFalso } from '../canal/falso';
@@ -34,10 +34,23 @@ async function preparar(c: Cenario) {
     await criarOrientacoes(c, []);
     return repos.obterOuCriarConversa('5531988887777', null);
   }
-  const { empresas, conversa } = await contatoComEmpresas(c.empresas);
+  const { empresas, conversa } = await contatoComEmpresas(c.empresas, undefined, c.acesso);
   await criarOrientacoes(c, empresas.map((e) => e.id));
   if (c.empresaEmFoco !== undefined) await repos.atualizarConversa(conversa.id, { cliente_em_foco: empresas[c.empresaEmFoco]!.id });
   if (c.cadastros) await criarCadastrosExemplo(empresas[0]!.id);
+  if (c.socio) {
+    const { data: s } = await db.from('contatos').insert({ nome: c.socio.nome, telefone: c.socio.telefone }).select('id').single();
+    await db.from('contato_clientes').insert({ contato_id: s!.id, cliente_id: empresas[0]!.id });
+    await definirAcessoTeste(s!.id, empresas[0]!.id,
+      { perfil: 'socio', setores: 'todos', verValores: true, receberDocumentos: true, recebeAlertasAcesso: true, podePedirNota: true, podeAtualizarPreco: true });
+  }
+  const pdf = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 52]);   // "%PDF-1.4"
+  for (const doc of c.documentosDoSetor ?? []) {
+    const arquivo_path = `clientes/${empresas[0]!.id}/${doc.arquivo}`;
+    await db.storage.from('documentos').upload(arquivo_path, pdf, { contentType: 'application/pdf', upsert: true });
+    await db.from('documentos_empresa').insert({ cliente_id: empresas[0]!.id, nome: doc.nome, arquivo_path, arquivo_nome: doc.arquivo,
+      ia_pode_enviar: doc.iaPodeEnviar, setor_id: doc.setor ? await setorId(doc.setor) : null, tem_valores: doc.temValores ?? false });
+  }
   if (c.podeAtualizarPreco) await db.from('contato_clientes').update({ pode_atualizar_preco: true }).eq('cliente_id', empresas[0]!.id);
   for (const nome of c.servicos ?? []) {
     const { data: s } = await db.from('servicos').insert({ nome }).select().single();
@@ -112,7 +125,9 @@ async function rodar(c: Cenario): Promise<string[]> {
   const { data: chamados } = await db.from('chamados').select('setor_id, fora_do_contrato, titulo, resumo, setores(nome), origem, prioridade, prazo_em').eq('conversa_id', conversa.id).eq('origem', 'agente');
   const { data: decisoes } = await db.from('decisoes_agente').select('etapa').eq('conversa_id', conversa.id);
   const etapas = (decisoes ?? []).map((d) => d.etapa);
-  const respostas = canal.enviados.map((e) => e.texto ?? '').join('\n');
+  // Só o que o contato recebeu: o aviso ao sócio vai para outro telefone (Parte H2).
+  const doContato = canal.enviados.filter((x) => x.telefone === conversa.telefone);
+  const respostas = doContato.map((e) => e.texto ?? '').join('\n');
   const falhas: string[] = [...falhasRodada1];
   const e = c.espera;
   if (e.precoFinal) {
@@ -144,15 +159,23 @@ async function rodar(c: Cenario): Promise<string[]> {
   for (const t of e.csvBlingContem ?? []) if (!csvs.some((x) => x.includes(t))) falhas.push(`CSV do Bling deveria conter "${t}"; obtido ${JSON.stringify(csvs)}`);
   for (const t of e.tituloContem ?? []) if (!chamados?.some((x) => x.titulo.toLowerCase().includes(t.toLowerCase()))) falhas.push(`título do chamado deveria conter "${t}"`);
   for (const t of e.respostaContem ?? []) if (!respostas.toLowerCase().includes(t.toLowerCase())) falhas.push(`resposta deveria conter "${t}"`);
-  const arquivos = canal.enviados.flatMap((x) => (x.arquivo ? [x.arquivo] : []));
+  const arquivos = doContato.flatMap((x) => (x.arquivo ? [x.arquivo] : []));
   if (e.documentoEnviado && !arquivos.includes(e.documentoEnviado)) falhas.push(`esperava enviar ${e.documentoEnviado}; enviou ${JSON.stringify(arquivos)}`);
   if (e.semDocumento && arquivos.length) falhas.push(`não deveria enviar documento; enviou ${JSON.stringify(arquivos)}`);
+  for (const a of e.naoEnviar ?? []) if (arquivos.includes(a)) falhas.push(`não deveria enviar ${a}; enviou ${JSON.stringify(arquivos)}`);
   const digitos = respostas.replace(/\D/g, '');
   for (const n of e.respostaContemNumero ?? []) if (!digitos.includes(n)) falhas.push(`resposta deveria trazer o número ${n}`);
   for (const t of e.semTexto ?? []) if (respostas.toLowerCase().includes(t.toLowerCase())) falhas.push(`resposta não deveria conter "${t}"`);
   if (/\p{Extended_Pictographic}/u.test(respostas)) falhas.push('resposta não deveria ter emoji');
   // O cliente conversa com o escritório, não com um sistema: termos internos não aparecem nas respostas.
   for (const t of ['chamado', 'protocolo', 'ticket', 'triagem']) if (respostas.toLowerCase().includes(t)) falhas.push(`resposta não deveria falar em "${t}"`);
+  if (e.foraDoAcesso && !chamados?.some((x) => x.setores?.nome === e.foraDoAcesso && x.titulo.startsWith('Fora do acesso'))) {
+    falhas.push(`esperava a demanda "Fora do acesso" no ${e.foraDoAcesso}; obteve ${JSON.stringify(chamados?.map((x) => `${x.setores?.nome ?? 'triagem'}: ${x.titulo}`))}`);
+  }
+  if (e.avisosAoSocio !== undefined) {
+    const n = canal.enviados.filter((x) => x.telefone === c.socio?.telefone).length;
+    if (n !== e.avisosAoSocio) falhas.push(`esperava ${e.avisosAoSocio} aviso(s) ao sócio; obteve ${n}`);
+  }
   return falhas;
 }
 
