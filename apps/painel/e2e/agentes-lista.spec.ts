@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { limparBanco } from '@escritorio/db/teste';
+import { limparBanco, marcarDonoTeste } from '@escritorio/db/teste';
 import { criarUsuarioTeste, db, entrar } from './apoio';
 import { SENHA, criarDono } from './apoio-agentes';
 
@@ -45,4 +45,13 @@ test('quem treina vê os agentes sem números nem + NOVO AGENTE; sem a marcaçã
   await expect(page.getByRole('link', { name: 'Agentes' })).toHaveCount(0);
   await page.goto('/agentes');
   await expect(page.getByText('Você não tem acesso a esta tela.')).toBeVisible();
+});
+
+test('dono que não é administrador nem treina: o menu mostra Agentes e a tela abre como dono', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'bia@agentes.local', senha: SENHA, nome: 'Bia Dona', papel: 'atendente' }).then(marcarDonoTeste);
+  await entrar(page, 'bia@agentes.local', SENHA);
+  await page.getByRole('link', { name: 'Agentes' }).click();
+  await expect(page).toHaveURL(/\/agentes$/);
+  await expect(page.locator('[data-testid^="agente-"]')).toHaveCount(7);
+  await expect(page.getByRole('button', { name: 'Novo agente' })).toBeVisible();
 });

@@ -30,6 +30,7 @@ export function CabecalhoAgente({ agente: a, dono, numeros, mostrarNumeros, cont
   const [achados, setAchados] = useState<ContatoTeste[]>([]);
   const Icone = ICONE_AGENTE[a.slug] ?? Bot;
   const podeEstado = dono && !a.portaDeEntrada;
+  const semPreco = a.modelo !== null && !modelos.comPreco.includes(a.modelo);
   const avisar = (r: { ok: true } | { ok: false; erro: string }, texto: string) => {
     if (r.ok) { toast(texto); router.refresh(); } else toast.error(r.erro);
     return r.ok;
@@ -80,9 +81,11 @@ export function CabecalhoAgente({ agente: a, dono, numeros, mostrarNumeros, cont
               <select aria-label="Modelo de IA" value={a.modelo ?? ''} disabled={enviando} onChange={(e) => mudarModelo(e.target.value)}
                 className="h-8 rounded-md border border-input bg-surface px-2 text-sm font-bold">
                 <option value="">Padrão de Configurações ({modelos.padrao})</option>
+                {/* Modelo cujo preço saiu de Configurações: continua aparecendo, marcado, em vez de virar "Padrão…". */}
+                {semPreco && <option value={a.modelo!}>{a.modelo} (sem preço)</option>}
                 {modelos.comPreco.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
-            ) : <span className="font-bold">{a.modelo ?? modelos.padrao}</span>}
+            ) : <span className="font-bold">{a.modelo ?? modelos.padrao}{semPreco ? ' (sem preço)' : ''}</span>}
             <span className="text-xs text-muted">{a.modelo ? 'escolhido para este agente' : 'troca em Configurações'}</span>
           </div>
           {mostrarNumeros && (
@@ -141,6 +144,10 @@ export function CabecalhoAgente({ agente: a, dono, numeros, mostrarNumeros, cont
                 </ul>
               )}
             </div>
+          )}
+          {/* Clicou em TESTE sem contatos: o estado ainda não mudou; Cancelar fecha a faixa sem gravar nada. */}
+          {escolhendo && a.estado !== 'teste' && (
+            <div><Button size="sm" variant="outline" onClick={() => { setEscolhendo(false); setBusca(''); }} disabled={enviando}>Cancelar</Button></div>
           )}
         </div>
       )}

@@ -2,7 +2,7 @@
 -- por SQL; os 7 agentes iniciais; o Thiago travado como "Ligado, mesma voz"; orientações pelo setor do agente.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(47);
+select plan(50);
 
 update public.usuarios set dono = false where dono;   -- outro teste ou e2e pode ter deixado um dono
 insert into auth.users (id, email) values
@@ -128,6 +128,17 @@ select throws_ok($$ update public.agentes set estado = 'ligado' where slug = 'fi
 select throws_ok($$ insert into public.agente_mudancas (agente_id, descricao) values ('a0000000-0000-4000-8000-000000000001', 'x') $$, '42501', null, 'service_role não escreve o histórico');
 select throws_ok($$ select public.mudanca_agente('a0000000-0000-4000-8000-000000000001', 'x') $$, '42501', null, 'service_role não chama o ajudante do histórico');
 reset role;
+
+-- 48–50: o preço de um modelo em uso por um agente não sai de Configurações (senão o custo dele viraria 0 e furaria o teto)
+update public.agentes set modelo = null;
+update public.agentes set modelo = 'claude-haiku-4-5' where slug = 'fiscal';
+select throws_ok($$ update public.configuracoes set precos_modelos = precos_modelos - 'claude-haiku-4-5' where id = 1 $$,
+  'P0001', 'O modelo claude-haiku-4-5 está em uso por: Agente Fiscal. Troque o modelo desses agentes antes de tirar o preço.', 'preço em uso não sai');
+select lives_ok($$ update public.configuracoes set precos_modelos = precos_modelos || '{"modelo-novo": {"entrada": 1, "saida": 1, "cacheLeitura": 0, "cacheEscrita": 0}}' where id = 1 $$,
+  'acrescentar preço continua livre');
+update public.agentes set modelo = null where modelo = 'claude-haiku-4-5';
+select lives_ok($$ update public.configuracoes set precos_modelos = precos_modelos - 'claude-haiku-4-5' where id = 1 $$,
+  'sem agente usando, o preço sai');
 
 select * from finish();
 rollback;

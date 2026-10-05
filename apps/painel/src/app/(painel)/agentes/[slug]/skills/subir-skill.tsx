@@ -6,9 +6,11 @@ import { toast } from 'sonner';
 import { INFO_TIPO_SKILL, TIPOS_SKILL, type TipoSkill } from '@escritorio/core';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
+import { escolherArquivosSkill, passaDoEnvio } from '@/lib/escolha-skill';
 import { subirSkill } from '@/lib/skills-acoes';
 
-type Escolhido = { arquivo: File; caminho: string };
+type Escolhido = { arquivo: File; caminho: string; tamanho: number };
+const FALHA_ENVIO = 'Não consegui enviar a skill. Tente de novo.';
 
 /** SUBIR SKILL (spec 7E.3, D8): pasta, .zip ou .md; o tipo do cabeçalho vence; sem ele, vale o escolhido aqui. */
 export function SubirSkill({ slug }: { slug: string }) {
@@ -17,20 +19,32 @@ export function SubirSkill({ slug }: { slug: string }) {
   const [tipo, setTipo] = useState<TipoSkill | null>(null);
   const [escolhidos, setEscolhidos] = useState<Escolhido[]>([]);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [deFora, setDeFora] = useState<string[]>([]);
   const [enviando, iniciar] = useTransition();
   // webkitdirectory não é atributo conhecido do React: liga direto no elemento.
   useEffect(() => { pasta.current?.setAttribute('webkitdirectory', ''); }, []);
   const escolher = (lista: FileList | null) => {
-    setEscolhidos([...(lista ?? [])].map((f) => ({ arquivo: f, caminho: f.webkitRelativePath || f.name })));
-    setAviso(null);
+    // PDF e outros formatos saem já aqui, com a frase do servidor (D7); o resto segue para Subir skill.
+    const r = escolherArquivosSkill([...(lista ?? [])].map((f) => ({ arquivo: f, caminho: f.webkitRelativePath || f.name, tamanho: f.size })));
+    setEscolhidos(r.escolhidos); setAviso(r.aviso); setDeFora(r.deFora);
   };
   const subir = () => iniciar(async () => {
+    // Acima de 10 MB o servidor recusa (e acima de 15 MB o Next nem recebe): avisa sem mandar.
+    if (passaDoEnvio(escolhidos)) { setAviso('Os arquivos passam de 10 MB: tire os maiores ou mande só o texto da skill.'); return; }
     const fd = new FormData();
     // F7: o Next descarta a parte de pasta do nome do File; o caminho segue num campo paralelo, na mesma ordem.
     for (const e of escolhidos) fd.append('arquivos', e.arquivo);
     for (const e of escolhidos) fd.append('caminhos', e.caminho);
     fd.append('tipo', tipo ?? '');
-    const r = await subirSkill(slug, fd);
+    let r: Awaited<ReturnType<typeof subirSkill>>;
+    try {
+      r = await subirSkill(slug, fd);
+    } catch {
+      // Falha de rede ou corpo recusado pelo Next: a aba continua de pé.
+      setAviso(FALHA_ENVIO);
+      return;
+    }
+    setDeFora([]);
     if (r.ok) {
       toast(r.nova ? `Skill ${r.titulo} subida (desligada).` : `Skill ${r.titulo}: versão ${r.versao}.`);
       setEscolhidos([]); setAviso(null); router.refresh();
@@ -58,6 +72,7 @@ export function SubirSkill({ slug }: { slug: string }) {
       </div>
       {escolhidos.length > 0 && <p className="text-muted">{escolhidos.length === 1 ? escolhidos[0]!.caminho : `${escolhidos.length} arquivos escolhidos`}</p>}
       {aviso && <p role="alert" className="text-danger">{aviso}</p>}
+      {deFora.length > 0 && <p className="text-xs text-muted">Ficaram de fora: {deFora.join(', ')}.</p>}
       <Button onClick={subir} disabled={!escolhidos.length || enviando}>Subir skill</Button>
       <p className="text-xs text-muted">Mesmo formato das skills do Claude (SKILL.md + referências); o tipo vai no cabeçalho do arquivo (<code>tipo: limites</code>). Referências: .md, .txt ou .csv.</p>
     </section>

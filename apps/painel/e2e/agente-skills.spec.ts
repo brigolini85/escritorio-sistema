@@ -69,6 +69,30 @@ test('pasta com subpasta: a referência guarda o caminho relativo', async ({ pag
   await expect(page.getByRole('list', { name: 'Arquivos de Tabela ICMS' })).toContainText('refs/aliquotas.csv');
 });
 
+test('pasta com PDF: o PDF sai já na tela, o resto sobe; acima de 10 MB nem manda', async ({ page }) => {
+  await criarDono();
+  const pasta = join(mkdtempSync(join(tmpdir(), 'skill-e2e-')), 'guia-nf');
+  mkdirSync(pasta, { recursive: true });
+  writeFileSync(join(pasta, 'SKILL.md'), '---\nname: guia-nf\ndescription: Notas.\ntipo: conhecimento\n---\n# Guia NF\nVeja aliquotas.csv.');
+  writeFileSync(join(pasta, 'aliquotas.csv'), 'MG;18');
+  writeFileSync(join(pasta, 'manual.pdf'), '%PDF-1.4');
+  await entrar(page, 'dono@agentes.local', SENHA);
+  await abrirAgente(page, 'atendimento', 'skills');
+  const subir = page.getByRole('region', { name: 'Subir skill' });
+  await expect(subir.getByLabel('Escolher pasta')).toHaveAttribute('webkitdirectory', '');
+  await subir.getByLabel('Escolher pasta').setInputFiles(pasta);
+  await expect(subir.getByRole('alert')).toHaveText('PDF ainda não entra nas skills: mande o texto em .md, .txt ou .csv (PDF chega com as tarefas de trabalho).');
+  await expect(subir.getByText('Ficaram de fora: manual.pdf.')).toBeVisible();
+  await subir.getByRole('button', { name: 'Subir skill' }).click();
+  await expect(page.getByRole('list', { name: 'Arquivos de Guia NF' })).toContainText('aliquotas.csv');
+  await expect(page.getByRole('list', { name: 'Arquivos de Guia NF' })).not.toContainText('manual.pdf');
+  // Acima de 10 MB: aviso na hora, sem ir ao servidor (e a aba continua de pé).
+  await subir.getByLabel('Escolher .zip ou .md').setInputFiles(arquivo('grande.md', `${md('x', 'limites')}\n${'a'.repeat(11 * 1024 * 1024)}`));
+  await subir.getByRole('button', { name: 'Subir skill' }).click();
+  await expect(subir.getByRole('alert')).toHaveText('Os arquivos passam de 10 MB: tire os maiores ou mande só o texto da skill.');
+  expect(await skill()).toBeNull();
+});
+
 test('quem treina vê as skills, mas não sobe nem liga', async ({ page }) => {
   await criarDono();
   await criarUsuarioTeste({ email: 'ana@agentes.local', senha: SENHA, nome: 'Ana Treina', papel: 'atendente', permissoes: ['treinar_agente'] });

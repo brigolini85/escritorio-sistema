@@ -77,6 +77,27 @@ create unique index agentes_uma_porta on public.agentes ((true)) where porta_de_
 create index agentes_setor_idx on public.agentes (setor_id);
 create index agentes_atualizado_por_idx on public.agentes (atualizado_por);
 
+-- D29 dos dois lados: o preço de um modelo escolhido para um agente não sai de Configurações (o custo dele viraria 0
+-- e o teto deixaria de contar esse gasto). Acrescentar ou mudar preço continua livre.
+create function public.preco_em_uso() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_modelo text;
+  v_agentes text;
+begin
+  select a.modelo, string_agg(a.nome, ', ' order by a.ordem, a.nome) into v_modelo, v_agentes
+    from public.agentes a
+   where a.modelo is not null and not (coalesce(new.precos_modelos, '{}'::jsonb) ? a.modelo)
+   group by a.modelo order by a.modelo limit 1;
+  if v_modelo is not null then
+    raise exception 'O modelo % está em uso por: %. Troque o modelo desses agentes antes de tirar o preço.', v_modelo, v_agentes;
+  end if;
+  return new;
+end $$;
+revoke execute on function public.preco_em_uso() from public, anon, authenticated, service_role;
+create trigger preco_em_uso before update of precos_modelos on public.configuracoes
+  for each row when (new.precos_modelos is distinct from old.precos_modelos) execute function public.preco_em_uso();
+
 create table public.agente_contatos_teste (
   agente_id uuid not null references public.agentes (id) on delete cascade,
   contato_id uuid not null references public.contatos (id) on delete cascade,

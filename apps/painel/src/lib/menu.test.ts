@@ -38,4 +38,9 @@ describe('menu pelos níveis (Parte D)', () => {
     expect(adminConf.filhos!.map((f) => f.rotulo)).toContain('Teto e modelos de IA');
     expect(rotulos('admin', n({ assistente: 'site' }))).toContain('Assistente');
   });
+  it('Parte I1 (D12): o dono vê Agentes mesmo sem ser administrador nem "Treinar o agente"', () => {
+    expect(itensDoMenu({ papel: 'atendente', niveis: n(), dono: true }).map((i) => i.rotulo))
+      .toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Agentes']);
+    expect(itensDoMenu({ papel: 'atendente', niveis: n(), dono: false }).map((i) => i.rotulo)).not.toContain('Agentes');
+  });
 });

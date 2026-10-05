@@ -35,6 +35,17 @@ test('dono põe o Fiscal em Teste com um contato, escolhe o modo, cria uma regra
   await expect(page.getByText('Estado: Desligado → Teste')).toBeVisible();
 });
 
+test('TESTE sem contatos abre a faixa; Cancelar fecha sem mudar nada', async ({ page }) => {
+  await criarDono();
+  await entrar(page, 'dono@agentes.local', SENHA);
+  await abrirAgente(page, 'fiscal');
+  await page.getByRole('group', { name: 'Estado do agente' }).getByRole('button', { name: 'Teste' }).click();
+  await expect(page.getByText('Em teste:', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(page.getByText('Em teste:', { exact: true })).toHaveCount(0);
+  expect((await fiscal()).estado).toBe('desligado');
+});
+
 test('o Thiago fica travado (Ligado, mesma voz, ferramentas fixas); o modelo o dono escolhe', async ({ page }) => {
   await criarDono();
   await entrar(page, 'dono@agentes.local', SENHA);

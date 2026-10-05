@@ -1,8 +1,7 @@
 import 'server-only';
 import { unzipSync } from 'fflate';
-import type { ArquivoSkill } from '@escritorio/core';
+import { LIMITE_ENVIO_SKILL, type ArquivoSkill } from '@escritorio/core';
 
-const LIMITE_ENVIO = 10 * 1024 * 1024;
 const LIMITE_ZIP_ABERTO = 3 * 1024 * 1024;
 const MAX_ENTRADAS_ZIP = 60;
 const TEXTO = /\.(md|txt|csv)$/i;
@@ -35,7 +34,7 @@ export async function arquivosDoFormulario(form: FormData): Promise<ArquivosLido
     })
     .filter((e): e is { f: File; caminho: string } => e.f instanceof File && e.f.size > 0);
   if (!escolhidos.length) return erro('Escolha uma pasta, um .zip ou um .md.');
-  if (escolhidos.reduce((s, e) => s + e.f.size, 0) > LIMITE_ENVIO) return erro('Os arquivos passam de 10 MB.');
+  if (escolhidos.reduce((s, e) => s + e.f.size, 0) > LIMITE_ENVIO_SKILL) return erro('Os arquivos passam de 10 MB.');
   const brutos: { caminho: string; bytes: Uint8Array }[] = [];
   if (escolhidos.length === 1 && /\.zip$/i.test(escolhidos[0]!.f.name)) {
     let entradas = 0;

@@ -84,6 +84,14 @@ export const exigeAprovacao = (f: InfoFerramenta): boolean => f.efeito !== 'leit
 export const LIMITES_SKILL = {
   skillMd: 25_000, corpo: 20_000, descricao: 1_024, titulo: 120, arquivo: 200_000, arquivos: 20, total: 1_000_000, sempre: 10_000,
 } as const;
+/** Teto de um envio de skill (pasta, .zip ou .md): o servidor recusa acima disso e a tela avisa antes de mandar. */
+export const LIMITE_ENVIO_SKILL = 10 * 1024 * 1024;
+/** A frase da recusa pela extensão (D7), ou null para .md, .txt e .csv. A tela usa a mesma frase ao tirar o arquivo antes de enviar. */
+export function recusaPelaExtensao(caminho: string): string | null {
+  if (/\.pdf$/i.test(caminho)) return 'PDF ainda não entra nas skills: mande o texto em .md, .txt ou .csv (PDF chega com as tarefas de trabalho).';
+  if (!/\.(md|txt|csv)$/i.test(caminho)) return `O arquivo "${caminho}" não é .md, .txt nem .csv.`;
+  return null;
+}
 export type ArquivoSkill = { caminho: string; conteudo: string };
 export type PacoteSkill = { nome: string; titulo: string; descricao: string; tipo: TipoSkill; corpo: string; skill_md: string; arquivos: ArquivoSkill[] };
 export type SkillMdLida = { nome: string; descricao: string; tipo: TipoSkill | null; titulo: string; corpo: string };
@@ -181,8 +189,8 @@ export function montarPacoteSkill(arquivos: ArquivoSkill[], tipoEscolhido: TipoS
   if (!principal) return erro('Não achei o SKILL.md (na raiz da pasta ou do .zip).');
   const referencias = sem.filter((a) => a !== principal);
   for (const r of referencias) {
-    if (/\.pdf$/i.test(r.caminho)) return erro('PDF ainda não entra nas skills: mande o texto em .md, .txt ou .csv (PDF chega com as tarefas de trabalho).');
-    if (!/\.(md|txt|csv)$/i.test(r.caminho)) return erro(`O arquivo "${r.caminho}" não é .md, .txt nem .csv.`);
+    const recusa = recusaPelaExtensao(r.caminho);
+    if (recusa) return erro(recusa);
     // eslint-disable-next-line no-control-regex
     if (r.caminho.length > 200 || r.caminho.split('/').includes('..') || /[\u0000-\u001f\u007f]/.test(r.caminho)) {
       return erro(`Nome de arquivo inválido: "${r.caminho}".`);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CATALOGO_FERRAMENTAS, FERRAMENTAS_ATENDIMENTO, INFO_TIPO_SKILL, TIPOS_SKILL, diferencaLinhas, exigeAprovacao, lerSkillMd,
-  montarPacoteSkill, slugDoNome, tipoDoTexto,
+  LIMITE_ENVIO_SKILL, montarPacoteSkill, recusaPelaExtensao, slugDoNome, tipoDoTexto,
 } from '../src';
 
 const md = (cabecalho: string, corpo = '# Título da skill\nTexto.') => `---\n${cabecalho}\n---\n${corpo}`;
@@ -96,6 +96,12 @@ describe('montarPacoteSkill (pasta, .zip e .md)', () => {
     expect(montarPacoteSkill([{ caminho: 'SKILL.md', conteudo: skill }, ...muitos], null))
       .toEqual({ ok: false, erro: 'No máximo 20 arquivos de referência por skill.' });
     expect(montarPacoteSkill([], null)).toEqual({ ok: false, erro: 'Nenhum arquivo para subir.' });
+  });
+  it('recusaPelaExtensao: a mesma frase da subida para PDF e outros formatos; null para .md/.txt/.csv', () => {
+    expect(recusaPelaExtensao('refs/guia.PDF')).toBe('PDF ainda não entra nas skills: mande o texto em .md, .txt ou .csv (PDF chega com as tarefas de trabalho).');
+    expect(recusaPelaExtensao('planilha.xlsx')).toBe('O arquivo "planilha.xlsx" não é .md, .txt nem .csv.');
+    for (const c of ['SKILL.md', 'a.TXT', 'refs/b.csv']) expect(recusaPelaExtensao(c)).toBeNull();
+    expect(LIMITE_ENVIO_SKILL).toBe(10 * 1024 * 1024);
   });
   it('recusa caminhos repetidos depois de normalizar (sem diferenciar maiúsculas)', () => {
     const base = { caminho: 'SKILL.md', conteudo: skill };

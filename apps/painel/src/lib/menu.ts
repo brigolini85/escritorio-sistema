@@ -15,15 +15,16 @@ const SUBMENU_CONFIGURACOES: ItemMenu[] = [
 // "Configurações: Sim" sem ser administrador (P12): sem Usuários e permissões e sem a seção de IA.
 const SUBMENU_SEM_USUARIOS = SUBMENU_CONFIGURACOES.filter((i) => i.href !== '/usuarios' && i.href !== hrefSecao('ia'));
 
-/** Itens do menu lateral pelos níveis da pessoa (Parte D). O administrador vê tudo, menos o Assistente sem a marcação. */
-export function itensDoMenu(u: { papel: 'admin' | 'atendente'; niveis: Niveis }): ItemMenu[] {
+/** Itens do menu lateral pelos níveis da pessoa (Parte D). O administrador vê tudo, menos o Assistente sem a marcação.
+ * `dono` (D11/D12): o dono vê Agentes mesmo sem ser administrador (a marcação é por SQL e aceita qualquer pessoa). */
+export function itensDoMenu(u: { papel: 'admin' | 'atendente'; niveis: Niveis; dono?: boolean }): ItemMenu[] {
   const admin = u.papel === 'admin';
   const itens: ItemMenu[] = [{ rotulo: 'Início', href: '/inicio' }];
   if (admin || u.niveis.atendimento !== 'sem_acesso') itens.push({ rotulo: 'Atendimento', href: '/atendimento' });
   itens.push({ rotulo: 'Demandas', href: '/demandas' }, { rotulo: 'Clientes', href: '/clientes' }, { rotulo: 'Contatos', href: '/contatos' });
   if (nivelAtinge('assistente', u.niveis.assistente, 'site')) itens.push({ rotulo: 'Assistente', href: '/assistente' });
   // Parte I1 (spec 7E.1, D19): "Treinar o agente" virou as abas Orientações e Testar; Agentes entra no mesmo lugar.
-  if (admin || u.niveis.treinar === 'sim') itens.push({ rotulo: 'Agentes', href: '/agentes' });
+  if (admin || u.dono || u.niveis.treinar === 'sim') itens.push({ rotulo: 'Agentes', href: '/agentes' });
   if (admin) itens.push({ rotulo: 'Gastos com IA', href: '/gastos-ia' });
   if (admin) itens.push({ rotulo: 'Configurações', href: '/configuracoes', filhos: SUBMENU_CONFIGURACOES });
   else if (u.niveis.configuracoes === 'sim') itens.push({ rotulo: 'Configurações', href: '/configuracoes', filhos: SUBMENU_SEM_USUARIOS });
