@@ -13,7 +13,7 @@ test('dono põe o Fiscal em Teste com um contato, escolhe o modo, cria uma regra
   await db.from('contatos').insert({ nome: 'Carla Teste', telefone: '5531977771111' });
   await entrar(page, 'dono@agentes.local', SENHA);
   await abrirAgente(page, 'fiscal');
-  await expect(page.getByText('Nesta etapa só o Thiago atende.')).toBeVisible();
+  await expect(page.getByText('Desligado: o Thiago atende como sempre.')).toBeVisible();
   await page.getByRole('group', { name: 'Estado do agente' }).getByRole('button', { name: 'Teste' }).click();
   await page.getByPlaceholder('Nome ou telefone').fill('Carla');
   await page.getByRole('list', { name: 'Contatos encontrados' }).getByRole('button', { name: /Carla Teste/ }).click();

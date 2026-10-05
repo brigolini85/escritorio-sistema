@@ -31,7 +31,7 @@ test('orientações do Fiscal: Ana (Fiscal) escreve, sem simulador; Paula (Pesso
   await entrar(page, 'ana@agentes.local', SENHA);
   await abrirAgente(page, 'fiscal', 'orientacoes?orientacao=nova');
   await esperarTreinar(page);
-  await expect(page.getByText('O teste deste agente chega quando ele começar a atender (próxima etapa).')).toBeVisible();
+  await expect(page.getByText('O teste deste agente no painel chega com as tarefas de trabalho. Para testar agora, ponha o agente em Teste com o seu contato.')).toBeVisible();
   await editor(page).getByLabel('Título').fill('Prazo');
   await editor(page).getByRole('radio', { name: /Regra do escritório/ }).locator('xpath=..').check();
   await editor(page).getByLabel('O que o agente deve fazer').fill('Notas até as 16h.');
