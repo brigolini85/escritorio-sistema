@@ -48,13 +48,13 @@ const TELEFONE_FICTICIO = '5500000000000';
 const NOME_FICTICIO = 'Contato de teste';
 
 /** Ferramentas que só leem: rodam de verdade, sempre dentro da empresa em foco (as mesmas travas do atendimento). */
-const LEITURAS = new Set<NomeFerramenta>(['buscar_parceiros', 'buscar_produtos', 'consultar_cadastro', 'consultar_preco', 'consultar_chamados', 'listar_documentos']);
+const LEITURAS = new Set<NomeFerramenta>(['buscar_parceiros', 'buscar_produtos', 'consultar_cadastro', 'consultar_preco', 'consultar_chamados', 'listar_documentos', 'ler_skill', 'ler_referencia']);
 
 /** Leituras do banco liberadas na simulação. Qualquer outro método do repositório falha (nada grava por engano). */
 const LEITURAS_REPOS = [
   'obterConfiguracoes', 'custoIaDoMes', 'setoresAtivos', 'respostasProntas', 'orientacoesAtivas', 'servicosDoCliente',
   'unidadesDaEmpresa', 'produtosDaEmpresa', 'precosVigentes', 'documentosDaEmpresa', 'dadosDaEmpresa', 'setorPorNome', 'responsaveisDoCliente',
-  'perfilDoAgente',
+  'perfilDoAgente', 'referenciaDaSkill',
 ] as const satisfies readonly (keyof Repos)[];
 
 class BloqueadoNaSimulacao extends Error {
@@ -294,6 +294,7 @@ export function criarExecutorSimulado(r: Registro): ExecutorFerramentas {
   return async (d, estado, nome, entrada) => {
     const v = validarEntrada(nome, entrada);
     if ('erro' in v) return v;
+    if (v.nome === 'ler_skill') acao(r, 'ler_skill', `Leria a skill ${v.dados.nome}`);
     if (LEITURAS.has(v.nome)) return executarFerramenta(d, estado, nome, entrada);
     return simularGravacao(d, estado, v.nome, v.dados, r);
   };
@@ -372,7 +373,7 @@ async function simular(
   };
 
   const setores = await repos.setoresAtivos();
-  const agente = await carregarPerfil(repos, SLUG_ATENDIMENTO);
+  const agente = await carregarPerfil(repos, SLUG_ATENDIMENTO, sim.skill_id ?? null);
   const ctx: ContextoAgente = {
     conversa,
     contato: empresa ? { id: `simulacao-${sim.id}`, nome: NOME_FICTICIO, agentePausado: false, empresas: [empresa] } : null,
@@ -419,5 +420,11 @@ function observar(r: Registro, sim: SimulacaoAgente, ctx: ContextoAgente, result
   const { cortadas } = orientacoesDaConversa(ctx.orientacoes, { clienteId: ctx.empresaEmFoco?.id ?? null, setores: ctx.setores });
   if (cortadas.length) {
     r.observacoes.push(`${cortadas.length === 1 ? '1 orientação ficou' : `${cortadas.length} orientações ficaram`} de fora por passar do limite de caracteres.`);
+  }
+  // Teste de skill (aba Testar, D21): avisa se ela entrou desligada e se o agente nem chegou a ler.
+  const emTeste = sim.skill_id ? ctx.agente?.skills.find((s) => s.id === sim.skill_id) : undefined;
+  if (emTeste && !emTeste.ativa) r.observacoes.push(`A skill “${emTeste.titulo}” entrou neste teste mesmo desligada.`);
+  if (emTeste && !['jeito', 'limites'].includes(emTeste.tipo) && !r.acoes.some((a) => a.ferramenta === 'ler_skill' && a.resumo.endsWith(` ${emTeste.nome}`))) {
+    r.observacoes.push(`O agente não leu a skill “${emTeste.titulo}” neste teste: ele só lê quando o assunto aparece. Escreva uma mensagem sobre o assunto dela.`);
   }
 }

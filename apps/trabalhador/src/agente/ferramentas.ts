@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { MOTIVOS_PASSAGEM, escolherResponsavel, formatarMensagem } from '@escritorio/core';
+import { INFO_TIPO_SKILL, MOTIVOS_PASSAGEM, escolherResponsavel, formatarMensagem } from '@escritorio/core';
 import type { AcessoContato } from '@escritorio/core';
 import type { Repos, UnidadeParceiro } from '@escritorio/db';
 import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
@@ -12,6 +12,7 @@ import { recusarForaDoAcesso } from './fora-do-acesso';
 import type { ClienteIa } from './cliente-ia';
 import { acharResumoConferido, chaveConferencia, cnpjFormatado, formatarReais, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente, type ItemPedido } from './pedido-nota';
 import type { ContextoAgente } from './contexto';
+import { AVISOS_SKILL, TAMANHO_PARTE_REFERENCIA } from './skills';
 
 export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
 export type EstadoExecucao = {
@@ -170,6 +171,20 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
   },
 ];
 
+/** Entram no fim das ferramentas só quando o agente tem skill sob demanda ligada (D5). */
+export const FERRAMENTAS_SKILL: Anthropic.Tool[] = [
+  {
+    name: 'ler_skill',
+    description: 'Lê uma skill da lista SKILLS PARA LER QUANDO PRECISAR: o texto inteiro e os nomes dos arquivos de apoio. Leia antes de seguir um procedimento ou usar um conhecimento ou exemplo.',
+    input_schema: objeto({ nome: { type: 'string' } }, ['nome']),
+  },
+  {
+    name: 'ler_referencia',
+    description: 'Lê um arquivo de apoio de uma skill (os nomes vêm em ler_skill). Arquivo grande vem em partes: peça a parte seguinte.',
+    input_schema: objeto({ skill: { type: 'string' }, arquivo: { type: 'string' }, parte: { type: 'integer', minimum: 1 } }, ['skill', 'arquivo']),
+  },
+];
+
 export const PedidoNota = z.object({
   tipo: z.enum(['venda', 'devolucao']),
   unidade_id: z.string().nullable(),
@@ -213,6 +228,8 @@ const Entradas = {
     codigo: z.string().trim().min(1).max(40), descricao: z.string().trim().min(1).max(200), unidade: z.string().trim().max(20),
     apelidos: z.array(z.string().trim().min(1).max(100)).max(10), confirmado_pelo_cliente: z.boolean(),
   }),
+  ler_skill: z.object({ nome: z.string().trim().min(1).max(64) }),
+  ler_referencia: z.object({ skill: z.string().trim().min(1).max(64), arquivo: z.string().trim().min(1).max(200), parte: z.number().int().min(1).max(100).catch(1) }),
   responder: z.object({ texto: z.string().min(1).max(4000) }),
 };
 
@@ -623,6 +640,25 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       return ok({ cadastrado: true, codigo: produto.codigo, descricao: produto.descricao, unidade: produto.unidade });
     }
 
+    case 'ler_skill': {
+      // Só as skills do perfil: ligadas do próprio agente (e a em teste, na simulação). D5.
+      const s = ctx.agente?.skills.find((x) => x.nome === entrada.nome);
+      if (!s) return falha(AVISOS_SKILL.naoEncontrada);
+      return ok({ nome: s.nome, tipo: INFO_TIPO_SKILL[s.tipo].rotulo, titulo: s.titulo, versao: s.versao, texto: s.corpo, arquivos: s.arquivos });
+    }
+
+    case 'ler_referencia': {
+      const s = ctx.agente?.skills.find((x) => x.nome === entrada.skill);
+      if (!s || !ctx.agente?.id) return falha(AVISOS_SKILL.naoEncontrada);
+      if (!s.arquivos.includes(entrada.arquivo)) return falha(AVISOS_SKILL.arquivoNaoEncontrado);
+      const texto = await d.repos.referenciaDaSkill(ctx.agente.id, s.nome, entrada.arquivo, ctx.agente.skillEmTeste);
+      if (texto === null) return falha(AVISOS_SKILL.arquivoNaoEncontrado);
+      const partes = Math.max(1, Math.ceil(texto.length / TAMANHO_PARTE_REFERENCIA));
+      if (entrada.parte > partes) return falha(AVISOS_SKILL.parteInvalida);
+      const inicio = (entrada.parte - 1) * TAMANHO_PARTE_REFERENCIA;
+      return ok({ skill: s.nome, arquivo: entrada.arquivo, parte: entrada.parte, partes, texto: texto.slice(inicio, inicio + TAMANHO_PARTE_REFERENCIA) });
+    }
+
     case 'responder': {
       const partes = partesDaResposta(entrada.texto);
       if (partes.length === 0) return falha(AVISOS.textoVazio);
@@ -662,9 +698,12 @@ export type ExecutorFerramentas = (d: DepsAgente, estado: EstadoExecucao, nome: 
 export async function executarFerramenta(d: DepsAgente, estado: EstadoExecucao, nome: string, entrada: unknown): Promise<Resultado> {
   const v = validarEntrada(nome, entrada);
   const r = 'erro' in v ? v : await executarValidada(d, estado, v.nome, v.dados);
+  const saida = JSON.parse(r.resultado) as Record<string, unknown>;
+  // Leitura de skill: a decisão guarda o que foi lido, não o texto (ele está na versão da skill).
+  if ((nome === 'ler_skill' || nome === 'ler_referencia') && typeof saida.texto === 'string') saida.texto = `(${saida.texto.length} caracteres)`;
   await d.repos.registrarDecisao({
     conversaId: estado.ctx.conversa.id, clienteId: estado.ctx.empresaEmFoco?.id ?? null,
-    etapa: nome, entrada, saida: JSON.parse(r.resultado), turno: estado.turno ?? null,
+    etapa: nome, entrada, saida, turno: estado.turno ?? null,
   });
   return r;
 }

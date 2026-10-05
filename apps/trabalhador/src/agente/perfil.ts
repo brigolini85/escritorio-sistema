@@ -2,7 +2,8 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { FERRAMENTAS_ATENDIMENTO, SLUG_ATENDIMENTO } from '@escritorio/core';
 import type { Configuracoes, PerfilAgente, Repos } from '@escritorio/db';
 import type { ContextoAgente } from './contexto';
-import { FERRAMENTAS } from './ferramentas';
+import { FERRAMENTAS, FERRAMENTAS_SKILL } from './ferramentas';
+import { temSkillSobDemanda } from './skills';
 
 /** O Thiago como era antes da Parte I (D23): sem o banco novo, o motor monta exatamente o pedido de antes. */
 export const PERFIL_PADRAO_ATENDIMENTO: PerfilAgente = {
@@ -26,7 +27,8 @@ export async function carregarPerfil(repos: Repos, slug: string, skillEmTeste: s
 export const perfilDoContexto = (ctx: Pick<ContextoAgente, 'agente'>): PerfilAgente => ctx.agente ?? PERFIL_PADRAO_ATENDIMENTO;
 export const modeloDoPerfil = (p: PerfilAgente, config: Pick<Configuracoes, 'modeloConversa'>): string => p.modelo ?? config.modeloConversa;
 
-/** As ferramentas liberadas no perfil, na ordem de FERRAMENTAS (o pedido do Thiago não muda). */
+/** As ferramentas liberadas no perfil, na ordem de FERRAMENTAS; as de skill no fim, só com skill sob demanda (D5). Sem ela, o pedido do Thiago não muda. */
 export function ferramentasDoPerfil(p: PerfilAgente): Anthropic.Tool[] {
-  return FERRAMENTAS.filter((f) => p.ferramentas.includes(f.name));
+  const base = FERRAMENTAS.filter((f) => p.ferramentas.includes(f.name));
+  return temSkillSobDemanda(p.skills) ? [...base, ...FERRAMENTAS_SKILL] : base;
 }
