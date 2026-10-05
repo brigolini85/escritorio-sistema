@@ -168,10 +168,11 @@ export async function testarAgente(entrada: PedidoTeste): Promise<RespostaTeste>
     const { u, sb } = await sessaoTreinar();
     const pedido = PedidoTeste.safeParse(entrada);
     if (!pedido.success) return { erro: pedido.error.issues[0]?.message ?? 'Pedido de teste inválido.' };
-    const { mensagem, clienteId, rascunho } = pedido.data;
-    const { data: id, error } = await sb.rpc('criar_simulacao', {
-      p_mensagem: mensagem, p_cliente_id: clienteId ?? undefined, p_rascunho: rascunho ?? undefined,
-    });
+    const { mensagem, clienteId, rascunho, skillId } = pedido.data;
+    // Teste com uma skill (aba Testar, D21): só o dono; o banco confere. Sem ela, o teste de sempre.
+    const { data: id, error } = skillId
+      ? await sb.rpc('criar_simulacao_skill', { p_skill: skillId, p_mensagem: mensagem, p_cliente_id: clienteId ?? undefined })
+      : await sb.rpc('criar_simulacao', { p_mensagem: mensagem, p_cliente_id: clienteId ?? undefined, p_rascunho: rascunho ?? undefined });
     let aviso: string | null = null;
     let simulacao: string | null = id;
     if (error) {

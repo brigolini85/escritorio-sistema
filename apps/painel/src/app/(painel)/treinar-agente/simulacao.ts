@@ -40,6 +40,7 @@ export const PedidoTeste = z.object({
       .max(LIMITE_MENSAGEM_TESTE, `A mensagem de teste pode ter no máximo ${LIMITE_MENSAGEM_TESTE} caracteres.`)),
   clienteId: z.string().nullable().refine((v) => v === null || ehUuid(v), 'Empresa não encontrada.'),
   rascunho: RascunhoTeste.nullable(),
+  skillId: z.string().nullish().refine((v) => !v || ehUuid(v), 'Skill não encontrada.'),
 });
 export type PedidoTeste = z.input<typeof PedidoTeste>;
 

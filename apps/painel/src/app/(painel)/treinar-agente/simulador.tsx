@@ -224,13 +224,15 @@ function SemORascunho({ comparacao, ocupado, erro, comparar, aoMudarFase }: {
  * Com uma orientação aberta, o teste leva o formulário do meio como está (rascunho, sem salvar); sem orientação, só as
  * ligadas (D10). Nada é enviado nem gravado além do próprio teste (criar_simulacao + trabalhador, regras de hoje).
  */
-export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas }: {
+export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas, skillId = null }: {
   aberta: 'nova' | 'salva' | null;
   idOrientacao: string | null;
   salva: ConteudoSalvo | null;
   /** Só empresas ativas. */
   empresas: EmpresaOpcao[];
   avisoEmpresas: string | null;
+  /** Aba Testar do agente (D21): testa com esta skill, mesmo desligada. */
+  skillId?: string | null;
 }) {
   const id = useId();
   const ativas = useMemo(() => new Set(empresas.map((e) => e.id)), [empresas]);
@@ -320,7 +322,7 @@ export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas
       }
       rascunho = r.rascunho;
     }
-    enviar({ mensagem, clienteId: empresa, rascunho });
+    enviar({ mensagem, clienteId: empresa, rascunho, skillId });
   };
 
   // Um teste por pessoa: repetir também espera o que está em andamento.

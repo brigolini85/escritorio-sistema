@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { CircleDollarSign } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
+import { semMigracaoI1 } from '@/lib/agentes';
 import { exigirAdmin } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { lerEmpresaAberta, lerPeriodo, lerPessoaAberta } from '@/lib/gastos';
@@ -11,6 +12,7 @@ import { hrefComParams, valorParam, type ParamsBusca } from '@/lib/tabela-url';
 import { FiltrosPeriodo } from './filtros-periodo';
 import { Cartoes, lerResumo } from './cartoes';
 import { PorFuncionalidade } from './por-funcionalidade';
+import { PorAgente, type LinhaPorAgente } from './por-agente';
 import { PorDia } from './por-dia';
 import { RankingEquipe } from './ranking-equipe';
 import { DetalhePessoa, EsqueletoPessoa } from './detalhe-pessoa';
@@ -31,7 +33,7 @@ export default async function GastosIa({ searchParams }: { searchParams: Promise
   const busca = (valorParam(params, 'busca') ?? '').trim().slice(0, 100);
   const sb = await supabaseServidor();
   const intervalo = { p_de: periodo.de, p_ate: periodo.ate };
-  const [resumo, resumoMes, porFuncionalidade, porDia, diaMaisCaro, porPessoa, porCliente, atendimentos, { data: cfg }] = await Promise.all([
+  const [resumo, resumoMes, porFuncionalidade, porDia, diaMaisCaro, porPessoa, porCliente, atendimentos, { data: cfg }, porAgente] = await Promise.all([
     sb.rpc('gastos_resumo', intervalo),
     periodo.filtro === 'mes' ? Promise.resolve(null) : sb.rpc('gastos_resumo', { p_de: mes.de, p_ate: mes.ate }),
     sb.rpc('gastos_por_funcionalidade', intervalo),
@@ -42,7 +44,9 @@ export default async function GastosIa({ searchParams }: { searchParams: Promise
     // "sem" = Sem empresa identificada: a função compara com `is not distinct from`, então vai nulo.
     empresa ? sb.rpc('gastos_atendimentos_do_cliente', { ...intervalo, p_cliente: (empresa === 'sem' ? null : empresa) as string }) : Promise.resolve(null),
     sb.from('configuracoes').select('teto_ia_usd, cotacao_usd_brl, custo_minuto_transcricao_usd').eq('id', 1).single(),
+    sb.rpc('gastos_por_agente', intervalo),
   ]);
+  if (porAgente.error && !semMigracaoI1(porAgente.error)) console.error('[gastos] por agente', porAgente.error);
   // Erro de leitura lança: o error.tsx do grupo mostra a falha, sem tela pela metade.
   for (const r of [resumo, resumoMes, porFuncionalidade, porDia, diaMaisCaro, porPessoa, porCliente, atendimentos]) if (r?.error) throw new Error(r.error.message);
   const cotacao = cfg?.cotacao_usd_brl ? Number(cfg.cotacao_usd_brl) : null;
@@ -74,6 +78,7 @@ export default async function GastosIa({ searchParams }: { searchParams: Promise
         <PorFuncionalidade linhas={porFuncionalidade.data ?? []} />
         <PorDia dias={porDia.data ?? []} hoje={lerPeriodo({ p: 'hoje' }, agora).deDia} diaMaisCaro={diaMaisCaro.data?.[0] ?? null} />
       </div>
+      <PorAgente linhas={porAgente.error ? null : (porAgente.data ?? []) as LinhaPorAgente[]} />
       <RankingEquipe linhas={porPessoa.data ?? []} params={params} />
       <GastosPorCliente linhas={porCliente.data ?? []} params={params} busca={busca} aberta={empresa} atendimentos={atendimentos?.data ?? []} />
       <PainelLateralUrl param="pessoa" id={pessoa} hrefFechar={`/gastos-ia${hrefComParams(params, { pessoa: null })}`} esqueleto={<EsqueletoPessoa />}>
