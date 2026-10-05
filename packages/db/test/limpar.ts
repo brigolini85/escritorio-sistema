@@ -47,6 +47,7 @@ export async function marcarDonoTeste(usuarioId: string): Promise<void> {
  */
 export async function criarSkillTeste(
   agenteSlug: string, nome: string, tipo: string, ativo = true, arquivos: { caminho: string; conteudo: string }[] = [],
+  texto?: { titulo: string; descricao: string; corpo: string },   // padrão: textos genéricos derivados do nome
 ): Promise<string> {
   const c = new pg.Client({ connectionString: urlLocal() });
   await c.connect();
@@ -58,7 +59,7 @@ export async function criarSkillTeste(
       [ag.rows[0].id, nome, tipo, ativo]);
     const v = await c.query(`insert into public.agente_skill_versoes (skill_id, versao, titulo, descricao, tipo, corpo, skill_md)
       values ($1, 1, $2, $3, $4, $5, '---') returning id`,
-      [s.rows[0].id, `Título ${nome}`, `Quando ${nome}.`, tipo, `Texto de ${nome}.`]);
+      [s.rows[0].id, texto?.titulo ?? `Título ${nome}`, texto?.descricao ?? `Quando ${nome}.`, tipo, texto?.corpo ?? `Texto de ${nome}.`]);
     for (const a of arquivos) {
       await c.query('insert into public.agente_skill_arquivos (versao_id, caminho, conteudo) values ($1, $2, $3)', [v.rows[0].id, a.caminho, a.conteudo]);
     }

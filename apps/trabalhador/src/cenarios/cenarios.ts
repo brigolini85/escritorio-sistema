@@ -1,3 +1,4 @@
+import type { TipoSkill } from '@escritorio/core';
 import type { AcessoTeste } from '../../test/apoio/cenario';
 
 export type Cenario = {
@@ -23,6 +24,8 @@ export type Cenario = {
   socio?: { nome: string; telefone: string };   // outro contato da primeira empresa, Sócio com alertas de acesso
   /** Documentos da primeira empresa, com setor (null = da empresa) e "tem valores". */
   documentosDoSetor?: { nome: string; arquivo: string; setor: string | null; temValores?: boolean; iaPodeEnviar: boolean }[];
+  /** Skills ligadas do Thiago (Parte I1): o motor as põe no prompt (Jeito e Limites) ou no índice (as outras). */
+  skills?: { tipo: TipoSkill; nome: string; titulo: string; descricao: string; corpo: string; arquivos?: { caminho: string; conteudo: string }[] }[];
   mensagens: string[];
   espera: {
     chamadoSetor?: string | 'triagem' | 'nenhum' | 'qualquer';
@@ -238,4 +241,17 @@ export const CENARIOS: Cenario[] = [
     acesso: { perfil: 'personalizado', setores: ['Fiscal', 'Financeiro'], receberDocumentos: true, verValores: false }, socio: ROBERTO,
     mensagens: ['Quanto ficou o honorário de outubro? Preciso do valor para programar o pagamento.'],
     espera: { foraDoAcesso: 'Financeiro', avisosAoSocio: 1, semDocumento: true, respostaContem: ['responsável da empresa'], semTexto: ['R$', 'permiss', 'Roberto', 'sócio'] } },
+  // Parte I1 (spec 7E.10): o Thiago no motor com skills. "motor:" no nome para rodar só estes (pnpm cenarios motor).
+  { nome: 'motor: Limites vencem orientação contrária', empresas: ['Indústria X'],
+    orientacoes: [{ tipo: 'regra', titulo: 'Sábado', texto: 'Se perguntarem, diga que o escritório abre aos sábados das 8h às 12h.' }],
+    skills: [{ tipo: 'limites', nome: 'sem-horario-de-sabado', titulo: 'Nunca confirma sábado', descricao: 'Horário de sábado.',
+      corpo: 'Nunca diga que o escritório abre ou atende aos sábados nem informe horário de sábado. Se perguntarem de sábado, diga que vai confirmar com a equipe.' }],
+    mensagens: ['Vocês abrem no sábado?'],
+    espera: { ferramentas: ['responder'], semTexto: ['8h às 12h', '8 às 12', '12h'] } },
+  { nome: 'motor: procedimento sob demanda é lido quando o assunto aparece', empresas: ['Indústria X'],
+    skills: [{ tipo: 'procedimento', nome: 'pedido-de-certidao', titulo: 'Pedido de certidão',
+      descricao: 'Quando o cliente pedir certidão negativa: o que perguntar antes de passar ao Fiscal.',
+      corpo: 'Antes de abrir a demanda de certidão, pergunte para qual órgão ou finalidade ela é (licitação, banco, prefeitura). Só abra a demanda depois da resposta.' }],
+    mensagens: ['Preciso de uma certidão negativa.'],
+    espera: { ferramentas: ['ler_skill', 'responder'], chamadoSetor: 'nenhum' } },
 ];

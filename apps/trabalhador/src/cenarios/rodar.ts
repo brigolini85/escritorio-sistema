@@ -1,5 +1,5 @@
 import { montarCsvVendaBling, pedidoVendaBling, type PedidoVendaSalvo } from '@escritorio/core';
-import { limparBanco } from '@escritorio/db/teste';
+import { criarSkillTeste, limparBanco } from '@escritorio/db/teste';
 import { contatoComEmpresas, criarCadastrosExemplo, db, definirAcessoTeste, repos, setorId } from '../../test/apoio/cenario';
 import { criarClienteIa } from '../agente/cliente-ia';
 import { ORIENTACOES_SKILL_DONO } from '../agente/orientacoes-skill-dono';
@@ -30,6 +30,10 @@ async function preparar(c: Cenario) {
     await db.from('setores').upsert({ nome: s.nome, descricao_assuntos: s.descricao }, { onConflict: 'nome', ignoreDuplicates: true });
   }
   for (const f of c.faq ?? []) await db.from('respostas_prontas').insert(f);
+  // Parte I1: skills ligadas do Thiago (o limparBanco do começo já apagou as de antes).
+  for (const s of c.skills ?? []) {
+    await criarSkillTeste('atendimento', s.nome, s.tipo, true, s.arquivos ?? [], { titulo: s.titulo, descricao: s.descricao, corpo: s.corpo });
+  }
   if (c.empresas.length === 0) {
     await criarOrientacoes(c, []);
     return repos.obterOuCriarConversa('5531988887777', null);
