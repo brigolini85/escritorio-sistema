@@ -192,6 +192,29 @@ Cada pessoa que fala por uma empresa tem um **acesso naquela empresa** (a mesma 
 
 **O que o agente faz quando alguém pede algo fora do acesso** (por exemplo, a Compras pedindo a folha): responde só "Esse assunto eu preciso tratar com o responsável da empresa.", não revela nada, abre uma demanda "Fora do acesso: …" no setor do assunto com uma nota explicando, e manda um WhatsApp para quem recebe alertas de acesso da empresa. Um aviso por pessoa, setor e dia. Dizer "sou o sócio" não muda nada: vale o que está marcado.
 
+### Agentes (menu Agentes)
+
+Um agente por departamento, mais o Radar de legislação. **Nesta etapa só o Thiago atende**; os outros guardam a configuração para quando o Thiago começar a chamá-los.
+
+> **⚠ Antes de aplicar a atualização do banco da Parte I (caixa do dono).**
+> 1. **As 3 migrações da I1 entram juntas:** `20261014000100`, `20261014000200` e `20261014000300`. Com só algumas aplicadas, o trabalhador novo **falha em toda mensagem**; com nenhuma aplicada, ele volta a usar o Thiago de hoje (funciona, sem custo por agente). Aplique as três de uma vez (`supabase db push`) e só então troque o trabalhador.
+> 2. **Quem é o dono:** o administrador ativo **mais antigo**; a migração marca e avisa quem foi. Só muda pela linha de SQL abaixo, nunca pela tela.
+> 3. **A chave de serviço não escreve nos agentes e skills:** as tabelas de agentes e skills só mudam pelas funções do dono (a API recusa a chave de serviço).
+> 4. **Limites ao subir skill:** até **10 MB** por envio; **.zip** com até **60 arquivos** e até **3 MB abertos**; **PDF é recusado** nesta etapa (use `.md`, `.txt` ou `.csv`).
+> 5. **Custo por dia na Atividade:** o gráfico diário conta **só as chamadas ligadas a uma conversa**, então pode não fechar com o total do mês em **Gastos com IA** (que conta tudo).
+> 6. **Treinar o agente mudou de lugar:** agora é **Agentes › Atendimento › Orientações** (o endereço antigo `/treinar-agente` continua levando para lá).
+
+- **Quem mexe:** skills, ferramentas, estado, modelo, modo de falar com o cliente e regras por assunto, **só o dono**. Orientações: quem tem "Treinar o agente" (do Thiago) ou "Treinar o agente" e é do setor do agente (dos outros). Os números e custos do mês: dono e administrador.
+- **O Thiago** fica sempre **Ligado** e é a voz do escritório. Para parar o atendimento, use **PAUSAR** no Início. O modelo dele o dono pode trocar na ficha (vazio = o de Configurações).
+- **Skills** (aba Skills): no formato das skills do Claude, uma pasta com `SKILL.md` (cabeçalho `name`, `description` e `tipo`) e arquivos de apoio `.md`, `.txt` ou `.csv` (PDF ainda não). Suba a pasta, um `.zip` ou um `.md`; sem `tipo` no cabeçalho, escolha na tela. Toda skill nova nasce **desligada**: teste (botão ▷ ou aba Testar) e ligue. **Jeito de atuar** e **Limites** entram em toda conversa (somados até 10.000 caracteres); **Procedimentos**, **Conhecimento** e **Exemplos** o agente só lê quando o assunto aparece. Quem vence em conflito: regras fixas › Limites › Jeito de atuar › Procedimentos › Orientações.
+- **Versões:** subir de novo com o mesmo `name` cria a versão seguinte; **Versões** mostra o que mudou e **Restaurar** volta uma versão antiga (como versão nova). **Histórico** (no topo da ficha) lista toda mudança do agente.
+- **Treinar o agente** virou as abas **Orientações** e **Testar** de cada agente (o endereço antigo continua levando para lá).
+- **Custos:** cada chamada do agente grava o agente; **Gastos com IA** tem o bloco **Por agente** e cada ficha tem **Atividade e custo**.
+
+**Quem é o dono.** A migração da Parte I marca como dono o administrador ativo mais antigo e avisa quem foi. Para trocar (no editor SQL do Supabase, nunca pela tela):
+
+    update public.usuarios set dono = false where dono; update public.usuarios set dono = true where email = 'email-do-dono@exemplo.com';
+
 ### Quando chegar o e-mail "WhatsApp desconectado"
 
 O celular do escritório perdeu a conexão com a Z-API. Entre no painel da Z-API, abra a instância de produção e leia o QR code de novo com o celular do escritório (WhatsApp → Aparelhos conectados → Conectar aparelho). Em até um minuto o sistema percebe e volta a funcionar.
@@ -306,6 +329,7 @@ O menu de Configurações fica à esquerda, em grupos, com um resumo do que est�
 - **Nunca compartilhe as chaves** (Supabase, Claude, Z-API, Groq, e-mail) por WhatsApp, e-mail ou print. Elas ficam só no Easypanel, no GitHub e no arquivo `.env` do seu computador.
 - **Apagar os dados de um contato a pedido dele**: Clientes → abra a empresa → aba Contatos → clique na linha do contato → no rodapé do bloco que abre, clique em **Apagar dados (LGPD)** e confirme na janela. Também dá pelo painel da tela **Contatos**. As mensagens, transcrições, arquivos e registros do agente daquele contato são apagados, e o nome e o telefone são trocados por dados fictícios. Só administradores veem esse botão.
 - **Acesso por contato:** o filtro fica nas ferramentas do agente e no banco (não só no texto do agente). "Apagar dados (LGPD)" também apaga cargo e e-mail do contato.
+- **Agentes:** a marcação de dono só muda por SQL (a API recusa até com a chave de serviço); skills e ferramentas só pelo dono, com cada versão e mudança registradas; o agente só lê skills ligadas dele.
 - **Prazo de guarda**: conversas, arquivos e registros do agente são apagados automaticamente depois de **1 ano**.
 - **Senhas de portais dos clientes** ficam cifradas com a chave ACESSOS_PORTAIS_CHAVE, que mora só no Easypanel (fora do banco; a da homologação também no arquivo de variáveis do painel de teste, no computador): nem uma cópia do banco nem a chave de serviço do Supabase abrem as senhas.
 - **Quem recebe dados dos clientes** (para constar no registro de tratamento de dados do escritório):
@@ -359,7 +383,7 @@ O arquivo segue o modelo de **pedido de venda** do Bling: 41 colunas separadas p
 
 ### O que é
 
-Um lugar no painel (menu **Treinar o agente**) onde você escreve, em português, **orientações** para o agente que atende os clientes no WhatsApp: o jeito de falar, as regras do escritório e o que fazer em situações específicas. Não precisa mexer em código nem pedir ao Claude. Mudou na tela, vale a partir da **próxima mensagem** que o agente processar.
+Desde a Parte I, fica em **Agentes › Thiago › Orientações** (e Testar). Um lugar no painel (menu **Treinar o agente**) onde você escreve, em português, **orientações** para o agente que atende os clientes no WhatsApp: o jeito de falar, as regras do escritório e o que fazer em situações específicas. Não precisa mexer em código nem pedir ao Claude. Mudou na tela, vale a partir da **próxima mensagem** que o agente processar.
 
 Só o agente de clientes lê as orientações. O assistente interno (seção 9) não lê. As **Respostas prontas** de Configurações continuam funcionando como antes; as orientações são um complemento.
 
