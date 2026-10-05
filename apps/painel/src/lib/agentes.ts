@@ -204,3 +204,23 @@ export async function lerModelos(sb: Sb): Promise<{ padrao: string; comPreco: st
   const { data } = await sb.from('configuracoes').select('modelo_conversa, precos_modelos').eq('id', 1).maybeSingle();
   return { padrao: data?.modelo_conversa ?? '', comPreco: Object.keys((data?.precos_modelos ?? {}) as Record<string, unknown>).sort() };
 }
+
+/** Parte I2 (D15): o banco já tem as migrações da I2? Só a função ausente diz "não"; recusa por acesso diz "sim". Cache por requisição (F12/F19), sem chavear no cliente. */
+const i2DaRequisicao = cache(() => ({ p: null as Promise<boolean> | null }));
+async function i2NoBanco(sb: Sb): Promise<boolean> {
+  const ate = new Date();
+  const { error } = await sb.rpc('uso_regras', { p_slug: SLUG_ATENDIMENTO, p_de: new Date(ate.getTime() - 86_400_000).toISOString(), p_ate: ate.toISOString() });
+  return !semMigracaoI1(error);
+}
+export function parteI2Aplicada(sb: Sb): Promise<boolean> {
+  const memo = i2DaRequisicao();
+  return (memo.p ??= i2NoBanco(sb));
+}
+
+/** "Usada no mês" das regras (D11): regra → conversas. null: banco sem a I2 (a tela mostra "—"). */
+export async function lerUsoRegras(sb: Sb, slug: string, de: string, ate: string): Promise<Record<string, number> | null> {
+  const { data, error } = await sb.rpc('uso_regras', { p_slug: slug, p_de: de, p_ate: ate });
+  if (semMigracaoI1(error)) return null;
+  if (error) console.error('[agentes] uso das regras', error);
+  return Object.fromEntries((data ?? []).map((u) => [u.regra_id, Number(u.conversas) || 0]));
+}
