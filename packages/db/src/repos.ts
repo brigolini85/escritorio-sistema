@@ -1,4 +1,4 @@
-import { lerNiveis, FUNCIONALIDADES_IA, type FuncionalidadeGravavel, type ProvedorIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo, PERFIS, type AcessoContato, type CanalAviso, type Perfil, type TipoSkill } from '@escritorio/core';
+import { lerNiveis, FUNCIONALIDADES_IA, type FuncionalidadeGravavel, type ProvedorIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo, PERFIS, type AcessoContato, type CanalAviso, type Perfil, type TipoSkill, MODOS_CONTATO, ehPreAnaliseNota, type CompradorCadastrado, type ModoContato, type MudancaPreco, type PreAnaliseNota, type RegraDoAgente } from '@escritorio/core';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { Db } from './cliente';
 import type { Database, Json } from './tipos.gen';
@@ -93,6 +93,22 @@ export type SkillCarregada = {
 export type PerfilAgente = {
   id: string | null; slug: string; nome: string; modelo: string | null; ferramentas: string[]; skills: SkillCarregada[]; skillEmTeste: string | null;
 };
+/** Agente de um setor que atende este contato (Parte I2, D2): o perfil do motor + setor, estado, modo, regras e as orientações dele. */
+export type AgenteSetor = PerfilAgente & {
+  id: string; setorId: string; setor: string; estado: 'ligado' | 'teste'; modo: ModoContato; regras: RegraDoAgente[]; orientacoes: OrientacaoAgente[];
+};
+export type DemandaDoSetor = { id: string; numero: number; titulo: string; status: string; temPedido: boolean };
+export type DadosPreAnalise = {
+  numero: number; clienteId: string | null; pedido: PedidoVendaSalvo | null; comprador: CompradorCadastrado | null; mudancas: MudancaPreco[];
+};
+export type NovaSugestao = { chamadoId: string; agenteId: string; conversaId: string | null; tipo: 'nota_interna' | 'correcao'; conteudo: Record<string, unknown> };
+const COLUNAS_COMPRADOR = 'razao_social, nome_unidade, cnpj, endereco, numero, complemento, bairro, cidade, uf, cep, telefone, grupo_id';
+const ehModo = (v: unknown): v is ModoContato => (MODOS_CONTATO as readonly unknown[]).includes(v);
+type LinhaSkill = { id: string; nome: string; tipo: string; ativo: boolean; titulo: string; descricao: string; corpo: string; versao: number; arquivos: string[] | null };
+const paraSkill = (k: LinhaSkill): SkillCarregada => ({
+  id: k.id, nome: k.nome, tipo: k.tipo as TipoSkill, ativa: k.ativo, titulo: k.titulo, descricao: k.descricao, corpo: k.corpo,
+  versao: k.versao, arquivos: k.arquivos ?? [],
+});
 /** Banco sem as migrações da Parte I (homologação, D23): tabela, coluna ou função que não existem. */
 const SEM_PARTE_I = new Set(['42P01', '42703', '42883', 'PGRST200', 'PGRST202', 'PGRST204', 'PGRST205']);
 /** Orientação ainda não salva incluída num teste (formato conferido por criar_simulacao). `id`: a orientação salva que ela edita (substitui essa no teste). */
@@ -357,9 +373,10 @@ export function criarRepos(db: Db) {
       return linhas.map(({ setores, ...c }) => ({ ...c, setor_nome: setores?.nome ?? null }));
     },
 
-    async registrarDecisao(d: { conversaId: string | null; clienteId: string | null; etapa: string; entrada: unknown; saida: unknown; justificativa?: string; turno?: string | null }): Promise<void> {
+    async registrarDecisao(d: { conversaId: string | null; clienteId: string | null; etapa: string; entrada: unknown; saida: unknown; justificativa?: string; turno?: string | null; agenteId?: string | null }): Promise<void> {
       checar(await db.from('decisoes_agente').insert({ conversa_id: d.conversaId, cliente_id: d.clienteId, etapa: d.etapa,
-        entrada: d.entrada as never, saida: d.saida as never, justificativa: d.justificativa ?? null, turno: d.turno ?? null }), 'registrarDecisao');
+        entrada: d.entrada as never, saida: d.saida as never, justificativa: d.justificativa ?? null, turno: d.turno ?? null,
+        ...(d.agenteId ? { agente_id: d.agenteId } : {}) }), 'registrarDecisao');
     },
 
     /** Chaves dos resumos de nota enviados ao cliente nesta conversa desde `desde` (a demanda só abre para um pedido conferido). */
@@ -830,10 +847,7 @@ export function criarRepos(db: Db) {
         'perfilDoAgente.skills');
       return {
         id: a.id, slug: a.slug, nome: a.nome, modelo: a.modelo, ferramentas: a.ferramentas, skillEmTeste,
-        skills: skills.map((k) => ({
-          id: k.id, nome: k.nome, tipo: k.tipo as TipoSkill, ativa: k.ativo, titulo: k.titulo, descricao: k.descricao, corpo: k.corpo,
-          versao: k.versao, arquivos: k.arquivos ?? [],
-        })),
+        skills: skills.map(paraSkill),
       };
     },
 
@@ -843,6 +857,80 @@ export function criarRepos(db: Db) {
         p_agente: agenteId, p_nome: nome, p_caminho: caminho, ...(skillEmTeste ? { p_incluir: skillEmTeste } : {}),
       }), 'referenciaDaSkill');
       return texto ?? null;
+    },
+
+    /** Agentes dos setores que atendem este contato (D2). null: o banco ainda não tem a Parte I2 (D15). */
+    async agentesParaContato(contatoId: string): Promise<AgenteSetor[] | null> {
+      const r = await db.rpc('agentes_para_contato', { p_contato: contatoId });
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return null;
+      const agentes: AgenteSetor[] = [];
+      for (const a of checar(r, 'agentesParaContato') ?? []) {
+        if (!ehModo(a.modo_contato) || (a.estado !== 'ligado' && a.estado !== 'teste') || !a.setor_id) continue;
+        const skills = checar(await db.rpc('skills_do_agente', { p_agente: a.id }), 'agentesParaContato.skills');
+        const regras = (Array.isArray(a.regras) ? a.regras : []) as { id: string; assunto: string; exemplo: string | null; modo: unknown }[];
+        agentes.push({
+          id: a.id, slug: a.slug, nome: a.nome, modelo: a.modelo, ferramentas: a.ferramentas ?? [], skillEmTeste: null,
+          skills: (skills as LinhaSkill[]).map(paraSkill), setorId: a.setor_id, setor: a.setor, estado: a.estado, modo: a.modo_contato,
+          regras: regras.flatMap((x) => (ehModo(x.modo) ? [{ id: x.id, assunto: x.assunto, exemplo: x.exemplo ?? '', modo: x.modo }] : [])),
+          orientacoes: await this.orientacoesAtivas(a.id),
+        });
+      }
+      return agentes;
+    },
+
+    async iniciarConducao(conversaId: string, agenteId: string): Promise<boolean> {
+      return checar(await db.rpc('iniciar_conducao', { p_conversa: conversaId, p_agente: agenteId }), 'iniciarConducao') === true;
+    },
+
+    async encerrarConducao(conversaId: string, motivo: string): Promise<boolean> {
+      return checar(await db.rpc('encerrar_conducao', { p_conversa: conversaId, p_motivo: motivo }), 'encerrarConducao') === true;
+    },
+
+    /** Demanda pelo número, só da empresa e do setor pedidos (o agente nunca vê demanda de outro setor ou empresa). */
+    async demandaDoSetor(clienteId: string, setorId: string, numero: number): Promise<DemandaDoSetor | null> {
+      const c = checar(await db.from('chamados').select('id, numero, titulo, status, pedido_venda').eq('cliente_id', clienteId)
+        .eq('setor_id', setorId).eq('numero', numero).maybeSingle(), 'demandaDoSetor');
+      return c ? { id: c.id, numero: Number(c.numero), titulo: c.titulo, status: c.status, temPedido: c.pedido_venda !== null } : null;
+    },
+
+    /** Pedido de venda da demanda, comprador do cadastro e preços que mudaram nos 30 dias antes de `agora` (D9). */
+    async dadosParaPreAnalise(chamadoId: string, agora: Date): Promise<DadosPreAnalise | null> {
+      const c = checar(await db.from('chamados').select('numero, cliente_id, pedido_venda').eq('id', chamadoId).maybeSingle(), 'dadosParaPreAnalise');
+      if (!c) return null;
+      const pedido = (c.pedido_venda ?? null) as PedidoVendaSalvo | null;
+      const base: DadosPreAnalise = { numero: Number(c.numero), clienteId: c.cliente_id, pedido, comprador: null, mudancas: [] };
+      if (!pedido?.unidade_id || !c.cliente_id) return base;
+      const u = checar(await db.from('parceiros_unidades').select(COLUNAS_COMPRADOR).eq('id', pedido.unidade_id).eq('cliente_id', c.cliente_id)
+        .maybeSingle(), 'dadosParaPreAnalise.comprador');
+      if (!u) return base;
+      const { grupo_id: grupoId, ...comprador } = u;
+      const desde = new Date(agora.getTime() - 30 * 24 * 3600_000).toISOString();
+      const atuais = checar(await db.from('precos').select('produto_id, valor, vigente_desde, produtos(codigo)').eq('cliente_id', c.cliente_id)
+        .eq('grupo_id', grupoId).is('vigente_ate', null).gte('vigente_desde', desde), 'dadosParaPreAnalise.precos');
+      const mudancas: MudancaPreco[] = [];
+      for (const p of atuais) {
+        const antes = checar(await db.from('precos').select('valor').eq('grupo_id', grupoId).eq('produto_id', p.produto_id)
+          .not('vigente_ate', 'is', null).order('vigente_ate', { ascending: false }).limit(1).maybeSingle(), 'dadosParaPreAnalise.anterior');
+        if (antes && p.produtos?.codigo) mudancas.push({ sku: p.produtos.codigo, anterior: Number(antes.valor), desde: p.vigente_desde });
+      }
+      return { ...base, comprador: comprador as CompradorCadastrado, mudancas };
+    },
+
+    async salvarPreAnalise(chamadoId: string, agenteId: string, resultado: PreAnaliseNota): Promise<void> {
+      checar(await db.rpc('salvar_pre_analise', { p_chamado: chamadoId, p_agente: agenteId, p_resultado: resultado as unknown as Json }), 'salvarPreAnalise');
+    },
+
+    async preAnaliseDaDemanda(chamadoId: string): Promise<PreAnaliseNota | null> {
+      const r = await db.from('pre_analises_nota').select('resultado').eq('chamado_id', chamadoId).maybeSingle();
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return null;
+      const l = checar(r, 'preAnaliseDaDemanda');
+      return l && ehPreAnaliseNota(l.resultado) ? l.resultado : null;
+    },
+
+    /** Sugestão do agente que uma pessoa do setor aprova na demanda (D8, D19). As recusas do banco chegam como erro com a frase. */
+    async criarSugestao(s: NovaSugestao): Promise<string> {
+      return checar(await db.rpc('criar_sugestao_agente', { p_chamado: s.chamadoId, p_agente: s.agenteId, p_conversa: s.conversaId as string,
+        p_tipo: s.tipo, p_conteudo: s.conteudo as Json }), 'criarSugestao') as string;
     },
 
     /** Ids cortados no último registro `orientacoes_cortadas` da conversa (null se nunca houve corte). */

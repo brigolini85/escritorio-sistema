@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { AGENTE_ATENDIMENTO_ID, FERRAMENTAS_ATENDIMENTO } from '@escritorio/core';
+import { AGENTE_ATENDIMENTO_ID, FERRAMENTAS_ATENDIMENTO, FERRAMENTAS_DO_CATALOGO } from '@escritorio/core';
 import { criarClienteServico, criarRepos } from '../src';
 import { criarSkillTeste as skill, limparBanco, marcarDonoTeste } from './limpar';
 import { criarUsuario } from './usuario';
@@ -14,9 +14,9 @@ const idDo = async (slug: string) => (await db.from('agentes').select('id').eq('
 beforeEach(limparBanco);
 
 describe('catálogo (D15)', () => {
-  it('o banco e o core têm as mesmas 16 ferramentas, na mesma ordem', async () => {
-    const { data } = await db.rpc('ferramentas_do_atendimento');
-    expect(data).toEqual(FERRAMENTAS_ATENDIMENTO);
+  it('o banco e o core têm o mesmo catálogo (16 do Thiago + 4 do setor), na mesma ordem', async () => {
+    const { data } = await db.rpc('ferramentas_do_catalogo');
+    expect(data).toEqual(FERRAMENTAS_DO_CATALOGO);
   });
 });
 

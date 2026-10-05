@@ -72,3 +72,42 @@ export async function criarSkillTeste(
     await c.end();
   }
 }
+
+type ModoTeste = 'por_tras' | 'mesma_voz' | 'passa_conversa';
+/**
+ * Configura um agente para testes e cenários (Parte I2), direto no postgres: service_role só lê `agentes` (D11 da I1). Os gatilhos do banco
+ * valem (ferramentas "só do Thiago" no agente do setor são recusadas). Campo ausente fica como está. Devolve o id do agente.
+ */
+export async function configurarAgenteTeste(slug: string, cfg: {
+  estado?: 'desligado' | 'teste' | 'ligado'; modo?: ModoTeste | null; ferramentas?: string[]; contatos?: string[];
+  regras?: { assunto: string; exemplo?: string; modo: ModoTeste }[];
+}): Promise<string> {
+  const c = new pg.Client({ connectionString: urlLocal() });
+  await c.connect();
+  try {
+    await c.query('begin');
+    const a = await c.query('select id from public.agentes where slug = $1 for update', [slug]);
+    if (!a.rows[0]) throw new Error(`configurarAgenteTeste: agente ${slug} não existe`);
+    const id = a.rows[0].id as string;
+    if (cfg.contatos) {
+      await c.query('delete from public.agente_contatos_teste where agente_id = $1', [id]);
+      for (const contato of cfg.contatos) await c.query('insert into public.agente_contatos_teste (agente_id, contato_id) values ($1, $2)', [id, contato]);
+    }
+    if (cfg.regras) {
+      await c.query('delete from public.agente_regras_assunto where agente_id = $1', [id]);
+      for (const r of cfg.regras) {
+        await c.query('insert into public.agente_regras_assunto (agente_id, assunto, exemplo, modo) values ($1, $2, $3, $4)', [id, r.assunto, r.exemplo ?? '', r.modo]);
+      }
+    }
+    if (cfg.estado !== undefined) await c.query('update public.agentes set estado = $2 where id = $1', [id, cfg.estado]);
+    if (cfg.modo !== undefined) await c.query('update public.agentes set modo_contato = $2 where id = $1', [id, cfg.modo]);
+    if (cfg.ferramentas !== undefined) await c.query('update public.agentes set ferramentas = $2 where id = $1', [id, cfg.ferramentas]);
+    await c.query('commit');
+    return id;
+  } catch (e) {
+    await c.query('rollback');
+    throw e;
+  } finally {
+    await c.end();
+  }
+}
