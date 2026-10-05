@@ -77,11 +77,12 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
       resumo: { type: 'string', description: 'O que o cliente pediu, com todos os detalhes informados.' },
       fora_do_contrato: { type: 'boolean' },
       prioridade: CAMPO_PRIORIDADE,
-    }, ['setor_id', 'titulo', 'resumo', 'fora_do_contrato', 'prioridade']),
+      pede_valores: { type: 'boolean', description: 'Regra 12a: true quando o cliente pede valores do escritório ou da folha (honorário, boleto, salário, valor da folha).' },
+    }, ['setor_id', 'titulo', 'resumo', 'fora_do_contrato', 'prioridade', 'pede_valores']),
   },
   {
     name: 'consultar_chamados',
-    description: 'Lista os chamados em aberto da empresa em foco (com a data de abertura em aberta_em, dd/mm), para informar o andamento ao cliente.',
+    description: 'Lista os chamados em aberto da empresa em foco (com a data de abertura em aberta_em, dd/mm), para informar o andamento ao cliente. Só mostra os assuntos que este contato pode tratar.',
     input_schema: objeto({}, []),
   },
   {
@@ -124,7 +125,7 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
   },
   {
     name: 'listar_documentos',
-    description: 'Lista os documentos cadastrados da empresa em foco (contrato social etc.) e se cada um pode ser enviado pela IA.',
+    description: 'Lista os documentos cadastrados da empresa em foco (contrato social etc.) e se cada um pode ser enviado pela IA. Só lista os que este contato pode receber.',
     input_schema: objeto({}, []),
   },
   {
