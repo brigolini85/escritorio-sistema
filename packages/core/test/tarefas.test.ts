@@ -112,6 +112,18 @@ describe('resultado no banco e CSV (D10)', () => {
     expect(csv).toContain('"Tarifa; pacote";1234,50;;extrato.pdf;não\r\n');
     expect(csv).toContain(`'=SOMA(A1);;"ver ""nota""";pendência 1;sim\r\n`);
   });
+  it('texto que começa com + - @ ou tab ganha apóstrofo; valor negativo não; quebra de linha vai entre aspas; -0 não vira -0,00', () => {
+    const l = (descricao: string, valor: number | null, texto: string | null) => ({ descricao, valor, texto, fonte: 'a.pdf', provisoria: false });
+    const csv = csvDoResultado(resultado([l('+1', -12.5, null), l('-x', -0.001, null), l('@y', null, '\tz'), l('linha1\nlinha2', 0, null)]));
+    expect(csv).toContain("'+1;-12,50;;a.pdf;não");
+    expect(csv).toContain("'-x;0,00;;a.pdf;não");
+    expect(csv).toContain("'@y;;'\tz;a.pdf;não");
+    expect(csv).toContain('"linha1\nlinha2";0,00;;a.pdf;não');
+  });
+  it('rejeita NaN e Infinity no valor', () => {
+    expect(ehResultadoTarefa(resultado([{ descricao: 'a', valor: Number.NaN, texto: null, fonte: 'x', provisoria: false }]))).toBe(false);
+    expect(ehResultadoTarefa(resultado([{ descricao: 'a', valor: Infinity, texto: null, fonte: 'x', provisoria: false }]))).toBe(false);
+  });
 });
 
 describe('estado', () => {

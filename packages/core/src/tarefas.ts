@@ -97,7 +97,7 @@ export function ehResultadoTarefa(x: unknown): x is ResultadoTarefa {
   const linhasOk = o.linhas.every((l) => {
     if (!l || typeof l !== 'object') return false;
     const r = l as LinhaResultado;
-    return ehTexto(r.descricao) && (r.valor === null || typeof r.valor === 'number') && ehTextoOuNulo(r.texto)
+    return ehTexto(r.descricao) && (r.valor === null || (typeof r.valor === 'number' && Number.isFinite(r.valor))) && ehTextoOuNulo(r.texto)
       && ehTexto(r.fonte) && typeof r.provisoria === 'boolean';
   });
   return destaquesOk && linhasOk;
@@ -145,7 +145,7 @@ export function conferirFontes(r: ResultadoTarefa, f: FontesDaTarefa): string[] 
 // Célula de texto que começa com =, +, -, @ vira texto no Excel (sem fórmula escondida num arquivo do cliente).
 const semFormula = (v: string) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
 const celula = (v: string) => (/[;"\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-const numeroBr = (v: number) => v.toFixed(2).replace('.', ',');
+const numeroBr = (v: number) => v.toFixed(2).replace(/^-(0\.00)$/, '$1').replace('.', ',');
 /** D10: CSV das linhas para o Excel em português (";", vírgula decimal, BOM para os acentos). */
 export function csvDoResultado(r: ResultadoTarefa): string {
   const cabecalho = ['Descrição', 'Valor', 'Texto', 'Fonte', 'Provisória'].join(';');
