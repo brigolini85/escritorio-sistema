@@ -12,3 +12,4 @@ export * from './passagem';
 export * from './acesso';
 export * from './agentes';
 export * from './pre-analise-nota';
+export * from './tarefas';
