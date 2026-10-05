@@ -140,10 +140,10 @@ for (const tema of ['claro', 'escuro'] as const) {
         `/contatos?contato=${ids.contato}&editar=1`,
         '/contatos?filtro=nota',
         '/assistente',
-        '/treinar-agente',
-        `/treinar-agente?orientacao=${ids.orientacao}`,
-        `/treinar-agente?orientacao=${ids.orientacao}&aba=historico`,
-        '/treinar-agente?orientacao=nova&modelo=cumprimento',
+        '/agentes/atendimento/orientacoes',
+        `/agentes/atendimento/orientacoes?orientacao=${ids.orientacao}`,
+        `/agentes/atendimento/orientacoes?orientacao=${ids.orientacao}&aba=historico`,
+        '/agentes/atendimento/orientacoes?orientacao=nova&modelo=cumprimento',
         '/usuarios',
         '/usuarios?ver=arquivados',
         `/usuarios/${ids.usuario}`,
@@ -252,13 +252,13 @@ for (const tema of ['claro', 'escuro'] as const) {
       await page.keyboard.press('Escape');
 
       // Treinar o agente: busca de empresa aberta no formulário e confirmação de restaurar uma versão.
-      await page.goto(`/treinar-agente?orientacao=${ids.orientacao}`);
+      await page.goto(`/agentes/atendimento/orientacoes?orientacao=${ids.orientacao}`);
       await esperarTreinar(page);
       await page.getByRole('region', { name: 'Editor da orientação' }).getByRole('combobox', { name: 'Empresa' }).click();
       await expect(page.getByRole('option').first()).toBeVisible();
       erros.push(...(await auditar(page, 'busca de empresa (Treinar o agente)', tema)));
       await page.keyboard.press('Escape');
-      await page.goto(`/treinar-agente?orientacao=${ids.orientacao}&aba=historico`);
+      await page.goto(`/agentes/atendimento/orientacoes?orientacao=${ids.orientacao}&aba=historico`);
       await esperarTreinar(page);
       await page.getByRole('button', { name: 'Restaurar esta versão' }).click();
       await expect(page.getByRole('dialog', { name: 'Restaurar esta versão?' })).toBeVisible();
@@ -347,7 +347,7 @@ for (const tema of ['claro', 'escuro'] as const) {
       await semear();
       await db.from('orientacoes_agente').delete().not('id', 'is', null);
       await entrar(page, EMAIL, SENHA);
-      await page.goto('/treinar-agente');
+      await page.goto('/agentes/atendimento/orientacoes');
       await expect(page.getByText('Nenhuma orientação ainda.')).toBeVisible();
       const erros = await auditar(page, '/treinar-agente (vazio)', tema);
       expect(erros, erros.join('\n')).toEqual([]);
