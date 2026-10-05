@@ -50,11 +50,9 @@ export function etapasDoProcedimento(corpo: string | null | undefined): string[]
   if (inicio >= 0) {
     for (const l of linhas.slice(inicio + 1)) {
       if (/^#{1,6}\s/.test(l.trim())) break;
-      const m = /^\s*(?:\d+[.)]|[-*])\s+(.+)$/.exec(l);
-      if (!m) {
-        if (achadas.length && l.trim()) break;
-        continue;
-      }
+      // Só item de primeiro nível (até 1 espaço): sub-itens e continuações são detalhe da etapa; a seção acaba no próximo título.
+      const m = /^ {0,1}(?:\d+[.)]|[-*])\s+(.+)$/.exec(l);
+      if (!m) continue;
       // "**Coletar documentos** — extratos…" e "Ler e lançar: partidas…" viram só o nome da etapa.
       const nome = m[1]!.replace(/\*\*|__|`/g, '').split(/\s[—–-]\s|:\s/)[0]!.trim().slice(0, LIMITES_TAREFA.nomeEtapa);
       if (nome && semAcento(nome).toLowerCase() !== 'aprovacao') achadas.push(nome);
@@ -111,10 +109,12 @@ export function numeroDaPendencia(fonte: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+// Nome de arquivo do macOS vem em NFD e o texto do modelo em NFC: normaliza antes de comparar.
+const chaveDeArquivo = (n: string) => n.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
 export type FontesDaTarefa = { arquivosLidos: readonly string[]; pendenciasRespondidas: readonly number[]; pendenciasAbertas: readonly number[] };
 /** D9 ("nunca inventa valores"): cada linha cita um arquivo lido nesta tarefa ou uma pendência respondida (aberta, só se provisória). */
 export function conferirFontes(r: ResultadoTarefa, f: FontesDaTarefa): string[] {
-  const lidos = new Set(f.arquivosLidos.map((n) => n.trim().toLowerCase()));
+  const lidos = new Set(f.arquivosLidos.map(chaveDeArquivo));
   const problemas: string[] = [];
   r.linhas.forEach((l, i) => {
     const onde = `Linha ${i + 1} (${l.descricao.trim().slice(0, 60)})`;
@@ -137,7 +137,7 @@ export function conferirFontes(r: ResultadoTarefa, f: FontesDaTarefa): string[] 
       problemas.push(`${onde}: a pendência ${n} não existe nesta tarefa.`);
       return;
     }
-    if (!lidos.has(fonte.toLowerCase())) problemas.push(`${onde}: "${fonte}" não é um arquivo lido nesta tarefa.`);
+    if (!lidos.has(chaveDeArquivo(fonte))) problemas.push(`${onde}: "${fonte}" não é um arquivo lido nesta tarefa.`);
   });
   return problemas;
 }

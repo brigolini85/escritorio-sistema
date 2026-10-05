@@ -36,6 +36,10 @@ describe('etapas do procedimento (D5)', () => {
     expect(r).toHaveLength(9);
     expect(r.at(-1)).toBe('Aprovação');
   });
+  it('sub-itens indentados e linhas de continuação não viram nem cortam etapas', () => {
+    const corpo = ['## Etapas', '1. Coletar documentos', '   - extratos do mês', '   - notas fiscais', '   continuação da explicação', '2. Conciliar', '', '3. Revisar', '## Regras', '- não é etapa'].join(String.fromCharCode(10));
+    expect(etapasDoProcedimento(corpo)).toEqual(['Coletar documentos', 'Conciliar', 'Revisar', 'Aprovação']);
+  });
 });
 
 describe('arquivos da tarefa (D14, D15)', () => {
@@ -76,6 +80,11 @@ describe('fontes do resultado (D9)', () => {
       'Linha 3 (Outra): a pendência 9 não existe nesta tarefa.',
       'Linha 4 (Vazia): sem valor nem texto.',
     ]);
+  });
+  it('nome do arquivo em NFD (macOS) e NFC valem como o mesmo, com espaços repetidos', () => {
+    const nfd = 'Extrato Itaú.pdf'.normalize('NFD');
+    const r = resultado([{ descricao: 'Tarifa', valor: 1, texto: null, fonte: 'Extrato  Itaú.pdf', provisoria: false }]);
+    expect(conferirFontes(r, { arquivosLidos: [nfd], pendenciasRespondidas: [], pendenciasAbertas: [] })).toEqual([]);
   });
   it('pendência aberta em linha provisória vale', () => {
     const r = resultado([{ descricao: 'Despesa', valor: 480, texto: null, fonte: 'pendência nº 2', provisoria: true }]);
