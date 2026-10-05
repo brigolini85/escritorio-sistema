@@ -22,10 +22,10 @@ import { SecaoProdutos } from './secao-produtos';
  * sem a migração da Parte H1 no banco (homologação), volta a aba de hoje com um aviso (D23).
  */
 export default async function FichaClientePagina({ params, searchParams }: {
-  params: Promise<{ id: string }>; searchParams: Promise<{ aba?: string; historico?: string; erro?: string }>;
+  params: Promise<{ id: string }>; searchParams: Promise<{ aba?: string; historico?: string; erro?: string; contato?: string }>;
 }) {
   const { id } = await params;
-  const { aba: pedida, historico, erro } = await searchParams;
+  const { aba: pedida, historico, erro, contato } = await searchParams;
   const aba: Aba = ABAS.some((a) => a.valor === pedida) ? (pedida as Aba) : 'dados';
   const u = await obterUsuario();
   const pode = temNivel(u, 'clientes', 'editar');
@@ -57,7 +57,7 @@ export default async function FichaClientePagina({ params, searchParams }: {
           <SecaoDados id={id} u={u} pode={pode} c={c} erro={erro} />
         </>
       )}
-      {aba === 'contatos' && <SecaoContatos id={id} u={u} pode={pode} />}
+      {aba === 'contatos' && <SecaoContatos id={id} u={u} pode={pode} aberto={contato ?? null} />}
       {aba === 'clientes' && <SecaoParceiros id={id} tipo="cliente" pode={pode} podeArquivar={podeArquivar} />}
       {aba === 'fornecedores' && <SecaoParceiros id={id} tipo="fornecedor" pode={pode} podeArquivar={podeArquivar} />}
       {aba === 'produtos' && <SecaoProdutos id={id} pode={pode} podeArquivar={podeArquivar} />}

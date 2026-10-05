@@ -61,8 +61,11 @@ export async function lerDisponiveis(sb: Sb, clienteId: string, marcados: string
 
 export type ContatoDaFicha = {
   id: string; nome: string; telefone: string; cargo: string | null; email: string | null; agentePausado: boolean; acesso: AcessoDoVinculo;
+  /** Setores do bloco deste contato: os da empresa + os que só ele tem marcados, "fora do contrato". */
+  disponiveis: SetorDisponivel[];
 };
 export type FichaContatos = {
+  /** `disponiveis`: só os da empresa (contratados + Financeiro), sem os "fora do contrato" de cada contato. */
   contatos: ContatoDaFicha[]; disponiveis: SetorDisponivel[]; semServicoComSetor: boolean; socios: Socio[]; aguardando: number;
 };
 
@@ -76,13 +79,19 @@ export async function lerContatosDaEmpresa(sb: Sb, clienteId: string): Promise<F
     console.error('[acesso] falha ao ler os contatos da empresa', error);
     return null;
   }
-  const contatos = (data ?? []).flatMap((l) => (l.contatos ? [{
-    id: l.contatos.id, nome: l.contatos.nome, telefone: l.contatos.telefone, cargo: l.contatos.cargo, email: l.contatos.email,
-    agentePausado: l.contatos.agente_pausado, acesso: lerAcesso(l),
-  }] : [])).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-  const marcados = [...new Set(contatos.flatMap((c) => c.acesso.marcas.setores.map((s) => s.setorId)))];
   const [todos, contratados] = await Promise.all([setoresAtivos(sb), contratadosPorEmpresa(sb, [clienteId])]);
-  const { setores, semServicoComSetor } = setoresDisponiveis(todos, contratados.get(clienteId) ?? [], marcados);
+  const daEmpresa = contratados.get(clienteId) ?? [];
+  const contatos = (data ?? []).flatMap((l) => {
+    if (!l.contatos) return [];
+    const acesso = lerAcesso(l);
+    // "Fora do contrato" é de cada contato: o setor antigo de um não aparece no bloco do outro.
+    const { setores } = setoresDisponiveis(todos, daEmpresa, acesso.marcas.setores.map((s) => s.setorId));
+    return [{
+      id: l.contatos.id, nome: l.contatos.nome, telefone: l.contatos.telefone, cargo: l.contatos.cargo, email: l.contatos.email,
+      agentePausado: l.contatos.agente_pausado, acesso, disponiveis: setores,
+    }];
+  }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  const { setores, semServicoComSetor } = setoresDisponiveis(todos, daEmpresa, []);
   return {
     contatos, disponiveis: setores, semServicoComSetor,
     socios: contatos.filter((c) => c.acesso.marcas.recebeAlertasAcesso).map((c) => ({ contatoId: c.id, primeiroNome: primeiroNome(c.nome) })),

@@ -1,79 +1,109 @@
-import { UserRound, UserRoundMinus } from 'lucide-react';
-import { ApagarDadosContato } from '@/components/patterns/apagar-dados-contato';
+import { UserPlus, UserRound } from 'lucide-react';
 import { EmptyState } from '@/components/patterns/empty-state';
+import { BotaoCadastrarContato, FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
 import { FormField } from '@/components/patterns/form-field';
-import { Button } from '@/components/ui/button';
+import { Button, variantesBotao } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { lerContatosDaEmpresa } from '@/lib/acesso-contato';
 import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato } from '../../atendimento/acoes';
 import { adicionarContato, anonimizarContato, removerContato, vincularContatoExistente } from '../acoes';
 import { classeCaixa, classeSelect } from '../estilos';
-import { BotaoCadastrarContato, FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
-import { LinhaContato } from './linha-contato';
+import { FaixaAguardando } from './faixa-aguardando';
+import { LinhaAcesso } from './linha-acesso';
+import { SecaoContatosAntiga } from './secao-contatos-antiga';
 
 /**
- * Aba Contatos da ficha: quem fala pela empresa no WhatsApp, o que cada um pode pedir e se o agente atende.
- * A linha de cada contato mantém o texto "Nome · telefone · pode pedir nota…" (é o que a equipe e os testes leem).
+ * Aba Contatos da ficha (spec 7D.2, imagem 00-cliente-contatos-acesso): quem fala pela empresa e o que cada pessoa pode
+ * tratar. Linha aberta = bloco de acesso. Sem a migração da H2, a aba de antes com o aviso (D24).
  */
-export async function SecaoContatos({ id, u, pode }: { id: string; u: UsuarioPainel; pode: boolean }) {
+export async function SecaoContatos({ id, u, pode, aberto }: { id: string; u: UsuarioPainel; pode: boolean; aberto?: string | null }) {
   const sb = await supabaseServidor();
-  const { data: vinculos } = await sb.from('contato_clientes')
-    .select('pode_pedir_nota, pode_atualizar_preco, contatos!inner(id, nome, telefone, agente_pausado, ativo)').eq('cliente_id', id).eq('contatos.ativo', true);
-  const { data: todos } = await sb.from('contatos').select('id, nome, telefone').eq('ativo', true).order('nome');
-  const lista = (vinculos ?? []).flatMap((v) => (v.contatos ? [{ ...v, contato: v.contatos }] : []))
-    .sort((a, b) => a.contato.nome.localeCompare(b.contato.nome, 'pt-BR'));
-  const jaVinculados = new Set(lista.map((v) => v.contato.id));
+  const ficha = await lerContatosDaEmpresa(sb, id);
+  if (ficha === 'sem-migracao') {
+    return (
+      <>
+        <p role="note" className="rounded-md border border-border bg-surface-muted p-3 text-sm text-muted">
+          O acesso por contato aparece quando a atualização do banco da Parte H for aplicada.
+        </p>
+        <SecaoContatosAntiga id={id} u={u} pode={pode} />
+      </>
+    );
+  }
+  if (ficha === null) return <p role="alert" className="text-sm text-danger">Não consegui carregar os contatos agora. Recarregue a página.</p>;
+  const { data: todos } = pode ? await sb.from('contatos').select('id, nome, telefone').eq('ativo', true).order('nome') : { data: [] };
+  const jaVinculados = new Set(ficha.contatos.map((c) => c.id));
   const disponiveis = (todos ?? []).filter((c) => !jaVinculados.has(c.id));
   const admin = u.papel === 'admin';
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-base text-foreground">
+          Quem fala pela empresa e <strong className="font-semibold">o que cada pessoa pode tratar</strong> com o escritório e com o agente
+        </p>
+        {pode && (
+          // É link: o botão "Adicionar contato" continua sendo o do cartão (a pergunta do contato arquivado vem junto).
+          <a href="#adicionar-contato" className={variantesBotao({ size: 'sm' })}>
+            <UserPlus aria-hidden size={16} strokeWidth={1.75} />
+            Adicionar contato
+          </a>
+        )}
+      </div>
+      {ficha.aguardando > 0 && <FaixaAguardando n={ficha.aguardando} />}
+
       <Card>
-        <CardHeader>
-          <CardTitle>Contatos autorizados no WhatsApp</CardTitle>
-          <CardDescription>Quem pode falar com o agente em nome desta empresa. A chave liga ou desliga o agente só para aquele contato.</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-2">
-          {lista.length === 0 ? (
+        {ficha.contatos.length === 0 ? (
+          <CardContent className="pt-4">
             <EmptyState
               icone={UserRound}
               className="py-6"
               titulo="Nenhum contato ligado a esta empresa."
               descricao={pode ? 'Adicione um contato novo ou vincule um que já está cadastrado.' : 'Quem pode editar clientes liga os contatos à empresa.'}
             />
-          ) : (
-            <ul className="divide-y divide-border">
-              {lista.map((v) => (
-                <LinhaContato
-                  key={v.contato.id}
-                  nome={v.contato.nome}
-                  telefone={v.contato.telefone}
-                  marcacoes={`${v.pode_pedir_nota ? ' · pode pedir nota' : ''}${v.pode_atualizar_preco ? ' · pode mudar preço e cadastrar produto' : ''}`}
-                  desligado={v.contato.agente_pausado}
-                  acao={alternarAgenteContato.bind(null, v.contato.id, null, v.contato.agente_pausado)}
+          </CardContent>
+        ) : (
+          <Table aria-label="Contatos da empresa">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Nome</TableHead>
+                <TableHead>Cargo</TableHead>
+                <TableHead>Celular</TableHead>
+                <TableHead>E-mail</TableHead>
+                <TableHead>Perfil</TableHead>
+                <TableHead>Pode tratar</TableHead>
+                <TableHead>Agente</TableHead>
+                <TableHead><span className="sr-only">Acesso</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {ficha.contatos.map((c) => (
+                <LinhaAcesso
+                  key={c.id}
+                  clienteId={id}
+                  contato={c}
+                  semServicoComSetor={ficha.semServicoComSetor}
+                  socios={ficha.socios}
                   pode={pode}
-                >
-                  {pode && (
-                    <form action={removerContato.bind(null, id, v.contato.id)}>
-                      <Button type="submit" variant="ghost" size="sm" title={`Tira ${v.contato.nome} desta empresa (o contato continua cadastrado)`}>
-                        <UserRoundMinus aria-hidden size={16} strokeWidth={1.75} />
-                        Remover
-                      </Button>
-                    </form>
-                  )}
-                  {admin && <ApagarDadosContato nome={v.contato.nome} acao={anonimizarContato.bind(null, id, v.contato.id)} />}
-                </LinhaContato>
+                  aberta={aberto === c.id}
+                  acoes={{
+                    agente: alternarAgenteContato.bind(null, c.id, null, c.agentePausado),
+                    ...(pode ? { remover: removerContato.bind(null, id, c.id) } : {}),
+                    ...(admin ? { apagar: anonimizarContato.bind(null, id, c.id) } : {}),
+                  }}
+                />
               ))}
-            </ul>
-          )}
-        </CardContent>
+            </TableBody>
+          </Table>
+        )}
       </Card>
 
       {pode && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card>
+          <Card id="adicionar-contato" className="scroll-mt-20">
             <CardHeader>
               <CardTitle>Adicionar contato</CardTitle>
               <CardDescription>Cadastra o número e já liga à empresa.</CardDescription>
