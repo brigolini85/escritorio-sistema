@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { INFO_TIPO_SKILL, MOTIVOS_PASSAGEM, ROTULO_SITUACAO_PRE_ANALISE, escolherResponsavel, formatarMensagem, resumoPreAnalise } from '@escritorio/core';
+import { MOTIVOS_PASSAGEM, ROTULO_SITUACAO_PRE_ANALISE, escolherResponsavel, formatarMensagem, resumoPreAnalise } from '@escritorio/core';
 import type { AcessoContato, ModoContato } from '@escritorio/core';
 import type { AgenteSetor, Repos, UnidadeParceiro } from '@escritorio/db';
 import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
@@ -14,7 +14,7 @@ import { calcularPreAnalise, preAnaliseNaAbertura } from './pre-analise';
 import { AVISOS_AGENTE, acessoAoSetor } from './roteamento';
 import { acharResumoConferido, chaveConferencia, cnpjFormatado, formatarReais, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente, type ItemPedido } from './pedido-nota';
 import type { ContextoAgente } from './contexto';
-import { AVISOS_SKILL, TAMANHO_PARTE_REFERENCIA } from './skills';
+import { lerReferenciaDoPerfil, lerSkillDoPerfil } from './skills';
 
 export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
 /** Parte I2 (D4): o que o agente do setor entrega ao Thiago no modo por trás. */
@@ -752,24 +752,13 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     }
 
     case 'ler_skill': {
-      // Só as skills do perfil desta execução: ligadas do próprio agente (e a em teste, na simulação). D5 da I1.
-      const perfil = estado.agenteSetor ?? ctx.agente;
-      const s = perfil?.skills.find((x) => x.nome === entrada.nome);
-      if (!s) return falha(AVISOS_SKILL.naoEncontrada);
-      return ok({ nome: s.nome, tipo: INFO_TIPO_SKILL[s.tipo].rotulo, titulo: s.titulo, versao: s.versao, texto: s.corpo, arquivos: s.arquivos });
+      const r = lerSkillDoPerfil(estado.agenteSetor ?? ctx.agente, entrada.nome);
+      return r.ok ? ok(r.dados) : falha(r.erro);
     }
 
     case 'ler_referencia': {
-      const perfil = estado.agenteSetor ?? ctx.agente;
-      const s = perfil?.skills.find((x) => x.nome === entrada.skill);
-      if (!s || !perfil?.id) return falha(AVISOS_SKILL.naoEncontrada);
-      if (!s.arquivos.includes(entrada.arquivo)) return falha(AVISOS_SKILL.arquivoNaoEncontrado);
-      const texto = await d.repos.referenciaDaSkill(perfil.id, s.nome, entrada.arquivo, perfil.skillEmTeste);
-      if (texto === null) return falha(AVISOS_SKILL.arquivoNaoEncontrado);
-      const partes = Math.max(1, Math.ceil(texto.length / TAMANHO_PARTE_REFERENCIA));
-      if (entrada.parte > partes) return falha(AVISOS_SKILL.parteInvalida);
-      const inicio = (entrada.parte - 1) * TAMANHO_PARTE_REFERENCIA;
-      return ok({ skill: s.nome, arquivo: entrada.arquivo, parte: entrada.parte, partes, texto: texto.slice(inicio, inicio + TAMANHO_PARTE_REFERENCIA) });
+      const r = await lerReferenciaDoPerfil(d.repos, estado.agenteSetor ?? ctx.agente, entrada.skill, entrada.arquivo, entrada.parte);
+      return r.ok ? ok(r.dados) : falha(r.erro);
     }
 
     case 'responder': {

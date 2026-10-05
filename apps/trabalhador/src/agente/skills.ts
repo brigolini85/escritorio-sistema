@@ -1,5 +1,5 @@
 import { INFO_TIPO_SKILL, type TipoSkill } from '@escritorio/core';
-import type { SkillCarregada } from '@escritorio/db';
+import type { PerfilAgente, Repos, SkillCarregada } from '@escritorio/db';
 import { limparTextoOrientacao } from './orientacoes';
 
 // Parte I1 (D4): as skills entram no bloco 1 (com cache), entre RESPOSTAS PRONTAS e ORIENTAÇÕES. Os cabeçalhos dizem a ordem.
@@ -43,4 +43,30 @@ export function secaoSkills(skills: readonly SkillCarregada[]): string {
   const sob = SOB_DEMANDA.flatMap((t) => skills.filter((s) => s.tipo === t));
   if (sob.length) partes.push(`${CABECALHO_SOB_DEMANDA}\n${sob.map(linhaIndice).join('\n')}`);
   return partes.length ? `\n\n${partes.join('\n\n')}` : '';
+}
+
+/** Resultado de ler_skill / ler_referencia sem depender de ferramentas.ts (a tarefa usa o mesmo, D2 da I3a). */
+export type LeituraSkill = { ok: true; dados: Record<string, unknown> } | { ok: false; erro: string };
+
+/** ler_skill: só as skills do perfil desta execução (ligadas do próprio agente; e a em teste, na simulação). D5 da I1. */
+export function lerSkillDoPerfil(perfil: Pick<PerfilAgente, 'skills'> | null | undefined, nome: string): LeituraSkill {
+  const s = perfil?.skills.find((x) => x.nome === nome);
+  if (!s) return { ok: false, erro: AVISOS_SKILL.naoEncontrada };
+  return { ok: true, dados: { nome: s.nome, tipo: INFO_TIPO_SKILL[s.tipo].rotulo, titulo: s.titulo, versao: s.versao, texto: s.corpo, arquivos: s.arquivos } };
+}
+
+/** ler_referencia: arquivo de apoio da skill, em partes de TAMANHO_PARTE_REFERENCIA. */
+export async function lerReferenciaDoPerfil(
+  repos: Pick<Repos, 'referenciaDaSkill'>, perfil: Pick<PerfilAgente, 'id' | 'skills' | 'skillEmTeste'> | null | undefined,
+  skill: string, arquivo: string, parte = 1,
+): Promise<LeituraSkill> {
+  const s = perfil?.skills.find((x) => x.nome === skill);
+  if (!s || !perfil?.id) return { ok: false, erro: AVISOS_SKILL.naoEncontrada };
+  if (!s.arquivos.includes(arquivo)) return { ok: false, erro: AVISOS_SKILL.arquivoNaoEncontrado };
+  const texto = await repos.referenciaDaSkill(perfil.id, s.nome, arquivo, perfil.skillEmTeste);
+  if (texto === null) return { ok: false, erro: AVISOS_SKILL.arquivoNaoEncontrado };
+  const partes = Math.max(1, Math.ceil(texto.length / TAMANHO_PARTE_REFERENCIA));
+  if (parte > partes) return { ok: false, erro: AVISOS_SKILL.parteInvalida };
+  const inicio = (parte - 1) * TAMANHO_PARTE_REFERENCIA;
+  return { ok: true, dados: { skill: s.nome, arquivo, parte, partes, texto: texto.slice(inicio, inicio + TAMANHO_PARTE_REFERENCIA) } };
 }
