@@ -23,7 +23,113 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "alertas": {
+            "agente_contatos_teste": {
+                  Row: {
+                    "agente_id": string,"contato_id": string,"incluido_em": string,"incluido_por": string | null
+                  }
+                  Insert: {
+                    "agente_id": string,"contato_id": string,"incluido_em"?: string,"incluido_por"?: string | null
+                  }
+                  Update: {
+                    "agente_id"?: string,"contato_id"?: string,"incluido_em"?: string,"incluido_por"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_contatos_teste_agente_id_fkey"
+      columns: ["agente_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_contatos_teste_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_contatos_teste_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_contatos_teste_incluido_por_fkey"
+      columns: ["incluido_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agente_mudancas": {
+                  Row: {
+                    "agente_id": string,"criado_em": string,"descricao": string,"id": string,"usuario_id": string | null
+                  }
+                  Insert: {
+                    "agente_id": string,"criado_em"?: string,"descricao": string,"id"?: string,"usuario_id"?: string | null
+                  }
+                  Update: {
+                    "agente_id"?: string,"criado_em"?: string,"descricao"?: string,"id"?: string,"usuario_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_mudancas_agente_id_fkey"
+      columns: ["agente_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_mudancas_usuario_id_fkey"
+      columns: ["usuario_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agente_regras_assunto": {
+                  Row: {
+                    "agente_id": string,"assunto": string,"atualizado_em": string,"criado_em": string,"exemplo": string,"id": string,"modo": string
+                  }
+                  Insert: {
+                    "agente_id": string,"assunto": string,"atualizado_em"?: string,"criado_em"?: string,"exemplo"?: string,"id"?: string,"modo": string
+                  }
+                  Update: {
+                    "agente_id"?: string,"assunto"?: string,"atualizado_em"?: string,"criado_em"?: string,"exemplo"?: string,"id"?: string,"modo"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_regras_assunto_agente_id_fkey"
+      columns: ["agente_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agentes": {
+                  Row: {
+                    "atualizado_em": string,"atualizado_por": string | null,"criado_em": string,"descricao": string,"estado": string,"ferramentas": (string)[],"id": string,"modelo": string | null,"modo_contato": string | null,"nome": string,"ordem": number,"porta_de_entrada": boolean,"setor_id": string | null,"slug": string,"tipos": (string)[]
+                  }
+                  Insert: {
+                    "atualizado_em"?: string,"atualizado_por"?: string | null,"criado_em"?: string,"descricao"?: string,"estado"?: string,"ferramentas"?: (string)[],"id"?: string,"modelo"?: string | null,"modo_contato"?: string | null,"nome": string,"ordem"?: number,"porta_de_entrada"?: boolean,"setor_id"?: string | null,"slug": string,"tipos"?: (string)[]
+                  }
+                  Update: {
+                    "atualizado_em"?: string,"atualizado_por"?: string | null,"criado_em"?: string,"descricao"?: string,"estado"?: string,"ferramentas"?: (string)[],"id"?: string,"modelo"?: string | null,"modo_contato"?: string | null,"nome"?: string,"ordem"?: number,"porta_de_entrada"?: boolean,"setor_id"?: string | null,"slug"?: string,"tipos"?: (string)[]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agentes_atualizado_por_fkey"
+      columns: ["atualizado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agentes_setor_id_fkey"
+      columns: ["setor_id"]
+isOneToOne: false
+      referencedRelation: "setores"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"alertas": {
                   Row: {
                     "criado_em": string,"id": string,"lido_em": string | null,"mensagem": string,"nivel": string,"setor_id": string | null,"usuario_id": string | null
                   }
@@ -677,16 +783,22 @@ isOneToOne: false
                   ]
                 },"orientacoes_agente": {
                   Row: {
-                    "ativo": boolean,"atualizado_em": string,"atualizado_por": string | null,"cliente_id": string | null,"criado_em": string,"criado_por": string | null,"id": string,"setor_id": string | null,"texto": string,"tipo": string,"titulo": string
+                    "agente_id": string,"ativo": boolean,"atualizado_em": string,"atualizado_por": string | null,"cliente_id": string | null,"criado_em": string,"criado_por": string | null,"id": string,"setor_id": string | null,"texto": string,"tipo": string,"titulo": string
                   }
                   Insert: {
-                    "ativo"?: boolean,"atualizado_em"?: string,"atualizado_por"?: string | null,"cliente_id"?: string | null,"criado_em"?: string,"criado_por"?: string | null,"id"?: string,"setor_id"?: string | null,"texto": string,"tipo": string,"titulo": string
+                    "agente_id"?: string,"ativo"?: boolean,"atualizado_em"?: string,"atualizado_por"?: string | null,"cliente_id"?: string | null,"criado_em"?: string,"criado_por"?: string | null,"id"?: string,"setor_id"?: string | null,"texto": string,"tipo": string,"titulo": string
                   }
                   Update: {
-                    "ativo"?: boolean,"atualizado_em"?: string,"atualizado_por"?: string | null,"cliente_id"?: string | null,"criado_em"?: string,"criado_por"?: string | null,"id"?: string,"setor_id"?: string | null,"texto"?: string,"tipo"?: string,"titulo"?: string
+                    "agente_id"?: string,"ativo"?: boolean,"atualizado_em"?: string,"atualizado_por"?: string | null,"cliente_id"?: string | null,"criado_em"?: string,"criado_por"?: string | null,"id"?: string,"setor_id"?: string | null,"texto"?: string,"tipo"?: string,"titulo"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "orientacoes_agente_agente_id_fkey"
+      columns: ["agente_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "orientacoes_agente_atualizado_por_fkey"
       columns: ["atualizado_por"]
 isOneToOne: false
@@ -976,16 +1088,22 @@ isOneToOne: false
                   ]
                 },"simulacoes_agente": {
                   Row: {
-                    "cliente_id": string | null,"criado_em": string,"erro": string | null,"id": string,"mensagem": string,"rascunho": Json | null,"respostas": Json | null,"status": string,"usuario_id": string
+                    "agente_id": string,"cliente_id": string | null,"criado_em": string,"erro": string | null,"id": string,"mensagem": string,"rascunho": Json | null,"respostas": Json | null,"status": string,"usuario_id": string
                   }
                   Insert: {
-                    "cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem": string,"rascunho"?: Json | null,"respostas"?: Json | null,"status"?: string,"usuario_id": string
+                    "agente_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem": string,"rascunho"?: Json | null,"respostas"?: Json | null,"status"?: string,"usuario_id": string
                   }
                   Update: {
-                    "cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem"?: string,"rascunho"?: Json | null,"respostas"?: Json | null,"status"?: string,"usuario_id"?: string
+                    "agente_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem"?: string,"rascunho"?: Json | null,"respostas"?: Json | null,"status"?: string,"usuario_id"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "simulacoes_agente_agente_id_fkey"
+      columns: ["agente_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "simulacoes_agente_cliente_id_fkey"
       columns: ["cliente_id"]
 isOneToOne: false
@@ -1051,16 +1169,22 @@ isOneToOne: false
                   ]
                 },"uso_ia": {
                   Row: {
-                    "cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"custo_usd": number,"funcionalidade": string,"id": string,"modelo": string,"provedor": string,"segundos_audio": number | null,"setor_id": string | null,"tokens_cache_escrita": number,"tokens_cache_leitura": number,"tokens_entrada": number,"tokens_saida": number,"usuario_id": string | null
+                    "agente_id": string | null,"cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"custo_usd": number,"funcionalidade": string,"id": string,"modelo": string,"provedor": string,"segundos_audio": number | null,"setor_id": string | null,"tokens_cache_escrita": number,"tokens_cache_leitura": number,"tokens_entrada": number,"tokens_saida": number,"usuario_id": string | null
                   }
                   Insert: {
-                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd": number,"funcionalidade": string,"id"?: string,"modelo": string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada": number,"tokens_saida": number,"usuario_id"?: string | null
+                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd": number,"funcionalidade": string,"id"?: string,"modelo": string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada": number,"tokens_saida": number,"usuario_id"?: string | null
                   }
                   Update: {
-                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd"?: number,"funcionalidade"?: string,"id"?: string,"modelo"?: string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada"?: number,"tokens_saida"?: number,"usuario_id"?: string | null
+                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd"?: number,"funcionalidade"?: string,"id"?: string,"modelo"?: string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada"?: number,"tokens_saida"?: number,"usuario_id"?: string | null
                   }
                   Relationships: [
                     {
+      foreignKeyName: "uso_ia_agente_id_fkey"
+      columns: ["agente_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "uso_ia_cliente_id_fkey"
       columns: ["cliente_id"]
 isOneToOne: false
@@ -1150,13 +1274,13 @@ isOneToOne: false
                   ]
                 },"usuarios": {
                   Row: {
-                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cargo": string | null,"criado_em": string,"email": string,"horario_acesso": Json | null,"id": string,"nome": string,"observacoes": string | null,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null,"ultimo_acesso_em": string | null,"ver_acessos_portais": boolean,"visao_demandas": string
+                    "arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"cargo": string | null,"criado_em": string,"dono": boolean,"email": string,"horario_acesso": Json | null,"id": string,"nome": string,"observacoes": string | null,"papel": Database["public"]['Enums']["papel_usuario"],"permissoes": (string)[],"tamanho_letra": string,"telefone": string | null,"ultimo_acesso_em": string | null,"ver_acessos_portais": boolean,"visao_demandas": string
                   }
                   Insert: {
-                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email": string,"horario_acesso"?: Json | null,"id": string,"nome": string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"ver_acessos_portais"?: boolean,"visao_demandas"?: string
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"dono"?: boolean,"email": string,"horario_acesso"?: Json | null,"id": string,"nome": string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"ver_acessos_portais"?: boolean,"visao_demandas"?: string
                   }
                   Update: {
-                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"email"?: string,"horario_acesso"?: Json | null,"id"?: string,"nome"?: string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"ver_acessos_portais"?: boolean,"visao_demandas"?: string
+                    "arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"cargo"?: string | null,"criado_em"?: string,"dono"?: boolean,"email"?: string,"horario_acesso"?: Json | null,"id"?: string,"nome"?: string,"observacoes"?: string | null,"papel"?: Database["public"]['Enums']["papel_usuario"],"permissoes"?: (string)[],"tamanho_letra"?: string,"telefone"?: string | null,"ultimo_acesso_em"?: string | null,"ver_acessos_portais"?: boolean,"visao_demandas"?: string
                   }
                   Relationships: [
                     {
@@ -1328,6 +1452,9 @@ isOneToOne: false
 "copiar_endereco_para_logradouro":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
+"criar_agente":
+{ Args: { "p_dados": Json }; Returns: string
+                           },
 "criar_demanda":
 { Args: { "p_cliente": string,"p_contato"?: string,"p_descricao": string,"p_prazo"?: string,"p_prioridade"?: Database["public"]['Enums']["prioridade_demanda"],"p_responsavel"?: string,"p_setor": string,"p_titulo": string }; Returns: Json
                            } |
@@ -1338,6 +1465,9 @@ isOneToOne: false
                            },
 "custo_ia_periodo":
 { Args: { "p_fim": string,"p_inicio": string }; Returns: number
+                           },
+"definir_contatos_teste":
+{ Args: { "p_contatos": (string)[],"p_slug": string }; Returns: undefined
                            },
 "definir_preco":
 { Args: { "p_grupo": string,"p_produto": string,"p_valor": number }; Returns: string
@@ -1427,6 +1557,12 @@ isOneToOne: false
 "eh_dia_util":
 { Args: { "p_dia": string }; Returns: boolean
                            },
+"eh_dono":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"eh_dono_de":
+{ Args: { "p_usuario": string }; Returns: boolean
+                           },
 "eh_telefone_do_assistente":
 { Args: { "p": string }; Returns: boolean
                            },
@@ -1439,11 +1575,20 @@ isOneToOne: false
 "excluir_cadastro_definitivo":
 { Args: { "p_id": string,"p_tipo": string }; Returns: undefined
                            },
+"excluir_regra_assunto":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
 "exigir_acesso":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "exigir_arquivar":
 { Args: { "p_tipo": string }; Returns: string
+                           },
+"ferramentas_do_atendimento":
+{ Args: Record<PropertyKey, never>; Returns: (string)[]
+                           },
+"ferramentas_do_catalogo":
+{ Args: Record<PropertyKey, never>; Returns: (string)[]
                            },
 "gastos_atendimentos_base":
 { Args: { "p_ate": string,"p_de": string }; Returns: {
@@ -1512,11 +1657,17 @@ isOneToOne: false
 "marcar_conversa_lida":
 { Args: { "p_ate": string,"p_conversa": string }; Returns: boolean
                            },
+"marcar_dono_inicial":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "meus_setores":
 { Args: Record<PropertyKey, never>; Returns: string[]
                            },
 "montar_endereco":
 { Args: { "p_bairro": string,"p_cep": string,"p_cidade": string,"p_complemento": string,"p_logradouro": string,"p_numero": string,"p_uf": string }; Returns: string
+                           },
+"mudanca_agente":
+{ Args: { "p_agente": string,"p_texto": string }; Returns: undefined
                            },
 "niveis_com_padrao":
 { Args: { "p_parcial": Json }; Returns: Json
@@ -1548,7 +1699,13 @@ isOneToOne: false
 "pode_ser_responsavel":
 { Args: { "p_setor": string,"p_usuario": string }; Returns: boolean
                            },
+"pode_treinar_agente":
+{ Args: { "p_agente": string }; Returns: boolean
+                           },
 "pode_ver_acessos":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"pode_ver_agentes":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "pode_ver_chamado":
@@ -1584,6 +1741,9 @@ isOneToOne: false
 "remover_acesso":
 { Args: { "p_id": string }; Returns: undefined
                            },
+"restaurar_agentes_iniciais":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "restaurar_cadastro":
 { Args: { "p_id": string,"p_tipo": string }; Returns: undefined
                            },
@@ -1596,6 +1756,9 @@ isOneToOne: false
 "revelar_acesso":
 { Args: { "p_acao"?: string,"p_id": string }; Returns: Json
                            },
+"rotulo_agente":
+{ Args: { "p_campo": string,"p_valor": string }; Returns: string
+                           },
 "rotulo_certificado":
 { Args: { "p_tipo": string }; Returns: string
                            },
@@ -1605,11 +1768,20 @@ isOneToOne: false
 "salvar_acesso_contato":
 { Args: { "p_cliente": string,"p_contato": string,"p_dados": Json }; Returns: undefined
                            },
+"salvar_agente":
+{ Args: { "p_dados": Json,"p_slug": string }; Returns: undefined
+                           },
 "salvar_ficha_cliente":
 { Args: { "p_dados": Json,"p_id": string }; Returns: string
                            },
 "salvar_orientacao":
 { Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
+                           },
+"salvar_orientacao_agente":
+{ Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_slug": string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
+                           },
+"salvar_regra_assunto":
+{ Args: { "p_assunto": string,"p_exemplo": string,"p_id": string,"p_modo": string,"p_slug": string }; Returns: string
                            },
 "salvar_usuario":
 { Args: { "p_dados": Json,"p_id": string }; Returns: undefined
