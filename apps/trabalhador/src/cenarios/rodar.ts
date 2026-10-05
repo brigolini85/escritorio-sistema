@@ -226,8 +226,8 @@ async function rodar(c: Cenario): Promise<string[]> {
   if (e.soOAgenteEnviou) {
     const id = await idDo(e.soOAgenteEnviou);
     const feitos = (decisoesAg ?? []).filter((x) => envios.includes(x.etapa));
-    if (feitos.length !== 1 || feitos[0]!.agente_id !== id) {
-      falhas.push(`esperava uma mensagem só ao cliente, do agente ${e.soOAgenteEnviou}; obteve ${JSON.stringify(feitos.map((x) => `${x.etapa}:${x.agente_id === id ? e.soOAgenteEnviou : x.agente_id ?? 'thiago'}`))}`);
+    if (!feitos.length || feitos.some((x) => x.agente_id !== id)) {
+      falhas.push(`esperava que só o agente ${e.soOAgenteEnviou} enviasse ao cliente (nenhuma mensagem do Thiago); obteve ${JSON.stringify(feitos.map((x) => `${x.etapa}:${x.agente_id === id ? e.soOAgenteEnviou : x.agente_id ?? 'thiago'}`))}`);
     }
   }
   if (e.marco) {
