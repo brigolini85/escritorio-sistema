@@ -717,6 +717,9 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
       if ((await acessoAoSetor(d, estado, e.clienteId, a.setorId)).situacao !== 'ok') return falha(AVISOS_AGENTE.semAcesso);
+      // Comprador (CNPJ, endereço) e preços são do fluxo de nota, como em consultar_cadastro e consultar_preco: só a instrução, nada ao cliente.
+      const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+      if (semNota) return semNota;
       const dem = await d.repos.demandaDoSetor(e.clienteId, a.setorId, entrada.numero);
       if (!dem) return falha(AVISOS_SETOR.demandaNaoEncontrada);
       if (!dem.temPedido) return falha(AVISOS_SETOR.semPedido);

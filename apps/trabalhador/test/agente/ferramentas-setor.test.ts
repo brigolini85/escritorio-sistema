@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { configurarAgenteTeste, limparBanco } from '@escritorio/db/teste';
 import { carregarContexto } from '../../src/agente/contexto';
-import { AVISOS_SETOR, executarFerramenta, type EstadoExecucao } from '../../src/agente/ferramentas';
+import { AVISOS, AVISOS_SETOR, executarFerramenta, type EstadoExecucao } from '../../src/agente/ferramentas';
 import { preAnaliseNaAbertura } from '../../src/agente/pre-analise';
 import { AVISOS_AGENTE } from '../../src/agente/roteamento';
 import { CanalFalso } from '../../src/canal/falso';
@@ -96,6 +96,20 @@ describe('ferramentas do setor (D8)', () => {
     }
     expect((await db.from('agente_sugestoes').select('id')).data).toEqual([]);
     expect(canal.enviados).toEqual([]);
+  });
+  it('conferir_pedido_nota sem o fluxo de nota (sem "Pedir nota" e sem o Fiscal): só a instrução, sem comprador nem preços', async () => {
+    // Agente de outro setor com a ferramenta: o contato trata do setor dele, mas não do Fiscal.
+    await configurarAgenteTeste('fiscal', { estado: 'desligado' });
+    await configurarAgenteTeste('pessoal', { estado: 'ligado', modo: 'mesma_voz', ferramentas: ['conferir_pedido_nota'] });
+    await definirAcessoTeste(contato, empresa, { perfil: 'personalizado', setores: ['Pessoal'], verValores: true, podePedirNota: false });
+    const d = await demanda('Pessoal', 'Pedido de venda', PEDIDO(cad.brasilEfigenia));
+    const e = await estadoDo('fiscal');
+    expect(e.agenteSetor!.slug).toBe('pessoal');
+    const r = await usar(e, 'conferir_pedido_nota', { numero: d.numero });
+    expect(r).toEqual({ instrucao: AVISOS.semFluxoNota, _erro: false });
+    expect(canal.enviados).toEqual([]);
+    await definirAcessoTeste(contato, empresa, { perfil: 'personalizado', setores: ['Pessoal'], verValores: true, podePedirNota: true });
+    expect((await usar(e, 'conferir_pedido_nota', { numero: d.numero })).linhas).toContain('OK: Destinatário: Supermercado Brasil Ltda · CNPJ 11.111.111/0001-91.');
   });
 });
 
