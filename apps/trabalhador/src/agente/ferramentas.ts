@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { INFO_TIPO_SKILL, MOTIVOS_PASSAGEM, escolherResponsavel, formatarMensagem } from '@escritorio/core';
+import { INFO_TIPO_SKILL, MOTIVOS_PASSAGEM, ROTULO_SITUACAO_PRE_ANALISE, escolherResponsavel, formatarMensagem, resumoPreAnalise } from '@escritorio/core';
 import type { AcessoContato, ModoContato } from '@escritorio/core';
 import type { AgenteSetor, Repos, UnidadeParceiro } from '@escritorio/db';
 import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
@@ -10,6 +10,8 @@ import {
 import { buscarParceiros, buscarProdutos } from './cadastros';
 import { recusarForaDoAcesso } from './fora-do-acesso';
 import type { ClienteIa } from './cliente-ia';
+import { calcularPreAnalise, preAnaliseNaAbertura } from './pre-analise';
+import { AVISOS_AGENTE, acessoAoSetor } from './roteamento';
 import { acharResumoConferido, chaveConferencia, cnpjFormatado, formatarReais, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente, type ItemPedido } from './pedido-nota';
 import type { ContextoAgente } from './contexto';
 import { AVISOS_SKILL, TAMANHO_PARTE_REFERENCIA } from './skills';
@@ -262,6 +264,13 @@ const Entradas = {
     codigo: z.string().trim().min(1).max(40), descricao: z.string().trim().min(1).max(200), unidade: z.string().trim().max(20),
     apelidos: z.array(z.string().trim().min(1).max(100)).max(10), confirmado_pelo_cliente: z.boolean(),
   }),
+  ler_demandas_setor: z.object({}),
+  conferir_pedido_nota: z.object({ numero: z.number().int().positive() }),
+  nota_interna: z.object({ numero: z.number().int().positive(), texto: z.string().trim().min(1).max(2000) }),
+  sugerir_correcao: z.object({
+    numero: z.number().int().positive(), campo: z.string().trim().min(1).max(60), de: z.string().max(300).nullish(),
+    para: z.string().trim().min(1).max(300), motivo: z.string().trim().min(1).max(500),
+  }),
   ler_skill: z.object({ nome: z.string().trim().min(1).max(64) }),
   ler_referencia: z.object({ skill: z.string().trim().min(1).max(64), arquivo: z.string().trim().min(1).max(200), parte: z.number().int().min(1).max(100).catch(1) }),
   responder: z.object({ texto: z.string().min(1).max(4000) }),
@@ -295,6 +304,16 @@ export const AVISOS = {
   basicoSemDados: 'Este contato ainda não consulta dados pelo WhatsApp. Abra uma demanda para a equipe responder. Não fale em permissão, acesso nem cadastro.',
   semFluxoNota: 'Este contato não pede nota nem consulta preços e cadastros pelo WhatsApp. Abra uma demanda no Fiscal com o pedido exatamente como o cliente escreveu. Não fale em permissão, acesso nem cadastro.',
   instrucaoForaDoAcesso: INSTRUCAO_FORA_DO_ACESSO,
+};
+
+/** Textos das ferramentas do setor (Parte I2), iguais para todos os agentes dos setores. */
+export const AVISOS_SETOR = {
+  soDoSetor: 'Esta ferramenta é dos agentes dos setores.',
+  demandaNaoEncontrada: 'Demanda não encontrada no seu setor para esta empresa. Use ler_demandas_setor.',
+  semPedido: 'Essa demanda não tem pedido de nota de venda para conferir.',
+  concluida: 'Essa demanda já foi concluída: não dá para sugerir nada nela.',
+  limiteSugestoes: 'Esta demanda já tem 20 sugestões aguardando: espere a equipe decidir.',
+  sugestao: 'Sugestão registrada: vale quando uma pessoa do setor aprovar no painel. Não fale dela com o cliente.',
 };
 
 /** O escritório não usa emoji com os clientes (pedido do dono, 2026-09-29): tira o que o modelo escapar. */
@@ -574,6 +593,8 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       // Pedido de venda para a equipe baixar no painel como arquivo do Bling (o cliente nunca recebe).
       if (conferido.tipo === 'venda') {
         await d.repos.anexarPedidoVenda(chamadoId, montarPedidoVenda({ agora: ctx.agora, destino, textoDestinatario: conferido.texto_destinatario, itens, extras: conferido }));
+        // Parte I2 (D9): com o agente do setor ativo para o contato, a pré-análise fica na demanda (nunca derruba o pedido).
+        if (setorId) await preAnaliseNaAbertura(d, estado, chamadoId, setorId);
       }
       await d.repos.atualizarConversa(ctx.conversa.id, { tentativas_nao_entendido: 0 });
       const aviso = avisoForaDoHorario(ctx);
@@ -672,6 +693,58 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
         throw erro;
       }
       return ok({ cadastrado: true, codigo: produto.codigo, descricao: produto.descricao, unidade: produto.unidade });
+    }
+
+    case 'ler_demandas_setor': {
+      const a = estado.agenteSetor;
+      if (!a) return falha(AVISOS_SETOR.soDoSetor);
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      // F19: o acesso de agora ao setor do agente, em cada ferramenta (o painel pode ter mudado no meio da vez); nunca a recusa ao cliente.
+      const { situacao, acesso } = await acessoAoSetor(d, estado, e.clienteId, a.setorId);
+      if (situacao !== 'ok') return falha(AVISOS_AGENTE.semAcesso);
+      const lista: { numero: number; titulo: string; status: string; setor_nome: string | null; criado_em: string }[] = ctx.acessoFixo
+        ? await d.repos.chamadosAbertosDoCliente(e.clienteId)
+        : await d.repos.demandasParaContato(ctx.contato!.id, e.clienteId, ctx.conversa.id);
+      const titulo = (t: string) => (acesso.verValores ? t : tituloSemValores(t));
+      return ok({ demandas: lista.filter((c) => c.setor_nome === a.setor).slice(0, 20)
+        .map((c) => ({ numero: Number(c.numero), titulo: titulo(c.titulo), status: c.status, aberta_em: diaMes(c.criado_em) })) });
+    }
+
+    case 'conferir_pedido_nota': {
+      const a = estado.agenteSetor;
+      if (!a) return falha(AVISOS_SETOR.soDoSetor);
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      if ((await acessoAoSetor(d, estado, e.clienteId, a.setorId)).situacao !== 'ok') return falha(AVISOS_AGENTE.semAcesso);
+      const dem = await d.repos.demandaDoSetor(e.clienteId, a.setorId, entrada.numero);
+      if (!dem) return falha(AVISOS_SETOR.demandaNaoEncontrada);
+      if (!dem.temPedido) return falha(AVISOS_SETOR.semPedido);
+      const analise = (await d.repos.preAnaliseDaDemanda(dem.id)) ?? (await calcularPreAnalise(d, dem.id, ctx.agora));
+      if (!analise) return falha(AVISOS_SETOR.semPedido);
+      return ok({ numero: dem.numero, resumo: resumoPreAnalise(analise), linhas: analise.linhas.map((l) => `${ROTULO_SITUACAO_PRE_ANALISE[l.situacao]}: ${l.texto}`) });
+    }
+
+    case 'nota_interna':
+    case 'sugerir_correcao': {
+      const a = estado.agenteSetor;
+      if (!a) return falha(AVISOS_SETOR.soDoSetor);
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      if ((await acessoAoSetor(d, estado, e.clienteId, a.setorId)).situacao !== 'ok') return falha(AVISOS_AGENTE.semAcesso);
+      const dem = await d.repos.demandaDoSetor(e.clienteId, a.setorId, entrada.numero);
+      if (!dem) return falha(AVISOS_SETOR.demandaNaoEncontrada);
+      if (dem.status === 'concluido') return falha(AVISOS_SETOR.concluida);
+      const conteudo = nome === 'nota_interna'
+        ? { texto: entrada.texto }
+        : { campo: entrada.campo, de: entrada.de ?? null, para: entrada.para, motivo: entrada.motivo };
+      try {
+        await d.repos.criarSugestao({ chamadoId: dem.id, agenteId: a.id, conversaId: ctx.conversa.id, tipo: nome === 'nota_interna' ? 'nota_interna' : 'correcao', conteudo });
+      } catch (erro) {
+        if (erro instanceof Error && erro.message.includes('No máximo 20')) return falha(AVISOS_SETOR.limiteSugestoes);
+        throw erro;
+      }
+      return ok({ sugestao: 'aguardando aprovação', numero: dem.numero, instrucao: AVISOS_SETOR.sugestao });
     }
 
     case 'ler_skill': {
