@@ -104,6 +104,69 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"agente_skill_arquivos": {
+                  Row: {
+                    "caminho": string,"conteudo": string,"versao_id": string
+                  }
+                  Insert: {
+                    "caminho": string,"conteudo": string,"versao_id": string
+                  }
+                  Update: {
+                    "caminho"?: string,"conteudo"?: string,"versao_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_skill_arquivos_versao_id_fkey"
+      columns: ["versao_id"]
+isOneToOne: false
+      referencedRelation: "agente_skill_versoes"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agente_skill_versoes": {
+                  Row: {
+                    "autor_id": string | null,"corpo": string,"criado_em": string,"descricao": string,"id": string,"origem": string,"restaurada_de": number | null,"skill_id": string,"skill_md": string,"tipo": string,"titulo": string,"versao": number
+                  }
+                  Insert: {
+                    "autor_id"?: string | null,"corpo": string,"criado_em"?: string,"descricao": string,"id"?: string,"origem"?: string,"restaurada_de"?: number | null,"skill_id": string,"skill_md": string,"tipo": string,"titulo": string,"versao": number
+                  }
+                  Update: {
+                    "autor_id"?: string | null,"corpo"?: string,"criado_em"?: string,"descricao"?: string,"id"?: string,"origem"?: string,"restaurada_de"?: number | null,"skill_id"?: string,"skill_md"?: string,"tipo"?: string,"titulo"?: string,"versao"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_skill_versoes_autor_id_fkey"
+      columns: ["autor_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_skill_versoes_skill_id_fkey"
+      columns: ["skill_id"]
+isOneToOne: false
+      referencedRelation: "agente_skills"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agente_skills": {
+                  Row: {
+                    "agente_id": string,"arquivada_em": string | null,"ativo": boolean,"atualizado_em": string,"criado_em": string,"id": string,"nome": string,"tipo": string,"versao_atual": number
+                  }
+                  Insert: {
+                    "agente_id": string,"arquivada_em"?: string | null,"ativo"?: boolean,"atualizado_em"?: string,"criado_em"?: string,"id"?: string,"nome": string,"tipo": string,"versao_atual"?: number
+                  }
+                  Update: {
+                    "agente_id"?: string,"arquivada_em"?: string | null,"ativo"?: boolean,"atualizado_em"?: string,"criado_em"?: string,"id"?: string,"nome"?: string,"tipo"?: string,"versao_atual"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_skills_agente_id_fkey"
+      columns: ["agente_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"agentes": {
                   Row: {
                     "atualizado_em": string,"atualizado_por": string | null,"criado_em": string,"descricao": string,"estado": string,"ferramentas": (string)[],"id": string,"modelo": string | null,"modo_contato": string | null,"nome": string,"ordem": number,"porta_de_entrada": boolean,"setor_id": string | null,"slug": string,"tipos": (string)[]
@@ -1088,13 +1151,13 @@ isOneToOne: false
                   ]
                 },"simulacoes_agente": {
                   Row: {
-                    "agente_id": string,"cliente_id": string | null,"criado_em": string,"erro": string | null,"id": string,"mensagem": string,"rascunho": Json | null,"respostas": Json | null,"status": string,"usuario_id": string
+                    "agente_id": string,"cliente_id": string | null,"criado_em": string,"erro": string | null,"id": string,"mensagem": string,"rascunho": Json | null,"respostas": Json | null,"skill_id": string | null,"status": string,"usuario_id": string
                   }
                   Insert: {
-                    "agente_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem": string,"rascunho"?: Json | null,"respostas"?: Json | null,"status"?: string,"usuario_id": string
+                    "agente_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem": string,"rascunho"?: Json | null,"respostas"?: Json | null,"skill_id"?: string | null,"status"?: string,"usuario_id": string
                   }
                   Update: {
-                    "agente_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem"?: string,"rascunho"?: Json | null,"respostas"?: Json | null,"status"?: string,"usuario_id"?: string
+                    "agente_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem"?: string,"rascunho"?: Json | null,"respostas"?: Json | null,"skill_id"?: string | null,"status"?: string,"usuario_id"?: string
                   }
                   Relationships: [
                     {
@@ -1108,6 +1171,12 @@ isOneToOne: false
       columns: ["cliente_id"]
 isOneToOne: false
       referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "simulacoes_agente_skill_id_fkey"
+      columns: ["skill_id"]
+isOneToOne: false
+      referencedRelation: "agente_skills"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "simulacoes_agente_usuario_id_fkey"
@@ -1396,6 +1465,9 @@ isOneToOne: false
 "alternar_orientacao":
 { Args: { "p_ativo": boolean,"p_id": string }; Returns: boolean
                            },
+"alternar_skill":
+{ Args: { "p_ativo": boolean,"p_skill": string }; Returns: boolean
+                           },
 "anonimizar_contato":
 { Args: { "p_contato": string }; Returns: (string)[]
                            },
@@ -1404,6 +1476,9 @@ isOneToOne: false
                            },
 "arquivar_cadastro":
 { Args: { "p_id": string,"p_tipo": string }; Returns: undefined
+                           },
+"arquivar_skill":
+{ Args: { "p_skill": string }; Returns: undefined
                            },
 "assumir_conversa":
 { Args: { "p_conversa": string }; Returns: undefined
@@ -1462,6 +1537,9 @@ isOneToOne: false
                            },
 "criar_simulacao":
 { Args: { "p_cliente_id"?: string,"p_mensagem": string,"p_rascunho"?: Json }; Returns: string
+                           },
+"criar_simulacao_skill":
+{ Args: { "p_cliente_id"?: string,"p_mensagem": string,"p_skill": string }; Returns: string
                            },
 "custo_ia_periodo":
 { Args: { "p_fim": string,"p_inicio": string }; Returns: number
@@ -1732,6 +1810,9 @@ isOneToOne: false
 "reabrir_demanda":
 { Args: { "p_chamado": string }; Returns: undefined
                            },
+"referencia_da_skill":
+{ Args: { "p_agente": string,"p_caminho": string,"p_incluir"?: string,"p_nome": string }; Returns: string
+                           },
 "registrar_pedido_fora_do_acesso":
 { Args: { "p_cliente": string,"p_contato": string,"p_dia": string,"p_setor": string }; Returns: Json
                            },
@@ -1752,6 +1833,9 @@ isOneToOne: false
                            },
 "restaurar_unidade":
 { Args: { "p_com_rede"?: boolean,"p_id": string }; Returns: Json
+                           },
+"restaurar_versao_skill":
+{ Args: { "p_versao": string }; Returns: number
                            },
 "revelar_acesso":
 { Args: { "p_acao"?: string,"p_id": string }; Returns: Json
@@ -1792,6 +1876,11 @@ isOneToOne: false
 "situacao_acesso":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"skills_do_agente":
+{ Args: { "p_agente": string,"p_incluir"?: string }; Returns: {
+              "arquivos": (string)[],"ativo": boolean,"corpo": string,"descricao": string,"id": string,"nome": string,"tipo": string,"titulo": string,"versao": number
+            }[]
+                           },
 "socios_para_alerta":
 { Args: { "p_cliente": string,"p_exceto": string }; Returns: {
               "contato_id": string,"nome": string,"telefone": string
@@ -1799,6 +1888,9 @@ isOneToOne: false
                            },
 "somar_tempo_util":
 { Args: { "p_de": string,"p_tempo": string }; Returns: string
+                           },
+"subir_skill":
+{ Args: { "p_pacote": Json,"p_slug": string }; Returns: Json
                            },
 "tabela_do_cadastro":
 { Args: { "p_tipo": string }; Returns: string
