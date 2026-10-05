@@ -5,6 +5,7 @@ import { exigirAdmin, obterUsuario } from '@/lib/sessao';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { GrupoForm, PrecoForm, ProdutoForm, UnidadeForm } from './cadastros-esquemas';
+import { lerSetorDoDocumento } from './documento-setor';
 
 async function exigirEdicao() {
   const u = await obterUsuario();
@@ -71,12 +72,35 @@ export async function enviarDocumento(clienteId: string, formData: FormData) {
     const nome = String(formData.get('nome') ?? '').trim();
     const arquivo = formData.get('arquivo');
     if (!nome || !(arquivo instanceof File) || arquivo.size === 0) throw new Error('Informe o nome e escolha o arquivo.');
+    // Setor e "Tem valores" (H2, D11) só vêm quando o banco tem a migração (o formulário mostra o campo).
+    const extra = lerSetorDoDocumento(formData, await setoresDeDocumento(sb, formData));
+    if (extra && 'erro' in extra) throw new Error(extra.erro);
     const arquivoNome = arquivo.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_');
     const path = `clientes/${clienteId}/${Date.now()}-${arquivoNome}`;
     const mime = arquivo.type || 'application/pdf';
     const up = await sb.storage.from('documentos').upload(path, arquivo, { contentType: mime });
     if (up.error) throw new Error(`Falha ao enviar o arquivo: ${up.error.message}`);
-    checar(await sb.from('documentos_empresa').insert({ cliente_id: clienteId, nome, arquivo_path: path, arquivo_nome: arquivoNome, arquivo_mime: mime, enviado_por: u.id }));
+    checar(await sb.from('documentos_empresa').insert({ cliente_id: clienteId, nome, arquivo_path: path, arquivo_nome: arquivoNome, arquivo_mime: mime, enviado_por: u.id, ...(extra ?? {}) }));
+  });
+  revalidatePath(`/clientes/${clienteId}`);
+}
+
+/** Setores que um documento pode ter: os ativos, menos Direção (D5). Só lê quando o formulário traz o campo. */
+async function setoresDeDocumento(sb: Awaited<ReturnType<typeof supabaseServidor>>, formData: FormData): Promise<string[]> {
+  if (!formData.has('setor_id')) return [];
+  const { data, error } = await sb.from('setores').select('id').eq('ativo', true).neq('nome', 'Direção');
+  if (error) throw new Error('Não foi possível ler os setores agora. Tente de novo.');
+  return (data ?? []).map((s) => s.id);
+}
+
+/** Setor e "Tem valores" de um documento já enviado (D11). Mesma permissão de mudar o documento. */
+export async function definirSetorDocumento(clienteId: string, documentoId: string, formData: FormData) {
+  await comAvisoDeErro(aba(clienteId, 'documentos'), async () => {
+    const { sb } = await exigirEdicao();
+    const extra = lerSetorDoDocumento(formData, await setoresDeDocumento(sb, formData));
+    if (!extra) return;
+    if ('erro' in extra) throw new Error(extra.erro);
+    checar(await sb.from('documentos_empresa').update(extra).eq('id', documentoId).eq('cliente_id', clienteId));
   });
   revalidatePath(`/clientes/${clienteId}`);
 }

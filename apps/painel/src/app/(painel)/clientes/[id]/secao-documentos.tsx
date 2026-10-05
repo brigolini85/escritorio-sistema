@@ -7,13 +7,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/cn';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { alternarIaDocumento, enviarDocumento, excluirDocumento } from '../cadastros-acoes';
+import { semMigracaoH2 } from '@/lib/acesso-contato';
+import { alternarIaDocumento, definirSetorDocumento, enviarDocumento, excluirDocumento } from '../cadastros-acoes';
+import { CampoSetorDocumento } from './campo-setor-documento';
+
+type Documento = { id: string; nome: string; arquivo_nome: string; ia_pode_enviar: boolean; setor_id?: string | null; tem_valores?: boolean };
+
+/**
+ * Lê os documentos com setor e "Tem valores" (H2, D11); banco sem a migração (código do erro na leitura, D24): como antes.
+ */
+async function lerDocumentos(sb: Awaited<ReturnType<typeof supabaseServidor>>, id: string): Promise<{ lista: Documento[]; comSetor: boolean }> {
+  const novo = await sb.from('documentos_empresa').select('id, nome, arquivo_nome, ia_pode_enviar, setor_id, tem_valores').eq('cliente_id', id).order('nome');
+  if (!semMigracaoH2(novo.error)) return { lista: novo.data ?? [], comSetor: !novo.error };
+  const { data } = await sb.from('documentos_empresa').select('id, nome, arquivo_nome, ia_pode_enviar').eq('cliente_id', id).order('nome');
+  return { lista: data ?? [], comSetor: false };
+}
 
 /** Documentos da empresa (contrato social, certidões…) e quais o agente pode mandar sozinho a um contato autorizado. */
 export async function SecaoDocumentos({ id, pode, admin }: { id: string; pode: boolean; admin: boolean }) {
   const sb = await supabaseServidor();
-  const { data: docs } = await sb.from('documentos_empresa').select('id, nome, arquivo_nome, ia_pode_enviar').eq('cliente_id', id).order('nome');
-  const lista = docs ?? [];
+  const { lista, comSetor } = await lerDocumentos(sb, id);
+  // Direção nunca aparece (D5): é para onde vão os assuntos sensíveis.
+  const setores = comSetor ? (await sb.from('setores').select('id, nome').eq('ativo', true).neq('nome', 'Direção').order('nome')).data ?? [] : [];
+  const nomeSetor = new Map(setores.map((s) => [s.id, s.nome]));
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -38,8 +54,22 @@ export async function SecaoDocumentos({ id, pode, admin }: { id: string; pode: b
                     {d.ia_pode_enviar
                       ? <Badge variant="assistant"><Bot aria-hidden strokeWidth={1.75} />Liberado para a IA</Badge>
                       : <Badge variant="neutral"><Users aria-hidden strokeWidth={1.75} />só a equipe envia</Badge>}
+                    {comSetor && <Badge variant="neutral">{d.setor_id ? (nomeSetor.get(d.setor_id) ?? 'setor desativado') : 'da empresa'}</Badge>}
+                    {comSetor && d.tem_valores && <Badge variant="warning">com valores</Badge>}
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
+                    {pode && comSetor && (
+                      <form action={definirSetorDocumento.bind(null, id, d.id)} className="flex flex-wrap items-center gap-2">
+                        <CampoSetorDocumento
+                          setores={setores}
+                          setorId={d.setor_id}
+                          temValores={d.tem_valores}
+                          rotulo={`Setor de ${d.nome}`}
+                          rotuloValores={`Tem valores em ${d.nome}`}
+                        />
+                        <Button type="submit" size="sm" variant="ghost" aria-label={`Salvar o setor de ${d.nome}`}>Salvar</Button>
+                      </form>
+                    )}
                     <a href={`/api/documentos?id=${d.id}`} target="_blank" rel="noreferrer" className={variantesBotao({ variant: 'ghost', size: 'sm' })}>
                       <Download aria-hidden size={16} strokeWidth={1.75} />
                       Baixar
@@ -77,12 +107,16 @@ export async function SecaoDocumentos({ id, pode, admin }: { id: string; pode: b
         <Card>
           <CardHeader>
             <CardTitle>Enviar documento</CardTitle>
-            <CardDescription>PDF ou imagem. Documento novo começa bloqueado para a IA; libere depois, se quiser.</CardDescription>
+            <CardDescription>
+              PDF ou imagem. Documento novo começa bloqueado para a IA; libere depois, se quiser.
+              {comSetor && ' O agente só manda o documento a quem pode tratar o setor dele; documento com valores, só a quem pode ver valores.'}
+            </CardDescription>
           </CardHeader>
           <form action={enviarDocumento.bind(null, id)}>
-            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Input name="nome" required placeholder="Nome do documento (ex.: Contrato social)" aria-label="Nome do documento" className="sm:flex-1" />
               <Input name="arquivo" type="file" required accept="application/pdf,image/*" aria-label="Arquivo" className={cn('pt-1.5 text-sm sm:w-72')} />
+              {comSetor && <CampoSetorDocumento setores={setores} rotulo="Setor do documento" />}
               <Button type="submit" size="sm" className="shrink-0">
                 <Upload aria-hidden size={16} strokeWidth={1.75} />
                 Enviar documento
