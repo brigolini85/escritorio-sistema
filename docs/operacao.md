@@ -147,8 +147,8 @@ A ficha tem um índice à esquerda: ✓ quando o bloco está completo, "N penden
 >    join public.clientes cl on cl.id = cc.cliente_id
 >    where ct.ativo and cl.ativo and not cc.pode_pedir_nota;
 >
->    -- Só leitura: a lista, para saber quem marcar.
->    select cl.razao_social as empresa, ct.nome as contato, ct.telefone
+>    -- Só leitura: a lista, para saber quem marcar. pode_mudar_preco = true: perde também preço e produto (veja o item 2).
+>    select cl.razao_social as empresa, ct.nome as contato, ct.telefone, cc.pode_atualizar_preco as pode_mudar_preco
 >    from public.contato_clientes cc
 >    join public.contatos ct on ct.id = cc.contato_id
 >    join public.clientes cl on cl.id = cc.cliente_id
@@ -156,12 +156,29 @@ A ficha tem um índice à esquerda: ✓ quando o bloco está completo, "N penden
 >    order by cl.razao_social, ct.nome;
 >    ```
 >
-> 2. **Marque "Pode pedir nota" em quem deve pedir nota**, pelo painel (um contato por vez, numa empresa por vez):
+> 2. **Preço e produto também dependem da nota.** Com o trabalhador novo, **consultar preço, mudar preço e cadastrar produto** pelo WhatsApp só funcionam para quem tem o fluxo de nota ("Pode pedir nota" ou o setor **Fiscal** marcado). Um contato que hoje tem **"Pode mudar preço" mas não tem "Pode pedir nota"** fica Básico e **perde os três**: o pedido vira uma demanda de texto no Fiscal. Na lista do item 1, são as linhas com `pode_mudar_preco` = `true`: ligue também **Pedir nota de venda** (ou marque o Fiscal) para eles continuarem mudando preço.
+> 3. **Marque "Pode pedir nota" em quem deve pedir nota**, pelo painel (um contato por vez, numa empresa por vez):
 >    - **Clientes** → abra a empresa → aba **Contatos** → clique na linha do contato → em **Permissões especiais**, ligue **Pedir nota de venda** → **Salvar** (aparece "Acesso salvo."); ou
 >    - **Contatos** → clique no contato → na seção **Empresas**, no cartão da empresa, clique em **Acesso** ("Acesso em <empresa>") → ligue **Pedir nota de venda** → **Salvar**.
 >
 >    Ligar só a nota **não tira o contato do Básico** (ele continua "Básico · definir" até ganhar setores): ele volta a ter o fluxo de nota e o resto segue como Básico. Marcar o setor **Fiscal** também libera o fluxo de nota.
-> 3. Também **marque o acesso dos contatos de teste** antes de trocar o trabalhador; senão eles conversam e abrem demanda, mas não consultam demandas, cadastro nem documentos.
+> 4. **Classifique os documentos ANTES de ligar "Receber documentos" para alguém.** Todo documento que já existe fica **sem setor e sem "Tem valores"**, ou seja, vira **"documento da empresa"**: o agente o manda a **qualquer** contato com "Receber documentos", **mesmo sem "Ver valores"** (uma folha ou um extrato antigo iria para quem não pode ver valores). Depois da atualização do banco, rode a consulta abaixo (ela **só lê**; antes da atualização as colunas de setor e "Tem valores" não existem):
+>
+>    ```sql
+>    -- Só leitura: documentos liberados para a IA, em empresas ativas, com o setor e o "Tem valores" de agora.
+>    select cl.razao_social as empresa, d.nome as documento, d.arquivo_nome, coalesce(st.nome, '(da empresa)') as setor, d.tem_valores
+>    from public.documentos_empresa d
+>    join public.clientes cl on cl.id = d.cliente_id
+>    left join public.setores st on st.id = d.setor_id
+>    where cl.ativo and d.ia_pode_enviar
+>    order by cl.razao_social, d.nome;
+>    ```
+>
+>    Para cada documento da lista: **Clientes** → abra a empresa → aba **Documentos** → escolha o **Setor** (deixe "da empresa" só para contrato social, cartão CNPJ e parecidos) e marque **Tem valores** se ele mostrar honorários, boletos, salários ou outros valores → **Salvar**. Só depois ligue "Receber documentos" nos contatos. **O painel antigo continua enviando documento assim (sem setor, sem "Tem valores") até ser trocado pelo desta versão**: documento enviado por ele também precisa ser classificado.
+> 5. Também **marque o acesso dos contatos de teste** antes de trocar o trabalhador; senão eles conversam e abrem demanda, mas não consultam demandas, cadastro nem documentos.
+> 6. **Troque o trabalhador logo depois de aplicar a atualização do banco** (no mesmo dia). O trabalhador antigo não conhece o acesso por contato; o banco novo já trata todos como Básico e o painel já mostra o acesso novo, então quanto antes os dois andarem juntos, menos confusão.
+>
+> Depois da troca, **toda demanda aberta por um contato Básico** vem com a linha "Contato com acesso ainda não definido (Básico): confira com o responsável da empresa antes de mandar dados ou documentos." no resumo. Ela some quando o acesso do contato é definido (ganha setores, "Ver valores" ou "Receber documentos").
 
 Cada pessoa que fala por uma empresa tem um **acesso naquela empresa** (a mesma pessoa pode ter acessos diferentes em empresas diferentes). Abra a linha do contato na aba **Contatos** da ficha (ou, na tela **Contatos**, o painel do contato › seção **Empresas** › no cartão de cada empresa, o botão **Acesso**, que abre "Acesso em <empresa>"): é o mesmo bloco, gravado no mesmo lugar.
 
