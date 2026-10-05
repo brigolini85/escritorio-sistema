@@ -20,8 +20,8 @@ insert into public.contato_cliente_setores (contato_id, cliente_id, setor_id, po
 
 set local role service_role;
 -- 1–2: a vez (D6)
-select is(public.iniciar_execucao_tarefa('fa300000-0000-0000-0000-00000000000a'), true, 'pega a tarefa');
-select is(public.iniciar_execucao_tarefa('fa300000-0000-0000-0000-00000000000a'), false, 'não roda duas vezes ao mesmo tempo');
+select is(public.iniciar_execucao_tarefa('fa300000-0000-0000-0000-00000000000a'), now(), 'pega a tarefa e devolve a marca da vez');
+select is(public.iniciar_execucao_tarefa('fa300000-0000-0000-0000-00000000000a'), null::timestamptz, 'não roda duas vezes ao mesmo tempo');
 
 -- 3–7: etapas (D5)
 select lives_ok($$ select public.definir_etapas_tarefa('fa300000-0000-0000-0000-00000000000a', array['Coletar documentos', 'Ler e lançar', 'Conciliar', 'Aprovação']) $$, 'define');

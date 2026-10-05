@@ -16,12 +16,15 @@ end $$;
 revoke execute on function interno.tarefa_trabalhando(uuid) from public, anon, authenticated, service_role;
 
 -- D6: uma vez por tarefa; a marca vence em 35 min (a fila desiste do job em 30).
-create function public.iniciar_execucao_tarefa(p_id uuid) returns boolean
+-- F6: devolve a marca desta vez (o trabalhador a passa a finalizar_vez_tarefa); null = não pegou (já rodando ou não está trabalhando).
+create function public.iniciar_execucao_tarefa(p_id uuid) returns timestamptz
 language plpgsql security definer set search_path = '' as $$
+declare v_desde timestamptz;
 begin
   update public.agente_tarefas set executando_desde = now(), atualizado_em = now()
-   where id = p_id and estado = 'trabalhando' and (executando_desde is null or executando_desde < now() - interval '35 minutes');
-  return found;
+   where id = p_id and estado = 'trabalhando' and (executando_desde is null or executando_desde < now() - interval '35 minutes')
+  returning executando_desde into v_desde;
+  return v_desde;
 end $$;
 
 -- D5: só na primeira vez da tarefa.

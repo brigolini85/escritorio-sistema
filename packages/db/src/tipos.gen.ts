@@ -2106,7 +2106,7 @@ isOneToOne: false
 { Args: { "p_agente": string,"p_conversa": string }; Returns: boolean
                            },
 "iniciar_execucao_tarefa":
-{ Args: { "p_id": string }; Returns: boolean
+{ Args: { "p_id": string }; Returns: string
                            },
 "liberar_envio_pendencia":
 { Args: { "p_id": string }; Returns: undefined
