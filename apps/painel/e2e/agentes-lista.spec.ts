@@ -13,6 +13,11 @@ test('dono vê os 7 agentes, filtra, busca e cria um agente desligado', async ({
   await page.getByRole('link', { name: 'Agentes' }).click();
   await expect(page).toHaveURL(/\/agentes$/);
   await expect(page.locator('[data-testid^="agente-"]')).toHaveCount(7);
+  // Cada cartão ocupa a coluna inteira da grade (sem cartões de larguras diferentes).
+  for (const cartao of await page.locator('[data-testid^="agente-"]').all()) {
+    const [c, celula] = await Promise.all([cartao.boundingBox(), cartao.locator('xpath=..').boundingBox()]);
+    expect(Math.round(c!.width)).toBe(Math.round(celula!.width));
+  }
   const thiago = page.getByTestId('agente-atendimento');
   await expect(thiago).toContainText('Ligado');
   await expect(thiago).toContainText('Direto, é a voz do escritório');

@@ -36,7 +36,7 @@ export function CartaoAgente({ agente: a, contagens: c, numeros: n, mostrarNumer
   const usado = !!n && (n.atendimentos > 0 || n.custoUsd > 0);
   const pct = percentualSozinho(n);
   return (
-    <Card className={cn('flex flex-col gap-3 border-t-4 p-4', FAIXA_ESTADO[a.estado])} data-testid={`agente-${a.slug}`}>
+    <Card className={cn('flex w-full flex-col gap-3 border-t-4 p-4', FAIXA_ESTADO[a.estado])} data-testid={`agente-${a.slug}`}>
       <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-surface-muted text-brand"><Icone aria-hidden size={20} /></span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
