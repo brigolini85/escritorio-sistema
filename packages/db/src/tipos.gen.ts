@@ -85,6 +85,61 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"agente_pendencias": {
+                  Row: {
+                    "arquivo_id": string | null,"contato_id": string | null,"criado_em": string,"detalhe": string | null,"estado": string,"id": string,"mensagem": string | null,"mensagem_id": string | null,"numero": number,"opcoes": (string)[],"pedido_em": string | null,"pedido_enviado_em": string | null,"pedido_por": string | null,"pedido_texto": string | null,"pedidos": number,"pergunta": string,"respondeu_na_conversa_em": string | null,"respondida_em": string | null,"respondida_por": string | null,"resposta": string | null,"tarefa_id": string,"tipo": string,"vista_em": string | null
+                  }
+                  Insert: {
+                    "arquivo_id"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"detalhe"?: string | null,"estado"?: string,"id"?: string,"mensagem"?: string | null,"mensagem_id"?: string | null,"numero": number,"opcoes"?: (string)[],"pedido_em"?: string | null,"pedido_enviado_em"?: string | null,"pedido_por"?: string | null,"pedido_texto"?: string | null,"pedidos"?: number,"pergunta": string,"respondeu_na_conversa_em"?: string | null,"respondida_em"?: string | null,"respondida_por"?: string | null,"resposta"?: string | null,"tarefa_id": string,"tipo": string,"vista_em"?: string | null
+                  }
+                  Update: {
+                    "arquivo_id"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"detalhe"?: string | null,"estado"?: string,"id"?: string,"mensagem"?: string | null,"mensagem_id"?: string | null,"numero"?: number,"opcoes"?: (string)[],"pedido_em"?: string | null,"pedido_enviado_em"?: string | null,"pedido_por"?: string | null,"pedido_texto"?: string | null,"pedidos"?: number,"pergunta"?: string,"respondeu_na_conversa_em"?: string | null,"respondida_em"?: string | null,"respondida_por"?: string | null,"resposta"?: string | null,"tarefa_id"?: string,"tipo"?: string,"vista_em"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_pendencias_arquivo_id_fkey"
+      columns: ["arquivo_id"]
+isOneToOne: false
+      referencedRelation: "agente_tarefa_arquivos"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_pendencias_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_pendencias_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_pendencias_mensagem_id_fkey"
+      columns: ["mensagem_id"]
+isOneToOne: false
+      referencedRelation: "mensagens"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_pendencias_pedido_por_fkey"
+      columns: ["pedido_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_pendencias_respondida_por_fkey"
+      columns: ["respondida_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_pendencias_tarefa_id_fkey"
+      columns: ["tarefa_id"]
+isOneToOne: false
+      referencedRelation: "agente_tarefas"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"agente_regras_assunto": {
                   Row: {
                     "agente_id": string,"assunto": string,"atualizado_em": string,"criado_em": string,"exemplo": string,"id": string,"modo": string
@@ -228,15 +283,126 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"agentes": {
+                },"agente_tarefa_arquivos": {
                   Row: {
-                    "atualizado_em": string,"atualizado_por": string | null,"criado_em": string,"descricao": string,"estado": string,"ferramentas": (string)[],"id": string,"modelo": string | null,"modo_contato": string | null,"nome": string,"ordem": number,"porta_de_entrada": boolean,"setor_id": string | null,"slug": string,"tipos": (string)[]
+                    "bucket": string,"caminho": string,"criado_em": string,"detalhe": string | null,"enviado_por": string | null,"id": string,"lido_em": string | null,"mensagem_id": string | null,"mime": string,"nome": string,"origem": string,"tamanho": number,"tarefa_id": string
                   }
                   Insert: {
-                    "atualizado_em"?: string,"atualizado_por"?: string | null,"criado_em"?: string,"descricao"?: string,"estado"?: string,"ferramentas"?: (string)[],"id"?: string,"modelo"?: string | null,"modo_contato"?: string | null,"nome": string,"ordem"?: number,"porta_de_entrada"?: boolean,"setor_id"?: string | null,"slug": string,"tipos"?: (string)[]
+                    "bucket": string,"caminho": string,"criado_em"?: string,"detalhe"?: string | null,"enviado_por"?: string | null,"id"?: string,"lido_em"?: string | null,"mensagem_id"?: string | null,"mime": string,"nome": string,"origem": string,"tamanho": number,"tarefa_id": string
                   }
                   Update: {
-                    "atualizado_em"?: string,"atualizado_por"?: string | null,"criado_em"?: string,"descricao"?: string,"estado"?: string,"ferramentas"?: (string)[],"id"?: string,"modelo"?: string | null,"modo_contato"?: string | null,"nome"?: string,"ordem"?: number,"porta_de_entrada"?: boolean,"setor_id"?: string | null,"slug"?: string,"tipos"?: (string)[]
+                    "bucket"?: string,"caminho"?: string,"criado_em"?: string,"detalhe"?: string | null,"enviado_por"?: string | null,"id"?: string,"lido_em"?: string | null,"mensagem_id"?: string | null,"mime"?: string,"nome"?: string,"origem"?: string,"tamanho"?: number,"tarefa_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_tarefa_arquivos_enviado_por_fkey"
+      columns: ["enviado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_tarefa_arquivos_mensagem_id_fkey"
+      columns: ["mensagem_id"]
+isOneToOne: false
+      referencedRelation: "mensagens"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_tarefa_arquivos_tarefa_id_fkey"
+      columns: ["tarefa_id"]
+isOneToOne: false
+      referencedRelation: "agente_tarefas"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agente_tarefa_eventos": {
+                  Row: {
+                    "criado_em": string,"id": string,"quem": string,"tarefa_id": string,"texto": string,"usuario_id": string | null
+                  }
+                  Insert: {
+                    "criado_em"?: string,"id"?: string,"quem": string,"tarefa_id": string,"texto": string,"usuario_id"?: string | null
+                  }
+                  Update: {
+                    "criado_em"?: string,"id"?: string,"quem"?: string,"tarefa_id"?: string,"texto"?: string,"usuario_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_tarefa_eventos_tarefa_id_fkey"
+      columns: ["tarefa_id"]
+isOneToOne: false
+      referencedRelation: "agente_tarefas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_tarefa_eventos_usuario_id_fkey"
+      columns: ["usuario_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agente_tarefas": {
+                  Row: {
+                    "agente_id": string,"ajuste_pendente": boolean,"ajustes": NonNullable<Json>,"anotacoes": string,"atualizado_em": string,"canal": string,"chamado_id": string,"cliente_id": string | null,"criado_em": string,"custo_etapas": NonNullable<Json>,"custo_usd": number,"decidida_em": string | null,"decidida_por": string | null,"estado": string,"etapa_atual": number,"etapas": NonNullable<Json>,"executando_desde": string | null,"id": string,"limite_minutos": number,"limite_usd": number,"motivo_pausa": string | null,"numero": number,"pedida_por": string | null,"pedido": string,"resultado": Json | null,"segundos_trabalhando": number,"setor_id": string | null,"skill_nome": string | null
+                  }
+                  Insert: {
+                    "agente_id": string,"ajuste_pendente"?: boolean,"ajustes"?: NonNullable<Json>,"anotacoes"?: string,"atualizado_em"?: string,"canal"?: string,"chamado_id": string,"cliente_id"?: string | null,"criado_em"?: string,"custo_etapas"?: NonNullable<Json>,"custo_usd"?: number,"decidida_em"?: string | null,"decidida_por"?: string | null,"estado"?: string,"etapa_atual"?: number,"etapas"?: NonNullable<Json>,"executando_desde"?: string | null,"id"?: string,"limite_minutos": number,"limite_usd": number,"motivo_pausa"?: string | null,"numero"?: never,"pedida_por"?: string | null,"pedido": string,"resultado"?: Json | null,"segundos_trabalhando"?: number,"setor_id"?: string | null,"skill_nome"?: string | null
+                  }
+                  Update: {
+                    "agente_id"?: string,"ajuste_pendente"?: boolean,"ajustes"?: NonNullable<Json>,"anotacoes"?: string,"atualizado_em"?: string,"canal"?: string,"chamado_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"custo_etapas"?: NonNullable<Json>,"custo_usd"?: number,"decidida_em"?: string | null,"decidida_por"?: string | null,"estado"?: string,"etapa_atual"?: number,"etapas"?: NonNullable<Json>,"executando_desde"?: string | null,"id"?: string,"limite_minutos"?: number,"limite_usd"?: number,"motivo_pausa"?: string | null,"numero"?: never,"pedida_por"?: string | null,"pedido"?: string,"resultado"?: Json | null,"segundos_trabalhando"?: number,"setor_id"?: string | null,"skill_nome"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_tarefas_agente_id_fkey"
+      columns: ["agente_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_tarefas_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "chamados"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_tarefas_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "demandas_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_tarefas_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_tarefas_decidida_por_fkey"
+      columns: ["decidida_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_tarefas_pedida_por_fkey"
+      columns: ["pedida_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_tarefas_setor_id_fkey"
+      columns: ["setor_id"]
+isOneToOne: false
+      referencedRelation: "setores"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agentes": {
+                  Row: {
+                    "atualizado_em": string,"atualizado_por": string | null,"criado_em": string,"descricao": string,"estado": string,"ferramentas": (string)[],"id": string,"modelo": string | null,"modo_contato": string | null,"nome": string,"ordem": number,"porta_de_entrada": boolean,"setor_id": string | null,"slug": string,"tarefa_limite_minutos": number,"tarefa_limite_usd": number,"tipos": (string)[]
+                  }
+                  Insert: {
+                    "atualizado_em"?: string,"atualizado_por"?: string | null,"criado_em"?: string,"descricao"?: string,"estado"?: string,"ferramentas"?: (string)[],"id"?: string,"modelo"?: string | null,"modo_contato"?: string | null,"nome": string,"ordem"?: number,"porta_de_entrada"?: boolean,"setor_id"?: string | null,"slug": string,"tarefa_limite_minutos"?: number,"tarefa_limite_usd"?: number,"tipos"?: (string)[]
+                  }
+                  Update: {
+                    "atualizado_em"?: string,"atualizado_por"?: string | null,"criado_em"?: string,"descricao"?: string,"estado"?: string,"ferramentas"?: (string)[],"id"?: string,"modelo"?: string | null,"modo_contato"?: string | null,"nome"?: string,"ordem"?: number,"porta_de_entrada"?: boolean,"setor_id"?: string | null,"slug"?: string,"tarefa_limite_minutos"?: number,"tarefa_limite_usd"?: number,"tipos"?: (string)[]
                   }
                   Relationships: [
                     {
@@ -1348,13 +1514,13 @@ isOneToOne: false
                   ]
                 },"uso_ia": {
                   Row: {
-                    "agente_id": string | null,"cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"custo_usd": number,"funcionalidade": string,"id": string,"modelo": string,"provedor": string,"segundos_audio": number | null,"setor_id": string | null,"tokens_cache_escrita": number,"tokens_cache_leitura": number,"tokens_entrada": number,"tokens_saida": number,"usuario_id": string | null
+                    "agente_id": string | null,"cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"custo_usd": number,"funcionalidade": string,"id": string,"modelo": string,"provedor": string,"segundos_audio": number | null,"setor_id": string | null,"tarefa_id": string | null,"tokens_cache_escrita": number,"tokens_cache_leitura": number,"tokens_entrada": number,"tokens_saida": number,"usuario_id": string | null
                   }
                   Insert: {
-                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd": number,"funcionalidade": string,"id"?: string,"modelo": string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada": number,"tokens_saida": number,"usuario_id"?: string | null
+                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd": number,"funcionalidade": string,"id"?: string,"modelo": string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tarefa_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada": number,"tokens_saida": number,"usuario_id"?: string | null
                   }
                   Update: {
-                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd"?: number,"funcionalidade"?: string,"id"?: string,"modelo"?: string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada"?: number,"tokens_saida"?: number,"usuario_id"?: string | null
+                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd"?: number,"funcionalidade"?: string,"id"?: string,"modelo"?: string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tarefa_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada"?: number,"tokens_saida"?: number,"usuario_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -1392,6 +1558,12 @@ isOneToOne: false
       columns: ["setor_id"]
 isOneToOne: false
       referencedRelation: "setores"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "uso_ia_tarefa_id_fkey"
+      columns: ["tarefa_id"]
+isOneToOne: false
+      referencedRelation: "agente_tarefas"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "uso_ia_usuario_id_fkey"
@@ -1933,6 +2105,9 @@ isOneToOne: false
 "pode_acessar_agora":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"pode_mexer_na_tarefa":
+{ Args: { "p_tarefa": string }; Returns: boolean
+                           },
 "pode_ser_responsavel":
 { Args: { "p_setor": string,"p_usuario": string }; Returns: boolean
                            },
@@ -1959,6 +2134,9 @@ isOneToOne: false
                            },
 "pode_ver_sugestoes_do_chamado":
 { Args: { "p_chamado": string }; Returns: boolean
+                           },
+"pode_ver_tarefa":
+{ Args: { "p_tarefa": string }; Returns: boolean
                            },
 "prazo_segue_regra":
 { Args: { "p_chamado": string }; Returns: boolean
@@ -2059,6 +2237,9 @@ isOneToOne: false
                            },
 "tabela_do_cadastro":
 { Args: { "p_tipo": string }; Returns: string
+                           },
+"tarefa_do_caminho":
+{ Args: { "p_nome": string }; Returns: string
                            },
 "tem_nivel":
 { Args: { "p_minimo": string,"p_modulo": string }; Returns: boolean
