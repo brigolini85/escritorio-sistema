@@ -9,6 +9,7 @@ import { SENHA, abrirAgente, criarDono, skillNoBanco } from './apoio-agentes';
 
 // Parte I1 (spec 7E.3, D7–D10): subir, ligar, versões e restaurar; só o dono.
 test.beforeEach(async () => { await limparBanco(); });
+test.afterAll(async () => { await limparBanco(); });
 const md = (texto: string, tipo = '') => `---\nname: nunca-prometer-prazo\ndescription: O que nunca prometer.${tipo ? `\ntipo: ${tipo}` : ''}\n---\n# Nunca promete prazo\n${texto}`;
 const arquivo = (name: string, conteudo: string | Uint8Array) => ({ name, mimeType: 'application/octet-stream', buffer: Buffer.from(conteudo) });
 const skill = async () => (await db.from('agente_skills').select('ativo, versao_atual').eq('nome', 'nunca-prometer-prazo').single()).data;
@@ -77,4 +78,12 @@ test('quem treina vê as skills, mas não sobe nem liga', async ({ page }) => {
   await expect(page.getByText('Tom do escritório')).toBeVisible();
   await expect(page.getByRole('switch', { name: 'Ligar Tom do escritório' })).toBeDisabled();
   await expect(page.getByRole('region', { name: 'Subir skill' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Subir skill' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Arquivar / })).toHaveCount(0);
+  for (const sw of await page.getByRole('switch').all()) await expect(sw).toBeDisabled();
+  // Versões abrem para leitura, mas sem Restaurar.
+  await page.getByRole('button', { name: 'Versões de Tom do escritório' }).click();
+  await expect(page.getByRole('button', { name: /^Restaurar/ })).toHaveCount(0);
+  const { data } = await db.from('agente_skills').select('ativo, versao_atual').eq('nome', 'tom').single();
+  expect(data).toEqual({ ativo: true, versao_atual: 1 });
 });

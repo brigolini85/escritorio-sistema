@@ -5,6 +5,7 @@ import { SENHA, criarDono } from './apoio-agentes';
 
 // Parte I1 (spec 7E.2, D12, D25): tela Agentes.
 test.beforeEach(async () => { await limparBanco(); });
+test.afterAll(async () => { await limparBanco(); });
 
 test('dono vê os 7 agentes, filtra, busca e cria um agente desligado', async ({ page }) => {
   await criarDono();

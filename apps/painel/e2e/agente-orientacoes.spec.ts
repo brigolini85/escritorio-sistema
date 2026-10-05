@@ -6,6 +6,7 @@ import { editor, esperarTreinar, lista, simulador } from './apoio-treinar';
 
 // Parte I1 (spec 7E.1, D12, D16–D18, D20–D22).
 test.beforeEach(async () => { await limparBanco(); });
+test.afterAll(async () => { await limparBanco(); });
 
 test('/treinar-agente leva à aba Orientações do Thiago, com a mesma tela', async ({ page }) => {
   await criarDono();
@@ -43,6 +44,13 @@ test('orientações do Fiscal: Ana (Fiscal) escreve, sem simulador; Paula (Pesso
   await entrar(page, 'paula@agentes.local', SENHA);
   await abrirAgente(page, 'fiscal', 'orientacoes');
   await expect(page.getByText('Só quem tem "Treinar o agente" e é do setor Fiscal muda estas orientações.')).toBeVisible();
+  // Sem o setor, nada de editor, lista nem salvar; o banco segue só com a orientação da Ana.
+  await expect(editor(page)).toHaveCount(0);
+  await expect(lista(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Salvar/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Nova orientação' })).toHaveCount(0);
+  const { count } = await db.from('orientacoes_agente').select('id', { count: 'exact' });
+  expect(count).toBe(1);
 });
 
 test('Testar com uma skill desligada (dono)', async ({ page }) => {
@@ -61,7 +69,16 @@ test('Atividade e custo e "Por agente" em Gastos com IA', async ({ page }) => {
     modelo: 'claude-sonnet-5', tokens_entrada: 1, tokens_saida: 1, custo_usd: 0.25 });
   await entrar(page, 'dono@agentes.local', SENHA);
   await abrirAgente(page, 'atendimento', 'atividade');
-  await expect(page.getByRole('table', { name: 'Atividade por dia' })).toBeVisible();
+  const dia = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' }).format(new Date());
+  const tabela = page.getByRole('table', { name: 'Atividade por dia' });
+  await expect(tabela).toBeVisible();
+  const linhaDia = tabela.getByRole('row').filter({ hasText: dia });
+  await expect(linhaDia).toHaveCount(1);
+  await expect(linhaDia).toContainText(/US\$\s0,25/);
+  await expect(page.locator('div.p-4').filter({ has: page.getByText('Custo', { exact: true }) }).first()).toContainText(/US\$\s0,25/);
   await page.goto('/gastos-ia');
-  await expect(page.getByTestId('gastos-agente-atendimento')).toContainText('Thiago');
+  const porAgente = page.getByTestId('gastos-agente-atendimento');
+  await expect(porAgente).toContainText('Thiago');
+  await expect(porAgente).toContainText(/US\$\s0,25/);
+  await expect(porAgente).toContainText('100%');
 });

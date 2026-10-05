@@ -5,6 +5,7 @@ import { SENHA, abrirAgente, criarDono } from './apoio-agentes';
 
 // Parte I1 (spec 7E.3, D13, D14, D15, D28, D29): ficha do agente.
 test.beforeEach(async () => { await limparBanco(); });
+test.afterAll(async () => { await limparBanco(); });
 const fiscal = async () => (await db.from('agentes').select('id, estado, modo_contato, ferramentas').eq('slug', 'fiscal').single()).data!;
 
 test('dono põe o Fiscal em Teste com um contato, escolhe o modo, cria uma regra e libera uma ferramenta', async ({ page }) => {
@@ -58,8 +59,21 @@ test('administrador que não é dono vê a ficha, mas não muda', async ({ page 
   await criarDono();
   await criarUsuarioTeste({ email: 'admin2@agentes.local', senha: SENHA, nome: 'Outro Admin', papel: 'admin' });
   await entrar(page, 'admin2@agentes.local', SENHA);
+  const antes = await fiscal();
   await abrirAgente(page, 'fiscal');
-  await expect(page.getByRole('group', { name: 'Estado do agente' }).getByRole('button', { name: 'Ligado', exact: true })).toBeDisabled();
+  const estado = page.getByRole('group', { name: 'Estado do agente' });
+  for (const nome of ['Desligado', 'Teste', 'Ligado']) await expect(estado.getByRole('button', { name: nome, exact: true })).toBeDisabled();
+  await expect(page.getByLabel('Modelo de IA')).toHaveCount(0);
+  await abrirAgente(page, 'fiscal', 'como-fala');
+  await expect(page.getByRole('button', { name: 'Nova regra' })).toHaveCount(0);
+  for (const r of await page.getByRole('radio').all()) await expect(r).toBeDisabled();
   await abrirAgente(page, 'fiscal', 'ferramentas');
   await expect(page.getByRole('button', { name: 'Salvar' })).toHaveCount(0);
+  const caixas = await page.getByRole('checkbox').all();
+  expect(caixas.length).toBeGreaterThan(0);
+  for (const c of caixas) await expect(c).toBeDisabled();
+  // Nada foi gravado: a linha do agente e o histórico seguem como estavam.
+  expect(await fiscal()).toEqual(antes);
+  const { count } = await db.from('agente_mudancas').select('id', { count: 'exact', head: false }).eq('agente_id', antes.id);
+  expect(count).toBe(0);
 });
