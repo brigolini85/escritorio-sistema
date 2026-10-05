@@ -2,7 +2,7 @@
 -- que só valem quando uma pessoa do setor da demanda aprova.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(28);
 
 insert into auth.users (id, email) values
   ('f7000000-0000-0000-0000-00000000000a', 'ana@i2b.local'), ('f7000000-0000-0000-0000-00000000000b', 'paula@i2b.local'),
@@ -89,6 +89,24 @@ select set_config('request.jwt.claims', '{"sub":"f7000000-0000-0000-0000-0000000
 select is((select count(*)::int from public.agente_sugestoes), 0, 'Ana sem nível de notas não vê as sugestões da demanda com pedido');
 select is((select count(*)::int from public.pre_analises_nota), 0, 'nem a pré-análise');
 select throws_ok($$ select public.decidir_sugestao(current_setting('i2.sug')::uuid, true) $$, 'P0001', 'Sugestão não encontrada.', 'nem decide');
+reset role;
+
+-- 26–28: demanda na triagem (sem setor) ou agente sem setor: nenhum NULL passa nas guardas
+insert into public.chamados (id, cliente_id, setor_id, titulo) values ('f7200000-0000-0000-0000-00000000000c', 'f7100000-0000-0000-0000-00000000000a', null, 'Triagem');
+select throws_ok($$ select public.criar_sugestao_agente('f7200000-0000-0000-0000-00000000000c', (select id from public.agentes where slug = 'fiscal'), null,
+  'nota_interna', '{"texto":"x"}') $$, 'P0001', 'A demanda não é do setor deste agente.', 'demanda na triagem: recusa');
+insert into public.agentes (slug, nome, descricao, setor_id, tipos, estado, ferramentas, porta_de_entrada, ordem)
+  values ('i2-sem-setor', 'I2 Sem setor', 'teste', null, '{trabalho}', 'desligado', '{}', false, 99);
+select throws_ok($$ select public.criar_sugestao_agente('f7200000-0000-0000-0000-00000000000c', (select id from public.agentes where slug = 'i2-sem-setor'), null,
+  'nota_interna', '{"texto":"x"}') $$, 'P0001', 'A demanda não é do setor deste agente.', 'agente sem setor + demanda na triagem: recusa');
+insert into public.agente_sugestoes (chamado_id, agente_id, tipo, conteudo)
+  values ('f7200000-0000-0000-0000-00000000000c', (select id from public.agentes where slug = 'fiscal'), 'nota_interna', '{"texto":"x"}');
+select set_config('i2.sug2', (select id::text from public.agente_sugestoes where chamado_id = 'f7200000-0000-0000-0000-00000000000c'), true);
+update public.usuario_permissoes set nivel = 'todas' where modulo = 'demandas' and usuario_id = 'f7000000-0000-0000-0000-00000000000b';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"f7000000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
+select throws_ok($$ select public.decidir_sugestao(current_setting('i2.sug2')::uuid, true) $$, 'P0001',
+  'Só quem é do setor da demanda aprova as sugestões do agente.', 'demanda na triagem: quem não é admin não decide');
 reset role;
 
 select * from finish();

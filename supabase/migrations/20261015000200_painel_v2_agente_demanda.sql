@@ -64,7 +64,7 @@ begin
   end if;
   select cliente_id, setor_id into v_cliente, v_setor from public.chamados where id = p_chamado and pedido_venda is not null;
   if not found then raise exception 'Esta demanda não tem pedido de nota.'; end if;
-  if not exists (select 1 from public.agentes where id = p_agente and not porta_de_entrada and setor_id = v_setor) then
+  if not exists (select 1 from public.agentes where id = p_agente and not porta_de_entrada and setor_id is not null and v_setor is not null and setor_id = v_setor) then
     raise exception 'A demanda não é do setor deste agente.';
   end if;
   insert into public.pre_analises_nota (chamado_id, cliente_id, agente_id, resultado)
@@ -79,7 +79,7 @@ begin
   select setor_id into v_setor from public.agentes where id = p_agente and not porta_de_entrada;
   if not found then raise exception 'Agente não encontrado.'; end if;
   select * into c from public.chamados where id = p_chamado;
-  if not found or c.setor_id is distinct from v_setor then raise exception 'A demanda não é do setor deste agente.'; end if;
+  if not found or c.setor_id is null or v_setor is null or c.setor_id <> v_setor then raise exception 'A demanda não é do setor deste agente.'; end if;
   if c.status = 'concluido' then raise exception 'A demanda já foi concluída.'; end if;
   if p_tipo is null or p_tipo not in ('nota_interna', 'correcao') or jsonb_typeof(p_conteudo) is distinct from 'object'
      or (p_tipo = 'nota_interna' and char_length(btrim(coalesce(p_conteudo ->> 'texto', ''))) not between 1 and 2000)
@@ -109,7 +109,7 @@ begin
   select * into s from public.agente_sugestoes where id = p_id for update;
   if not found or not public.pode_ver_sugestoes_do_chamado(s.chamado_id) then raise exception 'Sugestão não encontrada.'; end if;
   select * into c from public.chamados where id = s.chamado_id;
-  if not (public.eh_admin() or c.setor_id in (select public.meus_setores())) then
+  if not (public.eh_admin() or coalesce(c.setor_id in (select public.meus_setores()), false)) then
     raise exception 'Só quem é do setor da demanda aprova as sugestões do agente.';
   end if;
   if s.estado <> 'aguardando' then raise exception 'Esta sugestão já foi decidida.'; end if;
