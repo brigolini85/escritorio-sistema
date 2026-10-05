@@ -180,6 +180,9 @@ create policy leitura on public.agente_mudancas for select to authenticated usin
 revoke all on public.agentes, public.agente_contatos_teste, public.agente_regras_assunto, public.agente_mudancas from anon;
 revoke insert, update, delete, truncate on public.agentes, public.agente_contatos_teste, public.agente_regras_assunto, public.agente_mudancas
   from authenticated;
+-- A chave de serviço também só lê: quem muda os agentes são as funções do dono (D11).
+revoke insert, update, delete, truncate on public.agentes, public.agente_contatos_teste, public.agente_regras_assunto, public.agente_mudancas
+  from service_role;
 
 -- ---------- Funções do dono (D11, D13, D14, D25, D28, D29) ----------
 create function public.rotulo_agente(p_campo text, p_valor text) returns text
@@ -191,13 +194,13 @@ language sql immutable set search_path = '' as $$
                                             when 'passa_conversa' then 'Passa a conversa' else p_valor end
     else p_valor end
 $$;
-revoke execute on function public.rotulo_agente(text, text) from public, anon, authenticated;
+revoke execute on function public.rotulo_agente(text, text) from public, anon, authenticated, service_role;
 
 create function public.mudanca_agente(p_agente uuid, p_texto text) returns void
 language sql security definer set search_path = '' as $$
   insert into public.agente_mudancas (agente_id, usuario_id, descricao) values (p_agente, auth.uid(), left(p_texto, 300))
 $$;
-revoke execute on function public.mudanca_agente(uuid, text) from public, anon, authenticated;
+revoke execute on function public.mudanca_agente(uuid, text) from public, anon, authenticated, service_role;
 
 create function public.salvar_agente(p_slug text, p_dados jsonb) returns void
 language plpgsql security definer set search_path = '' as $$

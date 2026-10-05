@@ -2,7 +2,7 @@
 -- por SQL; os 7 agentes iniciais; o Thiago travado como "Ligado, mesma voz"; orientações pelo setor do agente.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(47);
 
 update public.usuarios set dono = false where dono;   -- outro teste ou e2e pode ter deixado um dono
 insert into auth.users (id, email) values
@@ -121,6 +121,13 @@ select set_config('request.jwt.claims', '', true);
 
 -- 44: o custo ganha o agente
 select has_column('public', 'uso_ia', 'agente_id', 'uso_ia.agente_id existe');
+
+-- 45–47: a chave de serviço também não escreve direto nas tabelas dos agentes nem chama os ajudantes
+set local role service_role;
+select throws_ok($$ update public.agentes set estado = 'ligado' where slug = 'fiscal' $$, '42501', null, 'service_role não muda agente direto');
+select throws_ok($$ insert into public.agente_mudancas (agente_id, descricao) values ('a0000000-0000-4000-8000-000000000001', 'x') $$, '42501', null, 'service_role não escreve o histórico');
+select throws_ok($$ select public.mudanca_agente('a0000000-0000-4000-8000-000000000001', 'x') $$, '42501', null, 'service_role não chama o ajudante do histórico');
+reset role;
 
 select * from finish();
 rollback;
