@@ -1735,7 +1735,10 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "acesso_do_contato":
+            "abrir_pendencia_tarefa":
+{ Args: { "p_detalhe": string,"p_mensagem": string,"p_opcoes": (string)[],"p_pergunta": string,"p_tarefa": string,"p_tipo": string }; Returns: number
+                           },
+"acesso_do_contato":
 { Args: { "p_cliente": string,"p_contato": string }; Returns: Json
                            },
 "agente_atendimentos_base":
@@ -1778,6 +1781,9 @@ isOneToOne: false
                            },
 "anonimizar_contato":
 { Args: { "p_contato": string }; Returns: (string)[]
+                           },
+"anotar_tarefa":
+{ Args: { "p_id": string,"p_texto": string }; Returns: undefined
                            },
 "aplicar_prazo_abertas":
 { Args: { "p_dias": number,"p_prioridade": Database["public"]['Enums']["prioridade_demanda"] }; Returns: number
@@ -1831,11 +1837,17 @@ isOneToOne: false
 "concluir_conversa":
 { Args: { "p_conversa": string }; Returns: undefined
                            },
+"concluir_etapa_tarefa":
+{ Args: { "p_etapa": number,"p_id": string,"p_resumo": string }; Returns: undefined
+                           },
 "contato_arquivado_do_telefone":
 { Args: { "p_telefone": string }; Returns: Json
                            },
 "contato_da_empresa":
 { Args: { "p_cliente": string,"p_contato": string }; Returns: boolean
+                           },
+"contato_respondeu_pendencias":
+{ Args: { "p_contato": string }; Returns: number
                            },
 "contato_whatsapp_resumo":
 { Args: { "p_contato": string }; Returns: Json
@@ -1884,6 +1896,9 @@ isOneToOne: false
                            },
 "definir_contatos_teste":
 { Args: { "p_contatos": (string)[],"p_slug": string }; Returns: undefined
+                           },
+"definir_etapas_tarefa":
+{ Args: { "p_id": string,"p_nomes": (string)[] }; Returns: undefined
                            },
 "definir_preco":
 { Args: { "p_grupo": string,"p_produto": string,"p_valor": number }; Returns: string
@@ -1991,8 +2006,14 @@ isOneToOne: false
 "encerrar_conducao":
 { Args: { "p_conversa": string,"p_motivo": string }; Returns: boolean
                            },
+"entregar_resultado_tarefa":
+{ Args: { "p_id": string,"p_resultado": Json }; Returns: undefined
+                           },
 "estado_sistema_resumo":
 { Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"evento_tarefa_agente":
+{ Args: { "p_tarefa": string,"p_texto": string }; Returns: undefined
                            },
 "excluir_cadastro_definitivo":
 { Args: { "p_id": string,"p_tipo": string }; Returns: undefined
@@ -2017,6 +2038,9 @@ isOneToOne: false
                            },
 "ferramentas_so_do_atendimento":
 { Args: Record<PropertyKey, never>; Returns: (string)[]
+                           },
+"finalizar_vez_tarefa":
+{ Args: { "p_desde"?: string,"p_id": string,"p_motivo": string,"p_segundos": number }; Returns: string
                            },
 "gastos_atendimentos_base":
 { Args: { "p_ate": string,"p_de": string }; Returns: {
@@ -2081,6 +2105,12 @@ isOneToOne: false
 "iniciar_conducao":
 { Args: { "p_agente": string,"p_conversa": string }; Returns: boolean
                            },
+"iniciar_execucao_tarefa":
+{ Args: { "p_id": string }; Returns: boolean
+                           },
+"liberar_envio_pendencia":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
 "limites_espera":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
@@ -2090,11 +2120,20 @@ isOneToOne: false
 "marcar_alerta_lido":
 { Args: { "p_alerta": string }; Returns: undefined
                            },
+"marcar_arquivo_lido":
+{ Args: { "p_arquivo": string,"p_detalhe": string }; Returns: undefined
+                           },
 "marcar_conversa_lida":
 { Args: { "p_ate": string,"p_conversa": string }; Returns: boolean
                            },
 "marcar_dono_inicial":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"marcar_pendencia_enviada":
+{ Args: { "p_id": string,"p_mensagem": string }; Returns: undefined
+                           },
+"marcar_pendencias_vistas":
+{ Args: { "p_tarefa": string }; Returns: undefined
                            },
 "meus_setores":
 { Args: Record<PropertyKey, never>; Returns: string[]
@@ -2126,6 +2165,9 @@ isOneToOne: false
 "pausar_tarefa":
 { Args: { "p_id": string }; Returns: undefined
                            },
+"pedidos_ao_cliente_parados":
+{ Args: { "p_minutos": number }; Returns: string[]
+                           },
 "pedir_ajuste_tarefa":
 { Args: { "p_id": string,"p_texto": string }; Returns: boolean
                            },
@@ -2134,6 +2176,11 @@ isOneToOne: false
                            },
 "pedir_sugestao_resposta":
 { Args: { "p_conversa": string }; Returns: string
+                           },
+"pendencias_pedidas_ao_contato":
+{ Args: { "p_contato": string }; Returns: {
+              "chamado_numero": number,"empresa": string,"numero": number,"pendencia_id": string,"pergunta": string,"setor": string
+            }[]
                            },
 "permissoes_dos_niveis":
 { Args: { "n": Json }; Returns: (string)[]
@@ -2203,6 +2250,11 @@ isOneToOne: false
                            },
 "remover_acesso":
 { Args: { "p_id": string }; Returns: undefined
+                           },
+"reservar_envio_pendencia":
+{ Args: { "p_id": string }; Returns: {
+              "cliente_id": string,"contato_id": string,"contato_nome": string,"id": string,"numero": number,"tarefa_id": string,"telefone": string,"texto": string
+            }[]
                            },
 "responder_pendencia":
 { Args: { "p_id": string,"p_resposta": string }; Returns: boolean
@@ -2277,6 +2329,9 @@ isOneToOne: false
               "contato_id": string,"nome": string,"telefone": string
             }[]
                            },
+"somar_custo_tarefa":
+{ Args: { "p_custo": number,"p_id": string }; Returns: undefined
+                           },
 "somar_tempo_util":
 { Args: { "p_de": string,"p_tempo": string }; Returns: string
                            },
@@ -2288,6 +2343,9 @@ isOneToOne: false
                            },
 "tarefa_do_caminho":
 { Args: { "p_nome": string }; Returns: string
+                           },
+"tarefas_paradas":
+{ Args: { "p_minutos": number }; Returns: string[]
                            },
 "tem_nivel":
 { Args: { "p_minimo": string,"p_modulo": string }; Returns: boolean
