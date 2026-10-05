@@ -97,6 +97,25 @@ describe('montarPacoteSkill (pasta, .zip e .md)', () => {
       .toEqual({ ok: false, erro: 'No máximo 20 arquivos de referência por skill.' });
     expect(montarPacoteSkill([], null)).toEqual({ ok: false, erro: 'Nenhum arquivo para subir.' });
   });
+  it('recusa caminhos repetidos depois de normalizar (sem diferenciar maiúsculas)', () => {
+    const base = { caminho: 'SKILL.md', conteudo: skill };
+    const rep = (a: string, b: string) => montarPacoteSkill([base, { caminho: a, conteudo: 'x' }, { caminho: b, conteudo: 'y' }], null);
+    expect(rep('a.md', './a.md')).toEqual({ ok: false, erro: 'Arquivo repetido no pacote: a.md.' });
+    expect(rep('x\\a.md', 'x/a.md')).toEqual({ ok: false, erro: 'Arquivo repetido no pacote: x/a.md.' });
+    expect(rep('A.md', 'a.md')).toMatchObject({ ok: false, erro: expect.stringContaining('Arquivo repetido no pacote') });
+    expect(montarPacoteSkill([base, { caminho: 'skill.md', conteudo: skill }], null))
+      .toEqual({ ok: false, erro: 'Arquivo repetido no pacote: skill.md.' });
+  });
+  it('recusa nome de arquivo inválido: segmento vazio, unidade, absoluto e .. em qualquer lugar', () => {
+    const base = { caminho: 'SKILL.md', conteudo: skill };
+    for (const c of ['//x/a.md', '/x/a.md', 'a//b.md', 'C:/x.md', 'C:\\x.md', 'x/./y.md', '../a.md']) {
+      expect(montarPacoteSkill([base, { caminho: c, conteudo: 'x' }], null)).toMatchObject({ ok: false, erro: expect.stringContaining('Nome de arquivo inválido') });
+    }
+    expect(montarPacoteSkill([{ caminho: '../SKILL.md', conteudo: skill }, { caminho: '../r.md', conteudo: 'x' }], null))
+      .toMatchObject({ ok: false, erro: expect.stringContaining('Nome de arquivo inválido') });
+    expect(montarPacoteSkill([{ caminho: 'pasta/SKILL.md', conteudo: skill }, { caminho: 'pasta/refs/r.md', conteudo: 'x' }], null))
+      .toMatchObject({ ok: true });
+  });
 });
 
 describe('diferencaLinhas (D9)', () => {

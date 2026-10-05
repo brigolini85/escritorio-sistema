@@ -159,12 +159,23 @@ export function lerSkillMd(texto: string): ResultadoSkillMd {
  */
 export function montarPacoteSkill(arquivos: ArquivoSkill[], tipoEscolhido: TipoSkill | null): ResultadoPacote {
   const uteis = arquivos
-    .map((a) => ({ ...a, caminho: a.caminho.replace(/\\/g, '/').replace(/^\.?\//, '') }))
-    .filter((a) => a.caminho && !a.caminho.endsWith('/') && !a.caminho.split('/').some((p) => p === '__MACOSX' || (p.startsWith('.') && p !== '..')));
+    .map((a) => ({ ...a, caminho: a.caminho.replace(/\\/g, '/').replace(/^(\.\/)+/, '') }))
+    .filter((a) => a.caminho && !a.caminho.endsWith('/') && !a.caminho.split('/').some((p) => p === '__MACOSX' || (p.startsWith('.') && p !== '.' && p !== '..')));
   if (!uteis.length) return erro('Nenhum arquivo para subir.');
+  for (const a of uteis) {
+    if (a.caminho.split('/').some((p) => p === '' || p === '.' || p === '..') || /^[A-Za-z]:/.test(a.caminho)) {
+      return erro(`Nome de arquivo inválido: "${a.caminho}".`);
+    }
+  }
   const partes = uteis.map((a) => a.caminho.split('/'));
   const raiz = partes.every((p) => p.length > 1 && p[0] === partes[0]![0]) ? partes[0]![0]! : null;
   const sem = raiz ? uteis.map((a) => ({ ...a, caminho: a.caminho.slice(raiz.length + 1) })) : uteis;
+  const vistos = new Set<string>();
+  for (const a of sem) {
+    const chave = a.caminho.toLowerCase();
+    if (vistos.has(chave)) return erro(`Arquivo repetido no pacote: ${a.caminho}.`);
+    vistos.add(chave);
+  }
   let principal = sem.find((a) => a.caminho.toLowerCase() === 'skill.md');
   if (!principal && sem.length === 1 && /\.md$/i.test(sem[0]!.caminho)) principal = sem[0];
   if (!principal) return erro('Não achei o SKILL.md (na raiz da pasta ou do .zip).');
