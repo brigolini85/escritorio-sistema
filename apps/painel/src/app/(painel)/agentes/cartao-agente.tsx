@@ -83,7 +83,7 @@ export function CartaoAgente({ agente: a, contagens: c, numeros: n, mostrarNumer
       <div className="mt-auto flex items-center justify-between border-t border-border pt-3 text-sm">
         <span className="inline-flex items-center gap-1 text-muted">
           <Clock aria-hidden size={14} />
-          {mostrarNumeros && n?.ultimaEm ? `${formatarDataHora(n.ultimaEm)}${n.ultimaEmpresa ? ` · ${n.ultimaEmpresa}` : ''}` : usado || a.portaDeEntrada ? '—' : 'nunca usado'}
+          {mostrarNumeros && n?.ultimaEm ? `${formatarDataHora(n.ultimaEm)}${n.ultimaEmpresa ? ` · ${n.ultimaEmpresa}` : ''}` : !mostrarNumeros || usado || a.portaDeEntrada ? '—' : 'nunca usado'}
         </span>
         <Link href={`/agentes/${a.slug}`} aria-label={`Abrir ${a.nome}`} className="inline-flex items-center gap-1 font-bold uppercase text-brand">
           {configurado ? 'Abrir' : 'Configurar'}<ChevronRight aria-hidden size={14} />
