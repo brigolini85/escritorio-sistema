@@ -249,3 +249,56 @@ export function slugDoNome(nome: string): string {
   if (!s) return 'agente';
   return (/^[a-z]/.test(s) ? s : `agente-${s}`).slice(0, 40).replace(/-+$/, '');
 }
+
+// ---------- Parte I2: os agentes dos setores atendem pelo Thiago ----------
+/** Ferramentas dos agentes dos setores (D12). O banco tem a mesma lista em ferramentas_do_setor(). */
+export const CATALOGO_FERRAMENTAS_SETOR = {
+  ler_demandas_setor: { rotulo: 'Ler demandas do setor', descricao: 'As demandas da empresa neste setor que o contato pode ver.', efeito: 'leitura' },
+  conferir_pedido_nota: { rotulo: 'Conferir pedido de nota', descricao: 'Destinatário, itens, preços e o arquivo do Bling de uma demanda de nota.', efeito: 'leitura' },
+  nota_interna: { rotulo: 'Nota interna', descricao: 'Sugere uma nota na demanda; vale quando uma pessoa do setor aprova.', efeito: 'grava' },
+  sugerir_correcao: { rotulo: 'Sugerir correção (prévia)', descricao: 'Sugere corrigir um dado do pedido; uma pessoa do setor aprova e aplica.', efeito: 'grava' },
+} as const satisfies Record<string, InfoFerramenta>;
+export type NomeFerramentaSetor = keyof typeof CATALOGO_FERRAMENTAS_SETOR;
+export const FERRAMENTAS_SETOR = Object.keys(CATALOGO_FERRAMENTAS_SETOR) as NomeFerramentaSetor[];
+export type NomeFerramentaDisponivel = NomeFerramentaCatalogo | NomeFerramentaSetor;
+export const CATALOGO_COMPLETO: Record<NomeFerramentaDisponivel, InfoFerramenta> = { ...CATALOGO_FERRAMENTAS, ...CATALOGO_FERRAMENTAS_SETOR };
+/** O catálogo inteiro na ordem da tela: as 16 do Thiago e as do setor (= ferramentas_do_catalogo() do banco). */
+export const FERRAMENTAS_DO_CATALOGO: NomeFerramentaDisponivel[] = [...FERRAMENTAS_ATENDIMENTO, ...FERRAMENTAS_SETOR];
+
+/** Quem aprova o que a ferramenta grava ou envia (D8). null = só leitura. */
+export type AprovacaoFerramenta = 'cliente' | 'pessoa' | 'conversa' | 'so_atendimento';
+export const APROVACAO_FERRAMENTA: Record<NomeFerramentaDisponivel, AprovacaoFerramenta | null> = {
+  selecionar_empresa: 'so_atendimento', abrir_chamado: 'so_atendimento', consultar_chamados: null, sinalizar_nao_entendido: 'so_atendimento',
+  passar_para_pessoa: 'so_atendimento', buscar_parceiros: null, buscar_produtos: null, resumir_pedido_nota: 'cliente', abrir_pedido_nota: 'cliente',
+  listar_documentos: null, enviar_documento: 'so_atendimento', consultar_cadastro: null, consultar_preco: null, alterar_preco: 'cliente',
+  cadastrar_produto: 'cliente', responder: 'conversa',
+  ler_demandas_setor: null, conferir_pedido_nota: null, nota_interna: 'pessoa', sugerir_correcao: 'pessoa',
+};
+export const ROTULO_APROVACAO: Record<AprovacaoFerramenta, string> = {
+  cliente: 'o cliente confirma', pessoa: 'aprovação de uma pessoa do setor', conversa: 'pelo modo de falar com o cliente', so_atendimento: 'só o Thiago',
+};
+/** Gravam ou enviam sem aprovação de ninguém: só a porta de entrada usa (o banco recusa nos agentes dos setores). */
+export const FERRAMENTAS_SO_ATENDIMENTO = FERRAMENTAS_DO_CATALOGO.filter((f) => APROVACAO_FERRAMENTA[f] === 'so_atendimento');
+
+/** O que o agente do setor recebe do que o dono escolheu (D4, D8): responder entra pelo modo; em "por trás", nada que envia ou dependa do cliente. */
+export function ferramentasDoEspecialista(escolhidas: readonly string[], modo: ModoContato): NomeFerramentaDisponivel[] {
+  return FERRAMENTAS_DO_CATALOGO.filter((f) => {
+    if (!escolhidas.includes(f)) return false;
+    const a = APROVACAO_FERRAMENTA[f];
+    if (a === 'so_atendimento' || a === 'conversa') return false;
+    return modo !== 'por_tras' || (a !== 'cliente' && CATALOGO_COMPLETO[f].efeito !== 'envia');
+  });
+}
+
+/** Passa a conversa (D6): depois disso, a mensagem nova volta ao Thiago. */
+export const CONDUCAO_EXPIRA_HORAS = 24;
+export const apresentacaoDoSetor = (setor: string): string => `Aqui é do ${setor} do escritório`;
+
+export type RegraDoAgente = { id: string; assunto: string; exemplo: string; modo: ModoContato };
+export const ASSUNTO_OUTRO = 'outro';
+const chaveAssunto = (v: string) => semAcento(v).toLowerCase().replace(/\s+/g, ' ').trim();
+/** Quem escolhe o modo é o sistema (D3): a regra com o assunto que o Thiago passou; sem regra, o padrão do agente. */
+export function modoParaAssunto(regras: readonly RegraDoAgente[], assunto: string, padrao: ModoContato): { modo: ModoContato; regraId: string | null } {
+  const r = regras.find((x) => chaveAssunto(x.assunto) === chaveAssunto(assunto));
+  return r ? { modo: r.modo, regraId: r.id } : { modo: padrao, regraId: null };
+}
