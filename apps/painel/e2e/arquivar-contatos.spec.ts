@@ -97,7 +97,7 @@ test('pela ficha da empresa, o arquivado volta só com o vínculo novo e as perm
   await expect(janela.getByRole('checkbox')).toHaveCount(1);
   await janela.getByRole('button', { name: 'Trazer de volta' }).click();
   await expect(page.getByText('Contato arquivado voltou. Os vínculos antigos com outras empresas saíram.')).toBeVisible();
-  await expect(page.getByText('Zé Voltou · 5531999991702 · pode pedir nota')).toBeVisible();
+  await expect(linha(page, 'Zé Voltou')).toContainText('pede nota'); // Parte H2 (D22)
   expect(await vinculos(ze!.id)).toEqual([{ cliente_id: x, pode_pedir_nota: true, pode_atualizar_preco: false }]);
 });
 
@@ -128,7 +128,7 @@ test('contato ativo cadastrado de novo pela ficha continua com os outros víncul
   await page.getByLabel('Nome', { exact: true }).fill('Maria Arquivo');
   await page.getByLabel('Telefone').fill('(31) 99999-1701');
   await page.getByRole('button', { name: 'Adicionar contato' }).click();
-  await expect(page.getByText('Maria Arquivo · 5531999991701')).toBeVisible();
+  await expect(linha(page, 'Maria Arquivo')).toContainText('(31) 99999-1701'); // Parte H2 (D22)
   await expect(page.getByText(/Contato arquivado voltou/)).toHaveCount(0);
   expect((await vinculos(maria!.id)).map((v) => v.cliente_id).sort()).toEqual([x, y].sort());
 });

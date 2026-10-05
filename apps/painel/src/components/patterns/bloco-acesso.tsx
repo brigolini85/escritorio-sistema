@@ -33,6 +33,11 @@ type PropsBloco = {
   /** Remover, Apagar dados (LGPD): ficam no rodapé do bloco, na ficha. */
   acoesExtras?: ReactNode;
   aoFechar?: () => void;
+  /**
+   * Falso quando a tela já diz uma vez, fora dos blocos, por que as marcações não mudam (painel de Contatos: a frase fica no
+   * fim da seção Empresas, como antes da H2, e não se repete em cada bloco aberto).
+   */
+  avisoSoLeitura?: boolean;
 };
 
 const classeSelect = 'h-9 w-full rounded-md border border-input bg-surface px-2 text-base text-foreground shadow-sm disabled:cursor-not-allowed disabled:opacity-60';
@@ -249,9 +254,9 @@ export function BlocoAcesso(p: PropsBloco) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">{p.acoesExtras}</div>
         {!p.pode ? (
-          <p className="text-sm text-muted">Só quem pode editar clientes muda as marcações.</p>
+          p.avisoSoLeitura !== false && <p className="text-sm text-muted">Só quem pode editar clientes muda as marcações.</p>
         ) : p.arquivado ? (
-          <p className="text-sm text-muted">Contato arquivado: restaure para mudar as marcações.</p>
+          p.avisoSoLeitura !== false && <p className="text-sm text-muted">Contato arquivado: restaure para mudar as marcações.</p>
         ) : (
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" onClick={cancelar} disabled={salvando}>Cancelar</Button>

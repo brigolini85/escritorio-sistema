@@ -1,3 +1,4 @@
+import type { Perfil } from '@escritorio/core';
 import { FilterX, UserPlus, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -10,6 +11,7 @@ import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
 import { variantesBotao } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { lerPerfisDaPagina } from '@/lib/acesso-contato';
 import { contarArquivados } from '@/lib/arquivados';
 import { lerFiltrosContatos, ORDEM_PADRAO_CONTATOS, ORDENS_CONTATOS, temFiltroContatos } from '@/lib/contatos';
 import { temNivel } from '@/lib/permissoes';
@@ -55,6 +57,8 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
       .then(async (l) => [l, l.completa ? await lerEmpresasAtivas(sb) : []] as const),
     contarArquivados(sb, 'contato'),
   ]);
+  // Coluna Perfil (H2): sem a migração no banco, a tabela fica como antes (D24).
+  const perfisLidos = lista.linhas.length ? await lerPerfisDaPagina(sb, lista.linhas.map((l) => l.id)) : new Map<string, Map<string, Perfil>>();
   // Os links de ordem e de página da tabela não reabrem o painel em edição.
   const paramsTabela = { ...params, editar: undefined };
 
@@ -87,7 +91,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
       <DataTable
         rotulo="Contatos"
         linhas={lista.linhas}
-        colunas={colunasContatos({ euId: u.id, veTodas, pode, agora, ordenaUltimo: lista.completa })}
+        colunas={colunasContatos({ euId: u.id, veTodas, pode, agora, ordenaUltimo: lista.completa, perfis: perfisLidos === 'sem-migracao' ? null : perfisLidos })}
         chave={(c) => c.id}
         params={paramsTabela}
         ordem={lista.ordem}

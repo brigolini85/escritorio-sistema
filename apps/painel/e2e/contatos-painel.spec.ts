@@ -21,10 +21,16 @@ test('painel: Abrir conversa, marcações por empresa, vincular empresa, Editar 
   await expect(painel.getByRole('link', { name: 'Abrir conversa' })).toHaveAttribute('href', `/atendimento/${s.conversaCarla}`);
   await expect(painel).not.toContainText('Zeta'); // empresa arquivada fora do painel (D5)
 
-  // Marcações por empresa: cada caixa grava ao clicar (D9).
-  await painel.getByRole('group', { name: `${PREFIXO} Mercado Central` }).getByRole('checkbox', { name: 'Pode pedir nota' }).click();
+  // Parte H2 (D22): as marcações moram no bloco de acesso de cada empresa, com Salvar.
+  await painel.getByRole('button', { name: `Acesso em ${PREFIXO} Mercado Central` }).click();
+  const mercado = painel.getByRole('group', { name: `${PREFIXO} Mercado Central` });
+  await mercado.getByRole('switch', { name: 'Pedir nota de venda' }).click();
+  await mercado.getByRole('button', { name: 'Salvar' }).click();
   await expect.poll(async () => (await vinculo(s.carla, s.mercado))?.pode_pedir_nota).toBe(true);
-  await painel.getByRole('group', { name: `${PREFIXO} Rede Bom Preço Ltda` }).getByRole('checkbox', { name: 'Pode pedir nota' }).click();
+  await painel.getByRole('button', { name: `Acesso em ${PREFIXO} Rede Bom Preço Ltda` }).click();
+  const redeAcesso = painel.getByRole('group', { name: `${PREFIXO} Rede Bom Preço Ltda` });
+  await redeAcesso.getByRole('switch', { name: 'Pedir nota de venda' }).click();
+  await redeAcesso.getByRole('button', { name: 'Salvar' }).click();
   await expect.poll(async () => (await vinculo(s.carla, s.rede))?.pode_pedir_nota).toBe(false);
 
   // Vincular empresa: só as ativas ainda não ligadas (D10).
@@ -37,7 +43,8 @@ test('painel: Abrir conversa, marcações por empresa, vincular empresa, Editar 
   await form.getByRole('checkbox', { name: 'Pode mudar preço e cadastrar produto' }).check();
   await form.getByRole('button', { name: 'Vincular', exact: true }).click();
   await expect(page.getByText('Empresa vinculada.')).toBeVisible();
-  await expect(painel.getByRole('group', { name: `${PREFIXO} Padaria Sol` }).getByRole('checkbox', { name: 'Pode mudar preço e cadastrar produto' })).toBeChecked();
+  await painel.getByRole('button', { name: `Acesso em ${PREFIXO} Padaria Sol` }).click();
+  await expect(painel.getByRole('group', { name: new RegExp(`^${PREFIXO} Padaria Sol`) }).getByRole('switch', { name: 'Mudar preço e cadastrar produto' })).toBeChecked();
   expect(await vinculo(s.carla, s.padaria)).toEqual({ pode_pedir_nota: false, pode_atualizar_preco: true });
 
   // Editar abre o nome (D6).
@@ -68,9 +75,10 @@ test('painel com "Só ver" e Atendimento "Sem acesso": sem Editar, marcações e
   await expect(painel.getByLabel('Nome', { exact: true })).toHaveCount(0);
   await expect(painel.getByRole('button', { name: 'Vincular empresa' })).toHaveCount(0);
   for (const empresa of ['Mercado Central', 'Rede Bom Preço Ltda']) {
+    await painel.getByRole('button', { name: `Acesso em ${PREFIXO} ${empresa}` }).click();
     const grupo = painel.getByRole('group', { name: `${PREFIXO} ${empresa}` });
-    await expect(grupo.getByRole('checkbox', { name: 'Pode pedir nota' })).toBeDisabled();
-    await expect(grupo.getByRole('checkbox', { name: 'Pode mudar preço e cadastrar produto' })).toBeDisabled();
+    await expect(grupo.getByRole('switch', { name: 'Pedir nota de venda' })).toBeDisabled();
+    await expect(grupo.getByRole('switch', { name: 'Mudar preço e cadastrar produto' })).toBeDisabled();
   }
   await expect(painel.getByText('Só quem pode editar clientes muda as marcações.')).toBeVisible();
   await expect(painel.getByRole('switch', { name: `Desligar o agente para ${PREFIXO} Carla Mendes` })).toBeDisabled();
@@ -160,7 +168,8 @@ test('Editar vira "Fechar edição"; contato arquivado com ?editar=1 não mostra
   await expect(arquivado.getByText(`${PREFIXO} Mercado Central`)).toBeVisible({ timeout: 30_000 });
   await expect(arquivado.getByLabel('Nome', { exact: true })).toHaveCount(0);
   await expect(arquivado.getByRole('link', { name: /Editar |Fechar edição/ })).toHaveCount(0);
-  await expect(arquivado.getByRole('group', { name: `${PREFIXO} Mercado Central` }).getByRole('checkbox', { name: 'Pode pedir nota' })).toBeDisabled();
+  await arquivado.getByRole('button', { name: `Acesso em ${PREFIXO} Mercado Central` }).click();
+  await expect(arquivado.getByRole('group', { name: `${PREFIXO} Mercado Central` }).getByRole('switch', { name: 'Pedir nota de venda' })).toBeDisabled();
   await expect(arquivado.getByText('Contato arquivado: restaure para mudar as marcações.')).toBeVisible();
   await expect(arquivado.getByText('Só quem pode editar clientes muda as marcações.')).toHaveCount(0);
 });

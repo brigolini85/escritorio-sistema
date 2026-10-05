@@ -46,7 +46,7 @@ test('na ficha da empresa, vincula um contato já cadastrado', async ({ page }) 
   await page.getByLabel('Contato já cadastrado').selectOption({ label: `Zé Sem Empresa · ${TEL_B}` });
   await page.getByLabel('Pode pedir nota (vínculo)').check();
   await page.getByRole('button', { name: 'Vincular contato' }).click();
-  await expect(page.getByText(`Zé Sem Empresa · ${TEL_B} · pode pedir nota`)).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Zé Sem Empresa' })).toContainText('pede nota'); // Parte H2 (D22)
   const { data } = await db.from('contato_clientes').select('pode_pedir_nota').eq('contato_id', ze!.id).eq('cliente_id', empresa!.id).single();
   expect(data).toEqual({ pode_pedir_nota: true });
 });

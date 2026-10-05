@@ -1,5 +1,7 @@
+import type { Perfil } from '@escritorio/core';
 import Link from 'next/link';
 import type { ColunaTabela } from '@/components/patterns/data-table';
+import { SeloPerfil } from '@/components/patterns/selo-perfil';
 import { SwitchAgenteContato } from '@/components/patterns/switch-agente-contato';
 import { iniciais } from '@/lib/atendimento';
 import { cn } from '@/lib/cn';
@@ -15,9 +17,10 @@ const MAX_EMPRESAS = 3;
 /**
  * Colunas da imagem A: contato + telefone, empresas, marcações, último contato + estado, agente.
  * `ordenaUltimo` falso (banco sem a visão da G3, D14): a lista é só pelo nome, então "Último contato" não ordena.
+ * `perfis` (Parte H2): perfil de cada contato em cada empresa; sem ele (banco sem a migração, D24), nenhuma coluna nova.
  */
-export function colunasContatos({ euId, veTodas, pode, agora, ordenaUltimo = true }: {
-  euId: string; veTodas: boolean; pode: boolean; agora: Date; ordenaUltimo?: boolean;
+export function colunasContatos({ euId, veTodas, pode, agora, ordenaUltimo = true, perfis = null }: {
+  euId: string; veTodas: boolean; pode: boolean; agora: Date; ordenaUltimo?: boolean; perfis?: Map<string, Map<string, Perfil>> | null;
 }): ColunaTabela<LinhaContato>[] {
   return [
     {
@@ -44,6 +47,18 @@ export function colunasContatos({ euId, veTodas, pode, agora, ordenaUltimo = tru
       )),
     },
     { id: 'marcacoes', titulo: 'Marcações', quebrar: true, celula: (c) => <SelosContato vinculos={c.vinculos} /> },
+    ...(perfis ? [{
+      id: 'perfil', titulo: 'Perfil', quebrar: true,
+      // Um selo por empresa, na ordem da coluna Empresas (D22); o nome da empresa vai para o leitor de tela.
+      celula: (c: LinhaContato) => (
+        <span className="flex flex-col items-start gap-1">
+          {c.vinculos.slice(0, MAX_EMPRESAS).map((v) => {
+            const perfil = perfis.get(c.id)?.get(v.empresaId);
+            return perfil ? <span key={v.empresaId} title={v.empresa}><span className="sr-only">{v.empresa}: </span><SeloPerfil perfil={perfil} /></span> : null;
+          })}
+        </span>
+      ),
+    } satisfies ColunaTabela<LinhaContato>] : []),
     {
       id: 'ultimo', titulo: 'Último contato', ordenavel: ordenaUltimo,
       celula: (c) => {

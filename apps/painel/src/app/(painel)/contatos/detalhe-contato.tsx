@@ -25,6 +25,8 @@ import { BlocoWhatsapp } from './bloco-whatsapp';
 import { lerContato, lerEmpresasAtivas, lerWhatsappDoContato } from './dados-contatos';
 import { DemandasDoContato, EsqueletoDemandasDoContato } from './demandas-do-contato';
 import { EditarNomeContato } from './editar-nome-contato';
+import { lerAcessosDoContato } from '@/lib/acesso-contato';
+import { AcessoPorEmpresa } from './acesso-por-empresa';
 import { MarcacoesEmpresa } from './marcacoes-empresa';
 import { SecaoPainel } from './secao-painel';
 import { SecaoEmpresas } from './vincular-empresa';
@@ -58,10 +60,11 @@ export async function DetalheContato({ id, u, editar, hrefEditar, hrefFecharEdic
   }
 
   const editavel = pode && c.ativo;
-  const [whats, arquivadoPor, empresas] = await Promise.all([
+  const [whats, arquivadoPor, empresas, acessos] = await Promise.all([
     lerWhatsappDoContato(sb, c),
     c.ativo ? Promise.resolve(null) : nomeDaPessoa(sb, c.arquivadoPor),
     editavel ? lerEmpresasAtivas(sb) : Promise.resolve([]),
+    lerAcessosDoContato(sb, c.id),
   ]);
   const ligadas = new Set(c.vinculos.map((v) => v.empresaId));
   const anonimizado = c.nome === NOME_ANONIMIZADO && !c.ativo;
@@ -117,6 +120,9 @@ export async function DetalheContato({ id, u, editar, hrefEditar, hrefFecharEdic
         >
           {c.vinculos.length === 0 ? (
             <p className="text-sm text-muted">Sem empresa.{editavel ? ' Use "Vincular empresa".' : ''}</p>
+          ) : Array.isArray(acessos) && acessos.length > 0 ? (
+            // Banco com a H2: o acesso por empresa (perfil, setores, permissões, prévia) no cartão de cada empresa (D22).
+            <AcessoPorEmpresa contatoId={c.id} nome={c.nome} acessos={acessos} pode={pode} arquivado={!c.ativo} />
           ) : (
             <ul className="flex flex-col gap-2">
               {c.vinculos.map((v) => (
@@ -140,7 +146,7 @@ export async function DetalheContato({ id, u, editar, hrefEditar, hrefFecharEdic
           {pode && !c.ativo && c.vinculos.length > 0 && <p className="text-sm text-muted">Contato arquivado: restaure para mudar as marcações.</p>}
         </SecaoEmpresas>
 
-        {/* Parte H: o bloco de acesso por empresa (perfil, setores, documentos, prévia do agente) entra aqui, D18. */}
+        {/* Parte H2: o acesso por empresa mora nos cartões da seção Empresas (acima): uma lista só com o nome de cada empresa. */}
         <BlocoWhatsapp w={whats} euId={u.id} veTodas={veTodas} agora={agora} />
         <Suspense fallback={<EsqueletoDemandasDoContato />}>
           <DemandasDoContato contatoId={c.id} agora={agora} />

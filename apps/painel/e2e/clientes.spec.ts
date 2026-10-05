@@ -20,7 +20,7 @@ test('administrador cadastra cliente e contato autorizado', async ({ page }) => 
   await page.getByLabel('Telefone').fill('(31) 99999-0201');
   await page.getByLabel('Pode pedir nota', { exact: true }).check();
   await page.getByRole('button', { name: 'Adicionar contato' }).click();
-  await expect(page.getByText('João · 5531999990201 · pode pedir nota')).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'João' })).toContainText('pede nota'); // Parte H2: a lista virou tabela (D22)
 });
 
 test('atendente sem permissão vê a ficha mas não edita', async ({ page }) => {
