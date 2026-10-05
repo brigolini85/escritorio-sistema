@@ -20,6 +20,9 @@ export const AVISOS_AGENTE = {
   passa: 'A conversa passou para o agente do setor, que já se apresentou e segue com o cliente. Não mande mais nada.',
   devolvido: 'O agente do setor devolveu o assunto para você. Siga você (responda ou abra a demanda); não chame o mesmo agente de novo nesta vez.',
   naoConseguiu: 'O agente do setor não conseguiu tratar. Siga você: responda ou abra a demanda no setor dele.',
+  /** Revisão da Task 9: o agente já falou com o cliente e depois devolveu ou não conseguiu; o Thiago não manda outra mensagem (trava em despachar). */
+  jaRespondeuDevolveu: 'O agente do setor já respondeu ao cliente e devolveu o assunto. Não mande mensagem ao cliente nesta vez; '
+    + 'se ele indicou algo para a equipe, só abra a demanda no setor dele (abrir_chamado), sem responder.',
 };
 
 export const NOMES_MODO: ReadonlySet<string> = new Set(['devolver_resposta', 'devolver_ao_thiago']);
@@ -54,8 +57,10 @@ export async function acessoAoSetor(
 function resultadoParaThiago(a: AgenteSetor, modo: ModoContato, r: ResultadoAgente): object {
   const base = { agente: a.nome, modo };
   const jaRespondeu = r.respondeu ? { ja_respondeu_ao_cliente: true } : {};
-  if (r.status === 'escalar') return { ...base, ...jaRespondeu, instrucao: AVISOS_AGENTE.naoConseguiu };
-  if (r.status === 'devolvido') return { ...base, devolvido: true, motivo: r.motivo, ...jaRespondeu, instrucao: AVISOS_AGENTE.devolvido };
+  if (r.status === 'escalar') return { ...base, ...jaRespondeu, instrucao: r.respondeu ? AVISOS_AGENTE.jaRespondeuDevolveu : AVISOS_AGENTE.naoConseguiu };
+  if (r.status === 'devolvido') {
+    return { ...base, devolvido: true, motivo: r.motivo, ...jaRespondeu, instrucao: r.respondeu ? AVISOS_AGENTE.jaRespondeuDevolveu : AVISOS_AGENTE.devolvido };
+  }
   if (modo === 'por_tras') {
     return { ...base, resposta_do_agente: r.devolucao?.respostaAoCliente ?? '', para_a_equipe: r.devolucao?.paraAEquipe ?? null, instrucao: AVISOS_AGENTE.porTras };
   }
@@ -103,6 +108,8 @@ export async function chamarAgente(d: DepsAgente, estado: EstadoExecucao, entrad
           await d.repos.encerrarConducao(ctx.conversa.id, r.status === 'devolvido' ? r.motivo : NAO_CONSEGUIU_SEGUIR);
         }
         if (r.respondeu) estado.respondeu = true;
+        // Só quando devolveu ou não conseguiu: no `ok` de Mesma voz o Thiago ainda pode tratar outro assunto da mensagem (AVISOS_AGENTE.mesmaVoz).
+        if (r.respondeu && r.status !== 'ok') estado.agenteRespondeu = true;
         saida = ok(resultadoParaThiago(agente, modo, r));
       }
     }

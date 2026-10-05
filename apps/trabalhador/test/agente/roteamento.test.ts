@@ -8,7 +8,7 @@ import { PERFIL_PADRAO_ATENDIMENTO } from '../../src/agente/perfil';
 import { montarConteudoUsuario } from '../../src/agente/prompt';
 import { AVISOS_AGENTE, acessoAoSetor, conferirAcessoDoSetor } from '../../src/agente/roteamento';
 import { AVISOS_SKILL } from '../../src/agente/skills';
-import { IaRoteirizada, fim, usarFerramentas } from '../apoio/ia-roteirizada';
+import { IaRoteirizada, fim, recusa, usarFerramentas } from '../apoio/ia-roteirizada';
 import { FISCAL, skillTeste } from '../apoio/agente-setor';
 import { CASOS_RETRATO } from '../apoio/retrato';
 
@@ -98,6 +98,42 @@ describe('Passa a conversa (D6)', () => {
     expect(t.conducao).toEqual([`inicia:${FISCAL.id}`, 'encerra:pediu boleto']);
     const paraThiago = JSON.parse((t.ia.recebidos[2]!.messages.at(-1)!.content as { content: string }[])[0]!.content);
     expect(paraThiago).toMatchObject({ devolvido: true, motivo: 'pediu boleto', instrucao: AVISOS_AGENTE.devolvido });
+  });
+});
+
+describe('o agente já respondeu ao cliente e devolveu (revisão da Task 9, Important 1)', () => {
+  const resultadoDoChamar = (t: ReturnType<typeof montar>, i: number) => JSON.parse((t.ia.recebidos[i]!.messages.at(-1)!.content as { content: string }[])[0]!.content);
+  it('mesma voz: aviso próprio; o Thiago não manda nada ao cliente, mas abre a demanda', async () => {
+    const t = montar('mesma_voz', [usarFerramentas(chamar('outro')), usarFerramentas({ nome: 'responder', entrada: { texto: 'Vou confirmar com a equipe.' } }),
+      usarFerramentas({ nome: 'devolver_ao_thiago', entrada: { motivo: 'equipe confirma o prazo' } }),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi, aqui é o Thiago!' } }, { nome: 'enviar_documento', entrada: {} }),
+      usarFerramentas({ nome: 'abrir_chamado', entrada: {} }), fim()]);
+    expect(await t.rodar()).toEqual({ status: 'ok' });
+    expect(resultadoDoChamar(t, 3)).toMatchObject({ devolvido: true, ja_respondeu_ao_cliente: true, instrucao: AVISOS_AGENTE.jaRespondeuDevolveu });
+    const [r1, r2] = t.ia.recebidos[4]!.messages.at(-1)!.content as { content: string; is_error: boolean }[];
+    for (const r of [r1!, r2!]) expect(r).toMatchObject({ is_error: true, content: expect.stringContaining(AVISOS_AGENTE.jaRespondeuDevolveu) });
+    expect(t.chamadas).toEqual([{ nome: 'responder', agente: 'fiscal' }, { nome: 'abrir_chamado', agente: null }]);
+  });
+  it('não conseguiu depois de responder: o mesmo aviso e a mesma trava', async () => {
+    const t = montar('mesma_voz', [usarFerramentas(chamar('outro')), usarFerramentas({ nome: 'responder', entrada: { texto: 'Vou ver.' } }), recusa(),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi!' } }), fim()]);
+    expect(await t.rodar()).toEqual({ status: 'ok' });
+    expect(resultadoDoChamar(t, 3)).toMatchObject({ ja_respondeu_ao_cliente: true, instrucao: AVISOS_AGENTE.jaRespondeuDevolveu });
+    expect(t.ia.recebidos[4]!.messages.at(-1)).toMatchObject({ content: [{ is_error: true, content: expect.stringContaining(AVISOS_AGENTE.jaRespondeuDevolveu) }] });
+    expect(t.chamadas).toEqual([{ nome: 'responder', agente: 'fiscal' }]);
+  });
+  it('devolvido sem ter respondido: o Thiago segue e responde (como antes)', async () => {
+    const t = montar('mesma_voz', [usarFerramentas(chamar('outro')), usarFerramentas({ nome: 'devolver_ao_thiago', entrada: { motivo: 'pediu boleto' } }),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Já passo pro Financeiro.' } }), fim()]);
+    await t.rodar();
+    expect(resultadoDoChamar(t, 2)).toMatchObject({ instrucao: AVISOS_AGENTE.devolvido });
+    expect(t.chamadas).toEqual([{ nome: 'responder', agente: null }]);
+  });
+  it('mesma voz ok (o agente respondeu e terminou): sem trava, o Thiago ainda pode tratar outro assunto da mensagem', async () => {
+    const t = montar('mesma_voz', [usarFerramentas(chamar('outro')), usarFerramentas({ nome: 'responder', entrada: { texto: 'A nota saiu.' } }), fim(),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'E o boleto já vai.' } }), fim()]);
+    await t.rodar();
+    expect(t.chamadas).toEqual([{ nome: 'responder', agente: 'fiscal' }, { nome: 'responder', agente: null }]);
   });
 });
 

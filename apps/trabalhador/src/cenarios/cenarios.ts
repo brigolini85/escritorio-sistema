@@ -63,6 +63,8 @@ export type Cenario = {
     agenteEnviou?: string;                  // alguma decisão responder com o agente_id desse slug
     agenteNaoEnviou?: string;               // nenhuma decisão de envio (responder, resumir_pedido_nota, enviar_documento) desse slug
     marco?: 'agente_assumiu' | 'agente_devolveu';   // marco da conversa que precisa existir
+    /** Uma mensagem só ao cliente (uma decisão de envio na conversa), e ela é desse agente (revisão da Task 9: sem a 2ª abertura do Thiago). */
+    soOAgenteEnviou?: string;
   };
 };
 
@@ -299,5 +301,5 @@ export const CENARIOS: Cenario[] = [
   { nome: 'fiscal: Mesma voz assina como Thiago', empresas: ['Padaria Sol'],
     agentes: [{ slug: 'fiscal', estado: 'ligado', modo: 'mesma_voz', ferramentas: ['consultar_chamados', 'ler_demandas_setor'] }],
     mensagens: ['Oi, quem fala? Queria saber se a nota do pedido 4512 já foi emitida.'],
-    espera: { agenteChamado: 'fiscal', agenteEnviou: 'fiscal', respostaContem: ['Thiago'], semTexto: ['Aqui é do Fiscal', 'agente fiscal', 'especialista'] } },
+    espera: { agenteChamado: 'fiscal', agenteEnviou: 'fiscal', soOAgenteEnviou: 'fiscal', respostaContem: ['Thiago'], semTexto: ['Aqui é do Fiscal', 'agente fiscal', 'especialista'] } },
 ];

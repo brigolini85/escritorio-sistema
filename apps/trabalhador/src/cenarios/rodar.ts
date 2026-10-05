@@ -223,6 +223,13 @@ async function rodar(c: Cenario): Promise<string[]> {
     const id = await idDo(e.agenteNaoEnviou);
     if ((decisoesAg ?? []).some((x) => envios.includes(x.etapa) && x.agente_id === id)) falhas.push(`o agente ${e.agenteNaoEnviou} não deveria falar com o cliente`);
   }
+  if (e.soOAgenteEnviou) {
+    const id = await idDo(e.soOAgenteEnviou);
+    const feitos = (decisoesAg ?? []).filter((x) => envios.includes(x.etapa));
+    if (feitos.length !== 1 || feitos[0]!.agente_id !== id) {
+      falhas.push(`esperava uma mensagem só ao cliente, do agente ${e.soOAgenteEnviou}; obteve ${JSON.stringify(feitos.map((x) => `${x.etapa}:${x.agente_id === id ? e.soOAgenteEnviou : x.agente_id ?? 'thiago'}`))}`);
+    }
+  }
   if (e.marco) {
     const { data: ev } = await db.from('conversa_eventos').select('tipo').eq('conversa_id', conversa.id).eq('tipo', e.marco);
     if (!ev?.length) falhas.push(`esperava o marco ${e.marco} na conversa`);

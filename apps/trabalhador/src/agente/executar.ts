@@ -85,6 +85,8 @@ async function despachar(
   if (u.name === 'chamar_agente' && liberadas.has(u.name)) return chamarAgente(d, estado, u.input, rodar);
   if (estado.agenteSetor && NOMES_MODO.has(u.name) && liberadas.has(u.name)) return ferramentaDoModo(d, estado, u.name, u.input);
   if (estado.modo === 'por_tras' && ENVIAM.has(u.name)) return falha(AVISOS_AGENTE.porTrasNaoEnvia);
+  // O agente do setor já falou com o cliente e devolveu: o Thiago não manda outra mensagem nesta vez (abrir_chamado segue livre).
+  if (!estado.agenteSetor && estado.agenteRespondeu && ENVIAM.has(u.name)) return falha(AVISOS_AGENTE.jaRespondeuDevolveu);
   // Ferramenta conhecida fora do perfil não roda (D15 da I1); nome desconhecido segue o caminho de sempre (o executor recusa).
   if (NOMES_FERRAMENTAS.has(u.name) && !liberadas.has(u.name)) return falha(`Ferramenta não liberada para este agente: ${u.name}.`);
   if (estado.agenteSetor && !SEM_CONFERIR_ACESSO.has(u.name)) {

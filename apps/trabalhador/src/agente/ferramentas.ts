@@ -25,6 +25,7 @@ export type EstadoExecucao = {
   /** Parte I2: o agente do setor desta execução (sem ele, o Thiago) e o modo em que ele fala. */ agenteSetor?: AgenteSetor; modo?: ModoContato;
   /** O que o cliente mandou nesta vez: vai junto para o agente do setor que o Thiago chamar (D1). */ conteudo?: Anthropic.ContentBlockParam[];
   /** Uma chamada de agente por vez (D16). */ chamouAgente?: boolean;
+  /** O agente chamado já respondeu ao cliente e devolveu (ou não conseguiu): o Thiago não envia mais nada nesta vez. */ agenteRespondeu?: boolean;
   /** Fim da parte do agente do setor: a resposta para o Thiago (por trás) ou a devolução (D4, D6). */ devolucao?: Devolucao; devolvido?: string;
   /** O acesso do contato ao setor do agente já foi conferido nesta execução (D7). */ acessoSetorConferido?: boolean;
 };
