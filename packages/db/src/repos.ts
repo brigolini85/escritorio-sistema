@@ -1,7 +1,8 @@
-import { lerNiveis, FUNCIONALIDADES_IA, type FuncionalidadeGravavel, type ProvedorIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo, PERFIS, type AcessoContato, type CanalAviso, type Perfil } from '@escritorio/core';
+import { lerNiveis, FUNCIONALIDADES_IA, type FuncionalidadeGravavel, type ProvedorIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo, PERFIS, type AcessoContato, type CanalAviso, type Perfil, type TipoSkill } from '@escritorio/core';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { Db } from './cliente';
 import type { Database, Json } from './tipos.gen';
+export type { Json } from './tipos.gen';
 
 type Linha<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
 export type Conversa = Linha<'conversas'>;
@@ -35,6 +36,8 @@ export type NovoUsoIa = {
   funcionalidade: FuncionalidadeGravavel; usuarioId: string | null; conversaId: string | null; clienteId: string | null;
   modelo: string; provedor?: ProvedorIa; tokensEntrada: number; tokensSaida: number; tokensCacheLeitura: number; tokensCacheEscrita: number;
   segundosAudio?: number | null; custoUsd: number;
+  /** Agente que gastou (Parte I1, D16). Vazio: banco sem a Parte I ou gasto que não é de agente. */
+  agenteId?: string | null;
 };
 export type NovoChamado = {
   clienteId: string | null; conversaId: string | null; setorId: string | null; responsavelId: string | null;
@@ -82,6 +85,16 @@ export type OrientacaoAgente = {
   id: string; titulo: string; texto: string; tipo: TipoOrientacao; clienteId: string | null; setorId: string | null;
   setorNome: string | null; atualizadoEm: Date;
 };
+/** Skill como o motor usa (Parte I1): a versão atual, com os nomes dos arquivos de apoio. */
+export type SkillCarregada = {
+  id: string; nome: string; tipo: TipoSkill; ativa: boolean; titulo: string; descricao: string; corpo: string; versao: number; arquivos: string[];
+};
+/** Agente como o motor usa (Parte I1). `id` null: o perfil do código (banco sem a Parte I). `skillEmTeste`: a skill que a simulação inclui. */
+export type PerfilAgente = {
+  id: string | null; slug: string; nome: string; modelo: string | null; ferramentas: string[]; skills: SkillCarregada[]; skillEmTeste: string | null;
+};
+/** Banco sem as migrações da Parte I (homologação, D23): tabela, coluna ou função que não existem. */
+const SEM_PARTE_I = new Set(['42P01', '42703', '42883', 'PGRST200', 'PGRST202', 'PGRST204', 'PGRST205']);
 /** Orientação ainda não salva incluída num teste (formato conferido por criar_simulacao). `id`: a orientação salva que ela edita (substitui essa no teste). */
 export type RascunhoOrientacao = { id?: string | null; titulo: string; texto: string; tipo: TipoOrientacao; cliente_id: string | null; setor_id: string | null };
 export type SimulacaoAgente = Omit<Linha<'simulacoes_agente'>, 'rascunho' | 'status'> & {
@@ -371,6 +384,7 @@ export function criarRepos(db: Db) {
         modelo: u.modelo, provedor: u.provedor ?? 'anthropic', tokens_entrada: u.tokensEntrada, tokens_saida: u.tokensSaida,
         tokens_cache_leitura: u.tokensCacheLeitura, tokens_cache_escrita: u.tokensCacheEscrita,
         segundos_audio: u.segundosAudio ?? null, custo_usd: u.custoUsd,
+        ...(u.agenteId ? { agente_id: u.agenteId } : {}),
       }), 'registrarUsoIa');
     },
 
@@ -793,15 +807,42 @@ export function criarRepos(db: Db) {
       return s?.id ?? null;
     },
 
-    /** Orientações ligadas (Treinar o agente), das mais recentes para as mais antigas. Lidas com o cliente de serviço. */
-    async orientacoesAtivas(): Promise<OrientacaoAgente[]> {
-      const linhas = checar(await db.from('orientacoes_agente')
+    /** Orientações ligadas (Treinar o agente), das mais recentes para as mais antigas. Com o agente (Parte I1), só as dele; sem, todas, como antes. Lidas com o cliente de serviço. */
+    async orientacoesAtivas(agenteId: string | null = null): Promise<OrientacaoAgente[]> {
+      let consulta = db.from('orientacoes_agente')
         .select('id, titulo, texto, tipo, cliente_id, setor_id, atualizado_em, setores(nome)')
-        .eq('ativo', true).order('atualizado_em', { ascending: false }).order('id').limit(PAGINA), 'orientacoesAtivas');
+        .eq('ativo', true);
+      if (agenteId) consulta = consulta.eq('agente_id', agenteId);
+      const linhas = checar(await consulta.order('atualizado_em', { ascending: false }).order('id').limit(PAGINA), 'orientacoesAtivas');
       return linhas.map((o) => ({
         id: o.id, titulo: o.titulo, texto: o.texto, tipo: o.tipo as TipoOrientacao, clienteId: o.cliente_id, setorId: o.setor_id,
         setorNome: o.setores?.nome ?? null, atualizadoEm: new Date(o.atualizado_em),
       }));
+    },
+
+    /** Agente pelo endereço, com as skills ligadas (e a em teste). null: não existe ou o banco ainda não tem a Parte I (D23). */
+    async perfilDoAgente(slug: string, skillEmTeste: string | null = null): Promise<PerfilAgente | null> {
+      const r = await db.from('agentes').select('id, slug, nome, modelo, ferramentas').eq('slug', slug).maybeSingle();
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return null;
+      const a = checar(r, 'perfilDoAgente');
+      if (!a) return null;
+      const skills = checar(await db.rpc('skills_do_agente', { p_agente: a.id, ...(skillEmTeste ? { p_incluir: skillEmTeste } : {}) }),
+        'perfilDoAgente.skills');
+      return {
+        id: a.id, slug: a.slug, nome: a.nome, modelo: a.modelo, ferramentas: a.ferramentas, skillEmTeste,
+        skills: skills.map((k) => ({
+          id: k.id, nome: k.nome, tipo: k.tipo as TipoSkill, ativa: k.ativo, titulo: k.titulo, descricao: k.descricao, corpo: k.corpo,
+          versao: k.versao, arquivos: k.arquivos ?? [],
+        })),
+      };
+    },
+
+    /** Arquivo de apoio de uma skill ligada do agente (ou da em teste). null: não é dele, está desligada ou não existe (D5). */
+    async referenciaDaSkill(agenteId: string, nome: string, caminho: string, skillEmTeste: string | null = null): Promise<string | null> {
+      const texto = checar(await db.rpc('referencia_da_skill', {
+        p_agente: agenteId, p_nome: nome, p_caminho: caminho, ...(skillEmTeste ? { p_incluir: skillEmTeste } : {}),
+      }), 'referenciaDaSkill');
+      return texto ?? null;
     },
 
     /** Ids cortados no último registro `orientacoes_cortadas` da conversa (null se nunca houve corte). */
