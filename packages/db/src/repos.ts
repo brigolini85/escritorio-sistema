@@ -1,4 +1,4 @@
-import { lerNiveis, FUNCIONALIDADES_IA, type FuncionalidadeGravavel, type ProvedorIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo, PERFIS, type AcessoContato, type CanalAviso, type Perfil, type TipoSkill, MODOS_CONTATO, ehPreAnaliseNota, type CompradorCadastrado, type ModoContato, type MudancaPreco, type PreAnaliseNota, type RegraDoAgente } from '@escritorio/core';
+import { lerNiveis, FUNCIONALIDADES_IA, type FuncionalidadeGravavel, type ProvedorIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo, PERFIS, type AcessoContato, type CanalAviso, type Perfil, type TipoSkill, MODOS_CONTATO, ehPreAnaliseNota, type CompradorCadastrado, type ModoContato, type MudancaPreco, type PreAnaliseNota, type RegraDoAgente, ehResultadoTarefa, type EstadoTarefa, type EtapaTarefa, type MotivoFimVez, type ResultadoTarefa, type TipoPendencia } from '@escritorio/core';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { Db } from './cliente';
 import type { Database, Json } from './tipos.gen';
@@ -38,6 +38,8 @@ export type NovoUsoIa = {
   segundosAudio?: number | null; custoUsd: number;
   /** Agente que gastou (Parte I1, D16). Vazio: banco sem a Parte I ou gasto que não é de agente. */
   agenteId?: string | null;
+  /** Tarefa de trabalho que gastou (Parte I3a, D12). Só existe com a I3 no banco. */
+  tarefaId?: string | null;
 };
 export type NovoChamado = {
   clienteId: string | null; conversaId: string | null; setorId: string | null; responsavelId: string | null;
@@ -102,6 +104,24 @@ export type DadosPreAnalise = {
   numero: number; clienteId: string | null; pedido: PedidoVendaSalvo | null; comprador: CompradorCadastrado | null; mudancas: MudancaPreco[];
 };
 export type NovaSugestao = { chamadoId: string; agenteId: string; conversaId: string | null; tipo: 'nota_interna' | 'correcao'; conteudo: Record<string, unknown> };
+export type PendenciaDaTarefa = {
+  id: string; numero: number; tipo: TipoPendencia; pergunta: string; detalhe: string | null; opcoes: string[]; mensagem: string | null;
+  estado: 'aberta' | 'respondida'; resposta: string | null; vista: boolean; pedidaAoCliente: boolean;
+};
+export type ArquivoDaTarefa = { id: string; nome: string; mime: string; tamanho: number; bucket: 'tarefas' | 'anexos'; caminho: string; lido: boolean; detalhe: string | null };
+export type TarefaParaTrabalho = {
+  id: string; numero: number; agenteId: string; agenteSlug: string; agenteNome: string; agenteEstado: 'desligado' | 'teste' | 'ligado'; agenteTipos: string[];
+  setorId: string | null; setor: string | null; chamadoId: string; chamadoNumero: number; chamadoTitulo: string;
+  clienteId: string | null; empresa: string | null; pedidaPor: string | null; pedidaPorNome: string | null; criadoEm: string;
+  pedido: string; skillNome: string | null; estado: EstadoTarefa; etapas: EtapaTarefa[]; etapaAtual: number; anotacoes: string;
+  resultado: ResultadoTarefa | null; ajustes: { texto: string; por: string | null; em: string }[]; ajustePendente: boolean;
+  custoUsd: number; segundosTrabalhando: number; limiteUsd: number; limiteMinutos: number;
+  pendencias: PendenciaDaTarefa[]; arquivos: ArquivoDaTarefa[];
+};
+export type SituacaoTarefa = { estado: EstadoTarefa; custoUsd: number; segundosTrabalhando: number; limiteUsd: number; limiteMinutos: number };
+export type NovaPendencia = { tarefaId: string; tipo: TipoPendencia; pergunta: string; detalhe: string | null; opcoes: string[]; mensagem: string | null };
+export type PendenciaParaEnvio = { id: string; tarefaId: string; numero: number; clienteId: string | null; contatoId: string; contatoNome: string; telefone: string; texto: string };
+export type PedidoAoContato = { pendenciaId: string; numero: number; pergunta: string; setor: string | null; chamadoNumero: number; empresa: string | null };
 const COLUNAS_COMPRADOR = 'razao_social, nome_unidade, cnpj, endereco, numero, complemento, bairro, cidade, uf, cep, telefone, grupo_id';
 const ehModo = (v: unknown): v is ModoContato => (MODOS_CONTATO as readonly unknown[]).includes(v);
 type LinhaSkill = { id: string; nome: string; tipo: string; ativo: boolean; titulo: string; descricao: string; corpo: string; versao: number; arquivos: string[] | null };
@@ -402,6 +422,7 @@ export function criarRepos(db: Db) {
         tokens_cache_leitura: u.tokensCacheLeitura, tokens_cache_escrita: u.tokensCacheEscrita,
         segundos_audio: u.segundosAudio ?? null, custo_usd: u.custoUsd,
         ...(u.agenteId ? { agente_id: u.agenteId } : {}),
+        ...(u.tarefaId ? { tarefa_id: u.tarefaId } : {}),
       }), 'registrarUsoIa');
     },
 
@@ -939,6 +960,127 @@ export function criarRepos(db: Db) {
         .order('criado_em', { ascending: false }).limit(1).maybeSingle(), 'ultimasOrientacoesCortadas');
       const cortadas = (l?.saida as { cortadas?: unknown } | null)?.cortadas;
       return Array.isArray(cortadas) ? cortadas.filter((x): x is string => typeof x === 'string') : null;
+    },
+
+    // ---------- Parte I3a: tarefas de trabalho (só o trabalhador; as funções do banco conferem o estado) ----------
+    /** D6/F6: a marca desta vez (executando_desde, ISO) quando pegou a tarefa; null = não está trabalhando, outra vez está rodando, ou banco sem a I3 (D22).
+     *  Quem pega a vez devolve a marca em finalizarVezTarefa (p_desde): vez zumbi não apaga a marca da nova. */
+    async iniciarExecucaoTarefa(id: string): Promise<string | null> {
+      const r = await db.rpc('iniciar_execucao_tarefa', { p_id: id });
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return null;
+      return (checar(r, 'iniciarExecucaoTarefa') as string | null) ?? null;
+    },
+
+    async tarefaParaTrabalho(id: string): Promise<TarefaParaTrabalho | null> {
+      const t = checar(await db.from('agente_tarefas').select(`id, numero, agente_id, chamado_id, cliente_id, setor_id, pedida_por, criado_em, pedido,
+        skill_nome, estado, etapas, etapa_atual, anotacoes, resultado, ajustes, ajuste_pendente, custo_usd, segundos_trabalhando, limite_usd, limite_minutos,
+        agentes(slug, nome, estado, tipos), chamados(numero, titulo), clientes(razao_social, nome_fantasia), setores(nome),
+        pedidor:usuarios!agente_tarefas_pedida_por_fkey(nome)`).eq('id', id).maybeSingle(), 'tarefaParaTrabalho');
+      if (!t) return null;
+      const [pend, arq] = await Promise.all([
+        db.from('agente_pendencias').select('id, numero, tipo, pergunta, detalhe, opcoes, mensagem, estado, resposta, vista_em, pedido_em')
+          .eq('tarefa_id', id).order('numero'),
+        db.from('agente_tarefa_arquivos').select('id, nome, mime, tamanho, bucket, caminho, lido_em, detalhe').eq('tarefa_id', id).order('criado_em'),
+      ]);
+      const l = t as unknown as {
+        id: string; numero: number; agente_id: string; chamado_id: string; cliente_id: string | null; setor_id: string | null; pedida_por: string | null;
+        criado_em: string; pedido: string; skill_nome: string | null; estado: EstadoTarefa; etapas: EtapaTarefa[]; etapa_atual: number; anotacoes: string;
+        resultado: unknown; ajustes: { texto: string; por: string | null; em: string }[]; ajuste_pendente: boolean; custo_usd: number;
+        segundos_trabalhando: number; limite_usd: number; limite_minutos: number;
+        agentes: { slug: string; nome: string; estado: 'desligado' | 'teste' | 'ligado'; tipos: string[] };
+        chamados: { numero: number; titulo: string }; clientes: { razao_social: string; nome_fantasia: string | null } | null;
+        setores: { nome: string } | null; pedidor: { nome: string } | null;
+      };
+      return {
+        id: l.id, numero: Number(l.numero), agenteId: l.agente_id, agenteSlug: l.agentes.slug, agenteNome: l.agentes.nome, agenteEstado: l.agentes.estado,
+        agenteTipos: l.agentes.tipos, setorId: l.setor_id, setor: l.setores?.nome ?? null, chamadoId: l.chamado_id, chamadoNumero: Number(l.chamados.numero),
+        chamadoTitulo: l.chamados.titulo, clienteId: l.cliente_id, empresa: l.clientes ? l.clientes.nome_fantasia ?? l.clientes.razao_social : null,
+        pedidaPor: l.pedida_por, pedidaPorNome: l.pedidor?.nome ?? null, criadoEm: l.criado_em, pedido: l.pedido, skillNome: l.skill_nome,
+        estado: l.estado, etapas: l.etapas ?? [], etapaAtual: l.etapa_atual, anotacoes: l.anotacoes, resultado: ehResultadoTarefa(l.resultado) ? l.resultado : null,
+        ajustes: l.ajustes ?? [], ajustePendente: l.ajuste_pendente, custoUsd: Number(l.custo_usd), segundosTrabalhando: l.segundos_trabalhando,
+        limiteUsd: Number(l.limite_usd), limiteMinutos: l.limite_minutos,
+        pendencias: checar(pend, 'tarefaParaTrabalho.pendencias').map((p) => ({
+          id: p.id, numero: p.numero, tipo: p.tipo as TipoPendencia, pergunta: p.pergunta, detalhe: p.detalhe, opcoes: p.opcoes ?? [], mensagem: p.mensagem,
+          estado: p.estado as 'aberta' | 'respondida', resposta: p.resposta, vista: p.vista_em !== null, pedidaAoCliente: p.pedido_em !== null,
+        })),
+        arquivos: checar(arq, 'tarefaParaTrabalho.arquivos').map((a) => ({
+          id: a.id, nome: a.nome, mime: a.mime, tamanho: a.tamanho, bucket: a.bucket as 'tarefas' | 'anexos', caminho: a.caminho, lido: a.lido_em !== null, detalhe: a.detalhe,
+        })),
+      };
+    },
+
+    async situacaoTarefa(id: string): Promise<SituacaoTarefa | null> {
+      const s = checar(await db.from('agente_tarefas').select('estado, custo_usd, segundos_trabalhando, limite_usd, limite_minutos').eq('id', id).maybeSingle(),
+        'situacaoTarefa');
+      return s ? { estado: s.estado as EstadoTarefa, custoUsd: Number(s.custo_usd), segundosTrabalhando: s.segundos_trabalhando,
+        limiteUsd: Number(s.limite_usd), limiteMinutos: s.limite_minutos } : null;
+    },
+    async definirEtapasTarefa(id: string, nomes: string[]): Promise<void> {
+      checar(await db.rpc('definir_etapas_tarefa', { p_id: id, p_nomes: nomes }), 'definirEtapasTarefa');
+    },
+    async concluirEtapaTarefa(id: string, etapa: number, resumo: string): Promise<void> {
+      checar(await db.rpc('concluir_etapa_tarefa', { p_id: id, p_etapa: etapa, p_resumo: resumo }), 'concluirEtapaTarefa');
+    },
+    async anotarTarefa(id: string, texto: string): Promise<void> {
+      checar(await db.rpc('anotar_tarefa', { p_id: id, p_texto: texto }), 'anotarTarefa');
+    },
+    async somarCustoTarefa(id: string, custoUsd: number): Promise<void> {
+      checar(await db.rpc('somar_custo_tarefa', { p_id: id, p_custo: custoUsd }), 'somarCustoTarefa');
+    },
+    async abrirPendenciaTarefa(p: NovaPendencia): Promise<number> {
+      return checar(await db.rpc('abrir_pendencia_tarefa', { p_tarefa: p.tarefaId, p_tipo: p.tipo, p_pergunta: p.pergunta,
+        p_detalhe: p.detalhe as string, p_opcoes: p.opcoes, p_mensagem: p.mensagem as string }), 'abrirPendenciaTarefa') as number;
+    },
+    async entregarResultadoTarefa(id: string, r: ResultadoTarefa): Promise<void> {
+      checar(await db.rpc('entregar_resultado_tarefa', { p_id: id, p_resultado: r as unknown as Json }), 'entregarResultadoTarefa');
+    },
+    async marcarArquivoLido(arquivoId: string, detalhe: string | null): Promise<void> {
+      checar(await db.rpc('marcar_arquivo_lido', { p_arquivo: arquivoId, p_detalhe: detalhe as string }), 'marcarArquivoLido');
+    },
+    async marcarPendenciasVistas(tarefaId: string): Promise<void> {
+      checar(await db.rpc('marcar_pendencias_vistas', { p_tarefa: tarefaId }), 'marcarPendenciasVistas');
+    },
+    async eventoTarefa(tarefaId: string, texto: string): Promise<void> {
+      checar(await db.rpc('evento_tarefa_agente', { p_tarefa: tarefaId, p_texto: texto }), 'eventoTarefa');
+    },
+    /** desde: a marca devolvida por iniciarExecucaoTarefa (F6). Se a marca da tarefa já é outra, o banco só soma os segundos e devolve o estado. */
+    async finalizarVezTarefa(id: string, segundos: number, motivo: MotivoFimVez, desde: string | null = null): Promise<EstadoTarefa> {
+      return checar(await db.rpc('finalizar_vez_tarefa', { p_id: id, p_segundos: Math.max(0, Math.round(segundos)), p_motivo: motivo,
+        ...(desde ? { p_desde: desde } : {}) }),
+        'finalizarVezTarefa') as EstadoTarefa;
+    },
+    /** D8: batimento. Banco sem a I3 → nenhuma (o batimento roda a cada minuto e não pode falhar por isso, D22). */
+    async tarefasParadas(minutos: number): Promise<string[]> {
+      const r = await db.rpc('tarefas_paradas', { p_minutos: minutos });
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return [];
+      return (checar(r, 'tarefasParadas') ?? []) as string[];
+    },
+    /** F5: batimento. Solta reservas velhas (10 min) e devolve os pedidos ao cliente que nunca saíram (2 min a 24 h). Banco sem a I3 → nenhum. */
+    async pedidosAoClienteParados(minutos: number): Promise<string[]> {
+      const r = await db.rpc('pedidos_ao_cliente_parados', { p_minutos: minutos });
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return [];
+      return (checar(r, 'pedidosAoClienteParados') ?? []) as string[];
+    },
+    async reservarEnvioPendencia(id: string): Promise<PendenciaParaEnvio | null> {
+      const [p] = checar(await db.rpc('reservar_envio_pendencia', { p_id: id }), 'reservarEnvioPendencia') ?? [];
+      return p ? { id: p.id, tarefaId: p.tarefa_id, numero: p.numero, clienteId: p.cliente_id, contatoId: p.contato_id, contatoNome: p.contato_nome,
+        telefone: p.telefone, texto: p.texto } : null;
+    },
+    async liberarEnvioPendencia(id: string): Promise<void> {
+      checar(await db.rpc('liberar_envio_pendencia', { p_id: id }), 'liberarEnvioPendencia');
+    },
+    async marcarPendenciaEnviada(id: string, mensagemId: string): Promise<void> {
+      checar(await db.rpc('marcar_pendencia_enviada', { p_id: id, p_mensagem: mensagemId }), 'marcarPendenciaEnviada');
+    },
+    /** D26: null = banco sem a I3 (o Thiago segue como na I2). */
+    async pendenciasPedidasAoContato(contatoId: string): Promise<PedidoAoContato[] | null> {
+      const r = await db.rpc('pendencias_pedidas_ao_contato', { p_contato: contatoId });
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return null;
+      return (checar(r, 'pendenciasPedidasAoContato') ?? []).map((p) => ({ pendenciaId: p.pendencia_id, numero: p.numero, pergunta: p.pergunta,
+        setor: p.setor, chamadoNumero: Number(p.chamado_numero), empresa: p.empresa }));
+    },
+    async contatoRespondeuPendencias(contatoId: string): Promise<number> {
+      return checar(await db.rpc('contato_respondeu_pendencias', { p_contato: contatoId }), 'contatoRespondeuPendencias') as number;
     },
 
     async simulacaoPorId(id: string): Promise<SimulacaoAgente | null> {

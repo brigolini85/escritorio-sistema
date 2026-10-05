@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { criarClienteServico } from '../src';
 
 /** Endereço do banco dos testes. Recusa qualquer banco que não seja o local. */
 function urlLocal(): string {
@@ -20,6 +21,11 @@ export async function limparBanco(): Promise<void> {
   await c.query(`truncate public.agente_skill_arquivos, public.agente_skill_versoes, public.agente_skills, public.agente_regras_assunto,
     public.agente_contatos_teste, public.agente_mudancas cascade`);
   await c.query('select public.restaurar_agentes_iniciais()');
+  // Parte I3a (D13): os limites das tarefas voltam ao padrão (restaurar_agentes_iniciais não conhece as colunas novas).
+  await c.query(`do $$ begin
+    if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'agentes' and column_name = 'tarefa_limite_usd') then
+      update public.agentes set tarefa_limite_usd = 2, tarefa_limite_minutos = 20;
+    end if; end $$`);
   await c.query("delete from auth.users where email like '%.local'");
   await c.query(`update public.configuracoes set agente_pausado = false, alerta_ia_80_mes = null, teto_ia_usd = 50, telefone_dono = null,
     espera_verde_min = 5, espera_ambar_min = 15`);
@@ -104,6 +110,111 @@ export async function configurarAgenteTeste(slug: string, cfg: {
     if (cfg.ferramentas !== undefined) await c.query('update public.agentes set ferramentas = $2 where id = $1', [id, cfg.ferramentas]);
     await c.query('commit');
     return id;
+  } catch (e) {
+    await c.query('rollback');
+    throw e;
+  } finally {
+    await c.end();
+  }
+}
+
+type EstadoTeste = 'trabalhando' | 'aguardando_pendencias' | 'pausada' | 'pronta' | 'aprovada' | 'descartada';
+type PendenciaTeste = {
+  tipo: 'cliente' | 'analista'; pergunta: string; opcoes?: string[]; mensagem?: string | null; resposta?: string | null;
+  contatoId?: string | null; pedidoTexto?: string | null; enviado?: boolean;
+};
+/**
+ * Parte I3a: tarefa de teste direto no postgres (o painel cria pela função, com a sessão da pessoa). Etapas pelos nomes; pendências
+ * numeradas na ordem. Só no banco local. Devolve o id, o número e os ids das pendências.
+ */
+export async function criarTarefaTeste(p: {
+  chamadoId: string; agente?: string; pedidaPor?: string | null; pedido?: string; skill?: string | null; estado?: EstadoTeste; motivoPausa?: string | null;
+  etapas?: string[]; resultado?: object | null; limiteUsd?: number; limiteMinutos?: number; custoUsd?: number; pendencias?: PendenciaTeste[];
+}): Promise<{ id: string; numero: number; pendencias: string[] }> {
+  const c = new pg.Client({ connectionString: urlLocal() });
+  await c.connect();
+  try {
+    await c.query('begin');
+    const estado = p.estado ?? 'trabalhando';
+    const etapas = (p.etapas ?? []).map((nome) => ({ nome, concluida: false, resumo: null }));
+    const t = await c.query(`insert into public.agente_tarefas (agente_id, chamado_id, cliente_id, setor_id, pedida_por, pedido, skill_nome, estado,
+        motivo_pausa, etapas, resultado, limite_usd, limite_minutos, custo_usd, decidida_em)
+      select a.id, ch.id, ch.cliente_id, ch.setor_id, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11,
+             case when $5 in ('aprovada', 'descartada') then now() end
+        from public.agentes a, public.chamados ch where a.slug = $1 and ch.id = $12
+      returning id, numero`,
+      [p.agente ?? 'contabil', p.pedidaPor ?? null, p.pedido ?? 'Fazer o fechamento de outubro', p.skill ?? null, estado,
+        estado === 'pausada' ? p.motivoPausa ?? 'pessoa' : null, JSON.stringify(etapas), p.resultado ? JSON.stringify(p.resultado) : null,
+        p.limiteUsd ?? 2, p.limiteMinutos ?? 20, p.custoUsd ?? 0, p.chamadoId]);
+    if (!t.rows[0]) throw new Error('criarTarefaTeste: agente ou demanda não existe');
+    const id = t.rows[0].id as string;
+    const pendencias: string[] = [];
+    for (const [i, x] of (p.pendencias ?? []).entries()) {
+      const r = await c.query(`insert into public.agente_pendencias (tarefa_id, numero, tipo, pergunta, opcoes, mensagem, estado, resposta, respondida_em,
+          contato_id, pedido_texto, pedido_em, pedidos, pedido_enviado_em)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, case when $8::text is null then null else now() end, $9, $10,
+                case when $9::uuid is null then null else now() end, case when $9::uuid is null then 0 else 1 end,
+                case when $11 then now() end)
+        returning id`,
+        [id, i + 1, x.tipo, x.pergunta, x.opcoes ?? [], x.mensagem ?? (x.tipo === 'cliente' ? `Pode mandar: ${x.pergunta}?` : null),
+          x.resposta ? 'respondida' : 'aberta', x.resposta ?? null, x.contatoId ?? null, x.pedidoTexto ?? null, x.enviado === true]);
+      pendencias.push(r.rows[0].id as string);
+    }
+    await c.query('commit');
+    return { id, numero: Number(t.rows[0].numero), pendencias };
+  } catch (e) {
+    await c.query('rollback');
+    throw e;
+  } finally {
+    await c.end();
+  }
+}
+
+/** O compartimento "tarefas" só aceita alguns tipos (F7): sem `mime`, vale o da extensão (texto simples se não houver). */
+const MIME_POR_EXTENSAO: Record<string, string> = { csv: 'text/csv', xml: 'text/xml', txt: 'text/plain', pdf: 'application/pdf', ofx: 'application/x-ofx', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
+/** Parte I3a: arquivo enviado à tarefa (Storage "tarefas" + linha), como o painel faz. Só no banco local. Devolve o id da linha. */
+export async function anexarArquivoTeste(tarefaId: string, a: { nome: string; conteudo: string | Uint8Array; mime?: string; lido?: boolean }): Promise<string> {
+  urlLocal();
+  const sb = criarClienteServico(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const mime = a.mime ?? MIME_POR_EXTENSAO[a.nome.split('.').pop()?.toLowerCase() ?? ''] ?? 'text/plain';
+  const bytes = typeof a.conteudo === 'string' ? new TextEncoder().encode(a.conteudo) : a.conteudo;
+  const caminho = `${tarefaId}/${Date.now()}-${a.nome.replace(/[^\w.-]+/g, '_')}`;
+  const up = await sb.storage.from('tarefas').upload(caminho, bytes, { contentType: mime });
+  if (up.error) throw new Error(`anexarArquivoTeste: ${up.error.message}`);
+  const c = new pg.Client({ connectionString: urlLocal() });
+  await c.connect();
+  try {
+    const r = await c.query(`insert into public.agente_tarefa_arquivos (tarefa_id, origem, bucket, caminho, nome, mime, tamanho, lido_em)
+      values ($1, 'enviado', 'tarefas', $2, $3, $4, $5, case when $6 then now() end) returning id`,
+      [tarefaId, caminho, a.nome, mime, bytes.length, a.lido === true]);
+    return r.rows[0].id as string;
+  } finally {
+    await c.end();
+  }
+}
+
+/** SQL direto no banco local (dono do banco): para testes que mudam o que o service_role não pode (ex.: pausar no meio da vez). */
+export async function sqlTeste<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+  const c = new pg.Client({ connectionString: urlLocal() });
+  await c.connect();
+  try {
+    return (await c.query(sql, params)).rows as T[];
+  } finally {
+    await c.end();
+  }
+}
+
+/** Roda SQL como a pessoa (role authenticated + o "sub" dela), como o painel faz com a sessão. Só no banco local. */
+export async function comoPessoa<T = Record<string, unknown>>(usuarioId: string, sql: string, params: unknown[] = []): Promise<T[]> {
+  const c = new pg.Client({ connectionString: urlLocal() });
+  await c.connect();
+  try {
+    await c.query('begin');
+    await c.query('set local role authenticated');
+    await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: usuarioId, role: 'authenticated' })]);
+    const r = await c.query(sql, params);
+    await c.query('commit');
+    return r.rows as T[];
   } catch (e) {
     await c.query('rollback');
     throw e;
