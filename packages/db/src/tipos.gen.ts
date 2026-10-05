@@ -1456,8 +1456,24 @@ isOneToOne: false
             "acesso_do_contato":
 { Args: { "p_cliente": string,"p_contato": string }; Returns: Json
                            },
+"agente_atendimentos_base":
+{ Args: { "p_agente": string,"p_ate": string,"p_de": string }; Returns: {
+              "cliente_id": string,"conversa_id": string,"custo_usd": number,"dia": string,"passou_para_pessoa": boolean,"ultima_em": string
+            }[]
+                           },
+"agente_do_uso":
+{ Args: { "p_agente": string,"p_funcionalidade": string }; Returns: string
+                           },
 "agente_numeros_hoje":
 { Args: { "p_agora"?: string }; Returns: Json
+                           },
+"agentes_checar_numeros":
+{ Args: { "p_ate": string,"p_de": string }; Returns: undefined
+                           },
+"agentes_numeros":
+{ Args: { "p_ate": string,"p_de": string }; Returns: {
+              "agente_id": string,"atendimentos": number,"custo_testes_usd": number,"custo_usd": number,"resolvidos": number,"ultima_em": string,"ultima_empresa": string
+            }[]
                            },
 "alterar_status_chamado":
 { Args: { "p_chamado": string,"p_status": Database["public"]['Enums']["status_chamado"] }; Returns: undefined
@@ -1485,6 +1501,11 @@ isOneToOne: false
                            },
 "assumir_demanda":
 { Args: { "p_chamado": string }; Returns: undefined
+                           },
+"atividade_do_agente":
+{ Args: { "p_ate": string,"p_de": string,"p_slug": string }; Returns: {
+              "atendimentos": number,"custo_testes_usd": number,"custo_usd": number,"dia": string,"resolvidos": number
+            }[]
                            },
 "aviso_login":
 { Args: Record<PropertyKey, never>; Returns: string
@@ -1689,6 +1710,11 @@ isOneToOne: false
 "gastos_dia_mais_caro":
 { Args: { "p_ate": string,"p_de": string }; Returns: {
               "chamadas": number,"custo": number,"custo_dia": number,"dia": string,"dias_com_gasto": number,"funcionalidade": string,"pessoa": string,"usuario_id": string
+            }[]
+                           },
+"gastos_por_agente":
+{ Args: { "p_ate": string,"p_de": string }; Returns: {
+              "agente_id": string,"chamadas": number,"custo_usd": number,"nome": string,"slug": string
             }[]
                            },
 "gastos_por_cliente":
@@ -1930,6 +1956,11 @@ isOneToOne: false
 "uso_ia_classificacao":
 { Args: { "p_conversa": string,"p_quando": string }; Returns: {
               "cliente_id": string,"funcionalidade": string
+            }[]
+                           },
+"uso_skills":
+{ Args: { "p_ate": string,"p_de": string,"p_slug": string }; Returns: {
+              "nome": string,"vezes": number
             }[]
                            },
 "usuario_liberado":
