@@ -8,6 +8,8 @@ export const CABECALHO_AGENTES_SETOR =
   'AGENTES DOS SETORES (valem só nesta conversa). Estes setores têm um agente que atende com você. Quando o pedido do cliente for de um destes '
   + 'setores (inclusive pedido de nota e dúvida técnica do setor, regras 2, 3 e 3a), chame chamar_agente antes de responder sobre o assunto ou '
   + `abrir demanda nele, com o agente, o assunto da lista que melhor combina (ou "${ASSUNTO_OUTRO}") e o pedido em poucas palavras. `
+  + 'Andamento, prazo ou situação de algo que o setor faz (guia, nota, imposto) também é assunto do setor: consultar_chamados sozinha não basta, '
+  + 'chame o agente antes de responder, mesmo que já tenha achado a demanda. Não responda prazo nem posição do setor por conta própria. '
   + 'O resultado diz o que fazer em seguida. Saudações, agradecimentos, assunto sensível (regra 11) e assuntos de outros setores continuam com você.';
 
 const limpo = (t: string) => limparTextoOrientacao(t).replace(/\s+/g, ' ').trim();

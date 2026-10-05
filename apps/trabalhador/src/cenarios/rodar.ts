@@ -1,5 +1,5 @@
 import { montarCsvVendaBling, pedidoVendaBling, type PedidoVendaSalvo } from '@escritorio/core';
-import { criarSkillTeste, limparBanco } from '@escritorio/db/teste';
+import { configurarAgenteTeste, criarSkillTeste, limparBanco } from '@escritorio/db/teste';
 import { contatoComEmpresas, criarCadastrosExemplo, db, definirAcessoTeste, repos, setorId } from '../../test/apoio/cenario';
 import { criarClienteIa } from '../agente/cliente-ia';
 import { ORIENTACOES_SKILL_DONO } from '../agente/orientacoes-skill-dono';
@@ -38,8 +38,24 @@ async function preparar(c: Cenario) {
     await criarOrientacoes(c, []);
     return repos.obterOuCriarConversa('5531988887777', null);
   }
-  const { empresas, conversa } = await contatoComEmpresas(c.empresas, undefined, c.acesso);
+  const { empresas, conversa, contato } = await contatoComEmpresas(c.empresas, undefined, c.acesso);
   await criarOrientacoes(c, empresas.map((e) => e.id));
+  // Parte I2: agentes dos setores. Em Teste "fora da lista", a lista tem só um contato de fora.
+  for (const a of c.agentes ?? []) {
+    let contatos: string[] = [];
+    if (a.estado === 'teste') {
+      contatos = a.contatoNoTeste === false
+        ? [(await db.from('contatos').insert({ nome: 'Contato de fora', telefone: '5531900000099' }).select('id').single()).data!.id]
+        : [contato.id];
+    }
+    const id = await configurarAgenteTeste(a.slug, { estado: a.estado, modo: a.modo, regras: a.regras ?? [], ferramentas: a.ferramentas ?? [], contatos });
+    for (const s of a.skills ?? []) {
+      await criarSkillTeste(a.slug, s.nome, s.tipo, true, [], { titulo: s.titulo, descricao: s.descricao, corpo: s.corpo });
+    }
+    for (const o of a.orientacoes ?? []) {
+      await db.from('orientacoes_agente').insert({ titulo: o.titulo, texto: o.texto, tipo: o.tipo, ativo: true, agente_id: id });
+    }
+  }
   if (c.empresaEmFoco !== undefined) await repos.atualizarConversa(conversa.id, { cliente_em_foco: empresas[c.empresaEmFoco]!.id });
   if (c.cadastros) await criarCadastrosExemplo(empresas[0]!.id);
   if (c.socio) {
@@ -179,6 +195,37 @@ async function rodar(c: Cenario): Promise<string[]> {
   if (e.avisosAoSocio !== undefined) {
     const n = canal.enviados.filter((x) => x.telefone === c.socio?.telefone).length;
     if (n !== e.avisosAoSocio) falhas.push(`esperava ${e.avisosAoSocio} aviso(s) ao sócio; obteve ${n}`);
+  }
+  // Parte I2: o que o Thiago e os agentes dos setores fizeram nesta conversa.
+  const idDo = async (slug: string) => (await db.from('agentes').select('id').eq('slug', slug).single()).data!.id as string;
+  const { data: decisoesAg } = await db.from('decisoes_agente').select('etapa, saida, agente_id').eq('conversa_id', conversa.id);
+  const { data: usosAg } = await db.from('uso_ia').select('funcionalidade, agente_id').eq('conversa_id', conversa.id);
+  const chamadasAgente = (decisoesAg ?? []).filter((x) => x.etapa === 'chamar_agente' && (x.saida as { agente_id?: string } | null)?.agente_id);
+  if (e.agenteChamado === 'nenhum' && chamadasAgente.length) falhas.push('não deveria chamar agente do setor');
+  if (e.agenteChamado && e.agenteChamado !== 'nenhum') {
+    const id = await idDo(e.agenteChamado);
+    if (!chamadasAgente.some((x) => (x.saida as { agente_id?: string }).agente_id === id)) falhas.push(`esperava o Thiago chamar o agente ${e.agenteChamado}`);
+  }
+  if (e.custoDoAgente) {
+    const id = await idDo(e.custoDoAgente);
+    if (!(usosAg ?? []).some((u) => u.agente_id === id && u.funcionalidade === 'especialista_setor')) falhas.push(`esperava custo do agente ${e.custoDoAgente}`);
+  }
+  if (e.semCustoDoAgente) {
+    const id = await idDo(e.semCustoDoAgente);
+    if ((usosAg ?? []).some((u) => u.agente_id === id)) falhas.push(`não deveria haver custo do agente ${e.semCustoDoAgente}`);
+  }
+  const envios = ['responder', 'resumir_pedido_nota', 'enviar_documento'];
+  if (e.agenteEnviou) {
+    const id = await idDo(e.agenteEnviou);
+    if (!(decisoesAg ?? []).some((x) => x.etapa === 'responder' && x.agente_id === id)) falhas.push(`esperava o agente ${e.agenteEnviou} responder ao cliente`);
+  }
+  if (e.agenteNaoEnviou) {
+    const id = await idDo(e.agenteNaoEnviou);
+    if ((decisoesAg ?? []).some((x) => envios.includes(x.etapa) && x.agente_id === id)) falhas.push(`o agente ${e.agenteNaoEnviou} não deveria falar com o cliente`);
+  }
+  if (e.marco) {
+    const { data: ev } = await db.from('conversa_eventos').select('tipo').eq('conversa_id', conversa.id).eq('tipo', e.marco);
+    if (!ev?.length) falhas.push(`esperava o marco ${e.marco} na conversa`);
   }
   return falhas;
 }

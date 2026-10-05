@@ -26,6 +26,15 @@ export type Cenario = {
   documentosDoSetor?: { nome: string; arquivo: string; setor: string | null; temValores?: boolean; iaPodeEnviar: boolean }[];
   /** Skills ligadas do Thiago (Parte I1): o motor as põe no prompt (Jeito e Limites) ou no índice (as outras). */
   skills?: { tipo: TipoSkill; nome: string; titulo: string; descricao: string; corpo: string; arquivos?: { caminho: string; conteudo: string }[] }[];
+  /** Parte I2: agentes dos setores do cenário (estado, modo, regras, ferramentas e as skills e orientações deles). */
+  agentes?: {
+    slug: string; estado: 'ligado' | 'teste'; modo: 'por_tras' | 'mesma_voz' | 'passa_conversa';
+    /** Em Teste: o contato do cenário está na lista? false = só um contato de fora. Padrão: true. */ contatoNoTeste?: boolean;
+    regras?: { assunto: string; exemplo?: string; modo: 'por_tras' | 'mesma_voz' | 'passa_conversa' }[];
+    ferramentas?: string[];
+    skills?: { tipo: TipoSkill; nome: string; titulo: string; descricao: string; corpo: string }[];
+    orientacoes?: { tipo: 'jeito' | 'regra' | 'situacao'; titulo: string; texto: string }[];
+  }[];
   mensagens: string[];
   espera: {
     chamadoSetor?: string | 'triagem' | 'nenhum' | 'qualquer';
@@ -48,6 +57,12 @@ export type Cenario = {
     foraDoAcesso?: string;                  // setor da demanda "Fora do acesso" aberta pela recusa
     avisosAoSocio?: number;                 // mensagens enviadas ao telefone do sócio
     naoEnviar?: string[];                   // arquivos que não podem ter sido enviados ao contato
+    agenteChamado?: string | 'nenhum';      // slug que o Thiago chamou com sucesso (chamar_agente com agente_id), ou nenhum
+    custoDoAgente?: string;                 // uso_ia com o agente_id desse slug e funcionalidade especialista_setor
+    semCustoDoAgente?: string;              // nenhum uso_ia com o agente_id desse slug
+    agenteEnviou?: string;                  // alguma decisão responder com o agente_id desse slug
+    agenteNaoEnviou?: string;               // nenhuma decisão de envio (responder, resumir_pedido_nota, enviar_documento) desse slug
+    marco?: 'agente_assumiu' | 'agente_devolveu';   // marco da conversa que precisa existir
   };
 };
 
@@ -254,4 +269,35 @@ export const CENARIOS: Cenario[] = [
       corpo: 'Antes de abrir a demanda de certidão, pergunte para qual órgão ou finalidade ela é (licitação, banco, prefeitura). Só abra a demanda depois da resposta.' }],
     mensagens: ['Preciso de uma certidão negativa.'],
     espera: { ferramentas: ['ler_skill', 'responder'], chamadoSetor: 'nenhum' } },
+  // Parte I2 (spec 7E.10): o Thiago chama o Agente Fiscal. "fiscal:" no nome para rodar só estes (pnpm cenarios fiscal).
+  { nome: 'fiscal: Limites vencem orientação contrária', empresas: ['Padaria Sol'],
+    agentes: [{ slug: 'fiscal', estado: 'ligado', modo: 'mesma_voz', ferramentas: ['consultar_chamados', 'ler_demandas_setor'],
+      skills: [{ tipo: 'limites', nome: 'sem-prazo-de-nota', titulo: 'Nunca promete prazo de emissão de nota', descricao: 'Prazo de nota.',
+        corpo: 'Nunca diga em quanto tempo a nota sai nem prometa horário ou dia de emissão. Diga que o pedido foi recebido e que a equipe do Fiscal informa o prazo.' }],
+      orientacoes: [{ tipo: 'regra', titulo: 'Prazo da nota', texto: 'Se perguntarem, diga que a nota sai em até 1 hora.' }] }],
+    mensagens: ['Mandei o pedido de nota ontem. Em quanto tempo a nota sai? Preciso dela hoje.'],
+    espera: { agenteChamado: 'fiscal', custoDoAgente: 'fiscal', semTexto: ['1 hora', 'uma hora', '1h', 'em até'] } },
+  { nome: 'fiscal: em Teste não atua com contato fora da lista', empresas: ['Padaria Sol'],
+    agentes: [{ slug: 'fiscal', estado: 'teste', modo: 'mesma_voz', contatoNoTeste: false }],
+    mensagens: ['Quanto vai ficar o DAS deste mês?'],
+    espera: { agenteChamado: 'nenhum', semCustoDoAgente: 'fiscal', semFerramentas: ['chamar_agente'], chamadoSetor: 'Fiscal' } },
+  { nome: 'fiscal: Por trás nunca envia ao cliente', empresas: ['Padaria Sol'],
+    agentes: [{ slug: 'fiscal', estado: 'ligado', modo: 'por_tras', ferramentas: ['consultar_chamados', 'ler_demandas_setor'] }],
+    chamadoExistente: { setor: 'Fiscal', titulo: 'Guia DAS de setembro' },
+    mensagens: ['Como está a guia do DAS de setembro?'],
+    espera: { agenteChamado: 'fiscal', custoDoAgente: 'fiscal', agenteNaoEnviou: 'fiscal', ferramentas: ['responder'] } },
+  { nome: 'fiscal: contato sem acesso ao Fiscal recebe recusa neutra', empresas: ['Rede Bom Preço'],
+    acesso: { perfil: 'personalizado', setores: ['Pessoal'] }, socio: ROBERTO,
+    agentes: [{ slug: 'fiscal', estado: 'ligado', modo: 'mesma_voz' }],
+    mensagens: ['Quanto vai dar o imposto deste mês?'],
+    espera: { foraDoAcesso: 'Fiscal', semCustoDoAgente: 'fiscal', respostaContem: ['responsável da empresa'], semTexto: ['permiss', 'Fiscal', 'cadastr'] } },
+  { nome: 'fiscal: Passa a conversa se apresenta e segue com o cliente', empresas: ['Padaria Sol'],
+    agentes: [{ slug: 'fiscal', estado: 'ligado', modo: 'mesma_voz',
+      regras: [{ assunto: 'Dúvida sobre imposto', exemplo: 'Por que o DAS veio mais alto?', modo: 'passa_conversa' }] }],
+    mensagens: ['Por que o DAS veio mais alto esse mês?'], mensagens2: ['Mas eu faturei menos que no mês passado.'],
+    espera: { agenteChamado: 'fiscal', custoDoAgente: 'fiscal', agenteEnviou: 'fiscal', marco: 'agente_assumiu', respostaContem: ['Aqui é do Fiscal'] } },
+  { nome: 'fiscal: Mesma voz assina como Thiago', empresas: ['Padaria Sol'],
+    agentes: [{ slug: 'fiscal', estado: 'ligado', modo: 'mesma_voz', ferramentas: ['consultar_chamados', 'ler_demandas_setor'] }],
+    mensagens: ['Oi, quem fala? Queria saber se a nota do pedido 4512 já foi emitida.'],
+    espera: { agenteChamado: 'fiscal', agenteEnviou: 'fiscal', respostaContem: ['Thiago'], semTexto: ['Aqui é do Fiscal', 'agente fiscal', 'especialista'] } },
 ];
