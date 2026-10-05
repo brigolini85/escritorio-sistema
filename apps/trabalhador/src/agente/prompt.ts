@@ -1,6 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { Mensagem } from '@escritorio/db';
 import type { SkillCarregada } from '@escritorio/db';
+import { secaoAgentesSetor } from './agentes-setor';
 import type { ContextoAgente } from './contexto';
 import { limparTextoOrientacao, linhaOrientacao, orientacoesDaConversa, type OrientacoesDaConversa } from './orientacoes';
 import { AVISO_LIMITES_NAS_ORIENTACOES, secaoSkills, temLimites } from './skills';
@@ -15,7 +16,7 @@ export const FRASE_PRECEDENCIA =
 const cabecalhoOrientacoes = (titulo: string, comLimites: boolean) =>
   `${titulo} ${FRASE_PRECEDENCIA}${comLimites ? `\n${AVISO_LIMITES_NAS_ORIENTACOES}` : ''}`;
 
-function secaoOrientacoes(o: Pick<OrientacoesDaConversa, 'gerais' | 'porSetor'>, comLimites: boolean): string {
+export function secaoOrientacoes(o: Pick<OrientacoesDaConversa, 'gerais' | 'porSetor'>, comLimites: boolean): string {
   if (!o.gerais.length && !o.porSetor.length) return '';
   const partes = [cabecalhoOrientacoes('ORIENTAÇÕES DO ESCRITÓRIO', comLimites)];
   if (o.gerais.length) partes.push(`Para todos os clientes:\n${o.gerais.map(linhaOrientacao).join('\n')}`);
@@ -43,6 +44,9 @@ export function montarBlocosSistema(ctx: ContextoAgente): { system: Anthropic.Te
   const system: Anthropic.TextBlockParam[] = [
     { type: 'text', text: montarSistema(ctx.setores, ctx.respostasProntas, o, ctx.agente?.skills ?? []), cache_control: { type: 'ephemeral' } },
   ];
+  // Parte I2 (D1): os agentes ativos para este contato. Sem nenhum, nada muda (retratos da I1).
+  const agentes = secaoAgentesSetor(ctx.agentesSetor ?? []);
+  if (agentes) system.push({ type: 'text', text: agentes });
   const daEmpresa = ctx.empresaEmFoco
     ? montarOrientacoesEmpresa(ctx.empresaEmFoco.nome, o.daEmpresa, temLimites(ctx.agente?.skills ?? [])) : null;
   if (daEmpresa) system.push({ type: 'text', text: daEmpresa });

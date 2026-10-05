@@ -22,7 +22,7 @@ export type EstadoExecucao = {
 
 const TRIAGEM = 'triagem';
 const MAX_PARTES_RESPOSTA = 3;
-const objeto = (properties: Record<string, object>, required: string[]) =>
+export const objeto = (properties: Record<string, object>, required: string[]) =>
   ({ type: 'object' as const, properties, required, additionalProperties: false });
 
 /** Campos de um pedido de nota, iguais no resumo para o cliente e na demanda do Fiscal. */
@@ -182,6 +182,33 @@ export const FERRAMENTAS_SKILL: Anthropic.Tool[] = [
     name: 'ler_referencia',
     description: 'Lê um arquivo de apoio de uma skill (os nomes vêm em ler_skill). Arquivo grande vem em partes: peça a parte seguinte.',
     input_schema: objeto({ skill: { type: 'string' }, arquivo: { type: 'string' }, parte: { type: 'integer', minimum: 1 } }, ['skill', 'arquivo']),
+  },
+];
+
+/** As ferramentas dos agentes dos setores (D8, D12), na ordem de FERRAMENTAS_SETOR do core. Nunca entram no Thiago. */
+export const FERRAMENTAS_SETOR_DEFS: Anthropic.Tool[] = [
+  {
+    name: 'ler_demandas_setor',
+    description: 'Lista as demandas da empresa em foco no seu setor que este contato pode ver (número, título, situação, data).',
+    input_schema: objeto({}, []),
+  },
+  {
+    name: 'conferir_pedido_nota',
+    description: 'Confere uma demanda de pedido de nota de venda do seu setor (pelo número): destinatário, itens, preços e o arquivo do Bling, em linhas Falta / Atenção / OK.',
+    input_schema: objeto({ numero: { type: 'integer', minimum: 1 } }, ['numero']),
+  },
+  {
+    name: 'nota_interna',
+    description: 'Sugere uma nota interna numa demanda do seu setor. Só vale quando uma pessoa do setor aprova no painel; o cliente não vê.',
+    input_schema: objeto({ numero: { type: 'integer', minimum: 1 }, texto: { type: 'string' } }, ['numero', 'texto']),
+  },
+  {
+    name: 'sugerir_correcao',
+    description: 'Sugere corrigir um dado do pedido de uma demanda do seu setor (prévia). Uma pessoa do setor aprova e aplica; nada muda antes.',
+    input_schema: objeto({
+      numero: { type: 'integer', minimum: 1 }, campo: { type: 'string', description: 'O que corrigir, ex.: "quantidade do item 2".' },
+      de: { type: ['string', 'null'] }, para: { type: 'string' }, motivo: { type: 'string' },
+    }, ['numero', 'campo', 'de', 'para', 'motivo']),
   },
 ];
 

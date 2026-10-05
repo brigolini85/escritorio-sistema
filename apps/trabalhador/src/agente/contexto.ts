@@ -1,5 +1,5 @@
 import { SLUG_ATENDIMENTO, empresaDoUso, estaNoExpediente, type AcessoContato } from '@escritorio/core';
-import type { Configuracoes, ContatoEncontrado, Conversa, EmpresaDoContato, OrientacaoAgente, PerfilAgente, Repos } from '@escritorio/db';
+import type { AgenteSetor, Configuracoes, ContatoEncontrado, Conversa, EmpresaDoContato, OrientacaoAgente, PerfilAgente, Repos } from '@escritorio/db';
 import { carregarPerfil } from './perfil';
 
 export type ContextoAgente = {
@@ -18,6 +18,10 @@ export type ContextoAgente = {
   acessoFixo?: AcessoContato;
   /** Perfil do agente no motor (Parte I1). Sem ele, o Thiago do código (o pedido de antes). */
   agente?: PerfilAgente;
+  /** Parte I2: agentes dos setores ativos para este contato (D2). Vazio ou ausente: o Thiago de sempre. */
+  agentesSetor?: AgenteSetor[];
+  /** Parte I2 (D6): o agente que está conduzindo esta conversa ("Passa a conversa"), se ainda vale. */
+  conducao?: AgenteSetor | null;
 };
 
 export async function carregarContexto(
