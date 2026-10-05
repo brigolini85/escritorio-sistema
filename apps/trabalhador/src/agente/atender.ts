@@ -14,7 +14,9 @@ export async function atenderComAgentes(d: DepsAgente, ctx: ContextoAgente, cont
   // A mesma conferência do chamar_agente (F14). Sem acessoConferido: o agente confere de novo antes de cada ferramenta (D7).
   const situacao = ctx.empresaEmFoco ? (await acessoAoSetor(d, { ctx, respondeu: false }, ctx.empresaEmFoco.id, a.setorId)).situacao : 'sem';
   if (situacao !== 'ok') {
-    await d.repos.encerrarConducao(ctx.conversa.id, 'o contato não trata deste setor');
+    // Sem conseguir encerrar, o Thiago atende mesmo assim (F9/F10); a próxima mensagem confere e tenta de novo.
+    await d.repos.encerrarConducao(ctx.conversa.id, 'o contato não trata deste setor')
+      .catch((e) => console.error('[agente] condução não encerrada; o Thiago atende', ctx.conversa.id, e));
     return executarAgente(d, semAgente(ctx, a.id), conteudo);
   }
   let r: ResultadoAgente;

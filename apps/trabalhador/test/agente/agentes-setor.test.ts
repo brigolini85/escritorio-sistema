@@ -79,6 +79,20 @@ describe('falha ao ler os agentes ou ao encerrar a condução (F9): o Thiago seg
     expect(log).toHaveBeenCalled();
     log.mockRestore();
   });
+  it('contato que perdeu o setor e encerrarConducao com erro: o Thiago atende mesmo assim, com log (Task 7, Minor 1)', async () => {
+    const { conversa } = await contatoComEmpresas(['Padaria Sol'], TEL, { perfil: 'personalizado', setores: ['Pessoal'] });
+    const fiscal = await configurarAgenteTeste('fiscal', { estado: 'ligado', modo: 'passa_conversa' });
+    await repos.iniciarConducao(conversa.id, fiscal);
+    const ctx = await ctxDe(conversa.id);
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const quebrado = { ...repos, encerrarConducao: async () => { throw new Error('banco fora'); } };
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi!' } }), fim()]);
+    expect(await atenderComAgentes({ ...deps(ia), repos: quebrado }, ctx, montarConteudoUsuario(ctx, [], [], []))).toEqual({ status: 'ok' });
+    expect((ia.recebidos[0]!.system as { text: string }[])[0]!.text).toContain('Seu nome é Thiago');
+    expect(canal.enviados.map((e) => e.texto)).toEqual(['Oi!']);
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
+  });
 });
 
 describe('a condução (D6)', () => {
