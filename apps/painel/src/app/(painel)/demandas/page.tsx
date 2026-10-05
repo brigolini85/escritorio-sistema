@@ -10,6 +10,7 @@ import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
 import { variantesBotao } from '@/components/ui/button';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { COLUNA_DA_ORDEM, ORDEM_PADRAO, ORDENS, lerFiltrosDemandas, temFiltro, type FiltrosDemandas, type Prioridade, type Visao } from '@/lib/demandas';
+import { lerTrabalhoDoAgente, type TrabalhoDoAgente } from '@/lib/agente-demanda';
 import { filtrarConsulta } from '@/lib/demandas-consulta';
 import { ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
 import { pendenciasCsvBling } from '@/lib/resumo-pedido';
@@ -170,7 +171,7 @@ export default async function Demandas({ searchParams }: { searchParams: Promise
       <PainelDemanda demandaId={f.demanda} hrefFechar={hrefDemanda(null)}>
         {f.demanda && (
           <Suspense key={f.demanda} fallback={<EsqueletoDemanda />}>
-            <DetalheCarregado sb={sb} id={f.demanda} podeConversa={podeConversa} podeCsv={podeCsv} verPedidos={verPedidos} podePrazo={podePrazo} pessoas={pessoasSetor} setores={setores ?? []} agora={agora} />
+            <DetalheCarregado sb={sb} u={u} id={f.demanda} podeConversa={podeConversa} podeCsv={podeCsv} verPedidos={verPedidos} podePrazo={podePrazo} pessoas={pessoasSetor} setores={setores ?? []} agora={agora} />
           </Suspense>
         )}
       </PainelDemanda>
@@ -199,30 +200,33 @@ async function comPendencias(sb: Sb, dados: Parameters<typeof paraLinhaDemanda>[
   });
 }
 
-async function DetalheCarregado({ sb, id, podeConversa, podeCsv, verPedidos, podePrazo, pessoas, setores, agora }: {
-  sb: Sb; id: string; podeConversa: boolean; podeCsv: boolean; verPedidos: boolean; podePrazo: boolean; pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; agora: Date;
+async function DetalheCarregado({ sb, u, id, podeConversa, podeCsv, verPedidos, podePrazo, pessoas, setores, agora }: {
+  sb: Sb; u: Awaited<ReturnType<typeof obterUsuario>>; id: string; podeConversa: boolean; podeCsv: boolean; verPedidos: boolean; podePrazo: boolean; pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; agora: Date;
 }) {
   const aberta = await lerDemanda(sb, id, verPedidos);
   return (
     <DetalheDemanda demanda={aberta?.demanda ?? null} comprador={aberta?.comprador ?? null} podeConversa={podeConversa} podeCsv={podeCsv} verPedidos={verPedidos} podePrazo={podePrazo}
-      pessoas={pessoas} setores={setores} contatos={aberta?.contatos ?? []} agora={agora} />
+      pessoas={pessoas} setores={setores} contatos={aberta?.contatos ?? []} agora={agora}
+      trabalho={aberta?.trabalho ?? null}
+      podeDecidirSugestao={u.papel === 'admin' || (aberta?.demanda.setorId ? u.setores.includes(aberta.demanda.setorId) : false)} />
   );
 }
 
 /** Demanda do painel lateral (visão demandas_lista), com a linha do tempo, os contatos da empresa e o comprador. RLS vale. */
-async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null; contatos: { id: string; nome: string }[] } | null> {
+async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null; contatos: { id: string; nome: string }[]; trabalho: TrabalhoDoAgente } | null> {
   const { data: d } = await sb.from('demandas_lista').select('*').eq('id', id).maybeSingle();
   if (!d) return null;
   // Sem acesso a pedidos (P11): o pedido, a descrição e os textos livres da linha do tempo nem saem do servidor.
   const semPedido = !verPedidos && ehPedidoDeNota(d);
   const unidade = semPedido ? null : (d.pedido_venda as PedidoVendaSalvo | null)?.unidade_id ?? null;
-  const [{ data: eventos }, { data: cliente }, { data: vinculos }, { data: comprador }] = await Promise.all([
+  const [{ data: eventos }, { data: cliente }, { data: vinculos }, { data: comprador }, trabalho] = await Promise.all([
     sb.from('chamado_eventos').select('tipo, texto, criado_em, usuarios(nome)').eq('chamado_id', id).order('criado_em'),
     d.cliente_id ? sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj').eq('id', d.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
     d.cliente_id
       ? sb.from('contato_clientes').select('contatos!inner(id, nome, ativo)').eq('cliente_id', d.cliente_id).eq('contatos.ativo', true)
       : Promise.resolve({ data: [] as { contatos: { id: string; nome: string; ativo: boolean } }[] }),
     unidade ? sb.from('parceiros_unidades').select(COLUNAS_COMPRADOR).eq('id', unidade).maybeSingle() : Promise.resolve({ data: null }),
+    lerTrabalhoDoAgente(sb, id, verPedidos && !semPedido),
   ]);
   return {
     demanda: {
@@ -235,6 +239,7 @@ async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ de
       eventos: ((m) => (semPedido ? ocultarEventosDoPedido(m) : m))((eventos ?? []).map((e) => ({ tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null }))),
     },
     comprador: (comprador as CompradorCadastrado | null) ?? null,
+    trabalho,
     contatos: (vinculos ?? []).map((v) => ({ id: v.contatos.id, nome: v.contatos.nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
   };
 }

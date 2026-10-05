@@ -13,9 +13,11 @@ import { Badge } from '@/components/ui/badge';
 import { variantesBotao } from '@/components/ui/button';
 import { SheetBody, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { Prioridade } from '@/lib/demandas';
+import type { TrabalhoDoAgente } from '@/lib/agente-demanda';
 import { pendenciasCsvBling } from '@/lib/resumo-pedido';
 import { BotaoAssumir, BotoesDemanda, CamposDemanda, EditarDescricao, EditarTitulo, type PessoaSetor } from './acoes-demanda';
 import { abertaPor } from './colunas-demandas';
+import { TrabalhoAgente } from './trabalho-agente';
 
 export type DemandaAberta = {
   id: string; numero: number; titulo: string; descricao: string;
@@ -38,9 +40,10 @@ function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
 }
 
 /** Painel lateral da demanda (spec 6.3, imagem 05): tudo se resolve aqui, sem sair da tela. */
-export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, verPedidos, podePrazo, pessoas, setores, contatos, agora }: {
+export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, verPedidos, podePrazo, pessoas, setores, contatos, agora, trabalho, podeDecidirSugestao }: {
   demanda: DemandaAberta | null; comprador: CompradorCadastrado | null; podeConversa: boolean; podeCsv: boolean; verPedidos: boolean; podePrazo: boolean;
   pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; contatos: { id: string; nome: string }[]; agora: Date;
+  trabalho?: TrabalhoDoAgente | null; podeDecidirSugestao?: boolean;
 }) {
   if (!d) {
     return (
@@ -88,6 +91,11 @@ export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, v
           <Secao titulo="Pedido de nota">
             <OrderSummary pedido={d.pedidoVenda} comprador={comprador} />
             {podeCsv && <BlingExportButton href={`/api/csv-bling?id=${d.id}`} problemas={problemas} />}
+          </Secao>
+        ) : null}
+        {trabalho && (trabalho.preAnalise || trabalho.sugestoes.length > 0) ? (
+          <Secao titulo={trabalho.agente ?? 'Agente do setor'}>
+            <TrabalhoAgente trabalho={trabalho} podeDecidir={podeDecidirSugestao === true} />
           </Secao>
         ) : null}
         <Secao titulo="Linha do tempo">

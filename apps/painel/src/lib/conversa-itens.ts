@@ -83,6 +83,11 @@ const TEXTO_EVENTO: Record<string, (e: EventoConversa) => string> = {
   devolvida: (e) => `Devolvido ao agente${e.usuario ? ` por ${e.usuario}` : ''}`,
   concluida: (e) => `Atendimento concluído${e.usuario ? ` por ${e.usuario}` : ''}`,
   empresa_trocada: (e) => (e.texto ? `Empresa trocada: ${e.texto}` : 'Empresa trocada'),
+  agente_assumiu: (e) => `Conversa passada ao ${e.texto || 'agente do setor'}`,
+  agente_devolveu: (e) => {
+    const [nome, ...motivo] = (e.texto ?? '').split(': ');
+    return `${nome || 'O agente do setor'} devolveu a conversa ao Thiago${motivo.length ? `: ${motivo.join(': ')}` : ''}`;
+  },
 };
 
 /** Marcos centralizados na conversa (decisão 6). Nunca mostram título nem texto de pedido (P11). */

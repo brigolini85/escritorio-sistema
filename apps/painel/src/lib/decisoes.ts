@@ -19,6 +19,14 @@ const ETAPAS: Record<string, string> = {
   cadastrar_produto: 'Cadastrou um produto',
   responder: 'Respondeu ao cliente',
   orientacoes_cortadas: 'Orientações cortadas',
+  chamar_agente: 'Chamou um agente do setor',
+  devolver_resposta: 'Entregou a resposta ao Thiago',
+  devolver_ao_thiago: 'Devolveu a conversa ao Thiago',
+  ler_demandas_setor: 'Leu as demandas do setor',
+  conferir_pedido_nota: 'Conferiu o pedido de nota',
+  nota_interna: 'Sugeriu nota interna',
+  sugerir_correcao: 'Sugeriu correção',
+  pre_analise_nota: 'Pré-analisou o pedido de nota',
 };
 
 /** snake_case → "Snake case". */
