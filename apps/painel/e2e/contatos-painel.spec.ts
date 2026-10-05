@@ -136,9 +136,13 @@ test('"Só ver" (o padrão de quem atende): vê o painel, mas não muda nada; se
   await expect(painel.getByRole('button', { name: 'Excluir…' })).toHaveCount(0);
   await expect(painel.getByRole('button', { name: 'Apagar dados (LGPD)' })).toHaveCount(0);
   await expect(painel.getByRole('switch', { name: /o agente para/ })).toBeDisabled();
-  for (const caixa of await painel.getByRole('group', { name: `${PREFIXO} Rede Bom Preço Ltda` }).getByRole('checkbox').all()) {
-    await expect(caixa).toBeDisabled();
-  }
+  // Parte H2 (D22): o bloco de acesso da Rede abre só para ler, sem Salvar.
+  await painel.getByRole('button', { name: `Acesso em ${PREFIXO} Rede Bom Preço Ltda` }).click();
+  const rede = painel.getByRole('group', { name: `${PREFIXO} Rede Bom Preço Ltda` });
+  await expect(rede.getByRole('switch', { name: 'Pedir nota de venda' })).toBeDisabled();
+  await expect(rede.getByRole('switch', { name: 'Mudar preço e cadastrar produto' })).toBeDisabled();
+  await expect(rede.getByRole('switch', { name: 'Ver valores' })).toBeDisabled();
+  await expect(rede.getByRole('button', { name: 'Salvar' })).toHaveCount(0);
   await expect(painel).toContainText('Só quem pode editar clientes muda as marcações.');
 });
 
