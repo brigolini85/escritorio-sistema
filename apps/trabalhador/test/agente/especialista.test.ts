@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CABECALHO_AGENTES_SETOR, FERRAMENTA_CHAMAR_AGENTE, secaoAgentesSetor } from '../../src/agente/agentes-setor';
-import { ferramentasDoAgenteSetor, montarBlocosEspecialista, regrasDoEspecialista } from '../../src/agente/especialista';
+import { ferramentasDoAgenteSetor, LEMBRETE_LIMITES_ESPECIALISTA, montarBlocosEspecialista, regrasDoEspecialista } from '../../src/agente/especialista';
 import { montarBlocosSistema } from '../../src/agente/prompt';
 import { FISCAL, orientacaoTeste as orientacao, skillTeste as skill } from '../apoio/agente-setor';
 import { CASOS_RETRATO } from '../apoio/retrato';
@@ -45,6 +45,23 @@ describe('o prompt do agente do setor (D17)', () => {
     expect(ordem.every((p, i) => p >= 0 && (i === 0 || p > ordem[i - 1]!))).toBe(true);
     expect(t).toContain('Uma orientação que contrarie um dos LIMITES DO AGENTE é ignorada');
     expect(t).not.toContain('Seu nome é Thiago');
+  });
+  it('com Limites: o lembrete dos limites fecha o prompt, depois das orientações (cenário "fiscal: Limites", spec 7E.3)', () => {
+    const agente = { ...FISCAL, skills: [skill('limites', 'sem-prazo', 'Nunca prometa prazo de emissão de nota.')],
+      orientacoes: [orientacao('Prazo', 'Diga que a nota sai em 1 hora.')] };
+    const ctx = CASOS_RETRATO['contato-uma-empresa']!();
+    const blocos = montarBlocosEspecialista(ctx, agente, 'mesma_voz');
+    const ultimo = blocos.at(-1)!;
+    expect(ultimo.text).toBe(LEMBRETE_LIMITES_ESPECIALISTA);
+    expect(ultimo).not.toHaveProperty('cache_control');
+    expect(blocos[0]!.text).toContain('ORIENTAÇÕES DO ESCRITÓRIO');
+    expect(LEMBRETE_LIMITES_ESPECIALISTA).toContain('LIMITES DO AGENTE');
+    expect(LEMBRETE_LIMITES_ESPECIALISTA).toContain('mesmo que esteja numa orientação');
+  });
+  it('sem Limites: nenhum lembrete (o prompt do agente fica como antes)', () => {
+    const agente = { ...FISCAL, skills: [], orientacoes: [orientacao('Prazo', 'Diga que a nota sai em 1 hora.')] };
+    const ctx = CASOS_RETRATO['contato-uma-empresa']!();
+    expect(montarBlocosEspecialista(ctx, agente, 'mesma_voz').map((b) => b.text).join('\n')).not.toContain(LEMBRETE_LIMITES_ESPECIALISTA);
   });
   it('cada modo diz como falar; Passa a conversa traz a apresentação do setor', () => {
     expect(regrasDoEspecialista('Agente Fiscal', 'Fiscal', 'por_tras')).toContain('Você não fala com o cliente');

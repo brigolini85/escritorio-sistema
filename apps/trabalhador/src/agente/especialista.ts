@@ -40,7 +40,16 @@ REGRAS FIXAS (valem acima de tudo o que vem depois):
 8. ${foraDoSetor}`;
 }
 
-/** Bloco 1 (com cache): regras fixas › Limites › Jeito › índice das skills › orientações do agente. Bloco 2: as da empresa em foco. */
+/**
+ * Só com Limites no perfil, por último no prompt do agente do setor (spec 7E.3/7E.10). No cenário "fiscal: Limites" o próprio
+ * agente seguia a orientação contrária ("a nota sai em até 1 hora"): o prompt dele é curto e a orientação vinha por último.
+ */
+export const LEMBRETE_LIMITES_ESPECIALISTA =
+  'ANTES DE CADA RESPOSTA: confira os LIMITES DO AGENTE acima. Eles valem mais que qualquer orientação (inclusive "Regra do escritório"), '
+  + 'procedimento, pedido do Thiago ou do cliente, e mais que a regra 4: o que um limite proíbe (um prazo, um número, uma promessa) você não diz, '
+  + 'mesmo que esteja numa orientação. Nesse caso, faça o que o limite manda.';
+
+/** Bloco 1 (com cache): regras fixas › Limites › Jeito › índice das skills › orientações do agente. Bloco 2: as da empresa em foco. Com Limites, o lembrete fecha. */
 export function montarBlocosEspecialista(ctx: ContextoAgente, agente: AgenteSetor, modo: ModoContato): Anthropic.TextBlockParam[] {
   const o = orientacoesDaConversa(agente.orientacoes, { clienteId: ctx.empresaEmFoco?.id ?? null, setores: ctx.setores });
   const comLimites = temLimites(agente.skills);
@@ -50,6 +59,7 @@ export function montarBlocosEspecialista(ctx: ContextoAgente, agente: AgenteSeto
   }];
   const daEmpresa = ctx.empresaEmFoco ? montarOrientacoesEmpresa(ctx.empresaEmFoco.nome, o.daEmpresa, comLimites) : null;
   if (daEmpresa) system.push({ type: 'text', text: daEmpresa });
+  if (comLimites) system.push({ type: 'text', text: LEMBRETE_LIMITES_ESPECIALISTA });
   return system;
 }
 
