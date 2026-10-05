@@ -60,10 +60,15 @@ export function normalizarBusca(t: string): string {
   return t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase('pt-BR');
 }
 
-/** Para onde a action volta: só endereços desta tela (o valor vem do formulário). */
+/** Destinos das ações da tela: /treinar-agente (redireciona) ou a aba Orientações de um agente (D21). */
 export function destinoDaTela(voltar: unknown): string {
   const v = typeof voltar === 'string' ? voltar : '';
-  return /^\/treinar-agente(\?[^\s]*)?$/.test(v) ? v : '/treinar-agente';
+  return /^\/(treinar-agente|agentes\/[a-z][a-z0-9-]{1,39}\/orientacoes)(\?[^\s]*)?$/.test(v) ? v : '/treinar-agente';
+}
+
+/** Agente das orientações pelo endereço da tela: /treinar-agente é o Thiago. */
+export function slugDoDestino(destino: string): string {
+  return /^\/agentes\/([a-z][a-z0-9-]{1,39})\/orientacoes/.exec(destino)?.[1] ?? 'atendimento';
 }
 
 /** Modelos do estado vazio: clicar abre o formulário já preenchido (?orientacao=nova&modelo=<id>). */

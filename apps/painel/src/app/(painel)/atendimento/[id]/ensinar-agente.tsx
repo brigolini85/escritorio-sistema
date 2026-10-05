@@ -42,7 +42,7 @@ export function EnsinarAgente({ situacao, empresa }: { situacao: string; empresa
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Ensinar o agente</DialogTitle>
-          <DialogDescription>Crie uma orientação a partir desta conversa. Ela aparece em Treinar o agente.</DialogDescription>
+          <DialogDescription>Crie uma orientação a partir desta conversa. Ela aparece nas orientações do Thiago (Agentes).</DialogDescription>
         </DialogHeader>
         {/* Montado só aberto: cada abertura começa da conversa como está. */}
         <ConteudoEnsinar situacaoInicial={situacao} empresa={empresa} />
@@ -166,7 +166,7 @@ function ConteudoEnsinar({ situacaoInicial, empresa }: { situacaoInicial: string
       <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
         <div>
           <Label htmlFor={`${id}-ativo`} className={cn('cursor-pointer text-base', ROTULO_DE_OPCAO)}>Ligada</Label>
-          <p id={`${id}-ativo-descricao`} className="text-sm text-muted">Desligada, ela fica guardada até alguém revisar e ligar em Treinar o agente.</p>
+          <p id={`${id}-ativo-descricao`} className="text-sm text-muted">Desligada, ela fica guardada até alguém revisar e ligar nas orientações do Thiago.</p>
         </div>
         <Switch id={`${id}-ativo`} name="ativo" defaultChecked={false} aria-describedby={`${id}-ativo-descricao`} className="mt-0.5" />
       </div>
@@ -198,7 +198,7 @@ function OrientacaoCriada({ id, ligada }: { id: string; ligada: boolean }) {
       <DialogFooter>
         <DialogClose asChild><Button type="button" variant="outline">Fechar</Button></DialogClose>
         <Button asChild>
-          <Link ref={link} href={`/treinar-agente?orientacao=${id}`}>Abrir na tela Treinar o agente</Link>
+          <Link ref={link} href={`/agentes/atendimento/orientacoes?orientacao=${id}`}>Abrir nas orientações do Thiago</Link>
         </Button>
       </DialogFooter>
     </div>

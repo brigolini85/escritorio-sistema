@@ -22,7 +22,8 @@ export function itensDoMenu(u: { papel: 'admin' | 'atendente'; niveis: Niveis })
   if (admin || u.niveis.atendimento !== 'sem_acesso') itens.push({ rotulo: 'Atendimento', href: '/atendimento' });
   itens.push({ rotulo: 'Demandas', href: '/demandas' }, { rotulo: 'Clientes', href: '/clientes' }, { rotulo: 'Contatos', href: '/contatos' });
   if (nivelAtinge('assistente', u.niveis.assistente, 'site')) itens.push({ rotulo: 'Assistente', href: '/assistente' });
-  if (admin || u.niveis.treinar === 'sim') itens.push({ rotulo: 'Treinar o agente', href: '/treinar-agente' });
+  // Parte I1 (spec 7E.1, D19): "Treinar o agente" virou as abas Orientações e Testar; Agentes entra no mesmo lugar.
+  if (admin || u.niveis.treinar === 'sim') itens.push({ rotulo: 'Agentes', href: '/agentes' });
   if (admin) itens.push({ rotulo: 'Gastos com IA', href: '/gastos-ia' });
   if (admin) itens.push({ rotulo: 'Configurações', href: '/configuracoes', filhos: SUBMENU_CONFIGURACOES });
   else if (u.niveis.configuracoes === 'sim') itens.push({ rotulo: 'Configurações', href: '/configuracoes', filhos: SUBMENU_SEM_USUARIOS });

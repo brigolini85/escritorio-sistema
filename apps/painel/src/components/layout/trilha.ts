@@ -14,6 +14,7 @@ const SECOES: Secao[] = [
   { prefixo: '/clientes/novo', trilha: [{ rotulo: 'Cadastros' }, { rotulo: 'Clientes', href: '/clientes' }, { rotulo: 'Novo cliente' }] },
   { prefixo: '/contatos', trilha: [{ rotulo: 'Cadastros' }, { rotulo: 'Contatos' }] },
   { prefixo: '/assistente', trilha: [{ rotulo: 'Assistente' }] },
+  { prefixo: '/agentes', trilha: [{ rotulo: 'Administração' }, { rotulo: 'Agentes' }], detalhe: 'Agente' },
   { prefixo: '/treinar-agente', trilha: [{ rotulo: 'Treinar o agente' }] },
   { prefixo: '/gastos-ia', trilha: [{ rotulo: 'Administração' }, { rotulo: 'Gastos com IA' }] },
   { prefixo: '/usuarios', trilha: [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões' }], detalhe: 'Pessoa' },

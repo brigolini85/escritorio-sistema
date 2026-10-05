@@ -49,7 +49,7 @@ function Detalhe({ l }: { l: ItemLista }) {
  * A chave fica fora do link (dois controles não se aninham).
  */
 export function ListaOrientacoes({
-  linhas, total, contagem, filtro, tipo = null, vale = null, busca, aberta, orientacaoNaUrl, medidor, empresaMaisPesada, erro, aviso, hrefOrientacao, hrefFiltro, hrefNova,
+  linhas, total, contagem, filtro, tipo = null, vale = null, busca, aberta, orientacaoNaUrl, medidor, empresaMaisPesada, erro, aviso, hrefOrientacao, hrefFiltro, hrefNova, base = '/treinar-agente',
 }: {
   linhas: ItemLista[];
   total: number;
@@ -68,6 +68,8 @@ export function ListaOrientacoes({
   aviso: string | null;
   hrefOrientacao: (id: string) => string;
   hrefFiltro: (filtro: Filtro) => string;
+  /** Endereço da tela (busca e "Limpar filtros"): /treinar-agente ou /agentes/<slug>/orientacoes. */
+  base?: string;
   hrefNova: string;
 }) {
   const filtros: { valor: Filtro; rotulo: string; n: number | null; chave: string }[] = [
@@ -89,7 +91,7 @@ export function ListaOrientacoes({
         </div>
         <MedidorCompacto medidor={medidor} empresa={empresaMaisPesada} />
         {aviso && <p className="text-sm text-warning">{aviso}</p>}
-        <form role="search" action="/treinar-agente" className="relative">
+        <form role="search" action={base} className="relative">
           {orientacaoNaUrl && <input type="hidden" name="orientacao" value={orientacaoNaUrl} />}
           {filtro && <input type="hidden" name="ativo" value={filtro} />}
           {tipo && <input type="hidden" name="tipo" value={tipo} />}
@@ -133,7 +135,7 @@ export function ListaOrientacoes({
           icone={FilterX}
           titulo="Nenhuma orientação neste filtro."
           descricao="Tente outro filtro ou limpe a busca."
-          acao={<Link href="/treinar-agente" className={variantesBotao({ variant: 'outline', size: 'sm' })}>Limpar filtros</Link>}
+          acao={<Link href={base} className={variantesBotao({ variant: 'outline', size: 'sm' })}>Limpar filtros</Link>}
         />
       ) : (
         <ul aria-label="Orientações do agente" className="min-h-0 flex-1 overflow-y-auto">

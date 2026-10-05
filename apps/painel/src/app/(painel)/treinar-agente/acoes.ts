@@ -9,7 +9,7 @@ import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { hrefComParams } from '@/lib/tabela-url';
 import { comporTexto } from './ensinar';
-import { destinoDaTela, ehUuid, OrientacaoForm, type DadosOrientacao } from './esquemas';
+import { destinoDaTela, ehUuid, OrientacaoForm, slugDoDestino, type DadosOrientacao } from './esquemas';
 import {
   ERRO_BANCO_PENDENTE, MENSAGEM_FALHA_TESTE, MENSAGEM_FILA_FORA, MENSAGEM_TESTE_PENDENTE, PedidoTeste,
 } from './simulacao';
@@ -48,21 +48,24 @@ async function exigirTreinar() {
 /** O mesmo endereço (filtros da lista) com outro painel aberto. */
 function comOrientacao(destino: string, mudancas: Record<string, string | null>): string {
   const busca = new URLSearchParams(destino.split('?')[1] ?? '');
-  return `/treinar-agente${hrefComParams(Object.fromEntries(busca), { ...mudancas, erro: null })}`;
+  return `${destino.split('?')[0]}${hrefComParams(Object.fromEntries(busca), { ...mudancas, erro: null })}`;
 }
 
 /**
  * Cria (id null) ou edita a orientação com o cliente de quem pode treinar o agente (salvar_orientacao confere tudo de
  * novo e grava a versão e a auditoria). Devolve o id. Usada pela tela e pelo "Ensinar o agente" do Atendimento.
  */
-async function gravarOrientacao(sb: Awaited<ReturnType<typeof exigirTreinar>>, id: string | null, d: DadosOrientacao): Promise<string> {
+async function gravarOrientacao(sb: Awaited<ReturnType<typeof exigirTreinar>>, id: string | null, d: DadosOrientacao, slug = 'atendimento'): Promise<string> {
   if (id !== null && !ehUuid(id)) throw new AvisoTreinar('Orientação não encontrada.');
-  const { data, error } = await sb.rpc('salvar_orientacao', {
+  const campos = {
     // Para criar, o banco recebe null (o tipo gerado marca p_id como obrigatório por vir antes dos que têm padrão).
     p_id: id as unknown as string,
     p_titulo: d.titulo, p_texto: d.texto, p_tipo: d.tipo,
     p_cliente_id: d.clienteId ?? undefined, p_setor_id: d.setorId ?? undefined, p_ativo: d.ativo,
-  });
+  };
+  const { data, error } = slug === 'atendimento'
+    ? await sb.rpc('salvar_orientacao', campos)
+    : await sb.rpc('salvar_orientacao_agente', { p_slug: slug, ...campos });
   if (error) throw avisoDoBanco(error, 'falha ao salvar a orientação', FALHA_SALVAR);
   return data;
 }
@@ -75,9 +78,9 @@ export async function salvarOrientacao(id: string | null, voltar: string, formDa
   const destino = destinoDaTela(voltar);
   await comAvisoDeErro(destino, async () => {
     const sb = await exigirTreinar();
-    const data = await gravarOrientacao(sb, id, OrientacaoForm.parse(formData));
+    const data = await gravarOrientacao(sb, id, OrientacaoForm.parse(formData), slugDoDestino(destino));
     if (id === null) {
-      revalidatePath('/treinar-agente');
+      revalidatePath('/treinar-agente'); revalidatePath('/agentes', 'layout');
       redirect(comOrientacao(destino, { orientacao: data, modelo: null }));
     }
   });
@@ -104,7 +107,7 @@ export async function ensinarAgente(formData: FormData): Promise<{ id: string } 
     const d = OrientacaoForm.safeParse(dados);
     if (!d.success) return { erro: d.error.issues[0]?.message ?? 'Confira os campos da orientação.' };
     const id = await gravarOrientacao(sb, null, d.data);
-    revalidatePath('/treinar-agente');
+    revalidatePath('/treinar-agente'); revalidatePath('/agentes', 'layout');
     return { id };
   } catch (e) {
     unstable_rethrow(e);   // sessão vencida: redirect para /entrar continua valendo
@@ -130,7 +133,7 @@ export async function alternarOrientacao(id: string, ativo: boolean): Promise<{ 
     console.error('[treinar-agente] falha ao ligar/desligar a orientação', e);
     return { erro: FALHA_ALTERNAR };
   }
-  revalidatePath('/treinar-agente');
+  revalidatePath('/treinar-agente'); revalidatePath('/agentes', 'layout');
   return { erro: null };
 }
 

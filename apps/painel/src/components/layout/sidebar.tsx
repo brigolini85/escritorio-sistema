@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Building2, ChevronDown, ChevronRight, CircleDollarSign, ClipboardCheck, Contact, GraduationCap, LayoutGrid, MessageCircle, PanelLeftClose, PanelLeftOpen,
+  Bot, Building2, ChevronDown, ChevronRight, CircleDollarSign, ClipboardCheck, Contact, GraduationCap, LayoutGrid, MessageCircle, PanelLeftClose, PanelLeftOpen,
   Settings, Sparkles, type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -28,6 +28,7 @@ const ICONES: Record<string, LucideIcon> = {
   '/clientes': Building2,
   '/contatos': Contact,
   '/assistente': Sparkles,
+  '/agentes': Bot,
   '/treinar-agente': GraduationCap,
   '/gastos-ia': CircleDollarSign,
   '/configuracoes': Settings,
@@ -39,6 +40,7 @@ const COR_MODULO: Record<string, string> = {
   '/clientes': 'text-modulo-clientes',
   '/contatos': 'text-modulo-contatos',
   '/assistente': 'text-modulo-assistente',
+  '/agentes': 'text-modulo-treinar',
   '/treinar-agente': 'text-modulo-treinar',
   '/gastos-ia': 'text-modulo-gastos',
   '/configuracoes': 'text-modulo-configuracoes',

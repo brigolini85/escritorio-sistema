@@ -12,7 +12,7 @@ describe('menu pelos níveis (Parte D)', () => {
   it('assistente e treinar aparecem pelo nível', () => {
     expect(rotulos('atendente', n({ assistente: 'site' }))).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Assistente']);
     expect(rotulos('atendente', n({ treinar: 'sim', assistente: 'site_whatsapp' })))
-      .toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Assistente', 'Treinar o agente']);
+      .toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Assistente', 'Agentes']);
   });
   it('Atendimento some com "Sem acesso"', () => {
     expect(rotulos('atendente', n({ atendimento: 'sem_acesso' }))).toEqual(['Início', 'Demandas', 'Clientes', 'Contatos']);
@@ -27,12 +27,12 @@ describe('menu pelos níveis (Parte D)', () => {
     expect(conf.filhos!.map((f) => f.rotulo)).not.toContain('Teto e modelos de IA');
   });
   it('Gastos com IA: só o administrador, antes de Configurações (spec 7)', () => {
-    expect(rotulos('admin', n())).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Treinar o agente', 'Gastos com IA', 'Configurações']);
+    expect(rotulos('admin', n())).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Agentes', 'Gastos com IA', 'Configurações']);
     expect(rotulos('atendente', n({ configuracoes: 'sim', treinar: 'sim', assistente: 'site_whatsapp' }))).not.toContain('Gastos com IA');
   });
   it('administrador: Treinar e Configurações completas; Assistente só com a marcação', () => {
     const itens = itensDoMenu({ papel: 'admin', niveis: n() });
-    expect(itens.map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Treinar o agente', 'Gastos com IA', 'Configurações']);
+    expect(itens.map((i) => i.rotulo)).toEqual(['Início', 'Atendimento', 'Demandas', 'Clientes', 'Contatos', 'Agentes', 'Gastos com IA', 'Configurações']);
     expect(itens.at(-1)!.filhos!.map((f) => f.rotulo)).toContain('Usuários e permissões');
     const adminConf = itens.find((i) => i.rotulo === 'Configurações')!;
     expect(adminConf.filhos!.map((f) => f.rotulo)).toContain('Teto e modelos de IA');

@@ -33,7 +33,7 @@ function checar(r: { error: { message: string; code?: string } | null }) {
 /** Setores e serviços aparecem em demandas, atendimento, empresas, usuários, início e no treino do agente: sem revalidar, essas telas mostrariam a lista velha. */
 function recarregarCadastros() {
   recarregar();
-  for (const p of ['/demandas', '/atendimento', '/clientes', '/usuarios', '/inicio', '/treinar-agente']) revalidatePath(p, 'layout');
+  for (const p of ['/demandas', '/atendimento', '/clientes', '/usuarios', '/inicio', '/treinar-agente', '/agentes']) revalidatePath(p, 'layout');
 }
 /** Nome repetido (unique de setores/servicos, 23505): a frase certa em vez do "não consegui salvar". */
 const nomeRepetido = (e: { message: string; code?: string }, frase: string): Resultado => (e.code === '23505' ? falha(frase) : doBanco(e));
