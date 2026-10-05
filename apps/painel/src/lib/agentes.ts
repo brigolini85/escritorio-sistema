@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import {
   AGENTE_ATENDIMENTO_ID, ESTADOS_AGENTE, FERRAMENTAS_ATENDIMENTO, MODOS_CONTATO, SLUG_ATENDIMENTO, TIPOS_AGENTE, TIPOS_SKILL,
   type EstadoAgente, type ModoContato, type TipoAgente, type TipoSkill,
@@ -57,20 +58,34 @@ export async function lerAgentes(sb: Sb): Promise<{ agentes: Agente[]; semMigrac
   return { agentes: ((data ?? []) as unknown as LinhaAgente[]).map(lerLinhaAgente), semMigracao: false, erro: false };
 }
 
-export async function lerAgente(sb: Sb, slug: string): Promise<{ agente: Agente | null; semMigracao: boolean }> {
+async function lerAgenteDoBanco(sb: Sb, slug: string): Promise<{ agente: Agente | null; semMigracao: boolean }> {
   const { data, error } = await sb.from('agentes').select(COLUNAS_AGENTE).eq('slug', slug).maybeSingle();
   if (semMigracaoI1(error)) return { agente: slug === SLUG_ATENDIMENTO ? THIAGO_SEM_MIGRACAO : null, semMigracao: true };
   if (error) console.error('[agentes] falha ao ler o agente', slug, error);
   return { agente: data ? lerLinhaAgente(data as unknown as LinhaAgente) : null, semMigracao: false };
 }
 
-export async function souDono(sb: Sb): Promise<boolean> {
+async function souDonoDoBanco(sb: Sb): Promise<boolean> {
   const { data, error } = await sb.rpc('eh_dono');
   if (error) {
     if (!semMigracaoI1(error)) console.error('[agentes] falha ao conferir o dono', error);
     return false;
   }
   return data === true;
+}
+
+/** Ruling F19: layout e página da ficha leem o mesmo agente e o mesmo "sou dono" na mesma requisição. O cache é por requisição e chaveado só pelo slug (o cliente do Supabase é novo a cada chamada, então cache(fn(sb, slug)) não repartiria nada). */
+const agentesDaRequisicao = cache(() => new Map<string, ReturnType<typeof lerAgenteDoBanco>>());
+export function lerAgente(sb: Sb, slug: string): ReturnType<typeof lerAgenteDoBanco> {
+  const memo = agentesDaRequisicao();
+  let p = memo.get(slug);
+  if (!p) { p = lerAgenteDoBanco(sb, slug); memo.set(slug, p); }
+  return p;
+}
+const donoDaRequisicao = cache(() => ({ p: null as Promise<boolean> | null }));
+export function souDono(sb: Sb): Promise<boolean> {
+  const memo = donoDaRequisicao();
+  return (memo.p ??= souDonoDoBanco(sb));
 }
 
 export type AcessoAgentes = { ver: boolean; dono: boolean; numeros: boolean };
