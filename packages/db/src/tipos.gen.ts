@@ -1752,6 +1752,11 @@ isOneToOne: false
 "agentes_checar_numeros":
 { Args: { "p_ate": string,"p_de": string }; Returns: undefined
                            },
+"agentes_de_trabalho_da_demanda":
+{ Args: { "p_chamado": string }; Returns: {
+              "estado": string,"id": string,"nome": string,"pode_pedir": boolean,"procedimentos": Json
+            }[]
+                           },
 "agentes_numeros":
 { Args: { "p_ate": string,"p_de": string }; Returns: {
               "agente_id": string,"atendimentos": number,"custo_testes_usd": number,"custo_usd": number,"resolvidos": number,"ultima_em": string,"ultima_empresa": string
@@ -1777,11 +1782,19 @@ isOneToOne: false
 "aplicar_prazo_abertas":
 { Args: { "p_dias": number,"p_prioridade": Database["public"]['Enums']["prioridade_demanda"] }; Returns: number
                            },
+"aprovar_tarefa":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
 "arquivar_cadastro":
 { Args: { "p_id": string,"p_tipo": string }; Returns: undefined
                            },
 "arquivar_skill":
 { Args: { "p_skill": string }; Returns: undefined
+                           },
+"arquivos_da_conversa_para_pendencia":
+{ Args: { "p_id": string }; Returns: {
+              "criado_em": string,"mensagem_id": string,"mime": string,"nome": string
+            }[]
                            },
 "assumir_conversa":
 { Args: { "p_conversa": string }; Returns: undefined
@@ -1827,10 +1840,18 @@ isOneToOne: false
 "contato_whatsapp_resumo":
 { Args: { "p_contato": string }; Returns: Json
                            },
+"contatos_para_pendencia":
+{ Args: { "p_id": string }; Returns: {
+              "contato_id": string,"nome": string
+            }[]
+                           },
 "contatos_procuraveis":
 { Args: { "p_cliente": string,"p_setor": string }; Returns: {
               "contato_id": string,"nome": string,"telefone": string
             }[]
+                           },
+"continuar_tarefa":
+{ Args: { "p_id": string }; Returns: boolean
                            },
 "copiar_endereco_para_logradouro":
 { Args: Record<PropertyKey, never>; Returns: number
@@ -1851,6 +1872,9 @@ isOneToOne: false
                            },
 "criar_sugestao_agente":
 { Args: { "p_agente": string,"p_chamado": string,"p_conteudo": Json,"p_conversa": string,"p_tipo": string }; Returns: string
+                           },
+"criar_tarefa_agente":
+{ Args: { "p_agente": string,"p_chamado": string,"p_pedido": string,"p_skill"?: string }; Returns: string
                            },
 "custo_ia_periodo":
 { Args: { "p_fim": string,"p_inicio": string }; Returns: number
@@ -1922,6 +1946,9 @@ isOneToOne: false
 { Args: { "p_agora"?: string }; Returns: {
               "abertas": number,"no_prazo": number,"sem_responsavel": number,"setor": string,"setor_id": string,"urgentes": number,"vencem_hoje": number,"vencidas": number
             }[]
+                           },
+"descartar_tarefa":
+{ Args: { "p_id": string }; Returns: undefined
                            },
 "deslocar_dias_uteis":
 { Args: { "p_dias": number,"p_prazo": string }; Returns: string
@@ -2096,6 +2123,15 @@ isOneToOne: false
 "nota_interna":
 { Args: { "p_chamado": string,"p_texto": string }; Returns: undefined
                            },
+"pausar_tarefa":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
+"pedir_ajuste_tarefa":
+{ Args: { "p_id": string,"p_texto": string }; Returns: boolean
+                           },
+"pedir_pendencia_ao_cliente":
+{ Args: { "p_contato": string,"p_id": string,"p_texto": string }; Returns: number
+                           },
 "pedir_sugestao_resposta":
 { Args: { "p_conversa": string }; Returns: string
                            },
@@ -2150,8 +2186,14 @@ isOneToOne: false
 "reabrir_demanda":
 { Args: { "p_chamado": string }; Returns: undefined
                            },
+"receber_pendencia":
+{ Args: { "p_arquivo"?: string,"p_id": string,"p_mensagem"?: string,"p_observacao": string }; Returns: boolean
+                           },
 "referencia_da_skill":
 { Args: { "p_agente": string,"p_caminho": string,"p_incluir"?: string,"p_nome": string }; Returns: string
+                           },
+"registrar_arquivo_tarefa":
+{ Args: { "p_caminho": string,"p_mime": string,"p_nome": string,"p_tamanho": number,"p_tarefa": string }; Returns: string
                            },
 "registrar_pedido_fora_do_acesso":
 { Args: { "p_cliente": string,"p_contato": string,"p_dia": string,"p_setor": string }; Returns: Json
@@ -2161,6 +2203,9 @@ isOneToOne: false
                            },
 "remover_acesso":
 { Args: { "p_id": string }; Returns: undefined
+                           },
+"responder_pendencia":
+{ Args: { "p_id": string,"p_resposta": string }; Returns: boolean
                            },
 "restaurar_agentes_iniciais":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -2197,6 +2242,9 @@ isOneToOne: false
                            },
 "salvar_ficha_cliente":
 { Args: { "p_dados": Json,"p_id": string }; Returns: string
+                           },
+"salvar_limites_tarefa":
+{ Args: { "p_minutos": number,"p_slug": string,"p_usd": number }; Returns: undefined
                            },
 "salvar_orientacao":
 { Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
