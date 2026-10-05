@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { FERRAMENTAS_ATENDIMENTO, SLUG_ATENDIMENTO } from '@escritorio/core';
-import type { Configuracoes, PerfilAgente, Repos } from '@escritorio/db';
+import type { AgenteSetor, Configuracoes, PerfilAgente, Repos } from '@escritorio/db';
 import type { ContextoAgente } from './contexto';
 import { FERRAMENTAS, FERRAMENTAS_SKILL } from './ferramentas';
 import { temSkillSobDemanda } from './skills';
@@ -31,4 +31,16 @@ export const modeloDoPerfil = (p: PerfilAgente, config: Pick<Configuracoes, 'mod
 export function ferramentasDoPerfil(p: PerfilAgente): Anthropic.Tool[] {
   const base = FERRAMENTAS.filter((f) => p.ferramentas.includes(f.name));
   return temSkillSobDemanda(p.skills) ? [...base, ...FERRAMENTAS_SKILL] : base;
+}
+
+let avisouSemParteI2 = false;
+/** Agentes dos setores ativos para o contato (D2). Banco sem a Parte I2: nenhum, e o Thiago atende como antes (D15). */
+export async function carregarAgentesSetor(repos: Repos, contatoId: string): Promise<AgenteSetor[]> {
+  const agentes = await repos.agentesParaContato(contatoId);
+  if (agentes) return agentes;
+  if (!avisouSemParteI2) {
+    avisouSemParteI2 = true;
+    console.warn('[motor] os agentes dos setores ainda não estão no banco (Parte I2): só o Thiago atende');
+  }
+  return [];
 }

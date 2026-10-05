@@ -1,9 +1,9 @@
 import { MOTIVOS_PASSAGEM, custoTranscricaoUsd, empresaDoUso, mesReferencia, motivoDaEscalada } from '@escritorio/core';
 import type { Conversa, Mensagem } from '@escritorio/db';
 import type { Alertas } from './alertas';
+import { atenderComAgentes } from './agente/atender';
 import { erroTemporarioIa } from './agente/cliente-ia';
 import { carregarContexto } from './agente/contexto';
-import { executarAgente } from './agente/executar';
 import type { DepsAgente } from './agente/ferramentas';
 import { montarConteudoUsuario, type AnexoParaIa } from './agente/prompt';
 import { enviarDoSistema } from './envio';
@@ -197,7 +197,7 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
   let desfecho: DesfechoProcessamento = 'agente';
   let agenteAgiu = false;
   try {
-    const r = await executarAgente(d, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
+    const r = await atenderComAgentes(d, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
     agenteAgiu = true;
     if (r.status === 'escalar') {
       if (await assumidaPorHumano(d, conversaId)) {

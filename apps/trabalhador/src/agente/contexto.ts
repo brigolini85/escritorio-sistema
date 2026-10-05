@@ -1,6 +1,6 @@
-import { SLUG_ATENDIMENTO, empresaDoUso, estaNoExpediente, type AcessoContato } from '@escritorio/core';
+import { CONDUCAO_EXPIRA_HORAS, SLUG_ATENDIMENTO, empresaDoUso, estaNoExpediente, type AcessoContato } from '@escritorio/core';
 import type { AgenteSetor, Configuracoes, ContatoEncontrado, Conversa, EmpresaDoContato, OrientacaoAgente, PerfilAgente, Repos } from '@escritorio/db';
-import { carregarPerfil } from './perfil';
+import { carregarAgentesSetor, carregarPerfil } from './perfil';
 
 export type ContextoAgente = {
   conversa: Conversa;
@@ -35,6 +35,17 @@ export async function carregarContexto(
     await repos.atualizarConversa(conversa.id, { cliente_em_foco: empresaEmFoco.id });
   }
   const agente = await carregarPerfil(repos, SLUG_ATENDIMENTO);
+  // Parte I2 (D2): só contato com empresa tem agente do setor; número desconhecido fica com o Thiago.
+  // F9: erro ao ler os agentes não para o atendimento; o Thiago atende sozinho (sem agentes, sem condução).
+  let agentesSetor: AgenteSetor[] = [];
+  let lidos = true;
+  try {
+    agentesSetor = contato && empresas.length ? await carregarAgentesSetor(repos, contato.id) : [];
+  } catch (erro) {
+    lidos = false;
+    console.error('[motor] agentes dos setores não lidos; só o Thiago atende', conversa.id, erro);
+  }
+  const conducao = lidos ? await conducaoQueVale(repos, conversa, agentesSetor, agora) : null;
   return {
     conversa,
     contato,
@@ -47,5 +58,22 @@ export async function carregarContexto(
     config,
     agora,
     agente,
+    agentesSetor,
+    conducao,
   };
+}
+
+/** A condução vale se o agente ainda atende o contato e a passagem tem menos de 24 h; senão, volta ao Thiago com o motivo (D6). */
+async function conducaoQueVale(repos: Repos, conversa: Conversa, agentes: AgenteSetor[], agora: Date): Promise<AgenteSetor | null> {
+  if (!conversa.agente_conduzindo_id) return null;
+  const a = agentes.find((x) => x.id === conversa.agente_conduzindo_id);
+  const desde = conversa.conduzindo_desde ? new Date(conversa.conduzindo_desde).getTime() : 0;
+  if (a && agora.getTime() - desde < CONDUCAO_EXPIRA_HORAS * 3600_000) return a;
+  try {
+    await repos.encerrarConducao(conversa.id, a ? `passaram ${CONDUCAO_EXPIRA_HORAS} horas` : 'o agente não atende mais este contato');
+  } catch (erro) {
+    // F9: sem conseguir encerrar, segue sem condução nesta vez (a próxima mensagem tenta de novo).
+    console.error('[motor] condução não encerrada; o Thiago atende', conversa.id, erro);
+  }
+  return null;
 }
