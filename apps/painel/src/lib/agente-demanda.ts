@@ -25,9 +25,11 @@ export function textoDaSugestao(tipo: SugestaoTela['tipo'], conteudo: unknown): 
  * pré-análise nem sugestões: nem pergunta ao banco. O banco sem a I2 vem dos códigos reais do GET (nunca head).
  */
 export async function lerTrabalhoDoAgente(sb: Sb, chamadoId: string, verPedidos: boolean): Promise<TrabalhoDoAgente> {
-  if (!verPedidos) return VAZIO;
+  // Sugestões sempre lidas: a RLS (F5) esconde as de demanda com pedido de nota para quem não vê "Pedidos de nota".
   const [pa, sg] = await Promise.all([
-    sb.from('pre_analises_nota').select('resultado, agentes(nome)').eq('chamado_id', chamadoId).maybeSingle(),
+    verPedidos
+      ? sb.from('pre_analises_nota').select('resultado, agentes(nome)').eq('chamado_id', chamadoId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     sb.from('agente_sugestoes').select('id, tipo, conteudo, estado, criado_em, agentes(nome), decisor:usuarios!agente_sugestoes_decidida_por_fkey(nome)')
       .eq('chamado_id', chamadoId).order('criado_em'),
   ]);

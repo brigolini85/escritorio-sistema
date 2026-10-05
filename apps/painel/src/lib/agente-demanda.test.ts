@@ -26,10 +26,14 @@ describe('o trabalho do agente na demanda (D9, D19)', () => {
     const t = await lerTrabalhoDoAgente(sb({ pre: { data: { resultado: PRE, agentes: { nome: 'Agente Fiscal' } }, error: null } }) as never, 'c1', false);
     expect(t.preAnalise).toBeNull();
   });
-  it('sem "Pedidos de nota": também sem sugestões (F5)', async () => {
+  it('sem "Pedidos de nota": sugestões de demanda sem pedido continuam aparecendo (F5)', async () => {
     const t = await lerTrabalhoDoAgente(sb({ sug: { data: [{ id: 's1', tipo: 'nota_interna', conteudo: { texto: 'x' }, estado: 'aguardando',
       criado_em: '2026-10-05T12:00:00Z', agentes: { nome: 'A' }, decisor: null }], error: null } }) as never, 'c1', false);
-    expect(t).toEqual({ preAnalise: null, agente: null, sugestoes: [], semI2: false });
+    expect(t.sugestoes.map((s) => s.id)).toEqual(['s1']);
+    expect(t.preAnalise).toBeNull();
+  });
+  it('sem "Pedidos de nota", demanda com pedido: a RLS devolve vazio e nada aparece (F5)', async () => {
+    expect(await lerTrabalhoDoAgente(sb({}) as never, 'c1', false)).toEqual({ preAnalise: null, agente: null, sugestoes: [], semI2: false });
   });
   it('formato estranho no banco: sem pré-análise; banco sem a I2: nada, com semI2', async () => {
     expect((await lerTrabalhoDoAgente(sb({ pre: { data: { resultado: { versao: 9 } }, error: null } }) as never, 'c1', true)).preAnalise).toBeNull();
