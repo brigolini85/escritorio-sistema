@@ -94,7 +94,7 @@ export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, v
           </Secao>
         ) : null}
         {trabalho && (trabalho.preAnalise || trabalho.sugestoes.length > 0) ? (
-          <Secao titulo={trabalho.agente ?? 'Agente do setor'}>
+          <Secao titulo={trabalho.agente ?? (d.setor ? `Agente ${d.setor}` : 'Agente do setor')}>
             <TrabalhoAgente trabalho={trabalho} podeDecidir={podeDecidirSugestao === true} />
           </Secao>
         ) : null}

@@ -40,6 +40,17 @@ describe('o trabalho do agente na demanda (D9, D19)', () => {
     expect(await lerTrabalhoDoAgente(sb({ sug: { data: null, error: { code: '42P01', message: 'não existe' } } }) as never, 'c1', true))
       .toEqual({ preAnalise: null, agente: null, sugestoes: [], semI2: true });
   });
+  it('a RLS esconde o nome do agente (atendente): rótulo "Agente <setor da demanda>" no bloco e em cada sugestão', async () => {
+    const t = await lerTrabalhoDoAgente(sb({
+      pre: { data: { resultado: PRE, agentes: null }, error: null },
+      sug: { data: [{ id: 's1', tipo: 'nota_interna', conteudo: { texto: 'x' }, estado: 'aguardando',
+        criado_em: '2026-10-05T12:00:00Z', decidida_em: null, agentes: null, decisor: null }], error: null },
+    }) as never, 'c1', true, 'Fiscal');
+    expect(t.agente).toBe('Agente Fiscal');
+    expect(t.sugestoes[0]!.agente).toBe('Agente Fiscal');
+    const triagem = await lerTrabalhoDoAgente(sb({ pre: { data: { resultado: PRE, agentes: null }, error: null } }) as never, 'c1', true, null);
+    expect(triagem.agente).toBe('Agente do setor');
+  });
   it('textoDaSugestao: nota interna é o texto; correção sem "de" usa —', () => {
     expect(textoDaSugestao('nota_interna', { texto: ' Conferir CFOP. ' })).toBe('Conferir CFOP.');
     expect(textoDaSugestao('correcao', { campo: 'CFOP', para: '5.405', motivo: 'venda para fora' })).toBe('Corrigir CFOP: — → 5.405. Motivo: venda para fora');

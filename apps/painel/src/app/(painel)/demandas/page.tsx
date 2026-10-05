@@ -226,7 +226,7 @@ async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ de
       ? sb.from('contato_clientes').select('contatos!inner(id, nome, ativo)').eq('cliente_id', d.cliente_id).eq('contatos.ativo', true)
       : Promise.resolve({ data: [] as { contatos: { id: string; nome: string; ativo: boolean } }[] }),
     unidade ? sb.from('parceiros_unidades').select(COLUNAS_COMPRADOR).eq('id', unidade).maybeSingle() : Promise.resolve({ data: null }),
-    lerTrabalhoDoAgente(sb, id, verPedidos && !semPedido),
+    lerTrabalhoDoAgente(sb, id, verPedidos && !semPedido, d.setor),
   ]);
   return {
     demanda: {

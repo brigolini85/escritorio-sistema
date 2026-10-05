@@ -25,7 +25,9 @@ export function textoDaSugestao(tipo: SugestaoTela['tipo'], conteudo: unknown): 
  * Lido com a sessão da pessoa (RLS: vê a demanda). Sem "Pedidos de nota" (ruling F5; o banco também exige) não há
  * pré-análise nem sugestões: nem pergunta ao banco. O banco sem a I2 vem dos códigos reais do GET (nunca head).
  */
-export async function lerTrabalhoDoAgente(sb: Sb, chamadoId: string, verPedidos: boolean): Promise<TrabalhoDoAgente> {
+export async function lerTrabalhoDoAgente(sb: Sb, chamadoId: string, verPedidos: boolean, setor: string | null = null): Promise<TrabalhoDoAgente> {
+  // A RLS de `agentes` esconde o nome de quem não é dono/administrador: o rótulo de reserva usa o setor da demanda (legível).
+  const reserva = rotuloDoAgente(setor);
   // Sugestões sempre lidas: a RLS (F5) esconde as de demanda com pedido de nota para quem não vê "Pedidos de nota".
   const [pa, sg] = await Promise.all([
     verPedidos
@@ -43,11 +45,11 @@ export async function lerTrabalhoDoAgente(sb: Sb, chamadoId: string, verPedidos:
     agentes: { nome: string } | null; decisor: { nome: string } | null;
   }[];
   const sugestoes = linhas.map((s) => ({
-    id: s.id, tipo: s.tipo, agente: s.agentes?.nome ?? 'Agente do setor', texto: textoDaSugestao(s.tipo, s.conteudo), estado: s.estado,
+    id: s.id, tipo: s.tipo, agente: s.agentes?.nome ?? reserva, texto: textoDaSugestao(s.tipo, s.conteudo), estado: s.estado,
     criadaEm: s.criado_em, decididaPor: s.decisor?.nome ?? null, decididaEm: s.decidida_em,
   }));
   const preAnalise = pre && ehPreAnaliseNota(pre.resultado) ? pre.resultado : null;
-  return { preAnalise, agente: (preAnalise ? pre?.agentes?.nome : null) ?? sugestoes[0]?.agente ?? null, sugestoes, semI2: false };
+  return { preAnalise, agente: preAnalise ? pre?.agentes?.nome ?? reserva : sugestoes[0]?.agente ?? null, sugestoes, semI2: false };
 }
 
 /** "Aprovada por Ana em 05/10/2026 às 09:00" (Brasília); sem decisor (saiu da equipe) fica "Aprovada em ...". */
@@ -55,4 +57,9 @@ export function textoDaDecisao(s: Pick<SugestaoTela, 'estado' | 'decididaPor' | 
   const quem = s.decididaPor ? ` por ${s.decididaPor}` : '';
   const quando = s.decididaEm ? ` em ${formatarDataHora(s.decididaEm)}` : '';
   return `${s.estado === 'aprovada' ? 'Aprovada' : 'Descartada'}${quem}${quando}`;
+}
+
+/** "Agente Fiscal" a partir do setor da demanda; sem setor (triagem) fica "Agente do setor". */
+export function rotuloDoAgente(setor: string | null | undefined): string {
+  return setor ? `Agente ${setor}` : 'Agente do setor';
 }
