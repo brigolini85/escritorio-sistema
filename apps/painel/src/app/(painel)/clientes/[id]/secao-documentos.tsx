@@ -9,6 +9,7 @@ import { cn } from '@/lib/cn';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { semMigracaoH2 } from '@/lib/acesso-contato';
 import { alternarIaDocumento, definirSetorDocumento, enviarDocumento, excluirDocumento } from '../cadastros-acoes';
+import { lerSetoresDeDocumento, setoresEscolhiveis, type SetorDeDocumento } from '../documento-setor';
 import { CampoSetorDocumento } from './campo-setor-documento';
 
 type Documento = { id: string; nome: string; arquivo_nome: string; ia_pode_enviar: boolean; setor_id?: string | null; tem_valores?: boolean };
@@ -27,11 +28,38 @@ async function lerDocumentos(sb: Awaited<ReturnType<typeof supabaseServidor>>, i
 export async function SecaoDocumentos({ id, pode, admin }: { id: string; pode: boolean; admin: boolean }) {
   const sb = await supabaseServidor();
   const { lista, comSetor } = await lerDocumentos(sb, id);
-  // Direção nunca aparece (D5): é para onde vão os assuntos sensíveis.
-  const setores = comSetor ? (await sb.from('setores').select('id, nome').eq('ativo', true).neq('nome', 'Direção').order('nome')).data ?? [] : [];
-  const nomeSetor = new Map(setores.map((s) => [s.id, s.nome]));
+  // Todos os setores (inclusive desativados, para o nome do atual); erro na leitura nunca vira lista vazia (o Salvar
+  // trocaria o setor de todos por "da empresa"): a tela avisa e não mostra o setor nem o envio.
+  let todos: SetorDeDocumento[] = [];
+  let falhaSetores = false;
+  if (comSetor) {
+    try {
+      todos = await lerSetoresDeDocumento(sb);
+    } catch (e) {
+      console.error('[documentos] falha ao ler os setores', e);
+      falhaSetores = true;
+    }
+  }
+  const usaSetor = comSetor && !falhaSetores;
+  // Direção nunca é escolhida (D5): é para onde vão os assuntos sensíveis.
+  const escolhiveis = setoresEscolhiveis(todos);
+  const porId = new Map(todos.map((s) => [s.id, s]));
+  // O setor atual do documento sempre está entre as opções, mesmo desativado: Salvar sem escolher outro o mantém.
+  const opcoes = (setorId: string | null | undefined) => {
+    const atual = setorId ? porId.get(setorId) : undefined;
+    if (!setorId || escolhiveis.some((s) => s.id === setorId)) return escolhiveis;
+    return [{ id: setorId, nome: atual ? `${atual.nome}${atual.ativo ? '' : ' (desativado)'}` : 'Setor removido' }, ...escolhiveis];
+  };
+  const rotuloSetor = (setorId: string | null | undefined) => {
+    if (!setorId) return 'da empresa';
+    const s = porId.get(setorId);
+    return s ? `${s.nome}${s.ativo ? '' : ' (desativado)'}` : 'setor removido';
+  };
   return (
     <div className="flex flex-col gap-4">
+      {falhaSetores && (
+        <p role="alert" className="text-sm text-danger">Não consegui ler os setores agora: o setor dos documentos e o envio voltam ao recarregar a página.</p>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Documentos</CardTitle>
@@ -54,14 +82,14 @@ export async function SecaoDocumentos({ id, pode, admin }: { id: string; pode: b
                     {d.ia_pode_enviar
                       ? <Badge variant="assistant"><Bot aria-hidden strokeWidth={1.75} />Liberado para a IA</Badge>
                       : <Badge variant="neutral"><Users aria-hidden strokeWidth={1.75} />só a equipe envia</Badge>}
-                    {comSetor && <Badge variant="neutral">{d.setor_id ? (nomeSetor.get(d.setor_id) ?? 'setor desativado') : 'da empresa'}</Badge>}
-                    {comSetor && d.tem_valores && <Badge variant="warning">com valores</Badge>}
+                    {usaSetor && <Badge variant="neutral">{rotuloSetor(d.setor_id)}</Badge>}
+                    {usaSetor && d.tem_valores && <Badge variant="warning">com valores</Badge>}
                   </div>
                   <div className="flex flex-wrap items-center gap-1">
-                    {pode && comSetor && (
+                    {pode && usaSetor && (
                       <form action={definirSetorDocumento.bind(null, id, d.id)} className="flex flex-wrap items-center gap-2">
                         <CampoSetorDocumento
-                          setores={setores}
+                          setores={opcoes(d.setor_id)}
                           setorId={d.setor_id}
                           temValores={d.tem_valores}
                           rotulo={`Setor de ${d.nome}`}
@@ -103,20 +131,20 @@ export async function SecaoDocumentos({ id, pode, admin }: { id: string; pode: b
         </CardContent>
       </Card>
 
-      {pode && (
+      {pode && !falhaSetores && (
         <Card>
           <CardHeader>
             <CardTitle>Enviar documento</CardTitle>
             <CardDescription>
               PDF ou imagem. Documento novo começa bloqueado para a IA; libere depois, se quiser.
-              {comSetor && ' O agente só manda o documento a quem pode tratar o setor dele; documento com valores, só a quem pode ver valores.'}
+              {usaSetor && ' O agente só manda o documento a quem pode tratar o setor dele; documento com valores, só a quem pode ver valores.'}
             </CardDescription>
           </CardHeader>
           <form action={enviarDocumento.bind(null, id)}>
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Input name="nome" required placeholder="Nome do documento (ex.: Contrato social)" aria-label="Nome do documento" className="sm:flex-1" />
               <Input name="arquivo" type="file" required accept="application/pdf,image/*" aria-label="Arquivo" className={cn('pt-1.5 text-sm sm:w-72')} />
-              {comSetor && <CampoSetorDocumento setores={setores} rotulo="Setor do documento" />}
+              {usaSetor && <CampoSetorDocumento setores={escolhiveis} rotulo="Setor do documento" />}
               <Button type="submit" size="sm" className="shrink-0">
                 <Upload aria-hidden size={16} strokeWidth={1.75} />
                 Enviar documento
