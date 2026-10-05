@@ -2,7 +2,7 @@
 -- demandas; o filtro é por setor e por empresa; pedido fora do acesso conta um por contato, empresa, setor e dia.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(43);
 
 create function pg_temp.setor(p text) returns uuid language sql stable as $$ select id from public.setores where nome = p $$;
 
@@ -159,6 +159,17 @@ select ok(not (has_function_privilege('anon', 'public.acesso_do_contato(uuid, uu
   or has_function_privilege('anon', 'public.socios_para_alerta(uuid, uuid)', 'execute')
   or has_function_privilege('anon', 'public.contatos_procuraveis(uuid, uuid)', 'execute')), 'visitante não chama as funções do agente');
 
+
+-- 42–43: a demanda "Fora do acesso" de um pedido de valores cai num setor do próprio contato; ela não volta para ele (fix round 1)
+insert into public.chamados (cliente_id, conversa_id, setor_id, titulo) values
+  ('f5300000-0000-0000-0000-00000000000a', null, pg_temp.setor('Pessoal'), 'Fora do acesso: Valor da folha');
+insert into public.pedidos_fora_do_acesso (contato_id, cliente_id, setor_id, dia, chamado_id) values
+  ('f5400000-0000-0000-0000-00000000000d', 'f5300000-0000-0000-0000-00000000000a', pg_temp.setor('Pessoal'), '2026-10-20',
+   (select id from public.chamados where titulo = 'Fora do acesso: Valor da folha'));
+select results_eq($$ select titulo from public.demandas_para_contato('f5400000-0000-0000-0000-00000000000d', 'f5300000-0000-0000-0000-00000000000a', null) $$,
+  $$ values ('Admissão do João'::text) $$, 'quem pediu não vê a demanda "Fora do acesso" do próprio pedido');
+select results_eq($$ select titulo from public.demandas_para_contato('f5400000-0000-0000-0000-00000000000b', 'f5300000-0000-0000-0000-00000000000a', null) order by titulo $$,
+  $$ values ('Admissão do João'::text), ('Fora do acesso: Valor da folha'::text) $$, 'o sócio do Pessoal continua vendo');
 
 select * from finish();
 rollback;

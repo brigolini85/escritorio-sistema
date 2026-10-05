@@ -20,7 +20,9 @@ let estado: EstadoExecucao;
 let rede: string;
 let carla: string;
 let roberto: string;
-const d = () => ({ repos, ia: new IaRoteirizada([]), envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) } });
+// Repositório das ferramentas: o de verdade, ou um que simula outra tentativa ao mesmo tempo.
+let rp: typeof repos;
+const d = () => ({ repos: rp, ia: new IaRoteirizada([]), envio: { repos: rp, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) } });
 const usar = async (nome: string, entrada: object) => JSON.parse((await executarFerramenta(d(), estado, nome, entrada)).resultado);
 const pedirFolha = async () => usar('abrir_chamado', {
   setor_id: await setorId('Pessoal'), titulo: 'Folha de setembro', resumo: 'A Carla pediu a folha de pagamento de setembro.',
@@ -34,6 +36,7 @@ const semErro = <T extends { error: { message: string } | null }>(r: T): T => { 
 beforeEach(async () => {
   await limparBanco();
   canal = new CanalFalso();
+  rp = repos;
   const r = await contatoComEmpresas(['Rede Bom Preço'], TEL_CARLA,
     { perfil: 'compras_vendas', setores: ['Fiscal'], procurado: ['Fiscal'], podePedirNota: true, podeAtualizarPreco: true, receberDocumentos: true });
   rede = r.empresas[0]!.id;
@@ -138,6 +141,60 @@ describe('Carla (Compras, só Fiscal) pede a folha', () => {
     expect(paraCarla()).toEqual([TEXTO_FORA_DO_ACESSO]);
     const { data } = await db.from('chamados').select('titulo, setores(nome)').eq('cliente_id', rede).single();
     expect(data).toMatchObject({ titulo: 'Fora do acesso: Alteração contratual', setores: { nome: 'Legalização' } });
+  });
+  it('outra tentativa ligou a demanda antes: "Pediu de novo" na dela, a repetida sai da fila e ninguém é avisado de novo', async () => {
+    const pessoal = await setorId('Pessoal');
+    // O registro do dia já existe sem demanda (a outra tentativa ainda está abrindo a dela).
+    semErro(await db.from('pedidos_fora_do_acesso').insert({ contato_id: carla, cliente_id: rede, setor_id: pessoal, dia: '2026-09-28' }));
+    const outra = semErro(await db.from('chamados').insert({ cliente_id: rede, setor_id: pessoal, titulo: 'Fora do acesso: Folha (outra tentativa)' })
+      .select('id').single()).data!.id;
+    rp = {
+      ...repos,
+      vincularPedidoForaDoAcesso: async (id: string, chamadoId: string) => {
+        semErro(await db.from('pedidos_fora_do_acesso').update({ chamado_id: outra }).eq('id', id)); // a outra ganhou a corrida
+        return repos.vincularPedidoForaDoAcesso(id, chamadoId);
+      },
+    };
+    await pedirFolha();
+    expect(paraCarla()).toEqual([TEXTO_FORA_DO_ACESSO]);
+    expect(paraRoberto()).toEqual([]);
+    const { data: reg } = await db.from('pedidos_fora_do_acesso').select('chamado_id, socios_avisados').eq('contato_id', carla).single();
+    expect(reg).toEqual({ chamado_id: outra, socios_avisados: 0 });
+    const { data: notasOutra } = await db.from('chamado_eventos').select('texto').eq('chamado_id', outra).eq('tipo', 'nota_interna');
+    expect(notasOutra!.map((n) => n.texto)).toEqual(['Pediu de novo: A Carla pediu a folha de pagamento de setembro.']);
+    const { data: repetida } = await db.from('chamados').select('id, status').eq('cliente_id', rede).eq('titulo', 'Fora do acesso: Folha de setembro').single();
+    expect(repetida!.status).toBe('concluido');
+    const { data: notasRepetida } = await db.from('chamado_eventos').select('texto').eq('chamado_id', repetida!.id).eq('tipo', 'nota_interna');
+    expect(notasRepetida!.map((n) => n.texto)).toEqual([expect.stringContaining('Demanda repetida')]);
+  });
+  it('conversa assumida por uma pessoa: nada sai do agente, mas a demanda e o aviso continuam', async () => {
+    semErro(await db.from('conversas').update({ estado: 'humano' }).eq('id', estado.ctx.conversa.id));
+    expect(await pedirFolha()).toEqual({ fora_do_acesso: true, resposta_enviada: true, instrucao: AVISOS.instrucaoForaDoAcesso });
+    expect(paraCarla()).toEqual([]);
+    expect(estado.respondeu).toBe(false);
+    expect(paraRoberto()).toHaveLength(1);
+    expect((await db.from('chamados').select('titulo').eq('cliente_id', rede).single()).data!.titulo).toBe('Fora do acesso: Folha de setembro');
+  });
+});
+
+describe('recusa por valores num setor do próprio contato', () => {
+  const pedirValorDaGuia = async () => usar('abrir_chamado', {
+    setor_id: await setorId('Fiscal'), titulo: 'Valor da guia', resumo: 'Quanto ficou a guia?', fora_do_contrato: false, prioridade: 'normal', pede_valores: true,
+  });
+  it('a nota interna diz que falta "Ver valores"', async () => {
+    await pedirValorDaGuia();
+    const { data: ch } = await db.from('chamados').select('id, setores(nome)').eq('cliente_id', rede).single();
+    expect(ch!.setores).toEqual({ nome: 'Fiscal' });
+    const { data: notas } = await db.from('chamado_eventos').select('texto').eq('chamado_id', ch!.id).eq('tipo', 'nota_interna');
+    expect(notas![0]!.texto).toContain('Carla Mendes (Compras/Vendas) não tem "Ver valores" na empresa Rede Bom Preço.');
+    expect(notas![0]!.texto).not.toContain('não pode tratar deste setor');
+  });
+  it('consultar_chamados nos turnos seguintes não mostra a demanda "Fora do acesso" a quem pediu', async () => {
+    await usar('abrir_chamado', { setor_id: await setorId('Fiscal'), titulo: 'Guia do DAS', resumo: 'Pediu a guia.', fora_do_contrato: false, prioridade: 'normal' });
+    await pedirValorDaGuia();
+    estado.recusou = false; // outro turno
+    const r = await usar('consultar_chamados', {});
+    expect(r.chamados.map((c: { titulo: string }) => c.titulo)).toEqual(['Guia do DAS']);
   });
 });
 

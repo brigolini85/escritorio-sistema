@@ -548,6 +548,24 @@ export function criarRepos(db: Db) {
       return { id: r.id, novo: r.novo, chamadoId: r.chamado_id };
     },
 
+    /**
+     * Liga a demanda recém-aberta ao registro do dia só se ninguém ligou antes (duas tentativas ao mesmo tempo).
+     * Perdeu: devolve a demanda da outra tentativa, para a nota "Pediu de novo" ir para lá.
+     */
+    async vincularPedidoForaDoAcesso(id: string, chamadoId: string): Promise<{ vinculado: true } | { vinculado: false; chamadoId: string | null }> {
+      const ligadas = checar(await db.from('pedidos_fora_do_acesso').update({ chamado_id: chamadoId }).eq('id', id).is('chamado_id', null).select('id'),
+        'vincularPedidoForaDoAcesso');
+      if (ligadas.length) return { vinculado: true };
+      const atual = checar(await db.from('pedidos_fora_do_acesso').select('chamado_id').eq('id', id).maybeSingle(), 'vincularPedidoForaDoAcesso');
+      return { vinculado: false, chamadoId: atual?.chamado_id ?? null };
+    },
+
+    /** Demanda aberta pelo agente que ficou repetida (outra tentativa ganhou): sai da fila com a nota do porquê. */
+    async concluirChamadoRepetido(chamadoId: string, clienteId: string | null, texto: string): Promise<void> {
+      checar(await db.from('chamado_eventos').insert({ chamado_id: chamadoId, cliente_id: clienteId, tipo: 'nota_interna', usuario_id: null, texto }), 'concluirChamadoRepetido');
+      checar(await db.from('chamados').update({ status: 'concluido' }).eq('id', chamadoId), 'concluirChamadoRepetido');
+    },
+
     async concluirPedidoForaDoAcesso(id: string, chamadoId: string, sociosAvisados: number): Promise<void> {
       checar(await db.from('pedidos_fora_do_acesso').update({ chamado_id: chamadoId, socios_avisados: sociosAvisados }).eq('id', id), 'concluirPedidoForaDoAcesso');
     },

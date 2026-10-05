@@ -39,24 +39,6 @@ language sql stable security invoker set search_path = '' as $$
    order by d.nome
 $$;
 
--- Demandas abertas que o agente pode contar a este contato: as dos setores dele e as da Triagem abertas pela conversa dele.
-create function public.demandas_para_contato(p_contato uuid, p_cliente uuid, p_conversa uuid)
-returns table (id uuid, numero bigint, titulo text, status public.status_chamado, setor_id uuid, setor_nome text, criado_em timestamptz)
-language sql stable security invoker set search_path = '' as $$
-  select ch.id, ch.numero, ch.titulo, ch.status, ch.setor_id, st.nome, ch.criado_em
-    from public.chamados ch
-    join public.contato_clientes cc on cc.cliente_id = ch.cliente_id and cc.contato_id = p_contato and cc.perfil <> 'basico'
-    join public.contatos ct on ct.id = cc.contato_id and ct.ativo
-    join public.clientes cl on cl.id = cc.cliente_id and cl.ativo
-    left join public.setores st on st.id = ch.setor_id
-   where ch.cliente_id = p_cliente and ch.status <> 'concluido'
-     and (exists (select 1 from public.contato_cliente_setores cs
-                   join public.setores sa on sa.id = cs.setor_id and sa.ativo
-                   where cs.contato_id = cc.contato_id and cs.cliente_id = cc.cliente_id and cs.setor_id = ch.setor_id)
-          or (ch.setor_id is null and ch.conversa_id = p_conversa))
-   order by ch.criado_em
-$$;
-
 -- Um pedido fora do acesso por contato, empresa, setor e dia de São Paulo (D15): só o primeiro abre demanda e avisa.
 create table public.pedidos_fora_do_acesso (
   id uuid primary key default gen_random_uuid(),
@@ -73,6 +55,26 @@ create table public.pedidos_fora_do_acesso (
 alter table public.pedidos_fora_do_acesso enable row level security;
 create policy leitura_admin on public.pedidos_fora_do_acesso for select to authenticated using (public.eh_admin());
 revoke insert, update, delete, truncate on public.pedidos_fora_do_acesso from anon, authenticated;
+
+-- Demandas abertas que o agente pode contar a este contato: as dos setores dele e as da Triagem abertas pela conversa dele.
+create function public.demandas_para_contato(p_contato uuid, p_cliente uuid, p_conversa uuid)
+returns table (id uuid, numero bigint, titulo text, status public.status_chamado, setor_id uuid, setor_nome text, criado_em timestamptz)
+language sql stable security invoker set search_path = '' as $$
+  select ch.id, ch.numero, ch.titulo, ch.status, ch.setor_id, st.nome, ch.criado_em
+    from public.chamados ch
+    join public.contato_clientes cc on cc.cliente_id = ch.cliente_id and cc.contato_id = p_contato and cc.perfil <> 'basico'
+    join public.contatos ct on ct.id = cc.contato_id and ct.ativo
+    join public.clientes cl on cl.id = cc.cliente_id and cl.ativo
+    left join public.setores st on st.id = ch.setor_id
+   where ch.cliente_id = p_cliente and ch.status <> 'concluido'
+     and (exists (select 1 from public.contato_cliente_setores cs
+                   join public.setores sa on sa.id = cs.setor_id and sa.ativo
+                   where cs.contato_id = cc.contato_id and cs.cliente_id = cc.cliente_id and cs.setor_id = ch.setor_id)
+          or (ch.setor_id is null and ch.conversa_id = p_conversa))
+     -- A demanda "Fora do acesso" do próprio contato não volta para ele (a recusa por valores cai num setor dele).
+     and not exists (select 1 from public.pedidos_fora_do_acesso pf where pf.chamado_id = ch.id and pf.contato_id = p_contato)
+   order by ch.criado_em
+$$;
 
 create function public.registrar_pedido_fora_do_acesso(p_contato uuid, p_cliente uuid, p_setor uuid, p_dia date) returns jsonb
 language plpgsql security invoker set search_path = '' as $$

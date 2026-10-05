@@ -42,13 +42,20 @@ export async function recusarForaDoAcesso(d: DepsAgente, estado: EstadoExecucao,
   const registro = await d.repos.registrarPedidoForaDoAcesso({ contatoId: contato.id, clienteId: p.clienteId, setorId: p.setor.id, dia: diaEmSaoPaulo(ctx.agora) });
   // Registro do dia sem demanda (a tentativa anterior caiu antes de concluir): cria agora, senão o setor nunca saberia.
   if (registro.novo || !registro.chamadoId) {
-    // Quem pediu nunca recebe o próprio alerta, mesmo marcado (o banco já tira; aqui é a segunda trava).
-    const socios = (await d.repos.sociosParaAlerta(p.clienteId, contato.id)).filter((s) => s.contatoId !== contato.id);
     const responsavelId = escolherResponsavel(p.setor.id, await d.repos.responsaveisDoCliente(p.clienteId));
-    const { id: chamadoId } = await d.repos.abrirChamado({
+    const { id: chamadoId, numero } = await d.repos.abrirChamado({
       clienteId: p.clienteId, conversaId: ctx.conversa.id, setorId: p.setor.id, responsavelId,
       titulo: tituloForaDoAcesso(p.titulo), resumo: p.resumo, foraDoContrato: false, origem: 'agente', prioridade: 'normal',
     });
+    // Duas tentativas ao mesmo tempo: só quem liga a demanda ao registro avisa; a outra vira "Pediu de novo" e a repetida sai da fila.
+    const vinculo = await d.repos.vincularPedidoForaDoAcesso(registro.id, chamadoId);
+    if (!vinculo.vinculado) {
+      if (vinculo.chamadoId) await d.repos.registrarNotaDoSistema(vinculo.chamadoId, p.clienteId, `Pediu de novo: ${p.resumo}`);
+      await d.repos.concluirChamadoRepetido(chamadoId, p.clienteId, `Demanda repetida (#${numero}): o mesmo pedido fora do acesso já está em outra demanda deste dia.`);
+      return responderForaDoAcesso(d, estado, p.clienteId);
+    }
+    // Quem pediu nunca recebe o próprio alerta, mesmo marcado (o banco já tira; aqui é a segunda trava).
+    const socios = (await d.repos.sociosParaAlerta(p.clienteId, contato.id)).filter((s) => s.contatoId !== contato.id);
     const avisados: string[] = [];
     const falhas: string[] = [];
     for (const s of socios) {
@@ -72,11 +79,17 @@ export async function recusarForaDoAcesso(d: DepsAgente, estado: EstadoExecucao,
   } else {
     await d.repos.registrarNotaDoSistema(registro.chamadoId, p.clienteId, `Pediu de novo: ${p.resumo}`);
   }
+  return responderForaDoAcesso(d, estado, p.clienteId);
+}
+
+/** A resposta neutra ao cliente, uma vez por turno; conversa assumida por uma pessoa não recebe nada do agente. */
+async function responderForaDoAcesso(d: DepsAgente, estado: EstadoExecucao, clienteId: string): Promise<object> {
+  const { ctx } = estado;
   if (!estado.recusou) {
     const atual = await d.repos.obterConversa(ctx.conversa.id);
     if (atual.estado !== 'humano') {
       await enviarDoSistema(d.envio, {
-        conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: p.clienteId, autor: 'agente', texto: TEXTO_FORA_DO_ACESSO,
+        conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId, autor: 'agente', texto: TEXTO_FORA_DO_ACESSO,
         turnoAgente: estado.turno ?? null,
       });
       estado.respondeu = true;
