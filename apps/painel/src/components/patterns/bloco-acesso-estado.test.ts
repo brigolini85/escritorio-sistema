@@ -58,3 +58,12 @@ describe('previaDoBloco', () => {
     expect(previaDoBloco(m, D, []).pode).toBe('Conversa e abre demandas para a equipe, envia os documentos da empresa (sem valores).');
   });
 });
+
+// Entrega H2 (captura): contato com o número como nome mostrava "O que o agente vai fazer com (11)".
+describe('nomeDaPrevia', () => {
+  it('primeiro nome; número inteiro quando o nome é o número', async () => {
+    const { nomeDaPrevia } = await import('./bloco-acesso-estado');
+    expect(nomeDaPrevia('Carla Mendes')).toBe('Carla');
+    expect(nomeDaPrevia('(11) 95555-7788')).toBe('(11) 95555-7788');
+  });
+});

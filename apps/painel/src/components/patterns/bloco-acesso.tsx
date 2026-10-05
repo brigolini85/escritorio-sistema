@@ -15,7 +15,7 @@ import type { AcessoDoVinculo, Socio } from '@/lib/acesso-contato';
 import { salvarAcessoContato } from '@/lib/acesso-contato-acoes';
 import { cn } from '@/lib/cn';
 import { mascararTelefone } from '@/lib/formatos';
-import { perfilDoBloco, previaDoBloco, reduzirBloco, type AcaoBloco, type EstadoBloco } from './bloco-acesso-estado';
+import { nomeDaPrevia, perfilDoBloco, previaDoBloco, reduzirBloco, type AcaoBloco, type EstadoBloco } from './bloco-acesso-estado';
 
 type PropsBloco = {
   contatoId: string; clienteId: string;
@@ -81,7 +81,7 @@ export function BlocoAcesso(p: PropsBloco) {
   // O próprio contato nunca é avisado do pedido dele (D7), mesmo que a tela mande a lista inteira.
   const socios = p.socios.filter((s) => s.contatoId !== p.contatoId).map((s) => s.primeiroNome);
   const previa = previaDoBloco(m, p.disponiveis, socios);
-  const primeiro = p.nomeContato.trim().split(/\s+/)[0] ?? p.nomeContato;
+  const primeiro = nomeDaPrevia(p.nomeContato);
   const marcado = (setorId: string) => m.setores.find((s) => s.setorId === setorId);
 
   const salvar = () => iniciar(async () => {

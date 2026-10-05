@@ -134,7 +134,7 @@ export async function SecaoDocumentos({ id, pode, admin }: { id: string; pode: b
           </CardHeader>
           <form action={enviarDocumento.bind(null, id)}>
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              <Input name="nome" required placeholder="Nome do documento (ex.: Contrato social)" aria-label="Nome do documento" className="sm:flex-1" />
+              <Input name="nome" required placeholder="Nome do documento (ex.: Contrato social)" aria-label="Nome do documento" className="sm:min-w-72 sm:flex-1" />
               <Input name="arquivo" type="file" required accept="application/pdf,image/*" aria-label="Arquivo" className={cn('pt-1.5 text-sm sm:w-72')} />
               {usaSetor && <CampoSetorDocumento setores={escolhiveis} rotulo="Setor do documento" />}
               <Button type="submit" size="sm" className="shrink-0">

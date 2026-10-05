@@ -2,6 +2,7 @@ import 'server-only';
 import {
   CANAIS_AVISO, PERFIS, setoresDisponiveis, type CanalAviso, type MarcasAcesso, type Perfil, type SetorDisponivel,
 } from '@escritorio/core';
+import { nomeDaPrevia } from '@/components/patterns/bloco-acesso-estado';
 import { nomeEmpresa } from '@/lib/contatos';
 import type { supabaseServidor } from '@/lib/supabase/servidor';
 
@@ -21,7 +22,8 @@ type LinhaAcesso = {
 };
 const COLUNAS_ACESSO = 'perfil, pode_pedir_nota, pode_atualizar_preco, ver_valores, receber_documentos, avisar_documento_novo, recebe_alertas_acesso, contato_cliente_setores(setor_id, pode_ser_procurado)';
 
-export const primeiroNome = (nome: string) => nome.trim().split(/\s+/)[0] ?? nome;
+/** Primeiro nome para a prévia; contato com o número como nome fica com o número inteiro. */
+export const primeiroNome = nomeDaPrevia;
 
 /** Linha de contato_clientes → perfil e marcações; o que vier estranho fica como "nada marcado". */
 export function lerAcesso(l: LinhaAcesso): AcessoDoVinculo {

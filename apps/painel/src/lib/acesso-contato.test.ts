@@ -30,6 +30,10 @@ describe('lerAcesso', () => {
   it('primeiro nome para a prévia', () => {
     expect(primeiroNome('  Roberto Faria ')).toBe('Roberto');
   });
+  it('contato cadastrado com o número como nome: o número inteiro, nunca só "(11)"', () => {
+    expect(primeiroNome('(11) 95555-7788')).toBe('(11) 95555-7788');
+    expect(primeiroNome(' 11 95555 7788 ')).toBe('11 95555 7788');
+  });
 });
 
 // Banco falso: cada tabela devolve o resultado configurado, qualquer que seja o filtro.

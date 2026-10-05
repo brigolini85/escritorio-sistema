@@ -2,6 +2,13 @@ import {
   marcasDoPerfil, perfilDasMarcas, previaDoAgente, type CanalAviso, type MarcasAcesso, type Perfil, type Previa, type SetorDisponivel,
 } from '@escritorio/core';
 
+/** Nome da prévia (D26): o primeiro nome; quando o contato foi cadastrado com o número como nome, o número inteiro. */
+export function nomeDaPrevia(nome: string): string {
+  const limpo = nome.trim().replace(/\s+/g, ' ');
+  const primeiro = limpo.split(' ')[0] ?? limpo;
+  return /\p{L}/u.test(primeiro) ? primeiro : limpo;
+}
+
 /** Estado do bloco de acesso (D3): só as marcações; o perfil mostrado é sempre o que elas dão. */
 export type EstadoBloco = { marcas: MarcasAcesso };
 type Chave = 'podePedirNota' | 'podeAtualizarPreco' | 'verValores' | 'receberDocumentos' | 'recebeAlertasAcesso';
