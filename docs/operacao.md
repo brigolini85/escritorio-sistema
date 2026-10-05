@@ -118,7 +118,7 @@ A página se atualiza sozinha: conversas e demandas na hora; pausa do agente, si
 
 A tela **Contatos** mostra quem fala pelas empresas no WhatsApp, **do contato mais recente para o mais antigo**. Cada linha diz as empresas (só as ativas), o que a pessoa pode pedir (**Pede nota**, **Muda preço e cadastra produto**; "1 de 2" quando vale só numa das empresas; **Só conversa** quando não pede nada), quando falou por último e como está a conversa agora (esperando pessoa, com alguém da equipe, com o agente), e a chave do agente.
 - **Buscar:** por nome, telefone **ou empresa**. Os botões **Agente desligado**, **Sem empresa**, **Pode pedir nota** e **Muda preço** mostram quantos há e filtram com um clique; dá para escolher uma empresa e o período do último contato (inclusive "Sem conversa").
-- **Abrir um contato:** clique na linha. No painel: **Abrir conversa**, **Editar** (o nome), a chave do agente, as empresas com as marcações (marque ou desmarque: grava na hora), **Vincular empresa**, o bloco **WhatsApp** (último contato, conversa agora e quanto o agente resolveu sozinho — "atendimento" é cada dia em que o contato escreveu) e as **demandas abertas** dele. Embaixo, **Excluir…** (arquiva quem tem histórico) e, separado, **Apagar dados (LGPD)**, só para você.
+- **Abrir um contato:** clique na linha. No painel: **Abrir conversa**, **Editar** (o nome), a chave do agente, as empresas (em cada cartão, o perfil, o que pode tratar e o botão **Acesso**, que abre o mesmo bloco de acesso da ficha, com **Salvar**; veja "Acesso por contato" abaixo), **Vincular empresa**, o bloco **WhatsApp** (último contato, conversa agora e quanto o agente resolveu sozinho — "atendimento" é cada dia em que o contato escreveu) e as **demandas abertas** dele. Embaixo, **Excluir…** (arquiva quem tem histórico) e, separado, **Apagar dados (LGPD)**, só para você.
 - **Quem vê o quê:** toda a equipe vê os contatos; a hora e o estado da conversa só aparecem para quem pode ver aquela conversa (por isso alguém da equipe pode ler "nenhuma conversa visível"). Mudar marcações, vincular empresa, editar e a chave do agente pedem "Clientes e contatos: Ver e editar"; arquivar pede "Editar e arquivar".
 - **Tirar uma empresa do contato** continua na ficha da empresa (Clientes → empresa → aba Contatos → Remover).
 
@@ -131,6 +131,49 @@ A ficha tem um índice à esquerda: ✓ quando o bloco está completo, "N penden
 - **Certificado digital:** com o vencimento e o "Avisar antes" (padrão 30 dias), o sistema abre sozinho, todo dia às 7h, uma demanda no Fiscal para o responsável do Fiscal da empresa (sem responsável, vai para a fila do setor) — uma por certificado e vencimento. Ela aparece no Início como as outras demandas. "Sem certificado" desliga o aviso. **Na primeira rodada do trabalhador novo**, toda empresa com certificado **já vencido** ganha de uma vez uma demanda de prioridade **alta** (pode vir uma leva); feche as que não valem mais ou atualize o vencimento na ficha.
 - **Acessos de portais:** portal, usuário e senha. A senha é guardada cifrada e aparece mascarada; revelar (some em 30 segundos) e copiar exigem a permissão "Ver acessos de portais" e ficam na auditoria. O agente, o assistente, os registros do sistema e as exportações nunca recebem as senhas.
 - **Honorários e contrato** ficam na ficha para a equipe; o agente e o assistente não leem.
+
+### Acesso por contato (ficha › Contatos e tela Contatos)
+
+> **⚠ Decisão do dono ANTES de trocar o trabalhador da Parte H (acesso por contato).**
+> Quando a atualização do banco da Parte H entra, **todo contato que já existe fica Básico**. Com o trabalhador novo, o contato **sem "Pode pedir nota"** naquela empresa **perde o fluxo estruturado da nota** (busca de parceiro e produto, resumo e o pedido pronto): o pedido de nota dele vira uma demanda comum, de texto, no Fiscal. Hoje todo contato tem o fluxo de nota (quem não pode pedir só ganha uma observação na demanda). O sistema **não marca nada sozinho** (seria liberar em massa): decida antes de trocar.
+>
+> 1. **Conte quantos ficam sem o fluxo de nota.** No Supabase, abra **SQL Editor** e rode a consulta abaixo. Ela **só lê** (não muda nada) e funciona antes ou depois da atualização do banco:
+>
+>    ```sql
+>    -- Só leitura: vínculos de contatos ativos com empresas ativas que estão SEM "Pode pedir nota".
+>    select count(*) as sem_pedir_nota
+>    from public.contato_clientes cc
+>    join public.contatos ct on ct.id = cc.contato_id
+>    join public.clientes cl on cl.id = cc.cliente_id
+>    where ct.ativo and cl.ativo and not cc.pode_pedir_nota;
+>
+>    -- Só leitura: a lista, para saber quem marcar.
+>    select cl.razao_social as empresa, ct.nome as contato, ct.telefone
+>    from public.contato_clientes cc
+>    join public.contatos ct on ct.id = cc.contato_id
+>    join public.clientes cl on cl.id = cc.cliente_id
+>    where ct.ativo and cl.ativo and not cc.pode_pedir_nota
+>    order by cl.razao_social, ct.nome;
+>    ```
+>
+> 2. **Marque "Pode pedir nota" em quem deve pedir nota**, pelo painel (um contato por vez, numa empresa por vez):
+>    - **Clientes** → abra a empresa → aba **Contatos** → clique na linha do contato → em **Permissões especiais**, ligue **Pedir nota de venda** → **Salvar** (aparece "Acesso salvo."); ou
+>    - **Contatos** → clique no contato → na seção **Empresas**, no cartão da empresa, clique em **Acesso** ("Acesso em <empresa>") → ligue **Pedir nota de venda** → **Salvar**.
+>
+>    Ligar só a nota **não tira o contato do Básico** (ele continua "Básico · definir" até ganhar setores): ele volta a ter o fluxo de nota e o resto segue como Básico. Marcar o setor **Fiscal** também libera o fluxo de nota.
+> 3. Também **marque o acesso dos contatos de teste** antes de trocar o trabalhador; senão eles conversam e abrem demanda, mas não consultam demandas, cadastro nem documentos.
+
+Cada pessoa que fala por uma empresa tem um **acesso naquela empresa** (a mesma pessoa pode ter acessos diferentes em empresas diferentes). Abra a linha do contato na aba **Contatos** da ficha (ou, na tela **Contatos**, o painel do contato › seção **Empresas** › no cartão de cada empresa, o botão **Acesso**, que abre "Acesso em <empresa>"): é o mesmo bloco, gravado no mesmo lugar.
+
+- **Perfil** é um atalho: Sócio, Administrativo, Financeiro, RH/DP, Compras/Vendas, Funcionário, Básico. Escolher marca as opções; mudar uma marcação vira **Personalizado**.
+- **Setores que pode tratar:** só aparecem os setores dos serviços contratados (e o Financeiro, sempre). Em cada setor marcado, **"Pode ser procurado pelo agente deste setor"** guarda quem pode receber lembretes e cobranças (os agentes que procuram o cliente chegam numa parte futura).
+- **Ver valores** libera honorários, boletos e salários. **Receber documentos** libera os documentos dos setores marcados (e os "da empresa", sem setor). Na aba **Documentos**, cada documento tem setor e a marca **Tem valores**. Documento de um setor que foi desativado continua nesse setor ao salvar; ele só muda se alguém escolher outro.
+- **Receber alertas de acesso:** quem recebe o aviso quando alguém da empresa pede algo fora do que pode (o perfil Sócio já liga).
+- **A prévia** "O que o agente vai fazer com …" mostra, em palavras, o que o agente vai fazer — confira antes de **Salvar**.
+- **Contato novo nasce Básico:** conversa e abre demanda, mas não consulta demandas, dados nem documentos até alguém liberar. A faixa "N contatos aguardando definir acesso" mostra quantos faltam. **Os contatos que já existiam ficaram Básico** quando a atualização da Parte H entrou: marque o acesso deles (veja o aviso acima sobre "Pode pedir nota").
+- **Quem muda:** só quem tem "Clientes e contatos: Ver e editar"; com "Só ver", o bloco abre travado e sem **Salvar**. Contato arquivado: só leitura.
+
+**O que o agente faz quando alguém pede algo fora do acesso** (por exemplo, a Compras pedindo a folha): responde só "Esse assunto eu preciso tratar com o responsável da empresa.", não revela nada, abre uma demanda "Fora do acesso: …" no setor do assunto com uma nota explicando, e manda um WhatsApp para quem recebe alertas de acesso da empresa. Um aviso por pessoa, setor e dia. Dizer "sou o sócio" não muda nada: vale o que está marcado.
 
 ### Quando chegar o e-mail "WhatsApp desconectado"
 
@@ -244,7 +287,8 @@ O menu de Configurações fica à esquerda, em grupos, com um resumo do que est�
 ## 5. Segurança e LGPD
 
 - **Nunca compartilhe as chaves** (Supabase, Claude, Z-API, Groq, e-mail) por WhatsApp, e-mail ou print. Elas ficam só no Easypanel, no GitHub e no arquivo `.env` do seu computador.
-- **Apagar os dados de um contato a pedido dele**: Clientes → abra a empresa → na linha do contato, marque **confirmo** e clique em **Apagar dados (LGPD)**. As mensagens, transcrições, arquivos e registros do agente daquele contato são apagados, e o nome e o telefone são trocados por dados fictícios. Só administradores veem esse botão.
+- **Apagar os dados de um contato a pedido dele**: Clientes → abra a empresa → aba Contatos → clique na linha do contato → no rodapé do bloco que abre, clique em **Apagar dados (LGPD)** e confirme na janela. Também dá pelo painel da tela **Contatos**. As mensagens, transcrições, arquivos e registros do agente daquele contato são apagados, e o nome e o telefone são trocados por dados fictícios. Só administradores veem esse botão.
+- **Acesso por contato:** o filtro fica nas ferramentas do agente e no banco (não só no texto do agente). "Apagar dados (LGPD)" também apaga cargo e e-mail do contato.
 - **Prazo de guarda**: conversas, arquivos e registros do agente são apagados automaticamente depois de **1 ano**.
 - **Senhas de portais dos clientes** ficam cifradas com a chave ACESSOS_PORTAIS_CHAVE, que mora só no Easypanel (fora do banco; a da homologação também no arquivo de variáveis do painel de teste, no computador): nem uma cópia do banco nem a chave de serviço do Supabase abrem as senhas.
 - **Quem recebe dados dos clientes** (para constar no registro de tratamento de dados do escritório):
