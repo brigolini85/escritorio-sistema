@@ -42,7 +42,9 @@ test('administrador cria pelo exemplo, edita, liga na tabela e restaura uma vers
   await entrar(page, EMAIL_ADMIN, senha);
 
   // Menu -> tela vazia com os três exemplos e o medidor zerado.
-  await page.getByRole('link', { name: 'Treinar o agente' }).click();
+  await page.getByRole('link', { name: 'Agentes' }).click();
+  await page.getByRole('link', { name: 'Abrir Thiago' }).click();
+  await page.getByRole('navigation', { name: 'Seções do agente' }).getByRole('link', { name: 'Orientações' }).click();
   await esperarTreinar(page);
   await expect(page.getByRole('heading', { name: 'Treinar o agente' })).toBeVisible();
   await expect(page.getByText('Nenhuma orientação ainda.')).toBeVisible();
@@ -156,7 +158,9 @@ test('atendente sem a marcação não vê o menu e a tela explica quem libera; m
   // Marcada, a atendente vê o item e cria uma orientação (o banco grava com a sessão dela).
   await page.context().clearCookies();
   await entrar(page, EMAIL_SEM, senha);
-  await page.getByRole('link', { name: 'Treinar o agente' }).click();
+  await page.getByRole('link', { name: 'Agentes' }).click();
+  await page.getByRole('link', { name: 'Abrir Thiago' }).click();
+  await page.getByRole('navigation', { name: 'Seções do agente' }).getByRole('link', { name: 'Orientações' }).click();
   await esperarTreinar(page);
   await page.getByRole('link', { name: 'Nova orientação' }).click();
   await painel(page).getByLabel('Título').fill('Horário');

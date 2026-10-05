@@ -103,14 +103,14 @@ test('atendente marcada ensina pela conversa: situação preenchida, nasce desli
 
   // O Dialog continua aberto com a confirmação; o foco vai para o link da orientação.
   await expect(j.getByRole('status')).toContainText('Orientação criada. Está desligada até alguém revisar e ligar.');
-  await expect(j.getByRole('link', { name: 'Abrir na tela Treinar o agente' })).toBeFocused();
+  await expect(j.getByRole('link', { name: 'Abrir nas orientações do Thiago' })).toBeFocused();
   const { data: criada } = await db.from('orientacoes_agente').select('id, titulo, texto, tipo, cliente_id, setor_id, ativo, criado_por').eq('cliente_id', cliente).single();
   expect(criada).toMatchObject({ titulo: TITULO_SUGERIDO, texto, tipo: 'situacao', cliente_id: cliente, setor_id: null, ativo: false, criado_por: usuario });
   const { data: versoes } = await db.from('orientacoes_agente_versoes').select('acao').eq('orientacao_id', criada!.id);
   expect(versoes).toEqual([{ acao: 'criar' }]);
 
-  await j.getByRole('link', { name: 'Abrir na tela Treinar o agente' }).click();
-  await expect(page).toHaveURL(new RegExp(`/treinar-agente\\?orientacao=${criada!.id}$`));
+  await j.getByRole('link', { name: 'Abrir nas orientações do Thiago' }).click();
+  await expect(page).toHaveURL(new RegExp(`/agentes/atendimento/orientacoes\\?orientacao=${criada!.id}$`));
   await expect(editor(page).getByRole('heading', { name: TITULO_SUGERIDO })).toBeVisible();
 });
 
