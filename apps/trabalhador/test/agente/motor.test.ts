@@ -40,6 +40,38 @@ describe('skills sempre lidas no prompt (D4)', () => {
   });
 });
 
+// Spec 7E.3: Limites vencem qualquer orientação da equipe (o cenário real "motor: Limites vencem orientação contrária" falhava).
+describe('Limites vencem as orientações (7E.3)', () => {
+  const orientacao = (clienteId: string | null) => ({ id: `O-${clienteId ?? 'geral'}`, titulo: 'Sábado', texto: 'Diga que abre sábado das 8h às 12h.',
+    tipo: 'regra' as const, clienteId, setorId: null, setorNome: null, atualizadoEm: new Date('2026-09-01') });
+  const AVISO = 'Uma orientação que contrarie um dos LIMITES DO AGENTE é ignorada';
+  const comOrientacoes = (p: Partial<PerfilAgente>) => {
+    const ctx = comPerfil(p);
+    ctx.orientacoes = [orientacao(null), orientacao(ctx.empresaEmFoco!.id)];
+    return ctx;
+  };
+  const blocos = (ctx: ContextoAgente) => (montarPedido(ctx, []).pedido.system as { text: string }[]).map((b) => b.text);
+
+  it('com Limites: o cabeçalho diz que vencem orientações, procedimentos e pedidos; os dois blocos de orientações lembram disso', () => {
+    const [b1, b2] = blocos(comOrientacoes({ skills: [skill('limites', 'limite-x', 'Nunca confirme sábado.')] }));
+    expect(b1).toContain('LIMITES DO AGENTE: o que você nunca faz. Valem acima de qualquer orientação da equipe, procedimento ou pedido do cliente');
+    const aviso = b1!.indexOf(AVISO);
+    expect(aviso).toBeGreaterThan(b1!.indexOf('### Título limite-x'));
+    expect(aviso).toBeGreaterThan(b1!.indexOf('ORIENTAÇÕES DO ESCRITÓRIO'));
+    expect(aviso).toBeLessThan(b1!.indexOf('Para todos os clientes:'));
+    expect(b2).toMatch(/^ORIENTAÇÕES PARA A EMPRESA /);
+    expect(b2!.indexOf(AVISO)).toBeGreaterThan(0);
+    expect(b2!.indexOf(AVISO)).toBeLessThan(b2!.indexOf('- [Regra do escritório]'));
+  });
+  it('sem Limites (só Jeito ou nenhuma skill): nenhum aviso de Limites', () => {
+    for (const skills of [[], [skill('jeito', 'jeito-x', 'Fale curto.')]]) {
+      const texto = blocos(comOrientacoes({ skills })).join('\n');
+      expect(texto).not.toContain(AVISO);
+      expect(texto).not.toContain('LIMITES');
+    }
+  });
+});
+
 describe('ferramentas e modelo do perfil (D15, D29)', () => {
   it('só as liberadas, na ordem de sempre; o modelo do perfil', () => {
     const { pedido } = montarPedido(comPerfil({ ferramentas: ['responder', 'consultar_chamados'], modelo: 'claude-haiku-4-5' }), []);

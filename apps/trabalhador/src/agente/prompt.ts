@@ -3,7 +3,7 @@ import type { Mensagem } from '@escritorio/db';
 import type { SkillCarregada } from '@escritorio/db';
 import type { ContextoAgente } from './contexto';
 import { limparTextoOrientacao, linhaOrientacao, orientacoesDaConversa, type OrientacoesDaConversa } from './orientacoes';
-import { secaoSkills } from './skills';
+import { AVISO_LIMITES_NAS_ORIENTACOES, secaoSkills, temLimites } from './skills';
 
 export type AnexoParaIa = { tipo: 'imagem' | 'documento'; mime: string; base64: string; nome: string };
 
@@ -11,9 +11,13 @@ export type AnexoParaIa = { tipo: 'imagem' | 'documento'; mime: string; base64: 
 export const FRASE_PRECEDENCIA =
   '(escritas pela equipe; siga-as no jeito de atender e nas situações descritas. Se alguma contrariar as regras acima, as regras acima valem.)';
 
-function secaoOrientacoes(o: Pick<OrientacoesDaConversa, 'gerais' | 'porSetor'>): string {
+/** Cabeçalho das orientações; com Limites no perfil, o aviso de que eles vencem vem logo abaixo (spec 7E.3). */
+const cabecalhoOrientacoes = (titulo: string, comLimites: boolean) =>
+  `${titulo} ${FRASE_PRECEDENCIA}${comLimites ? `\n${AVISO_LIMITES_NAS_ORIENTACOES}` : ''}`;
+
+function secaoOrientacoes(o: Pick<OrientacoesDaConversa, 'gerais' | 'porSetor'>, comLimites: boolean): string {
   if (!o.gerais.length && !o.porSetor.length) return '';
-  const partes = [`ORIENTAÇÕES DO ESCRITÓRIO ${FRASE_PRECEDENCIA}`];
+  const partes = [cabecalhoOrientacoes('ORIENTAÇÕES DO ESCRITÓRIO', comLimites)];
   if (o.gerais.length) partes.push(`Para todos os clientes:\n${o.gerais.map(linhaOrientacao).join('\n')}`);
   for (const g of o.porSetor) {
     partes.push(`Quando o assunto for do setor ${limparTextoOrientacao(g.setor)}:\n${g.orientacoes.map(linhaOrientacao).join('\n')}`);
@@ -22,9 +26,11 @@ function secaoOrientacoes(o: Pick<OrientacoesDaConversa, 'gerais' | 'porSetor'>)
 }
 
 /** Segundo bloco de sistema: orientações só da empresa em foco (fora do bloco cacheado, que é igual para todas as empresas). */
-export function montarOrientacoesEmpresa(nome: string, orientacoes: OrientacoesDaConversa['daEmpresa']): string | null {
+export function montarOrientacoesEmpresa(
+  nome: string, orientacoes: OrientacoesDaConversa['daEmpresa'], comLimites = false,
+): string | null {
   if (!orientacoes.length) return null;
-  return `ORIENTAÇÕES PARA A EMPRESA ${limparTextoOrientacao(nome).replace(/\s+/g, ' ')} ${FRASE_PRECEDENCIA}\n`
+  return `${cabecalhoOrientacoes(`ORIENTAÇÕES PARA A EMPRESA ${limparTextoOrientacao(nome).replace(/\s+/g, ' ')}`, comLimites)}\n`
     + `Valem só nesta conversa, com esta empresa.\n${orientacoes.map(linhaOrientacao).join('\n')}`;
 }
 
@@ -37,7 +43,8 @@ export function montarBlocosSistema(ctx: ContextoAgente): { system: Anthropic.Te
   const system: Anthropic.TextBlockParam[] = [
     { type: 'text', text: montarSistema(ctx.setores, ctx.respostasProntas, o, ctx.agente?.skills ?? []), cache_control: { type: 'ephemeral' } },
   ];
-  const daEmpresa = ctx.empresaEmFoco ? montarOrientacoesEmpresa(ctx.empresaEmFoco.nome, o.daEmpresa) : null;
+  const daEmpresa = ctx.empresaEmFoco
+    ? montarOrientacoesEmpresa(ctx.empresaEmFoco.nome, o.daEmpresa, temLimites(ctx.agente?.skills ?? [])) : null;
   if (daEmpresa) system.push({ type: 'text', text: daEmpresa });
   return { system, cortadas: o.cortadas };
 }
@@ -117,7 +124,7 @@ SETORES:
 ${listaSetores}
 
 RESPOSTAS PRONTAS:
-${listaRespostas}${secaoSkills(skills)}${secaoOrientacoes(orientacoes)}`;
+${listaRespostas}${secaoSkills(skills)}${secaoOrientacoes(orientacoes, temLimites(skills))}`;
 }
 
 const hora = (iso: string) =>
