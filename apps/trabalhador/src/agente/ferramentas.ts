@@ -216,6 +216,9 @@ const Entradas = {
   responder: z.object({ texto: z.string().min(1).max(4000) }),
 };
 
+/** Nomes que o motor conhece: ferramenta conhecida fora do perfil é recusada antes de rodar (D15). */
+export const NOMES_FERRAMENTAS: ReadonlySet<string> = new Set(Object.keys(Entradas));
+
 /** Dia e mês (dd/mm) em Brasília: a data de abertura que consultar_chamados mostra ao modelo (regra 13, cobrança). */
 export const diaMes = (iso: string) =>
   new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' }).format(new Date(iso));

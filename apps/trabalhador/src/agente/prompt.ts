@@ -1,7 +1,9 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { Mensagem } from '@escritorio/db';
+import type { SkillCarregada } from '@escritorio/db';
 import type { ContextoAgente } from './contexto';
 import { limparTextoOrientacao, linhaOrientacao, orientacoesDaConversa, type OrientacoesDaConversa } from './orientacoes';
+import { secaoSkills } from './skills';
 
 export type AnexoParaIa = { tipo: 'imagem' | 'documento'; mime: string; base64: string; nome: string };
 
@@ -33,7 +35,7 @@ export function montarOrientacoesEmpresa(nome: string, orientacoes: OrientacoesD
 export function montarBlocosSistema(ctx: ContextoAgente): { system: Anthropic.TextBlockParam[]; cortadas: string[] } {
   const o = orientacoesDaConversa(ctx.orientacoes, { clienteId: ctx.empresaEmFoco?.id ?? null, setores: ctx.setores });
   const system: Anthropic.TextBlockParam[] = [
-    { type: 'text', text: montarSistema(ctx.setores, ctx.respostasProntas, o), cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: montarSistema(ctx.setores, ctx.respostasProntas, o, ctx.agente?.skills ?? []), cache_control: { type: 'ephemeral' } },
   ];
   const daEmpresa = ctx.empresaEmFoco ? montarOrientacoesEmpresa(ctx.empresaEmFoco.nome, o.daEmpresa) : null;
   if (daEmpresa) system.push({ type: 'text', text: daEmpresa });
@@ -43,6 +45,7 @@ export function montarBlocosSistema(ctx: ContextoAgente): { system: Anthropic.Te
 export function montarSistema(
   setores: ContextoAgente['setores'], respostas: ContextoAgente['respostasProntas'],
   orientacoes: Pick<OrientacoesDaConversa, 'gerais' | 'porSetor'> = { gerais: [], porSetor: [] },
+  skills: readonly SkillCarregada[] = [],
 ): string {
   const listaSetores = setores.map((s) => `- id: ${s.id} | ${s.nome}: ${s.descricao_assuntos}`).join('\n');
   const listaRespostas = respostas.length
@@ -114,7 +117,7 @@ SETORES:
 ${listaSetores}
 
 RESPOSTAS PRONTAS:
-${listaRespostas}${secaoOrientacoes(orientacoes)}`;
+${listaRespostas}${secaoSkills(skills)}${secaoOrientacoes(orientacoes)}`;
 }
 
 const hora = (iso: string) =>

@@ -1,5 +1,6 @@
-import { empresaDoUso, estaNoExpediente, type AcessoContato } from '@escritorio/core';
-import type { Configuracoes, ContatoEncontrado, Conversa, EmpresaDoContato, OrientacaoAgente, Repos } from '@escritorio/db';
+import { SLUG_ATENDIMENTO, empresaDoUso, estaNoExpediente, type AcessoContato } from '@escritorio/core';
+import type { Configuracoes, ContatoEncontrado, Conversa, EmpresaDoContato, OrientacaoAgente, PerfilAgente, Repos } from '@escritorio/db';
+import { carregarPerfil } from './perfil';
 
 export type ContextoAgente = {
   conversa: Conversa;
@@ -15,6 +16,8 @@ export type ContextoAgente = {
   agora: Date;
   /** Simulação (Treinar o agente): acesso fixo, sem ler o banco (o contato fictício não existe, D9). */
   acessoFixo?: AcessoContato;
+  /** Perfil do agente no motor (Parte I1). Sem ele, o Thiago do código (o pedido de antes). */
+  agente?: PerfilAgente;
 };
 
 export async function carregarContexto(
@@ -27,16 +30,18 @@ export async function carregarContexto(
   if (empresaEmFoco && empresaEmFoco.id !== conversa.cliente_em_foco) {
     await repos.atualizarConversa(conversa.id, { cliente_em_foco: empresaEmFoco.id });
   }
+  const agente = await carregarPerfil(repos, SLUG_ATENDIMENTO);
   return {
     conversa,
     contato,
     empresaEmFoco,
     setores: await repos.setoresAtivos(),
     respostasProntas: await repos.respostasProntas(),
-    orientacoes: await repos.orientacoesAtivas(),
+    orientacoes: await repos.orientacoesAtivas(agente.id),
     servicosContratados: empresaEmFoco ? await repos.servicosDoCliente(empresaEmFoco.id) : [],
     noExpediente: estaNoExpediente(agora, config.expediente),
     config,
     agora,
+    agente,
   };
 }

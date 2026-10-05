@@ -1,4 +1,4 @@
-import { estaNoExpediente, mesReferencia } from '@escritorio/core';
+import { SLUG_ATENDIMENTO, estaNoExpediente, mesReferencia } from '@escritorio/core';
 import type { Conversa, EmpresaDoContato, Mensagem, OrientacaoAgente, RascunhoOrientacao, Repos, SimulacaoAgente, UsuarioAssistente } from '@escritorio/db';
 import { podeVerChamado } from '../assistente/visibilidade';
 import type { CanalWhatsApp } from '../canal/tipos';
@@ -14,6 +14,7 @@ import {
 } from './ferramentas';
 import { orientacoesDaConversa } from './orientacoes';
 import { acharResumoConferido, chaveConferencia, formatarReais, montarPedidoNota, montarResumoParaCliente } from './pedido-nota';
+import { carregarPerfil } from './perfil';
 import { montarConteudoUsuario } from './prompt';
 
 /**
@@ -53,6 +54,7 @@ const LEITURAS = new Set<NomeFerramenta>(['buscar_parceiros', 'buscar_produtos',
 const LEITURAS_REPOS = [
   'obterConfiguracoes', 'custoIaDoMes', 'setoresAtivos', 'respostasProntas', 'orientacoesAtivas', 'servicosDoCliente',
   'unidadesDaEmpresa', 'produtosDaEmpresa', 'precosVigentes', 'documentosDaEmpresa', 'dadosDaEmpresa', 'setorPorNome', 'responsaveisDoCliente',
+  'perfilDoAgente',
 ] as const satisfies readonly (keyof Repos)[];
 
 class BloqueadoNaSimulacao extends Error {
@@ -370,18 +372,20 @@ async function simular(
   };
 
   const setores = await repos.setoresAtivos();
+  const agente = await carregarPerfil(repos, SLUG_ATENDIMENTO);
   const ctx: ContextoAgente = {
     conversa,
     contato: empresa ? { id: `simulacao-${sim.id}`, nome: NOME_FICTICIO, agentePausado: false, empresas: [empresa] } : null,
     empresaEmFoco: empresa,
     setores,
     respostasProntas: await repos.respostasProntas(),
-    orientacoes: orientacoesDoTeste(await repos.orientacoesAtivas(), sim.rascunho, setores, agora),
+    orientacoes: orientacoesDoTeste(await repos.orientacoesAtivas(agente.id), sim.rascunho, setores, agora),
     servicosContratados: empresa ? await repos.servicosDoCliente(empresa.id) : [],
     noExpediente: estaNoExpediente(agora, config.expediente),
     config,
     agora,
     acessoFixo: acessoTotal(setores),
+    agente,
   };
 
   const registro: Registro = { mensagens: [], acoes: [], observacoes: [], resumos: [], demandas: 0, triagemAberta: false, naoEntendido: 0 };
