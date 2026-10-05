@@ -1,4 +1,5 @@
 import type { supabaseServidor } from '@/lib/supabase/servidor';
+import { semMigracaoH2 } from '@/lib/acesso-contato';
 
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;
 export type SetorDeDocumento = { id: string; nome: string; ativo: boolean };
@@ -26,4 +27,25 @@ export async function lerSetoresDeDocumento(sb: Sb): Promise<SetorDeDocumento[]>
   const { data, error } = await sb.from('setores').select('id, nome, ativo').order('nome');
   if (error || !data) throw new Error('Não foi possível ler os setores agora. Tente de novo.');
   return data;
+}
+
+export type DocumentoDaEmpresa = { id: string; nome: string; arquivo_nome: string; ia_pode_enviar: boolean; setor_id?: string | null; tem_valores?: boolean };
+
+/**
+ * Documentos com setor e "Tem valores" (H2, D11); banco sem a migração (código do erro, D24): como antes, sem setor.
+ * Erro de verdade: null. A tela avisa e esconde o envio (um envio sem o campo de setor viraria "da empresa").
+ */
+export async function lerDocumentosDaEmpresa(sb: Sb, id: string): Promise<{ lista: DocumentoDaEmpresa[]; comSetor: boolean } | null> {
+  const novo = await sb.from('documentos_empresa').select('id, nome, arquivo_nome, ia_pode_enviar, setor_id, tem_valores').eq('cliente_id', id).order('nome');
+  if (!novo.error) return { lista: novo.data ?? [], comSetor: true };
+  if (!semMigracaoH2(novo.error)) {
+    console.error('[documentos] falha ao ler os documentos', novo.error);
+    return null;
+  }
+  const antigo = await sb.from('documentos_empresa').select('id, nome, arquivo_nome, ia_pode_enviar').eq('cliente_id', id).order('nome');
+  if (antigo.error) {
+    console.error('[documentos] falha ao ler os documentos', antigo.error);
+    return null;
+  }
+  return { lista: antigo.data ?? [], comSetor: false };
 }

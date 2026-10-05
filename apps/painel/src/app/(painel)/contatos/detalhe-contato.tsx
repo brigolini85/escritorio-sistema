@@ -25,7 +25,7 @@ import { BlocoWhatsapp } from './bloco-whatsapp';
 import { lerContato, lerEmpresasAtivas, lerWhatsappDoContato } from './dados-contatos';
 import { DemandasDoContato, EsqueletoDemandasDoContato } from './demandas-do-contato';
 import { EditarNomeContato } from './editar-nome-contato';
-import { lerAcessosDoContato } from '@/lib/acesso-contato';
+import { comoMostrarEmpresas, lerAcessosDoContato } from '@/lib/acesso-contato';
 import { AcessoPorEmpresa } from './acesso-por-empresa';
 import { MarcacoesEmpresa } from './marcacoes-empresa';
 import { SecaoPainel } from './secao-painel';
@@ -67,6 +67,7 @@ export async function DetalheContato({ id, u, editar, hrefEditar, hrefFecharEdic
     lerAcessosDoContato(sb, c.id),
   ]);
   const ligadas = new Set(c.vinculos.map((v) => v.empresaId));
+  const modoEmpresas = comoMostrarEmpresas(acessos);
   const anonimizado = c.nome === NOME_ANONIMIZADO && !c.ativo;
   const agora = new Date();
 
@@ -120,9 +121,12 @@ export async function DetalheContato({ id, u, editar, hrefEditar, hrefFecharEdic
         >
           {c.vinculos.length === 0 ? (
             <p className="text-sm text-muted">Sem empresa.{editavel ? ' Use "Vincular empresa".' : ''}</p>
-          ) : Array.isArray(acessos) && acessos.length > 0 ? (
+          ) : modoEmpresas === 'acesso' && Array.isArray(acessos) ? (
             // Banco com a H2: o acesso por empresa (perfil, setores, permissões, prévia) no cartão de cada empresa (D22).
             <AcessoPorEmpresa contatoId={c.id} nome={c.nome} acessos={acessos} pode={pode} arquivado={!c.ativo} />
+          ) : modoEmpresas === 'erro' ? (
+            // Erro ao ler o acesso: nunca as caixas antigas da G3 (gravam na hora, sem a prévia do acesso).
+            <p role="alert" className="text-sm text-danger">Não consegui carregar o acesso. Recarregue a página.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {c.vinculos.map((v) => (
@@ -142,8 +146,8 @@ export async function DetalheContato({ id, u, editar, hrefEditar, hrefFecharEdic
               ))}
             </ul>
           )}
-          {!pode && c.vinculos.length > 0 && <p className="text-sm text-muted">Só quem pode editar clientes muda as marcações.</p>}
-          {pode && !c.ativo && c.vinculos.length > 0 && <p className="text-sm text-muted">Contato arquivado: restaure para mudar as marcações.</p>}
+          {!pode && c.vinculos.length > 0 && modoEmpresas !== 'erro' && <p className="text-sm text-muted">Só quem pode editar clientes muda as marcações.</p>}
+          {pode && !c.ativo && c.vinculos.length > 0 && modoEmpresas !== 'erro' && <p className="text-sm text-muted">Contato arquivado: restaure para mudar as marcações.</p>}
         </SecaoEmpresas>
 
         {/* Parte H2: o acesso por empresa mora nos cartões da seção Empresas (acima): uma lista só com o nome de cada empresa. */}

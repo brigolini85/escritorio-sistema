@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
-const { lerAcesso, primeiroNome, semMigracaoH2 } = await import('./acesso-contato');
+const { comoMostrarEmpresas, lerAcesso, primeiroNome, semMigracaoH2 } = await import('./acesso-contato');
 
 // Parte H2 (D24): sem a migração, as leituras dizem "sem-migracao" pelo código do erro (nunca contagem head).
 describe('semMigracaoH2', () => {
@@ -73,5 +73,14 @@ describe('lerContatosDaEmpresa', () => {
     expect(ids('Ana')).toEqual(['fis', 'pes*', 'fin']);
     expect(ids('Bia')).toEqual(['fis', 'fin']);
     expect(ficha.disponiveis.map((s) => s.id)).toEqual(['fis', 'fin']);
+  });
+});
+
+// Onda final (Minor 3): erro ao ler o acesso não volta às caixas antigas da G3 (gravam na hora, sem a prévia).
+describe('comoMostrarEmpresas', () => {
+  it('com acesso lido: o bloco de acesso; erro: o aviso; sem a migração: as caixas antigas', () => {
+    expect(comoMostrarEmpresas([{} as never])).toBe('acesso');
+    expect(comoMostrarEmpresas(null)).toBe('erro');
+    expect(comoMostrarEmpresas('sem-migracao')).toBe('antigo');
   });
 });

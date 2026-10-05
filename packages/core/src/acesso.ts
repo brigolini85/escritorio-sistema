@@ -150,9 +150,14 @@ export type Previa = { pode: string; recusa: string | null; procurado: string | 
 /** "O que o agente vai fazer com <nome>" (D26): a mesma regra das ferramentas do agente, em palavras. */
 export function previaDoAgente(p: { marcas: MarcasAcesso; disponiveis: readonly SetorDisponivel[]; socios: readonly string[] }): Previa {
   const m = p.marcas;
+  // A mesma regra de podeFluxoNota no trabalhador: nota, preço e produtos com "Pode pedir nota" OU o Fiscal marcado (Básico
+  // não trata setor); ajustar preço e cadastrar produto ainda pedem "Pode mudar preço" (o banco confere). Nunca promete mais.
+  const fiscal = p.disponiveis.find((s) => s.nome === 'Fiscal');
+  const pedeNota = m.podePedirNota || (!semAcesso(m) && fiscal !== undefined && m.setores.some((s) => s.setorId === fiscal.id));
+  const notaEPreco = [...(pedeNota ? ['pede nota'] : []), ...(pedeNota && m.podeAtualizarPreco ? ['ajusta preços e produtos'] : [])];
   if (semAcesso(m)) {
     return {
-      pode: `Conversa e abre demandas para a equipe${m.podePedirNota ? ', pede nota' : ''}.`,
+      pode: `${['Conversa e abre demandas para a equipe', ...notaEPreco].join(', ')}.`,
       recusa: 'Não consulta demandas, dados nem documentos: até alguém liberar o acesso, tudo vira demanda para a equipe conferir.',
       procurado: null,
     };
@@ -163,8 +168,7 @@ export function previaDoAgente(p: { marcas: MarcasAcesso; disponiveis: readonly 
   const todos = contratados.length > 0 && contratados.every((s) => marcados.has(s.id));
   const deSetores = todos ? 'de todos os setores contratados' : juntar(nomes.map(setorComArtigo), 'e');
   const partes = [nomes.length ? `Abre e consulta demandas ${deSetores}` : 'Conversa e abre demandas para a equipe'];
-  if (m.podePedirNota) partes.push('pede nota');
-  if (m.podeAtualizarPreco) partes.push('ajusta preços e produtos');
+  partes.push(...notaEPreco);
   if (m.receberDocumentos) partes.push(nomes.length ? `envia documentos ${deSetores}` : 'envia os documentos da empresa');
   if (m.verValores) partes.push('vê valores');
 

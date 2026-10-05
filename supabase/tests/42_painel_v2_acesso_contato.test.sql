@@ -2,7 +2,7 @@
 -- marcações numa transação, com a permissão de hoje; caminho antigo que muda nota/preço vira Personalizado (D6).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(33);
+select plan(35);
 
 insert into auth.users (id, email) values
   ('f4200000-0000-0000-0000-00000000000a', 'admin@h2a.local'),
@@ -135,6 +135,14 @@ select throws_ok($$ select public.salvar_acesso_contato('f4400000-0000-0000-0000
     'setores', jsonb_build_array(jsonb_build_object('setor_id', (select id from public.setores where nome = 'Direção'))))) $$,
   'P0001', 'A Direção não entra no acesso do contato.', 'Direção não é setor que o contato trata');
 reset role;
+
+-- 34–35: apagar um setor não transforma os documentos dele em "documento da empresa" (iria para todos; onda final, Minor 8)
+insert into public.setores (nome, descricao_assuntos) values ('H2A Setor com documento', 'Teste');
+insert into public.documentos_empresa (cliente_id, nome, arquivo_path, arquivo_nome, setor_id) values
+  ('f4300000-0000-0000-0000-00000000000a', 'H2A Relatório do setor', 'h2a/rel.pdf', 'rel.pdf', (select id from public.setores where nome = 'H2A Setor com documento'));
+select throws_ok($$ delete from public.setores where nome = 'H2A Setor com documento' $$, '23503', null,
+  'setor com documento não é apagado (o escritório desativa)');
+select isnt((select setor_id from public.documentos_empresa where nome = 'H2A Relatório do setor'), null, 'o documento continua no setor');
 
 select * from finish();
 rollback;

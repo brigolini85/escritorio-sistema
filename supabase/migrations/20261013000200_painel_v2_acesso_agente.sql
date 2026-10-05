@@ -70,7 +70,9 @@ language sql stable security invoker set search_path = '' as $$
      and (exists (select 1 from public.contato_cliente_setores cs
                    join public.setores sa on sa.id = cs.setor_id and sa.ativo
                    where cs.contato_id = cc.contato_id and cs.cliente_id = cc.cliente_id and cs.setor_id = ch.setor_id)
-          or (ch.setor_id is null and ch.conversa_id = p_conversa))
+          or (ch.setor_id is null and ch.conversa_id = p_conversa)
+          -- A demanda da Direção que o próprio contato abriu nesta conversa (assunto sensível dele) continua visível para ele.
+          or (st.nome = 'Direção' and ch.conversa_id = p_conversa))
      -- A demanda "Fora do acesso" do próprio contato não volta para ele (a recusa por valores cai num setor dele).
      and not exists (select 1 from public.pedidos_fora_do_acesso pf where pf.chamado_id = ch.id and pf.contato_id = p_contato)
    order by ch.criado_em

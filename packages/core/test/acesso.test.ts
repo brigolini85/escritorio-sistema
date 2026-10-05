@@ -111,6 +111,25 @@ describe('previaDoAgente (spec 7D.2, D26)', () => {
       procurado: null,
     });
   });
+  // Onda final (Minor 1): nota, preço e produtos seguem a regra das ferramentas (podeFluxoNota: "pode pedir nota" OU Fiscal marcado).
+  it('"Pode mudar preço" sem nota e sem Fiscal não promete ajustar preços', () => {
+    const m = { ...marcasDoPerfil('financeiro', REDE), podeAtualizarPreco: true };
+    const p = previaDoAgente({ marcas: m, disponiveis: REDE, socios: [] });
+    expect(p.pode).not.toMatch(/pede nota|ajusta preços/);
+    expect(p.pode).toBe('Abre e consulta demandas do Contábil e do Financeiro, envia documentos do Contábil e do Financeiro, vê valores.');
+  });
+  it('Fiscal marcado sem "Pode pedir nota" já pede nota (e ajusta preços com "Pode mudar preço")', () => {
+    const soFiscal = { ...marcasBasicas(), setores: [{ setorId: 'fis', podeSerProcurado: false }] };
+    expect(previaDoAgente({ marcas: soFiscal, disponiveis: REDE, socios: [] }).pode).toBe('Abre e consulta demandas do Fiscal, pede nota.');
+    expect(previaDoAgente({ marcas: { ...soFiscal, podeAtualizarPreco: true }, disponiveis: REDE, socios: [] }).pode)
+      .toBe('Abre e consulta demandas do Fiscal, pede nota, ajusta preços e produtos.');
+  });
+  it('Básico: preço só com "Pode pedir nota" junto', () => {
+    const b = marcasBasicas();
+    expect(previaDoAgente({ marcas: { ...b, podeAtualizarPreco: true }, disponiveis: REDE, socios: [] }).pode).toBe('Conversa e abre demandas para a equipe.');
+    expect(previaDoAgente({ marcas: { ...b, podePedirNota: true, podeAtualizarPreco: true }, disponiveis: REDE, socios: [] }).pode)
+      .toBe('Conversa e abre demandas para a equipe, pede nota, ajusta preços e produtos.');
+  });
 });
 
 describe('etiquetasPodeTratar (D27)', () => {

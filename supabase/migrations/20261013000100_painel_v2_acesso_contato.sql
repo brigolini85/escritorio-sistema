@@ -35,8 +35,9 @@ create trigger auditoria after insert or update or delete on public.contato_clie
   for each row execute function public.registrar_auditoria();
 
 -- Documento de um setor e com valores (D11). Sem setor = documento da empresa (contrato social, cartão CNPJ).
+-- restrict: apagar o setor não pode virar "da empresa" (iria para todos com "Receber documentos"); setor se desativa.
 alter table public.documentos_empresa
-  add column setor_id uuid references public.setores (id) on delete set null,
+  add column setor_id uuid references public.setores (id) on delete restrict,
   add column tem_valores boolean not null default false;
 
 -- Caminhos antigos (Atendimento, vincular) que mudam nota ou preço de um perfil pronto: vira Personalizado (D6).

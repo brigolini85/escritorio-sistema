@@ -132,6 +132,15 @@ export async function lerAcessosDoContato(sb: Sb, contatoId: string): Promise<Ac
   }).sort((a, b) => a.empresa.localeCompare(b.empresa, 'pt-BR'));
 }
 
+/**
+ * O que a seção Empresas do painel de Contatos mostra: o bloco de acesso (H2), o aviso de erro, ou as caixas antigas da G3
+ * só com o banco sem a migração (ou sem empresa ativa). Erro de leitura nunca volta às caixas que gravam na hora.
+ */
+export function comoMostrarEmpresas(acessos: AcessoNaEmpresa[] | 'sem-migracao' | null): 'acesso' | 'erro' | 'antigo' {
+  if (acessos === null) return 'erro';
+  return Array.isArray(acessos) && acessos.length > 0 ? 'acesso' : 'antigo';
+}
+
 /** Coluna Perfil da tabela de Contatos (D22): perfil de cada contato da página em cada empresa. */
 export async function lerPerfisDaPagina(sb: Sb, contatoIds: string[]): Promise<Map<string, Map<string, Perfil>> | 'sem-migracao'> {
   const mapa = new Map<string, Map<string, Perfil>>();

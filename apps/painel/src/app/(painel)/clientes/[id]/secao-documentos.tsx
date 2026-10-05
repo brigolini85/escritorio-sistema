@@ -7,27 +7,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/cn';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-import { semMigracaoH2 } from '@/lib/acesso-contato';
 import { alternarIaDocumento, definirSetorDocumento, enviarDocumento, excluirDocumento } from '../cadastros-acoes';
-import { lerSetoresDeDocumento, setoresEscolhiveis, type SetorDeDocumento } from '../documento-setor';
+import { lerDocumentosDaEmpresa, lerSetoresDeDocumento, setoresEscolhiveis, type SetorDeDocumento } from '../documento-setor';
 import { CampoSetorDocumento } from './campo-setor-documento';
-
-type Documento = { id: string; nome: string; arquivo_nome: string; ia_pode_enviar: boolean; setor_id?: string | null; tem_valores?: boolean };
-
-/**
- * Lê os documentos com setor e "Tem valores" (H2, D11); banco sem a migração (código do erro na leitura, D24): como antes.
- */
-async function lerDocumentos(sb: Awaited<ReturnType<typeof supabaseServidor>>, id: string): Promise<{ lista: Documento[]; comSetor: boolean }> {
-  const novo = await sb.from('documentos_empresa').select('id, nome, arquivo_nome, ia_pode_enviar, setor_id, tem_valores').eq('cliente_id', id).order('nome');
-  if (!semMigracaoH2(novo.error)) return { lista: novo.data ?? [], comSetor: !novo.error };
-  const { data } = await sb.from('documentos_empresa').select('id, nome, arquivo_nome, ia_pode_enviar').eq('cliente_id', id).order('nome');
-  return { lista: data ?? [], comSetor: false };
-}
 
 /** Documentos da empresa (contrato social, certidões…) e quais o agente pode mandar sozinho a um contato autorizado. */
 export async function SecaoDocumentos({ id, pode, admin }: { id: string; pode: boolean; admin: boolean }) {
   const sb = await supabaseServidor();
-  const { lista, comSetor } = await lerDocumentos(sb, id);
+  const docs = await lerDocumentosDaEmpresa(sb, id);
+  // Erro ao ler os documentos (não é banco sem a migração): avisa e não mostra o envio, como na falha dos setores.
+  if (!docs) {
+    return <p role="alert" className="text-sm text-danger">Não consegui carregar os documentos agora. Recarregue a página.</p>;
+  }
+  const { lista, comSetor } = docs;
   // Todos os setores (inclusive desativados, para o nome do atual); erro na leitura nunca vira lista vazia (o Salvar
   // trocaria o setor de todos por "da empresa"): a tela avisa e não mostra o setor nem o envio.
   let todos: SetorDeDocumento[] = [];

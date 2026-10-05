@@ -2,7 +2,7 @@
 -- demandas; o filtro é por setor e por empresa; pedido fora do acesso conta um por contato, empresa, setor e dia.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(43);
+select plan(46);
 
 create function pg_temp.setor(p text) returns uuid language sql stable as $$ select id from public.setores where nome = p $$;
 
@@ -170,6 +170,19 @@ select results_eq($$ select titulo from public.demandas_para_contato('f5400000-0
   $$ values ('Admissão do João'::text) $$, 'quem pediu não vê a demanda "Fora do acesso" do próprio pedido');
 select results_eq($$ select titulo from public.demandas_para_contato('f5400000-0000-0000-0000-00000000000b', 'f5300000-0000-0000-0000-00000000000a', null) order by titulo $$,
   $$ values ('Admissão do João'::text), ('Fora do acesso: Valor da folha'::text) $$, 'o sócio do Pessoal continua vendo');
+
+-- 44–46: a demanda da Direção que o próprio contato abriu nesta conversa volta para ele; a de outra conversa não (onda final, Minor 2)
+insert into public.setores (nome, descricao_assuntos) values ('Direção', 'Assuntos sensíveis') on conflict (nome) do nothing;
+insert into public.chamados (cliente_id, conversa_id, setor_id, titulo) values
+  ('f5300000-0000-0000-0000-00000000000a', 'f5500000-0000-0000-0000-00000000000a', pg_temp.setor('Direção'), 'Assunto sensível da Carla'),
+  ('f5300000-0000-0000-0000-00000000000a', null, pg_temp.setor('Direção'), 'Assunto sensível de outra pessoa');
+select results_eq($$ select titulo from public.demandas_para_contato('f5400000-0000-0000-0000-00000000000a', 'f5300000-0000-0000-0000-00000000000a',
+                    'f5500000-0000-0000-0000-00000000000a') order by titulo $$,
+  $$ values ('Assunto sensível da Carla'::text), ('Triagem da Carla'::text) $$, 'Carla vê a demanda da Direção que ela abriu nesta conversa');
+select is((select count(*)::int from public.demandas_para_contato('f5400000-0000-0000-0000-00000000000a', 'f5300000-0000-0000-0000-00000000000a', null)
+            where setor_nome = 'Direção'), 0, 'fora da conversa dela, nenhuma demanda da Direção');
+select is((select count(*)::int from public.demandas_para_contato('f5400000-0000-0000-0000-00000000000b', 'f5300000-0000-0000-0000-00000000000a', null)
+            where setor_nome = 'Direção'), 0, 'o sócio não vê assunto sensível de ninguém pela demanda da Direção');
 
 select * from finish();
 rollback;
