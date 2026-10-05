@@ -38,4 +38,8 @@ export function observacoesDeAcesso(a: AcessoContato): string[] {
  * Título de demanda para quem não tem "Ver valores": o assunto fica (o setor é dele), o valor em reais que a equipe
  * escreveu no título não (spec 7D.2, "valores só com Ver valores").
  */
-export const tituloSemValores = (titulo: string) => titulo.replace(/R\$\s*\d[\d.,]*/gi, 'R$ …');
+export const tituloSemValores = (titulo: string) => titulo
+  .replace(/R\$\s*\d[\d.,]*/gi, 'R$ …')
+  // Sem "R$" também é valor: "15 mil", "300 reais", "2,5 mil reais" e "12.345,67" (revisão da Task 5).
+  .replace(/\b\d+(?:[.,]\d+)*\s*(?:mil(?:\s+reais)?|reais)\b/gi, '…')
+  .replace(/\b\d{1,3}(?:\.\d{3})*,\d{2}\b/g, '…');

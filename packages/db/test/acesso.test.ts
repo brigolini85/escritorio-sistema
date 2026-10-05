@@ -6,21 +6,23 @@ import { limparBanco } from './limpar';
 const db = criarClienteServico(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 const repos = criarRepos(db);
 const setor = async (nome: string) => (await db.from('setores').select('id').eq('nome', nome).single()).data!.id;
+// Preparo que falha em silêncio mediria outra coisa (revisão das Tasks 3–4): erro aqui para o teste.
+const semErro = <T extends { error: { message: string } | null }>(r: T): T => { if (r.error) throw new Error(r.error.message); return r; };
 
 let cliente: string;
 let carla: string;
 let roberto: string;
 beforeEach(async () => {
   await limparBanco();
-  cliente = (await db.from('clientes').insert({ razao_social: 'Rede Bom Preço Ltda', cnpj: '11222333000181' }).select('id').single()).data!.id;
-  carla = (await db.from('contatos').insert({ nome: 'Carla Mendes', telefone: '5511977772211' }).select('id').single()).data!.id;
-  roberto = (await db.from('contatos').insert({ nome: 'Roberto Faria', telefone: '5511988880001' }).select('id').single()).data!.id;
+  cliente = semErro(await db.from('clientes').insert({ razao_social: 'Rede Bom Preço Ltda', cnpj: '11222333000181' }).select('id').single()).data!.id;
+  carla = semErro(await db.from('contatos').insert({ nome: 'Carla Mendes', telefone: '5511977772211' }).select('id').single()).data!.id;
+  roberto = semErro(await db.from('contatos').insert({ nome: 'Roberto Faria', telefone: '5511988880001' }).select('id').single()).data!.id;
   // Linhas com chaves diferentes: sem defaultToNull: false o PostgREST manda null nas colunas que faltam (e o not null recusa).
-  await db.from('contato_clientes').insert([
+  semErro(await db.from('contato_clientes').insert([
     { contato_id: carla, cliente_id: cliente, perfil: 'compras_vendas', pode_pedir_nota: true, receber_documentos: true, avisar_documento_novo: ['whatsapp'] },
     { contato_id: roberto, cliente_id: cliente, perfil: 'socio', ver_valores: true, receber_documentos: true, recebe_alertas_acesso: true },
-  ], { defaultToNull: false });
-  await db.from('contato_cliente_setores').insert({ contato_id: carla, cliente_id: cliente, setor_id: await setor('Fiscal'), pode_ser_procurado: true });
+  ], { defaultToNull: false }));
+  semErro(await db.from('contato_cliente_setores').insert({ contato_id: carla, cliente_id: cliente, setor_id: await setor('Fiscal'), pode_ser_procurado: true }));
 });
 
 describe('acesso do contato', () => {
@@ -31,20 +33,20 @@ describe('acesso do contato', () => {
     });
   });
   it('sem vínculo: null', async () => {
-    const outra = (await db.from('clientes').insert({ razao_social: 'Outra', cnpj: '11444777000161' }).select('id').single()).data!.id;
+    const outra = semErro(await db.from('clientes').insert({ razao_social: 'Outra', cnpj: '11444777000161' }).select('id').single()).data!.id;
     expect(await repos.acessoDoContato(carla, outra)).toBeNull();
   });
   it('documentos e demandas filtrados', async () => {
-    await db.from('documentos_empresa').insert([
+    semErro(await db.from('documentos_empresa').insert([
       { cliente_id: cliente, nome: 'Certidão', arquivo_path: 'a/c.pdf', arquivo_nome: 'c.pdf', ia_pode_enviar: true, setor_id: await setor('Fiscal') },
       { cliente_id: cliente, nome: 'Folha', arquivo_path: 'a/f.pdf', arquivo_nome: 'f.pdf', ia_pode_enviar: true, setor_id: await setor('Pessoal'), tem_valores: true },
-    ], { defaultToNull: false });
+    ], { defaultToNull: false }));
     expect((await repos.documentosParaContato(carla, cliente)).map((d) => [d.nome, d.iaPodeEnviar])).toEqual([['Certidão', true]]);
     const conversa = await repos.obterOuCriarConversa('5511977772211', carla);
-    await db.from('chamados').insert([
+    semErro(await db.from('chamados').insert([
       { cliente_id: cliente, setor_id: await setor('Fiscal'), titulo: 'Guia' },
       { cliente_id: cliente, setor_id: await setor('Pessoal'), titulo: 'Admissão' },
-    ]);
+    ], { defaultToNull: false }));
     expect((await repos.demandasParaContato(carla, cliente, conversa.id)).map((c) => [c.titulo, c.setor_nome])).toEqual([['Guia', 'Fiscal']]);
   });
   it('pedido fora do acesso: novo uma vez por dia; sócios sem quem pediu', async () => {

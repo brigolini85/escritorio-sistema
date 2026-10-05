@@ -8,6 +8,7 @@ import {
   ACESSO_BASICO, INSTRUCAO_FORA_DO_ACESSO, ehBasico, observacoesDeAcesso, podeFluxoNota, SETORES_SEMPRE_ABERTOS, tituloSemValores, trataSetor,
 } from './acesso';
 import { buscarParceiros, buscarProdutos } from './cadastros';
+import { recusarForaDoAcesso } from './fora-do-acesso';
 import type { ClienteIa } from './cliente-ia';
 import { acharResumoConferido, chaveConferencia, cnpjFormatado, formatarReais, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente, type ItemPedido } from './pedido-nota';
 import type { ContextoAgente } from './contexto';
@@ -191,7 +192,7 @@ const Entradas = {
   selecionar_empresa: z.object({ cliente_id: z.string() }),
   abrir_chamado: z.object({
     setor_id: z.string(), titulo: z.string().min(3).max(120), resumo: z.string().min(1).max(4000), fora_do_contrato: z.boolean(),
-    prioridade: z.enum(PRIORIDADES).catch('normal'),
+    prioridade: z.enum(PRIORIDADES).catch('normal'), pede_valores: z.boolean().catch(false),
   }),
   consultar_chamados: z.object({}),
   sinalizar_nao_entendido: z.object({}),
@@ -367,7 +368,13 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
         const acesso = await acessoNaEmpresa(d, estado, clienteId);
         const setor = ctx.setores.find((s) => s.id === setorId) ?? null;
         const sempreAberto = setor === null || SETORES_SEMPRE_ABERTOS.includes(setor.nome);
-        // Task 6: aqui entra a recusa fora do acesso (setor não marcado e não sempre aberto, ou valores sem "Ver valores").
+        // Fora do acesso (setor não marcado, ou valores sem "Ver valores"): recusa neutra pela ferramenta (D13). Básico nunca (D16).
+        if (setor && !sempreAberto && !ehBasico(acesso) && (!trataSetor(acesso, setor.id) || (entrada.pede_valores && !acesso.verValores))) {
+          return ok(await recusarForaDoAcesso(d, estado, {
+            clienteId, setor: { id: setor.id, nome: setor.nome }, titulo: entrada.titulo, resumo: entrada.resumo, acesso,
+            motivo: trataSetor(acesso, setor.id) ? 'valores' : 'setor',
+          }));
+        }
         resumo = [entrada.resumo, ...observacoesDeAcesso(acesso)].join('\n\n');
       }
       const responsavelId = clienteId ? escolherResponsavel(setorId, await d.repos.responsaveisDoCliente(clienteId)) : null;
@@ -495,10 +502,14 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       const p = await prepararPedido(d, e.clienteId, conferido);
       if ('erro' in p) return p;
       const { destino, itens } = p;
-      const { titulo, resumo } = montarPedidoNota({
+      // O acesso de agora (o painel pode ter mudado depois de a conversa carregar), não o guardado no contexto.
+      const acesso = await acessoNaEmpresa(d, estado, e.clienteId);
+      const pedido = montarPedidoNota({
         tipo: conferido.tipo, destino, textoDestinatario: conferido.texto_destinatario, itens,
-        pedidoOriginal: conferido.pedido_original, semPermissao: !ctx.empresaEmFoco!.podePedirNota,
+        pedidoOriginal: conferido.pedido_original, semPermissao: !acesso.podePedirNota,
       });
+      const titulo = pedido.titulo;
+      const resumo = [pedido.resumo, ...observacoesDeAcesso(acesso)].join('\n\n');
       const setorId = await d.repos.setorPorNome('Fiscal');
       const responsavelId = escolherResponsavel(setorId, await d.repos.responsaveisDoCliente(e.clienteId));
       const { id: chamadoId, numero } = await d.repos.abrirChamado({
