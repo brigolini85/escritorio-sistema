@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { LockKeyhole } from 'lucide-react';
 import { toast } from 'sonner';
-import { CATALOGO_FERRAMENTAS, FERRAMENTAS_ATENDIMENTO, FERRAMENTAS_AUTOMATICAS, exigeAprovacao } from '@escritorio/core';
+import { APROVACAO_FERRAMENTA, CATALOGO_COMPLETO, FERRAMENTAS_ATENDIMENTO, FERRAMENTAS_AUTOMATICAS, FERRAMENTAS_DO_CATALOGO, ROTULO_APROVACAO } from '@escritorio/core';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -24,19 +24,23 @@ export function EscolherFerramentas({ slug, porta, escolhidas, editavel }: { slu
     <Card className="flex flex-col gap-3 p-4">
       <h2 className="text-sm font-bold uppercase tracking-wide text-brand">Ferramentas do catálogo</h2>
       {porta && <p className="text-sm text-muted">As ferramentas do atendimento são fixas nesta etapa. As que gravam ou enviam valem com o "sim" do cliente no WhatsApp (regras fixas).</p>}
+      {!porta && <p className="text-sm text-muted">Abrir demanda, passar para pessoa e enviar documento são do Thiago: o agente devolve a conversa a ele. Responder entra pelo modo de falar com o cliente.</p>}
       <ul className="flex flex-col divide-y divide-border">
-        {FERRAMENTAS_ATENDIMENTO.map((f) => {
-          const info = CATALOGO_FERRAMENTAS[f];
+        {/* F1: a visão do Thiago tem só as 16 do atendimento; as do setor aparecem para os outros agentes. */}
+        {(porta ? FERRAMENTAS_ATENDIMENTO : FERRAMENTAS_DO_CATALOGO).map((f) => {
+          const info = CATALOGO_COMPLETO[f];
+          const aprovacao = APROVACAO_FERRAMENTA[f];
+          // D8: nos agentes dos setores, as "só do Thiago" e o responder (vem pelo modo) ficam travados; F2: marcada, ainda dá para desmarcar.
+          const travada = !porta && (aprovacao === 'so_atendimento' || aprovacao === 'conversa');
+          const selo = porta ? (aprovacao ? 'o cliente confirma' : null) : aprovacao ? ROTULO_APROVACAO[aprovacao] : null;
           return (
             <li key={f} className="flex items-center gap-3 py-2">
-              <Checkbox id={`ferramenta-${f}`} checked={marcadas.has(f)} disabled={!editavel || porta || enviando}
-                onCheckedChange={(v) => setMarcadas((m) => { const n = new Set(m); if (v === true) n.add(f); else n.delete(f); return n; })} />
+              <Checkbox id={`ferramenta-${f}`} checked={marcadas.has(f)} disabled={!editavel || porta || enviando || (travada && !marcadas.has(f))}
+                onCheckedChange={(v) => setMarcadas((m) => { const n = new Set(m); if (v === true) { if (!travada) n.add(f); } else n.delete(f); return n; })} />
               <label htmlFor={`ferramenta-${f}`} className="flex flex-1 flex-col">
                 <span className="font-medium">{info.rotulo}</span><span className="text-sm text-muted">{info.descricao}</span>
               </label>
-              {exigeAprovacao(info)
-                ? <Badge variant="warning"><LockKeyhole aria-hidden />{porta ? 'o cliente confirma' : 'exige aprovação humana'}</Badge>
-                : <Badge variant="success">só leitura</Badge>}
+              {selo ? <Badge variant="warning"><LockKeyhole aria-hidden />{selo}</Badge> : <Badge variant="success">só leitura</Badge>}
             </li>
           );
         })}

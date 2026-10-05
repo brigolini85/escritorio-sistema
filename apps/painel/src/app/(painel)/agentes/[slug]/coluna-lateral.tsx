@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Lock, LockKeyhole } from 'lucide-react';
-import { CATALOGO_FERRAMENTAS, ORDEM_PRIORIDADE, exigeAprovacao, type NomeFerramentaCatalogo } from '@escritorio/core';
+import { APROVACAO_FERRAMENTA, CATALOGO_COMPLETO, ORDEM_PRIORIDADE, ROTULO_APROVACAO, type NomeFerramentaDisponivel } from '@escritorio/core';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import type { Agente, Mudanca } from '@/lib/agentes';
@@ -27,9 +27,15 @@ export function OrdemPrioridade() {
   );
 }
 
+function seloFerramenta(f: NomeFerramentaDisponivel, porta: boolean) {
+  const aprovacao = APROVACAO_FERRAMENTA[f];
+  if (!aprovacao) return <Badge variant="success">só leitura</Badge>;
+  return <Badge variant="warning"><LockKeyhole aria-hidden />{porta ? 'o cliente confirma' : ROTULO_APROVACAO[aprovacao]}</Badge>;
+}
+
 /** Ferramentas liberadas com a marca de só leitura ou aprovação (D15). */
 export function ResumoFerramentas({ agente }: { agente: Pick<Agente, 'slug' | 'ferramentas' | 'portaDeEntrada'> }) {
-  const liberadas = agente.ferramentas.filter((f): f is NomeFerramentaCatalogo => f in CATALOGO_FERRAMENTAS);
+  const liberadas = agente.ferramentas.filter((f): f is NomeFerramentaDisponivel => f in CATALOGO_COMPLETO);
   return (
     <Card className="flex flex-col gap-2 p-4">
       <div className="flex items-baseline justify-between">
@@ -39,10 +45,8 @@ export function ResumoFerramentas({ agente }: { agente: Pick<Agente, 'slug' | 'f
       <ul className="flex flex-col gap-1">
         {liberadas.map((f) => (
           <li key={f} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5 text-sm">
-            <span>{CATALOGO_FERRAMENTAS[f].rotulo}</span>
-            {exigeAprovacao(CATALOGO_FERRAMENTAS[f])
-              ? <Badge variant="warning"><LockKeyhole aria-hidden />{agente.portaDeEntrada ? 'o cliente confirma' : 'aprovação'}</Badge>
-              : <Badge variant="success">só leitura</Badge>}
+            <span>{CATALOGO_COMPLETO[f].rotulo}</span>
+            {seloFerramenta(f, agente.portaDeEntrada)}
           </li>
         ))}
       </ul>

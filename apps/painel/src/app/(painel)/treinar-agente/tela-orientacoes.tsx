@@ -12,6 +12,7 @@ import { medirOrientacoes, type TipoOrientacao } from '@/lib/orientacoes';
 import { lerEmPaginas } from '@/lib/paginas';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { hrefComParams, valorParam, type ParamsBusca } from '@/lib/tabela-url';
+import { TEXTO_TESTE_AGENTE_SETOR } from '../agentes/[slug]/textos';
 import { restaurarVersao, salvarOrientacao } from './acoes';
 import { CabecalhoEditor, RegrasFixas } from './cabecalho-editor';
 import { EditorOrientacao, type SetorOpcao } from './editor-orientacao';
@@ -269,7 +270,7 @@ export async function TelaOrientacoes({ params, base, agenteId, comSimulador }: 
         />
       ) : (
         <section aria-label="Teste do agente" className="flex flex-col gap-2 bg-background p-6 lg:w-simulador-treinar lg:shrink-0 lg:border-l lg:border-border">
-          <p className="text-sm text-muted">O teste deste agente chega quando ele começar a atender (próxima etapa).</p>
+          <p className="text-sm text-muted">{TEXTO_TESTE_AGENTE_SETOR}</p>
         </section>
       )}
     </div>

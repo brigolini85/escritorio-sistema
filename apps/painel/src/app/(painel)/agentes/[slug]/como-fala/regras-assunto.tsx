@@ -12,8 +12,8 @@ import { excluirRegraAssunto, salvarRegraAssunto } from '@/lib/agentes-acoes';
 
 type Edicao = { id: string | null; assunto: string; exemplo: string; modo: ModoContato };
 
-/** Regras por assunto (spec 7E.3): valem antes do modo padrão. Uso no mês: "—" até o Thiago chamar os agentes (D14). */
-export function RegrasAssunto({ slug, regras, editavel }: { slug: string; regras: RegraAssunto[]; editavel: boolean }) {
+/** Regras por assunto (spec 7E.3): valem antes do modo padrão. Uso no mês: conversas em que o Thiago chamou o agente por esta regra (I2). Sem a I2 no banco: —. */
+export function RegrasAssunto({ slug, regras, uso, editavel }: { slug: string; regras: RegraAssunto[]; uso: Record<string, number> | null; editavel: boolean }) {
   const router = useRouter();
   const [edicao, setEdicao] = useState<Edicao | null>(null);
   const [enviando, iniciar] = useTransition();
@@ -56,7 +56,7 @@ export function RegrasAssunto({ slug, regras, editavel }: { slug: string; regras
               <td className="py-2 font-bold">{r.assunto}</td>
               <td className="text-muted">{r.exemplo ? `"${r.exemplo}"` : '—'}</td>
               <td><Badge variant="outline">{INFO_MODO[r.modo].rotulo}</Badge></td>
-              <td className="text-muted">—</td>
+              <td className="text-muted tabular">{uso === null ? '—' : ((n) => (n === 1 ? '1 conversa' : `${n} conversas`))(uso[r.id] ?? 0)}</td>
               <td className="text-right">{editavel && (
                 <>
                   <Button size="icon" variant="ghost" aria-label={`Editar a regra ${r.assunto}`} onClick={() => setEdicao({ id: r.id, assunto: r.assunto, exemplo: r.exemplo, modo: r.modo })}><Pencil aria-hidden size={16} /></Button>

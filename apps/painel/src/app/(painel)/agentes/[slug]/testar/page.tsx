@@ -10,6 +10,7 @@ import { valorParam, type ParamsBusca } from '@/lib/tabela-url';
 import { AVISO_EMPRESAS_INCOMPLETAS, opcaoEmpresa } from '../../../treinar-agente/esquemas';
 import { Simulador } from '../../../treinar-agente/simulador';
 import { SemPermissao } from '../../../treinar-agente/tela-orientacoes';
+import { TEXTO_TESTE_AGENTE_SETOR } from '../textos';
 import { TestarSkill } from './testar-skill';
 
 /** Aba Testar (spec 7E.1, 7C.5, D21): o simulador sem rascunho; o dono pode incluir uma skill (mesmo desligada). */
@@ -18,7 +19,7 @@ export default async function Testar({ params, searchParams }: { params: Promise
   const sb = await supabaseServidor();
   const [{ agente, semMigracao }, dono] = await Promise.all([lerAgente(sb, slug), souDono(sb)]);
   if (!agente) notFound();
-  if (!agente.portaDeEntrada) return <EmptyState icone={FlaskConical} titulo="O teste deste agente chega quando ele começar a atender (próxima etapa)." />;
+  if (!agente.portaDeEntrada) return <EmptyState icone={FlaskConical} titulo={TEXTO_TESTE_AGENTE_SETOR} />;
   if (!temNivel(u, 'treinar', 'sim') && !dono) return <SemPermissao />;
   const skills = dono && !semMigracao ? await lerSkills(sb, agente.id) : [];
   const skill = skills.find((s) => s.id === valorParam(busca, 'skill')) ?? null;
