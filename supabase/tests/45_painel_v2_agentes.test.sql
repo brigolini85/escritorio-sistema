@@ -47,7 +47,7 @@ select results_eq($$ select slug from public.agentes order by ordem $$,
 select is((select (id, nome, estado, modo_contato, porta_de_entrada, setor_id is null)::text from public.agentes where slug = 'atendimento'),
   '(a0000000-0000-4000-8000-000000000001,Thiago,ligado,mesma_voz,t,t)', 'o Thiago: id fixo, Ligado, mesma voz, porta de entrada, sem setor');
 select is((select array(select unnest(ferramentas) order by 1) from public.agentes where slug = 'atendimento'),
-  array(select unnest(public.ferramentas_do_catalogo()) order by 1), 'o Thiago tem as 16 ferramentas');
+  array(select unnest(public.ferramentas_do_atendimento()) order by 1), 'o Thiago tem as 16 ferramentas');
 select ok((select bool_and(estado = 'desligado' and modo_contato is null and ferramentas = '{}' and not porta_de_entrada)
   from public.agentes where slug <> 'atendimento'), 'os outros 6 desligados, sem modo e sem ferramentas');
 select is((select setor_id from public.agentes where slug = 'fiscal'), (select id from public.setores where nome = 'Fiscal'), 'Fiscal no setor Fiscal');

@@ -679,16 +679,22 @@ isOneToOne: false
                   ]
                 },"conversas": {
                   Row: {
-                    "aguardando_pessoa_desde": string | null,"atendente_id": string | null,"atualizado_em": string,"aviso_lgpd_enviado_em": string | null,"cliente_em_foco": string | null,"concluida_em": string | null,"contato_id": string | null,"criado_em": string,"estado": Database["public"]['Enums']["estado_conversa"],"id": string,"motivo_pessoa": string | null,"telefone": string,"tentativas_nao_entendido": number
+                    "agente_conduzindo_id": string | null,"aguardando_pessoa_desde": string | null,"atendente_id": string | null,"atualizado_em": string,"aviso_lgpd_enviado_em": string | null,"cliente_em_foco": string | null,"concluida_em": string | null,"conduzindo_desde": string | null,"contato_id": string | null,"criado_em": string,"estado": Database["public"]['Enums']["estado_conversa"],"id": string,"motivo_pessoa": string | null,"telefone": string,"tentativas_nao_entendido": number
                   }
                   Insert: {
-                    "aguardando_pessoa_desde"?: string | null,"atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"concluida_em"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"motivo_pessoa"?: string | null,"telefone": string,"tentativas_nao_entendido"?: number
+                    "agente_conduzindo_id"?: string | null,"aguardando_pessoa_desde"?: string | null,"atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"concluida_em"?: string | null,"conduzindo_desde"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"motivo_pessoa"?: string | null,"telefone": string,"tentativas_nao_entendido"?: number
                   }
                   Update: {
-                    "aguardando_pessoa_desde"?: string | null,"atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"concluida_em"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"motivo_pessoa"?: string | null,"telefone"?: string,"tentativas_nao_entendido"?: number
+                    "agente_conduzindo_id"?: string | null,"aguardando_pessoa_desde"?: string | null,"atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"concluida_em"?: string | null,"conduzindo_desde"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"motivo_pessoa"?: string | null,"telefone"?: string,"tentativas_nao_entendido"?: number
                   }
                   Relationships: [
                     {
+      foreignKeyName: "conversas_agente_conduzindo_id_fkey"
+      columns: ["agente_conduzindo_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "conversas_atendente_id_fkey"
       columns: ["atendente_id"]
 isOneToOne: false
@@ -716,16 +722,22 @@ isOneToOne: false
                   ]
                 },"decisoes_agente": {
                   Row: {
-                    "cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"entrada": Json | null,"etapa": string,"id": string,"justificativa": string | null,"saida": Json | null,"turno": string | null
+                    "agente_id": string | null,"cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"entrada": Json | null,"etapa": string,"id": string,"justificativa": string | null,"saida": Json | null,"turno": string | null
                   }
                   Insert: {
-                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"entrada"?: Json | null,"etapa": string,"id"?: string,"justificativa"?: string | null,"saida"?: Json | null,"turno"?: string | null
+                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"entrada"?: Json | null,"etapa": string,"id"?: string,"justificativa"?: string | null,"saida"?: Json | null,"turno"?: string | null
                   }
                   Update: {
-                    "cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"entrada"?: Json | null,"etapa"?: string,"id"?: string,"justificativa"?: string | null,"saida"?: Json | null,"turno"?: string | null
+                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"entrada"?: Json | null,"etapa"?: string,"id"?: string,"justificativa"?: string | null,"saida"?: Json | null,"turno"?: string | null
                   }
                   Relationships: [
                     {
+      foreignKeyName: "decisoes_agente_agente_id_fkey"
+      columns: ["agente_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "decisoes_agente_cliente_id_fkey"
       columns: ["cliente_id"]
 isOneToOne: false
@@ -1475,6 +1487,11 @@ isOneToOne: false
               "agente_id": string,"atendimentos": number,"custo_testes_usd": number,"custo_usd": number,"resolvidos": number,"ultima_em": string,"ultima_empresa": string
             }[]
                            },
+"agentes_para_contato":
+{ Args: { "p_contato": string }; Returns: {
+              "estado": string,"ferramentas": (string)[],"id": string,"modelo": string,"modo_contato": string,"nome": string,"regras": Json,"setor": string,"setor_id": string,"slug": string
+            }[]
+                           },
 "alterar_status_chamado":
 { Args: { "p_chamado": string,"p_status": Database["public"]['Enums']["status_chamado"] }; Returns: undefined
                            },
@@ -1668,6 +1685,9 @@ isOneToOne: false
 "eh_usuario_ativo":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"encerrar_conducao":
+{ Args: { "p_conversa": string,"p_motivo": string }; Returns: boolean
+                           },
 "estado_sistema_resumo":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
@@ -1687,6 +1707,12 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: (string)[]
                            },
 "ferramentas_do_catalogo":
+{ Args: Record<PropertyKey, never>; Returns: (string)[]
+                           },
+"ferramentas_do_setor":
+{ Args: Record<PropertyKey, never>; Returns: (string)[]
+                           },
+"ferramentas_so_do_atendimento":
 { Args: Record<PropertyKey, never>; Returns: (string)[]
                            },
 "gastos_atendimentos_base":
@@ -1748,6 +1774,9 @@ isOneToOne: false
                            },
 "horario_valido":
 { Args: { "h": Json }; Returns: boolean
+                           },
+"iniciar_conducao":
+{ Args: { "p_agente": string,"p_conversa": string }; Returns: boolean
                            },
 "limites_espera":
 { Args: Record<PropertyKey, never>; Returns: Json
@@ -1956,6 +1985,11 @@ isOneToOne: false
 "uso_ia_classificacao":
 { Args: { "p_conversa": string,"p_quando": string }; Returns: {
               "cliente_id": string,"funcionalidade": string
+            }[]
+                           },
+"uso_regras":
+{ Args: { "p_ate": string,"p_de": string,"p_slug": string }; Returns: {
+              "conversas": number,"regra_id": string
             }[]
                            },
 "uso_skills":

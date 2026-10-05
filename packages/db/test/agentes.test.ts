@@ -15,7 +15,7 @@ beforeEach(limparBanco);
 
 describe('catálogo (D15)', () => {
   it('o banco e o core têm as mesmas 16 ferramentas, na mesma ordem', async () => {
-    const { data } = await db.rpc('ferramentas_do_catalogo');
+    const { data } = await db.rpc('ferramentas_do_atendimento');
     expect(data).toEqual(FERRAMENTAS_ATENDIMENTO);
   });
 });
