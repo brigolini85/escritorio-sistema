@@ -2,7 +2,7 @@ import { CircleAlert, CircleCheck, TriangleAlert } from 'lucide-react';
 import { ROTULO_SITUACAO_PRE_ANALISE, resumoPreAnalise, type SituacaoPreAnalise } from '@escritorio/core';
 import { RelativeTime } from '@/components/patterns/relative-time';
 import { Badge } from '@/components/ui/badge';
-import type { TrabalhoDoAgente } from '@/lib/agente-demanda';
+import { textoDaDecisao, type TrabalhoDoAgente } from '@/lib/agente-demanda';
 import { BotoesSugestao } from './botoes-sugestao';
 
 const ICONE = { falta: CircleAlert, atencao: TriangleAlert, ok: CircleCheck } as const;
@@ -38,7 +38,7 @@ export function TrabalhoAgente({ trabalho, podeDecidir }: { trabalho: TrabalhoDo
                 <span className="text-muted">{s.tipo === 'nota_interna' ? 'Nota interna' : 'Correção'} · {s.agente} · <RelativeTime data={s.criadaEm} /></span>
               </div>
               <p>{s.texto}</p>
-              {s.estado !== 'aguardando' && s.decididaPor && <p className="text-xs text-muted">Decidida por {s.decididaPor}.</p>}
+              {s.estado !== 'aguardando' && <p className="text-xs text-muted">{textoDaDecisao(s)}.</p>}
               {s.estado === 'aguardando' && podeDecidir && <BotoesSugestao id={s.id} />}
               {s.estado === 'aguardando' && !podeDecidir && <p className="text-xs text-muted">Quem aprova é uma pessoa do setor da demanda.</p>}
             </li>

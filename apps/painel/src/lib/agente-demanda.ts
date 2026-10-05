@@ -1,12 +1,13 @@
 import 'server-only';
 import { ehPreAnaliseNota, type PreAnaliseNota } from '@escritorio/core';
 import { semMigracaoI1 } from '@/lib/agentes';
+import { formatarDataHora } from '@/lib/formatos';
 import type { supabaseServidor } from '@/lib/supabase/servidor';
 
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;
 export type SugestaoTela = {
   id: string; tipo: 'nota_interna' | 'correcao'; agente: string; texto: string; estado: 'aguardando' | 'aprovada' | 'descartada';
-  criadaEm: string; decididaPor: string | null;
+  criadaEm: string; decididaPor: string | null; decididaEm: string | null;
 };
 /** O trabalho do agente do setor dentro da demanda (D9, D19). `semI2`: o banco ainda não tem a Parte I2 (o bloco some). */
 export type TrabalhoDoAgente = { preAnalise: PreAnaliseNota | null; agente: string | null; sugestoes: SugestaoTela[]; semI2: boolean };
@@ -30,7 +31,7 @@ export async function lerTrabalhoDoAgente(sb: Sb, chamadoId: string, verPedidos:
     verPedidos
       ? sb.from('pre_analises_nota').select('resultado, agentes(nome)').eq('chamado_id', chamadoId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    sb.from('agente_sugestoes').select('id, tipo, conteudo, estado, criado_em, agentes(nome), decisor:usuarios!agente_sugestoes_decidida_por_fkey(nome)')
+    sb.from('agente_sugestoes').select('id, tipo, conteudo, estado, criado_em, decidida_em, agentes(nome), decisor:usuarios!agente_sugestoes_decidida_por_fkey(nome)')
       .eq('chamado_id', chamadoId).order('criado_em'),
   ]);
   if (semMigracaoI1(pa.error) || semMigracaoI1(sg.error)) return { ...VAZIO, semI2: true };
@@ -38,13 +39,20 @@ export async function lerTrabalhoDoAgente(sb: Sb, chamadoId: string, verPedidos:
   if (sg.error) console.error('[demandas] sugestões do agente', sg.error);
   const pre = pa.data as { resultado: unknown; agentes: { nome: string } | null } | null;
   const linhas = (sg.data ?? []) as unknown as {
-    id: string; tipo: SugestaoTela['tipo']; conteudo: unknown; estado: SugestaoTela['estado']; criado_em: string;
+    id: string; tipo: SugestaoTela['tipo']; conteudo: unknown; estado: SugestaoTela['estado']; criado_em: string; decidida_em: string | null;
     agentes: { nome: string } | null; decisor: { nome: string } | null;
   }[];
   const sugestoes = linhas.map((s) => ({
     id: s.id, tipo: s.tipo, agente: s.agentes?.nome ?? 'Agente do setor', texto: textoDaSugestao(s.tipo, s.conteudo), estado: s.estado,
-    criadaEm: s.criado_em, decididaPor: s.decisor?.nome ?? null,
+    criadaEm: s.criado_em, decididaPor: s.decisor?.nome ?? null, decididaEm: s.decidida_em,
   }));
   const preAnalise = pre && ehPreAnaliseNota(pre.resultado) ? pre.resultado : null;
   return { preAnalise, agente: (preAnalise ? pre?.agentes?.nome : null) ?? sugestoes[0]?.agente ?? null, sugestoes, semI2: false };
+}
+
+/** "Aprovada por Ana em 05/10/2026 às 09:00" (Brasília); sem decisor (saiu da equipe) fica "Aprovada em ...". */
+export function textoDaDecisao(s: Pick<SugestaoTela, 'estado' | 'decididaPor' | 'decididaEm'>): string {
+  const quem = s.decididaPor ? ` por ${s.decididaPor}` : '';
+  const quando = s.decididaEm ? ` em ${formatarDataHora(s.decididaEm)}` : '';
+  return `${s.estado === 'aprovada' ? 'Aprovada' : 'Descartada'}${quem}${quando}`;
 }
