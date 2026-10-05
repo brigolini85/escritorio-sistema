@@ -117,6 +117,31 @@ describe('a condução (D6)', () => {
       { funcionalidade: 'agente_clientes', agente_id: 'a0000000-0000-4000-8000-000000000001' },
       { funcionalidade: 'agente_clientes', agente_id: 'a0000000-0000-4000-8000-000000000001' }]);
   });
+  it('o agente respondeu e depois devolveu: o Thiago não roda de novo na mesma mensagem', async () => {
+    const { conversa } = await contatoComEmpresas(['Padaria Sol']);
+    const fiscal = await configurarAgenteTeste('fiscal', { estado: 'ligado', modo: 'passa_conversa' });
+    await repos.iniciarConducao(conversa.id, fiscal);
+    const ctx = await ctxDe(conversa.id);
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Pronto, a nota saiu.' } }),
+      usarFerramentas({ nome: 'devolver_ao_thiago', entrada: { motivo: 'assunto resolvido' } })]);
+    expect(await atenderComAgentes(deps(ia), ctx, montarConteudoUsuario(ctx, [], [], []))).toEqual({ status: 'ok' });
+    expect(canal.enviados.map((e) => e.texto)).toEqual(['Pronto, a nota saiu.']);
+    expect(ia.recebidos).toHaveLength(2);
+    expect((await repos.obterConversa(conversa.id)).agente_conduzindo_id).toBeNull();
+    const { data } = await db.from('conversa_eventos').select('texto').eq('conversa_id', conversa.id).eq('tipo', 'agente_devolveu');
+    expect(data).toEqual([{ texto: 'Agente Fiscal: assunto resolvido' }]);
+  });
+  it('erro no agente durante a condução: a condução acaba, com o marco, e o erro segue (F10)', async () => {
+    const { conversa } = await contatoComEmpresas(['Padaria Sol']);
+    const fiscal = await configurarAgenteTeste('fiscal', { estado: 'ligado', modo: 'passa_conversa' });
+    await repos.iniciarConducao(conversa.id, fiscal);
+    const ctx = await ctxDe(conversa.id);
+    const quebrada = { criar: async () => { throw new Error('IA fora'); } };
+    await expect(atenderComAgentes(deps(quebrada as never), ctx, montarConteudoUsuario(ctx, [], [], []))).rejects.toThrow('IA fora');
+    expect((await repos.obterConversa(conversa.id)).agente_conduzindo_id).toBeNull();
+    const { data } = await db.from('conversa_eventos').select('texto').eq('conversa_id', conversa.id).eq('tipo', 'agente_devolveu');
+    expect(data).toEqual([{ texto: 'Agente Fiscal: não conseguiu seguir' }]);
+  });
   it('contato que perdeu o Fiscal no acesso: o agente não roda; o Thiago atende', async () => {
     const { conversa } = await contatoComEmpresas(['Padaria Sol'], TEL, { perfil: 'personalizado', setores: ['Pessoal'] });
     const fiscal = await configurarAgenteTeste('fiscal', { estado: 'ligado', modo: 'passa_conversa' });

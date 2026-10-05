@@ -29,7 +29,7 @@ export const SEM_CONFERIR_ACESSO: ReadonlySet<string> = new Set(['ler_skill', 'l
 export const ENVIAM: ReadonlySet<string> = new Set(FERRAMENTAS_DO_CATALOGO.filter((f) =>
   CATALOGO_COMPLETO[f].efeito === 'envia' || APROVACAO_FERRAMENTA[f] === 'cliente' || APROVACAO_FERRAMENTA[f] === 'conversa'));
 /** Motivo gravado ao encerrar a condução quando o agente não chega a devolver (D6, F10). */
-const NAO_CONSEGUIU_SEGUIR = 'não conseguiu seguir';
+export const NAO_CONSEGUIU_SEGUIR = 'não conseguiu seguir';
 
 const EntradaChamar = z.object({ agente: z.string().trim().min(1).max(40), assunto: z.string().trim().min(1).max(80), pedido: z.string().trim().min(1).max(1000) });
 const EntradaDevolverResposta = z.object({ resposta_ao_cliente: z.string().trim().min(1).max(2000), para_a_equipe: z.string().trim().max(1000).nullish() });
