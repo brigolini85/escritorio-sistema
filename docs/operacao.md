@@ -218,6 +218,39 @@ Um agente por departamento, mais o Radar de legislação. **Nesta etapa só o Th
 
     update public.usuarios set dono = false where dono; update public.usuarios set dono = true where email = 'email-do-dono@exemplo.com';
 
+### Agentes dos setores atendendo (Parte I2)
+
+A partir da I2, o Thiago pode **chamar o agente de um setor** (o primeiro é o Fiscal) quando o assunto da conversa for daquele setor. Ele faz isso pela ferramenta `chamar_agente`, olhando o bloco **AGENTES DOS SETORES** que o sistema põe no pedido dele.
+
+> **⚠ Antes de aplicar a atualização do banco da I2 (caixa do dono).**
+> 1. **Aplique as migrações da I1 e da I2 juntas** (`20261014000100`–`300` e `20261015000100` e `200`) e só então troque o trabalhador. Com **só a I1** aplicada, o trabalhador da I2 funciona **só com o Thiago** (aviso no log); os agentes dos setores só passam a atender com a I2 no banco.
+> 2. **Confira antes o estado dos agentes** na homologação (`select slug, estado, modo_contato from agentes`). Um agente que ficou em **Teste** ou **Ligado** na I1 **e já tem modo** passa a atender assim que o trabalhador trocar.
+> 3. **Quando o Fiscal atua:** só com o estado **Ligado**, ou **Teste** com o contato na lista, **e com um modo escolhido** (D2). Agente **sem modo não atende**: a ficha mostra a faixa de aviso "Escolha como fala com o cliente". Também é preciso que o agente seja do tipo **Conversa** e que o contato tenha empresa. **Sem agente ativo, o Thiago é exatamente o de antes.**
+> 4. **Os Limites sempre vencem**, inclusive dentro do Fiscal: o agente é lembrado deles no fim das instruções, e orientação que os contrarie é ignorada.
+> 5. **Conversa pausada:** uma conversa pausada ainda pode receber o marco "devolveu a conversa ao Thiago" (`agente_devolveu`). É esperado, não é erro.
+> 6. **Fora do expediente:** quando o Fiscal já respondeu e devolveu a conversa, o Thiago **não envia outra mensagem**; só abre a demanda. Por isso, fora do horário de atendimento, o aviso "fora do expediente" **não é enviado** nesse caso (o cliente já recebeu a resposta do Fiscal).
+
+- **Os três modos na prática** (ficha › Como fala com o cliente; o modo pode mudar por assunto, nas regras):
+  - **Por trás:** o agente só ajuda o Thiago; **nunca escreve ao cliente**. O Thiago repassa o que for útil, com a voz dele.
+  - **Mesma voz:** o agente responde **assinando como Thiago**; o cliente não percebe troca.
+  - **Passa a conversa:** o agente se apresenta ("Aqui é do Fiscal do escritório"), o sistema grava o marco **Conversa passada ao Agente Fiscal** e **as próximas mensagens vão direto a ele** até ele devolver, passarem **24 horas** ou o contato perder o acesso ao setor. Ao devolver, a conversa mostra o marco "devolveu a conversa ao Thiago: <motivo>".
+- **Acesso por contato:** vale o mesmo da H2. O contato só fala com o agente de um setor que pode tratar; sem acesso, a recusa é a mesma resposta neutra de hoje. Contato **Básico** segue com o Thiago.
+- **Ferramentas e quem aprova.** Cada ferramenta tem uma classe:
+
+| Classe | Ferramentas | Quem decide |
+|---|---|---|
+| Só leitura | consultas (ler demandas do setor, conferir pedido de nota etc.) | ninguém; o agente lê |
+| O cliente confirma | `resumir_pedido_nota`, `abrir_pedido_nota`, `alterar_preco`, `cadastrar_produto` | o cliente, pelo "sim" de sempre (só em Mesma voz e Passa a conversa) |
+| Pessoa do setor aprova | `nota_interna`, `sugerir_correcao` | alguém do setor da demanda (APROVAR / DESCARTAR) |
+| Pelo modo | `responder` | entra sozinho em Mesma voz e Passa a conversa |
+| Só o Thiago | `selecionar_empresa`, `abrir_chamado`, `sinalizar_nao_entendido`, `passar_para_pessoa`, `enviar_documento` | o banco recusa nos agentes dos setores; o agente usa `devolver_ao_thiago` e o Thiago faz |
+
+- **Sugestões na demanda** (bloco do agente, na demanda): a nota interna e a correção do agente aparecem como **Aguardando aprovação**, com **Aprovar** e **Descartar**. Quem decide: **alguém do setor da demanda**; na **triagem**, só o administrador. O conteúdo de uma demanda de **pedido de nota** segue a permissão **Pedidos de nota** (sem acesso, a pessoa não vê nem decide). Aprovar uma nota interna grava a nota **com o nome de quem aprovou**. A **correção não altera o pedido**: a pessoa aplica à mão. Depois de decidida, a sugestão mostra quem e quando.
+- **Pré-análise do pedido de nota:** roda **sozinha** quando o pedido é aberto (confere destinatário e CNPJ, endereço, produto e preço de cada item, mudança de preço nos últimos 30 dias e se o arquivo do Bling sai). Cada linha vem como **Falta**, **Atenção** ou **OK**. **Não usa IA e não tem custo.** Fica gravada na demanda e, na I3, vira tarefa com pendências.
+- **Custos:** cada chamada do agente do setor é gravada como `especialista_setor` com o agente. Veja em **Gastos com IA › Por agente** e na aba **Atividade e custo** da ficha.
+- **Como testar com segurança:** ponha o Fiscal em **Teste** com **o seu contato** na lista (e um modo escolhido). Só o seu contato fala com ele; os outros seguem com o Thiago. Depois, na conversa, abra o **"por quê?"** e confira as decisões `chamar_agente` e as do agente. A aba **Testar** dos agentes dos setores chega na I3; até lá, teste assim.
+- **Trocar o trabalhador:** só depois de aplicar as migrações da F até a I2 juntas (sem a I2 ele só tem o Thiago). Antes de trocar, confira o estado dos agentes (item 2 da caixa acima).
+
 ### Quando chegar o e-mail "WhatsApp desconectado"
 
 O celular do escritório perdeu a conexão com a Z-API. Entre no painel da Z-API, abra a instância de produção e leia o QR code de novo com o celular do escritório (WhatsApp → Aparelhos conectados → Conectar aparelho). Em até um minuto o sistema percebe e volta a funcionar.
