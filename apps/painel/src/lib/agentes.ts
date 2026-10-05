@@ -94,6 +94,7 @@ export async function lerContagens(sb: Sb, agentes: Agente[]): Promise<Map<strin
     lerEmPaginas((de, ate) => sb.from('orientacoes_agente').select('agente_id').order('id').range(de, ate)),
   ]);
   if (skills.error && !semMigracaoI1(skills.error)) console.error('[agentes] contagem de skills', skills.error);
+  if (orientacoes.error && !semMigracaoI1(orientacoes.error)) console.error('[agentes] contagem de orientações', orientacoes.error);
   const conta = (linhas: { agente_id: string }[], id: string) => linhas.filter((l) => l.agente_id === id).length;
   return new Map(agentes.map((a) => [a.id, {
     skills: skills.error ? 0 : conta(skills.data, a.id), ferramentas: a.ferramentas.length,
