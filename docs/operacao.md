@@ -198,14 +198,17 @@ Um agente por departamento, mais o Radar de legislação. **Nesta etapa só o Th
 
 > **⚠ Antes de aplicar a atualização do banco da Parte I (caixa do dono).**
 > 1. **As 3 migrações da I1 entram juntas:** `20261014000100`, `20261014000200` e `20261014000300`. Com só algumas aplicadas, o trabalhador novo **falha em toda mensagem**; com nenhuma aplicada, ele volta a usar o Thiago de hoje (funciona, sem custo por agente). Aplique as três de uma vez (`supabase db push`) e só então troque o trabalhador.
+>    - **Troque o trabalhador logo depois do push.** Até a troca, **não crie nem ligue orientações nos outros agentes** (Fiscal, Departamento Pessoal etc.): o trabalhador de hoje lê todas as orientações ligadas, de qualquer agente, e as poria no prompt do Thiago.
+>    - **Se o push parar no meio** (erro numa das três), **não troque o trabalhador**: deixe o de hoje rodando e chame o suporte técnico para terminar a atualização.
 > 2. **Quem é o dono:** o administrador ativo **mais antigo**; a migração marca e avisa quem foi. Só muda pela linha de SQL abaixo, nunca pela tela.
 > 3. **A chave de serviço não escreve nos agentes e skills:** as tabelas de agentes e skills só mudam pelas funções do dono (a API recusa a chave de serviço).
-> 4. **Limites ao subir skill:** até **10 MB** por envio; **.zip** com até **60 arquivos** e até **3 MB abertos**; **PDF é recusado** nesta etapa (use `.md`, `.txt` ou `.csv`).
+> 4. **Limites ao subir skill:** até **10 MB** por envio; **.zip** com até **60 arquivos** e até **3 MB abertos**; **PDF é recusado** nesta etapa (use `.md`, `.txt` ou `.csv`). Numa pasta, a tela tira os PDFs e outros formatos antes de enviar e diz quais ficaram de fora.
 > 5. **Custo por dia na Atividade:** o gráfico diário conta **só as chamadas ligadas a uma conversa**, então pode não fechar com o total do mês em **Gastos com IA** (que conta tudo).
-> 6. **Treinar o agente mudou de lugar:** agora é **Agentes › Atendimento › Orientações** (o endereço antigo `/treinar-agente` continua levando para lá).
+> 6. **Treinar o agente mudou de lugar:** agora é **Agentes › Thiago › Orientações** (o endereço antigo `/treinar-agente` continua levando para lá).
 
 - **Quem mexe:** skills, ferramentas, estado, modelo, modo de falar com o cliente e regras por assunto, **só o dono**. Orientações: quem tem "Treinar o agente" (do Thiago) ou "Treinar o agente" e é do setor do agente (dos outros). Os números e custos do mês: dono e administrador.
 - **O Thiago** fica sempre **Ligado** e é a voz do escritório. Para parar o atendimento, use **PAUSAR** no Início. O modelo dele o dono pode trocar na ficha (vazio = o de Configurações).
+- **Modelo de um agente:** só os que têm preço em Configurações › Teto e modelos de IA. O banco não deixa tirar o preço de um modelo que algum agente usa (troque o modelo do agente antes). Se aparecer "(sem preço)" ao lado do modelo, o preço sumiu por fora: escolha outro modelo na ficha.
 - **Skills** (aba Skills): no formato das skills do Claude, uma pasta com `SKILL.md` (cabeçalho `name`, `description` e `tipo`) e arquivos de apoio `.md`, `.txt` ou `.csv` (PDF ainda não). Suba a pasta, um `.zip` ou um `.md`; sem `tipo` no cabeçalho, escolha na tela. Toda skill nova nasce **desligada**: teste (botão ▷ ou aba Testar) e ligue. **Jeito de atuar** e **Limites** entram em toda conversa (somados até 10.000 caracteres); **Procedimentos**, **Conhecimento** e **Exemplos** o agente só lê quando o assunto aparece. Quem vence em conflito: regras fixas › Limites › Jeito de atuar › Procedimentos › Orientações.
 - **Versões:** subir de novo com o mesmo `name` cria a versão seguinte; **Versões** mostra o que mudou e **Restaurar** volta uma versão antiga (como versão nova). **Histórico** (no topo da ficha) lista toda mudança do agente.
 - **Treinar o agente** virou as abas **Orientações** e **Testar** de cada agente (o endereço antigo continua levando para lá).
