@@ -167,6 +167,67 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"agente_sugestoes": {
+                  Row: {
+                    "agente_id": string,"chamado_id": string,"cliente_id": string | null,"conteudo": NonNullable<Json>,"conversa_id": string | null,"criado_em": string,"decidida_em": string | null,"decidida_por": string | null,"estado": string,"id": string,"tipo": string
+                  }
+                  Insert: {
+                    "agente_id": string,"chamado_id": string,"cliente_id"?: string | null,"conteudo": NonNullable<Json>,"conversa_id"?: string | null,"criado_em"?: string,"decidida_em"?: string | null,"decidida_por"?: string | null,"estado"?: string,"id"?: string,"tipo": string
+                  }
+                  Update: {
+                    "agente_id"?: string,"chamado_id"?: string,"cliente_id"?: string | null,"conteudo"?: NonNullable<Json>,"conversa_id"?: string | null,"criado_em"?: string,"decidida_em"?: string | null,"decidida_por"?: string | null,"estado"?: string,"id"?: string,"tipo"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_sugestoes_agente_id_fkey"
+      columns: ["agente_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_sugestoes_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "chamados"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_sugestoes_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "demandas_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_sugestoes_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_sugestoes_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "caixa_entrada"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_sugestoes_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
+    },{
+      foreignKeyName: "agente_sugestoes_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "conversas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_sugestoes_decidida_por_fkey"
+      columns: ["decidida_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"agentes": {
                   Row: {
                     "atualizado_em": string,"atualizado_por": string | null,"criado_em": string,"descricao": string,"estado": string,"ferramentas": (string)[],"id": string,"modelo": string | null,"modo_contato": string | null,"nome": string,"ordem": number,"porta_de_entrada": boolean,"setor_id": string | null,"slug": string,"tipos": (string)[]
@@ -1042,6 +1103,43 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"pre_analises_nota": {
+                  Row: {
+                    "agente_id": string | null,"atualizado_em": string,"chamado_id": string,"cliente_id": string | null,"criado_em": string,"id": string,"resultado": NonNullable<Json>,"versao": number
+                  }
+                  Insert: {
+                    "agente_id"?: string | null,"atualizado_em"?: string,"chamado_id": string,"cliente_id"?: string | null,"criado_em"?: string,"id"?: string,"resultado": NonNullable<Json>,"versao"?: number
+                  }
+                  Update: {
+                    "agente_id"?: string | null,"atualizado_em"?: string,"chamado_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"id"?: string,"resultado"?: NonNullable<Json>,"versao"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pre_analises_nota_agente_id_fkey"
+      columns: ["agente_id"]
+isOneToOne: false
+      referencedRelation: "agentes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pre_analises_nota_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: true
+      referencedRelation: "chamados"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pre_analises_nota_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: true
+      referencedRelation: "demandas_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pre_analises_nota_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"precos": {
                   Row: {
                     "alterado_por": string | null,"alterado_por_contato": string | null,"cliente_id": string,"criado_em": string,"grupo_id": string,"id": string,"origem": string,"produto_id": string,"valor": number,"vigente_ate": string | null,"vigente_desde": string
@@ -1579,8 +1677,14 @@ isOneToOne: false
 "criar_simulacao_skill":
 { Args: { "p_cliente_id"?: string,"p_mensagem": string,"p_skill": string }; Returns: string
                            },
+"criar_sugestao_agente":
+{ Args: { "p_agente": string,"p_chamado": string,"p_conteudo": Json,"p_conversa": string,"p_tipo": string }; Returns: string
+                           },
 "custo_ia_periodo":
 { Args: { "p_fim": string,"p_inicio": string }; Returns: number
+                           },
+"decidir_sugestao":
+{ Args: { "p_aprovar": boolean,"p_id": string }; Returns: string
                            },
 "definir_contatos_teste":
 { Args: { "p_contatos": (string)[],"p_slug": string }; Returns: undefined
@@ -1853,6 +1957,9 @@ isOneToOne: false
 "pode_ver_conversa_de":
 { Args: { "p_conversa": string,"p_usuario": string }; Returns: boolean
                            },
+"pode_ver_sugestoes_do_chamado":
+{ Args: { "p_chamado": string }; Returns: boolean
+                           },
 "prazo_segue_regra":
 { Args: { "p_chamado": string }; Returns: boolean
                            },
@@ -1918,6 +2025,9 @@ isOneToOne: false
                            },
 "salvar_orientacao_agente":
 { Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_slug": string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
+                           },
+"salvar_pre_analise":
+{ Args: { "p_agente": string,"p_chamado": string,"p_resultado": Json }; Returns: undefined
                            },
 "salvar_regra_assunto":
 { Args: { "p_assunto": string,"p_exemplo": string,"p_id": string,"p_modo": string,"p_slug": string }; Returns: string
