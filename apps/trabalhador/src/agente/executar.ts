@@ -149,6 +149,10 @@ export async function executarAgente(
   let lembrado = false;
 
   for (let i = 0; i < MAX_ITERACOES; i++) {
+    // Revisão geral I2: passado o prazo da vez, não abre outra rodada (a fila repetiria o job com esta vez ainda rodando).
+    if (d.prazoVez !== undefined && Date.now() >= d.prazoVez) {
+      return estado.respondeu ? terminou() ?? okFinal() : { status: 'escalar', motivo: 'tempo esgotado', respondeu: false };
+    }
     // A cada rodada: selecionar_empresa pode ter trocado a empresa em foco (e com ela as orientações da empresa).
     const { pedido, cortadas } = montarPedido(ctx, messages, papel);
     const r = await d.ia.criar(pedido);

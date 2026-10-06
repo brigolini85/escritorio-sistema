@@ -15,6 +15,8 @@ export type DepsProcessamento = DepsAgente & { transcritor: Transcritor; midia: 
 export type DesfechoProcessamento = 'sem-mensagens' | 'assistente' | 'interno' | 'humano' | 'pausado' | 'teto' | 'agente' | 'escalado';
 
 const TAMANHO_HISTORICO = 20;
+/** Revisão geral I2: a vez do agente para de abrir rodadas depois disto (bem abaixo do prazo do job, EXPIRA_CONVERSA_SEGUNDOS). */
+export const PRAZO_VEZ_CONVERSA_MS = 7 * 60_000;
 const MAX_BYTES_ANEXO = 5 * 1024 * 1024;
 const IMAGENS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
@@ -170,6 +172,8 @@ class ErroDepoisDoAgente extends Error {
 }
 
 async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: string, ultimaTentativa: boolean): Promise<DesfechoProcessamento> {
+  // O prazo conta do começo do job (baixar mídia e transcrever também gastam o tempo do job).
+  const inicio = Date.now();
   const novas = await d.repos.mensagensNaoProcessadas(conversaId);
   if (novas.length === 0) return 'sem-mensagens';
   const ids = novas.map((m) => m.id);
@@ -255,7 +259,7 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   let desfecho: DesfechoProcessamento = 'agente';
   let agenteAgiu = false;
   try {
-    const r = await atenderComAgentes(d, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
+    const r = await atenderComAgentes({ ...d, prazoVez: inicio + PRAZO_VEZ_CONVERSA_MS }, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
     agenteAgiu = true;
     if (r.status === 'escalar') {
       if (await assumidaPorHumano(d, conversaId)) {

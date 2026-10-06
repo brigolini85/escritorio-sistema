@@ -8,7 +8,11 @@ import { temSkillSobDemanda } from '../agente/skills';
 import { FERRAMENTAS_RADAR, executarFerramentaRadar, lerResultadosWeb, novaVez } from './ferramentas';
 import { AVISO_FIM_BUSCAS, LEMBRETE_GIRO, montarPedidoGiro, montarSistemaRadar } from './prompt';
 
-export type DepsGiro = { repos: Repos; radar: ReposRadar; ia: ClienteIa; relogio: () => Date };
+/** agoraMs: o relógio do prazo (revisão geral I2); padrão Date.now. */
+export type DepsGiro = { repos: Repos; radar: ReposRadar; ia: ClienteIa; relogio: () => Date; agoraMs?: () => number };
+/** Revisão geral I2: o giro para de abrir rodadas aos 25 min; com uma chamada de até 10 min (2 x 300 s), fecha antes dos 40 min
+ * em que o banco fecha o giro travado e bem antes de o job expirar (50 min). */
+export const PRAZO_GIRO_MS = 25 * 60_000;
 export type ResultadoGiro = FimDoGiro & { novas: string[] };
 
 const falhou = (erro: string): ResultadoGiro =>
@@ -42,9 +46,13 @@ export async function rodarGiro(d: DepsGiro, g: GiroParaRodar): Promise<Resultad
   let lembrado = false;
   let avisouFim = false;
   let parouNoLimite = false;
+  let parouNoTempo = false;
+  const agoraMs = d.agoraMs ?? Date.now;
+  const inicio = agoraMs();
   let erro: string | null = null;
   for (let i = 0; i < LIMITES_RADAR.rodadasPorGiro; i++) {
     if (custo >= g.config.limiteUsdGiro) { parouNoLimite = true; break; }
+    if (agoraMs() - inicio >= PRAZO_GIRO_MS) { parouNoTempo = true; break; }
     // Cache automático no topo: a conversa que cresce a cada rodada é lida do cache (as mensagens guardadas não mudam).
     const r = await d.ia.criar({
       model: modelo, max_tokens: 8000, system, tools, messages, output_config: { effort: 'medium' }, cache_control: { type: 'ephemeral' },
@@ -96,7 +104,8 @@ export async function rodarGiro(d: DepsGiro, g: GiroParaRodar): Promise<Resultad
     messages.push({ role: 'user', content: [...resultados, ...aviso] });
     if (vez.terminou || ultima) break;
   }
-  const resumo = [vez.resumo, parouNoLimite ? 'Parou no limite de custo do giro.' : null].filter(Boolean).join(' ') || null;
+  const resumo = [vez.resumo, parouNoLimite ? 'Parou no limite de custo do giro.' : null, parouNoTempo ? 'Parou no tempo máximo do giro.' : null]
+    .filter(Boolean).join(' ') || null;
   return {
     estado: erro ? 'falhou' : 'concluido', fontes: g.fontes.length, paginas: vez.lidas.length, buscas: vez.buscas,
     fontesFora: [...vez.fontesFora.values()], lidas: vez.lidas, resumo, erro, novas: vez.novas,

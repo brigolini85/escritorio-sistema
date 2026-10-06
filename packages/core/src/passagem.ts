@@ -19,6 +19,7 @@ const ESCALADAS: Record<string, string> = {
   max_tokens: 'a resposta ficou longa demais',
   'terminou sem responder': 'o agente terminou sem responder',
   'limite de iterações': 'o agente passou do número máximo de passos',
+  'tempo esgotado': 'o agente passou do tempo máximo da vez',
 };
 
 /** Motivo de executarAgente (status "escalar") em texto da tela; desconhecido vira um texto genérico. */

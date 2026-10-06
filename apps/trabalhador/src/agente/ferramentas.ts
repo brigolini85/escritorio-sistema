@@ -16,7 +16,8 @@ import { acharResumoConferido, chaveConferencia, cnpjFormatado, formatarReais, m
 import type { ContextoAgente } from './contexto';
 import { lerReferenciaDoPerfil, lerSkillDoPerfil } from './skills';
 
-export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa };
+/** prazoVez (revisão geral I2): hora (Date.now) a partir da qual a vez não abre outra rodada; sem ele, sem prazo (simulação, cenários). */
+export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa; prazoVez?: number };
 /** Parte I2 (D4): o que o agente do setor entrega ao Thiago no modo por trás. */
 export type Devolucao = { respostaAoCliente: string; paraAEquipe: string | null };
 export type EstadoExecucao = {
