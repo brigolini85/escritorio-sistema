@@ -1,7 +1,7 @@
 -- Parte I4, Task 4 (spec 7E.4, 7E.5, 7E.8; D9–D11): avisos de quem pediu, pendências repassadas e a resposta pelo WhatsApp.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(42);
 
 insert into auth.users (id, email) values ('fd000000-0000-0000-0000-00000000000a', 'claudia@i4a.local'), ('fd000000-0000-0000-0000-00000000000b', 'paula@i4a.local');
 insert into public.usuarios (id, nome, email, papel, telefone) values
@@ -90,6 +90,44 @@ reset role;
 update public.usuario_permissoes set nivel = 'meu_setor' where modulo = 'demandas' and usuario_id = 'fd000000-0000-0000-0000-00000000000a';
 set local role service_role;
 select is((select count(*)::int from public.pendencias_repassadas_de('fd000000-0000-0000-0000-00000000000a')), 1, 'vê de novo: a repassada volta');
+-- 25–26 (revisão): perdeu o "Assistente: site e WhatsApp": nada repassado e não responde por lá
+reset role;
+update public.usuario_permissoes set nivel = 'site' where modulo = 'assistente' and usuario_id = 'fd000000-0000-0000-0000-00000000000a';
+set local role service_role;
+select is((select count(*)::int from public.pendencias_repassadas_de('fd000000-0000-0000-0000-00000000000a')), 0, 'sem o nível do WhatsApp: nada repassado');
+select throws_ok(format($$ select public.responder_pendencia_de('fd000000-0000-0000-0000-00000000000a', %s, 3, 'caixa') $$,
+  (select numero from public.agente_tarefas where id = 'fd300001-0000-0000-0000-000000000000')), 'P0001', 'Tarefa não encontrada.', 'sem o nível do WhatsApp: recusa');
+-- 27–28 (revisão): a cópia sem horário (quem_pediu_ve_a_tarefa) concorda com pode_ver_chamado_de + "Pedidos de nota"
+-- em todos os níveis de demandas e de notas, com e sem pedido de nota (Cláudia, do setor, sem restrição de horário).
+reset role;
+update public.usuario_permissoes set nivel = 'site_whatsapp' where modulo = 'assistente' and usuario_id = 'fd000000-0000-0000-0000-00000000000a';
+insert into public.chamados (id, cliente_id, setor_id, titulo, pedido_venda) values
+  ('fd200005-0000-0000-0000-000000000000', 'fd100000-0000-0000-0000-00000000000a', (select id from public.setores where nome = 'Contábil'), 'NF de venda', '{}'::jsonb);
+insert into public.agente_tarefas (id, agente_id, chamado_id, cliente_id, setor_id, pedida_por, pedido, limite_usd, limite_minutos)
+values ('fd300005-0000-0000-0000-000000000000', (select id from public.agentes where slug = 'contabil'), 'fd200005-0000-0000-0000-000000000000',
+        'fd100000-0000-0000-0000-00000000000a', (select id from public.setores where nome = 'Contábil'), 'fd000000-0000-0000-0000-00000000000a', 'Nota', 2, 20);
+create temp table concordancia (demandas text, notas text, tarefa uuid, copia boolean, original boolean) on commit drop;
+do $$
+declare d text; n text; t uuid; u uuid := 'fd000000-0000-0000-0000-00000000000a';
+begin
+  foreach d in array array['todas', 'meu_setor', 'minhas'] loop
+    foreach n in array array['sem_acesso', 'ver', 'corrigir'] loop
+      update public.usuario_permissoes set nivel = d where modulo = 'demandas' and usuario_id = u;
+      update public.usuario_permissoes set nivel = n where modulo = 'notas' and usuario_id = u;
+      foreach t in array array['fd300001-0000-0000-0000-000000000000', 'fd300005-0000-0000-0000-000000000000']::uuid[] loop
+        insert into concordancia
+        select d, n, t, interno.quem_pediu_ve_a_tarefa(u, t),
+               public.pode_ver_chamado_de(u, ta.chamado_id) and (ch.pedido_venda is null or interno.tem_permissao_de(u, 'notas', 'ver'))
+          from public.agente_tarefas ta join public.chamados ch on ch.id = ta.chamado_id where ta.id = t;
+      end loop;
+    end loop;
+  end loop;
+  update public.usuario_permissoes set nivel = 'meu_setor' where modulo = 'demandas' and usuario_id = u;
+  update public.usuario_permissoes set nivel = 'ver' where modulo = 'notas' and usuario_id = u;
+end $$;
+select is((select count(*)::int from concordancia where copia is distinct from original), 0, 'a cópia sem horário concorda com a regra original (18 casos)');
+select is((select count(distinct copia)::int from concordancia), 2, 'os casos cobrem ver e não ver');
+set local role service_role;
 -- 20–21: limite por pessoa (D10) e o painel recebe mesmo sem "Painel" marcado (T4). Gravar direto na tabela só como dono do banco.
 reset role;
 insert into public.agente_tarefa_avisos (tarefa_id, usuario_id, canal, tipo, chave, estado, mensagem, enviado_em)

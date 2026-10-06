@@ -43,6 +43,8 @@ end $$;
 
 -- F6: quem pediu ainda vê a tarefa? As travas de responder_pendencia_de (demanda visível, "Pedidos de nota", setor da tarefa ou
 -- administrador), lidas sem o horário de acesso (F2: fora do horário o aviso fica segurado; quem perdeu a demanda não recebe nada).
+-- CÓPIA de public.pode_ver_chamado_de (20261004000200_painel_v2_visibilidade.sql) e de interno.tem_permissao_de(…,'notas','ver')
+-- sem usuario_liberado: mudou a regra lá, mude aqui (o teste 56 confere que as duas concordam).
 create function interno.quem_pediu_ve_a_tarefa(p_usuario uuid, p_tarefa uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select exists (
@@ -58,7 +60,16 @@ language sql stable security definer set search_path = '' as $$
                        when 'meu_setor' then c.setor_id in (select us.setor_id from public.usuario_setores us where us.usuario_id = p_usuario)
                        else false
                      end)
-             and (c.pedido_venda is null or public.nivel_de(p_usuario, 'notas') in ('ver', 'corrigir')))))
+             and (c.pedido_venda is null or coalesce((
+                    select n.ordem >= (select m.ordem from public.permissao_niveis m where m.modulo = 'notas' and m.nivel = 'ver')
+                      from public.permissao_niveis n where n.modulo = 'notas' and n.nivel = public.nivel_de(p_usuario, 'notas')), false)))))
+$$;
+
+-- D9 (P3): o nível "Assistente: site e WhatsApp", lido direto, sem o horário de acesso (como interno.motivo_sem_whatsapp, F2).
+create function interno.tem_assistente_whatsapp(p_usuario uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.usuarios where id = p_usuario and ativo)
+     and public.nivel_de(p_usuario, 'assistente') = 'site_whatsapp'
 $$;
 
 -- D9, D10: depois de cada vez do trabalhador. Devolve os avisos de WhatsApp a mandar; o painel é gravado aqui mesmo.
@@ -214,6 +225,7 @@ language sql stable security definer set search_path = '' as $$
    where t.pedida_por = p_usuario and public.usuario_liberado(p_usuario) and p.tipo = 'analista' and p.estado = 'aberta'
      and p.repassada_em is not null and t.estado not in ('aprovada', 'descartada')
      and interno.quem_pediu_ve_a_tarefa(p_usuario, t.id) -- F6
+     and interno.tem_assistente_whatsapp(p_usuario) -- revisão: só quem ainda tem o Assistente pelo WhatsApp
    order by t.numero, p.numero
    limit 20
 $$;
@@ -225,6 +237,7 @@ declare t public.agente_tarefas%rowtype; p public.agente_pendencias%rowtype;
 begin
   select * into t from public.agente_tarefas where numero = p_tarefa_numero for update;
   if not found or t.pedida_por is distinct from p_usuario or not public.usuario_liberado(p_usuario)
+     or not interno.tem_assistente_whatsapp(p_usuario) -- revisão: perdeu o Assistente pelo WhatsApp, não responde por lá
      or not public.pode_ver_chamado_de(p_usuario, t.chamado_id)
      or (exists (select 1 from public.chamados where id = t.chamado_id and pedido_venda is not null) and not interno.tem_permissao_de(p_usuario, 'notas', 'ver')) then
     raise exception 'Tarefa não encontrada.';
@@ -249,8 +262,8 @@ begin
   return jsonb_build_object('tarefa_id', t.id, 'retomou', interno.retomar_se_respondida(t.id));
 end $$;
 
-revoke execute on function interno.aviso_no_painel(uuid, uuid, text, text, text), interno.quem_pediu_ve_a_tarefa(uuid, uuid)
-  from public, anon, authenticated, service_role;
+revoke execute on function interno.aviso_no_painel(uuid, uuid, text, text, text), interno.quem_pediu_ve_a_tarefa(uuid, uuid),
+  interno.tem_assistente_whatsapp(uuid) from public, anon, authenticated, service_role;
 revoke execute on function public.registrar_avisos_da_tarefa(uuid), public.reservar_aviso_tarefa(uuid), public.marcar_aviso_tarefa(uuid, boolean),
   public.avisos_tarefa_parados(), public.pendencias_repassadas_de(uuid), public.responder_pendencia_de(uuid, bigint, int, text)
   from public, anon, authenticated;
