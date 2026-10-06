@@ -647,3 +647,81 @@ psql "<endereço do Session pooler do ambiente>" -v ON_ERROR_STOP=1 -f supabase/
 ### Setores novos
 
 Além de Pessoal, Contábil, Fiscal, Financeiro e Legalização, as orientações contam com os setores **IRPF** (imposto de renda de pessoa física), **Comercial** (quem ainda não é cliente, orçamento, serviço fora do contrato) e **Direção** (assuntos sensíveis e decisões do escritório; outro contador pedindo documentos também vai para lá). Eles **não vêm com o sistema**: a homologação já tem os três; em produção (e em qualquer ambiente novo), crie-os com `supabase/dados/setores-novos.sql` **antes** do seed das orientações (comandos acima). O arquivo só cria o que falta (confere pelo nome) e não mexe num setor que já existe. Sem eles, assunto sensível cai na triagem. Depois, em cada ambiente, confira em **Configurações** a descrição de assuntos de cada um (é por ela que o agente escolhe o setor) e marque em **Usuários e permissões** quem atende cada setor, principalmente a Direção.
+
+## Radar de legislação (Parte I5)
+
+O Radar é um agente que olha, todo dia, as fontes oficiais que você cadastrou e traz as **novidades da legislação** para a equipe decidir.
+
+### O que o Radar faz e o que nunca faz
+
+- **Faz:** procura nas fontes, resume em frase simples, diz o impacto (alto, médio ou baixo), diz quais setores e quais clientes podem ser afetados e **sempre cita a fonte** (com o link).
+- **Nunca faz:** alterar cliente, demanda, calendário ou skill sozinho. **Tudo é sugestão.** Quem decide é uma pessoa: criar demanda, avisar a equipe, mandar para clientes ou descartar.
+- O link de uma novidade só vale se apareceu na busca ou na leitura daquele giro. Link de fora das fontes nunca ganha o selo **Oficial**.
+
+### Ligar
+
+Em **Agentes › Radar de legislação**, no seletor de **Estado** (só o dono):
+
+- **Ligado:** roda na agenda e também no botão **PROCURAR AGORA**.
+- **Teste:** não tem agenda. Só roda no **PROCURAR AGORA**. Como em todo agente, o Teste pede ao menos um contato.
+- **Desligado:** não faz nada ("O Radar está desligado."). Ele começa desligado.
+
+**PROCURAR AGORA** é do dono e do administrador. Só um giro por vez, e no máximo **6 pedidos por dia**. O giro começa em até 1 minuto, quando o trabalhador pega o pedido.
+
+### Fontes
+
+- Vêm **9 fontes iniciais**: Receita Federal, Diário Oficial da União, Portal do Simples Nacional, eSocial, CFC, CONFAZ, Planalto, SEFAZ-MG e Prefeitura de Conselheiro Lafaiete. Você pode tirar qualquer uma. Confira se todas servem para o escritório.
+- **Para acrescentar:** na lista de fontes, **ADICIONAR FONTE**. Cole o endereço do jeito que tiver (`https://www.gov.br/receitafederal/pt-br`, `cfc.org.br`). O sistema guarda o domínio e, se houver, o caminho (até 2 trechos). Não aceita IP, `localhost` nem endereço sem ponto.
+- **Oficial × site de notícias:** cada fonte é marcada como oficial (padrão) ou site de notícias. Novidade achada numa fonte oficial ganha o selo **Oficial**. Qualquer outra ganha **Confirmar**: a equipe deve conferir no ato oficial antes de agir. Na novidade com **Confirmar**, o botão **PROCURAR NA FONTE OFICIAL** abre um giro só para essa notícia.
+- **O caminho só filtra a busca.** A leitura de páginas abre qualquer página do mesmo domínio (no gov.br, por exemplo, pode abrir páginas fora de `/receitafederal`). O selo, porém, continua sendo dado pelo caminho: só vira Oficial o link que cai dentro do caminho da fonte.
+- Até **30 fontes ligadas** e até **5 páginas** de novidades por fonte. Só o dono mexe nas fontes.
+- Sem nenhuma fonte ligada, não há giro.
+
+### Agenda
+
+- Padrão: **todo dia, 7h** (horário de São Paulo). O dono muda a hora e os dias na tela do Radar.
+- Roda **um giro agendado por dia**. Se o trabalhador estava fora na hora, o giro roda quando ele voltar, no mesmo dia. Mudar a hora depois do giro do dia não abre outro.
+- Um giro que fica "rodando" por mais de **40 minutos** é marcado como falhou ("O giro parou no meio.") e o próximo pode abrir.
+
+### Custo
+
+- Cada busca custa **US$ 0,01**, além do que a IA gasta para ler e escrever. A leitura de páginas só gasta IA.
+- Cada giro faz no máximo 8 buscas e 15 leituras. Há um **limite por giro**, padrão **US$ 0,50** (só o dono muda). Ao chegar nele, o giro termina com o que já achou e avisa "parou no limite de custo".
+- O gasto aparece em **Gastos com IA › Por agente** como **Radar de legislação**, e também no custo de cada giro e do mês, na tela do Radar.
+- O **teto do mês** do escritório vale para o Radar. Passou do teto, o giro falha com "Teto de gastos com IA do mês atingido.".
+- O Radar usa as ferramentas básicas de busca e leitura da web, em qualquer modelo de IA que você escolher.
+
+### Fonte fora do ar
+
+Se uma página não abre, a fonte aparece com o aviso **fora do ar** e entra no relato do giro. No giro agendado, o sistema faz **uma nova tentativa 5 horas depois**, só com essas fontes e só se ainda for antes das 20h. A faixa do giro diz depois se a fonte "voltou" ou "continua fora".
+
+### Avisos
+
+- **Resumo diário** no WhatsApp do dono: depois do giro agendado, **só se houver novidade** (liga e desliga, padrão ligado).
+- **Impacto alto avisa na hora:** WhatsApp do dono e aviso no painel dos setores. No máximo **5 por dia** no WhatsApp (padrão ligado).
+- **Avisar equipe pelo painel:** aviso em Início › Avisos do setor para cada novidade nova (padrão desligado). O botão **AVISAR EQUIPE** de cada novidade faz o mesmo na hora.
+- O WhatsApp do dono precisa do **telefone do dono**, que se cadastra em **Configurações › "Teto e modelos de IA"** (administradores). Sem ele, o WhatsApp não sai e a tela do Radar avisa.
+- Não existe "líder do setor" no sistema: o aviso vai para o painel do setor inteiro.
+- Esses avisos ao dono não contam no limite de mensagens aos clientes.
+- Quem muda as chaves de aviso é só o dono.
+
+### Mandar para clientes
+
+- Em cada novidade, **MANDAR PARA CLIENTES AFETADOS** mostra um rascunho de mensagem (editável) e a lista de clientes possivelmente afetados (**ESCOLHER CLIENTES**; até 200 clientes e 300 contatos por envio). O Radar só indica critérios (regime, UF, município, CNAE, segmento, funcionários); o sistema cruza com os clientes ativos.
+- **Nada sai sem aprovação.** Só uma pessoa do setor escolhido (ou um administrador ou o dono) clica em **APROVAR E ENVIAR**. Se a novidade tem mais de um setor, cada setor pede a sua aprovação.
+- Recebem só os contatos ativos que **têm o setor** e estão marcados **"Pode ser procurado"** (contato Básico não recebe). O contato que aparece em mais de um cliente recebe uma mensagem só.
+- A mensagem sai na **voz do Thiago**, com as mesmas regras dos pedidos de pendência: respeita as pausas (geral, empresa e contato) e não manda para quem está com uma pessoa na conversa.
+- **Limite do dia:** no máximo **3 mensagens ativas por contato e 30 no escritório em 24 horas**. Esse limite agora **soma os pedidos de pendência e os envios do Radar**.
+- O que não pode sair agora **espera** e sai quando o motivo acaba. Passados **3 dias**, vira "não enviado" com o motivo.
+
+### Z-API
+
+Mensagens ativas (que o escritório começa) aumentam o risco de **bloqueio do número** na Z-API. Por isso o limite do dia e a aprovação. Para campanhas maiores, o caminho é a **API oficial do WhatsApp** (item 7E.8 da especificação).
+
+### Quem vê e quem decide
+
+Quem vê os Agentes vê o Radar. **Só o dono** muda estado, fontes, agenda, assuntos vigiados, avisos e limite. **CRIAR DEMANDA** (uma demanda sem empresa no setor escolhido, com o resumo, a fonte e o número de clientes possivelmente afetados) e **MANDAR PARA CLIENTES** são de quem é do setor, do administrador e do dono. **AVISAR EQUIPE** e **DESCARTAR** são de quem vê o Radar.
+
+### Trocar o trabalhador
+
+Só troque o trabalhador **depois de aplicar as migrações F a I5 juntas**. Sem a I5 no banco, o trabalhador roda como antes e dá **um aviso no log**; a tela do Radar mostra a faixa "O Radar aparece quando a atualização do banco da Parte I5 for aplicada.".
