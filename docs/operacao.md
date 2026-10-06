@@ -686,20 +686,20 @@ Em **Agentes › Radar de legislação**, no seletor de **Estado** (só o dono):
 ### Custo
 
 - Cada busca custa **US$ 0,01**, além do que a IA gasta para ler e escrever. A leitura de páginas só gasta IA.
-- Cada giro faz no máximo 8 buscas e 15 leituras. Há um **limite por giro**, padrão **US$ 0,50** (só o dono muda). Ao chegar nele, o giro termina com o que já achou e avisa "parou no limite de custo".
+- Cada giro faz no máximo 8 buscas e 15 leituras. Há um **limite por giro**, padrão **US$ 0,50** (só o dono muda). Ao chegar nele, o giro termina com o que já achou e avisa "Parou no limite de custo do giro.".
 - O gasto aparece em **Gastos com IA › Por agente** como **Radar de legislação**, e também no custo de cada giro e do mês, na tela do Radar.
 - O **teto do mês** do escritório vale para o Radar. Passou do teto, o giro falha com "Teto de gastos com IA do mês atingido.".
 - O Radar usa as ferramentas básicas de busca e leitura da web, em qualquer modelo de IA que você escolher.
 
 ### Fonte fora do ar
 
-Se uma página não abre, a fonte aparece com o aviso **fora do ar** e entra no relato do giro. No giro agendado, o sistema faz **uma nova tentativa 5 horas depois**, só com essas fontes e só se ainda for antes das 20h. A faixa do giro diz depois se a fonte "voltou" ou "continua fora".
+Se uma página não abre, a fonte aparece com o aviso **fora do ar** e entra no relato do giro. No giro agendado, o sistema faz **uma nova tentativa 5 horas depois**, só com essas fontes e só se ainda for antes das 20h. A faixa do giro mostra "<fonte> fora do ar, tenta de novo às <hora>.".
 
 ### Avisos
 
 - **Resumo diário** no WhatsApp do dono: depois do giro agendado, **só se houver novidade** (liga e desliga, padrão ligado).
 - **Impacto alto avisa na hora:** WhatsApp do dono e aviso no painel dos setores. No máximo **5 por dia** no WhatsApp (padrão ligado).
-- **Avisar equipe pelo painel:** aviso em Início › Avisos do setor para cada novidade nova (padrão desligado). O botão **AVISAR EQUIPE** de cada novidade faz o mesmo na hora.
+- **Avisar equipe pelo painel:** aviso no Início das pessoas do setor para cada novidade nova (padrão desligado). O botão **AVISAR EQUIPE** de cada novidade faz o mesmo na hora.
 - O WhatsApp do dono precisa do **telefone do dono**, que se cadastra em **Configurações › "Teto e modelos de IA"** (administradores). Sem ele, o WhatsApp não sai e a tela do Radar avisa.
 - Não existe "líder do setor" no sistema: o aviso vai para o painel do setor inteiro.
 - Esses avisos ao dono não contam no limite de mensagens aos clientes.

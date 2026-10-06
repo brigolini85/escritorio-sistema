@@ -183,4 +183,4 @@ Telas em `app/(painel)/agentes/[slug]/radar/`. Só tokens, nunca cor solta; nada
 - **Faixa do giro** (`role="status"`): `info` com ícone girando enquanto o giro anda, `success` quando termina, `danger` com a palavra **Falhou.** quando falha. **Ver o que leu** abre a lista das páginas lidas.
 - **Selos das fontes:** **FED**, **MG** e **MUN**; a fonte fora do ar leva ícone de alerta e o texto "fora do ar no último giro" (para leitor de tela).
 - **Cadeado "só o dono":** ícone de cadeado com o texto, nas partes que só o dono muda (fontes, agenda, avisos, limite).
-- **Cartão do Radar em `/agentes`:** mostra **"N para decidir"** e o último giro.
+- **Cartão do Radar em `/agentes`:** mostra **"N novidades para decidir"**, **"1 novidade para decidir"** ou **"Nada para decidir"**, e o último giro.
