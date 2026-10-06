@@ -341,13 +341,13 @@ isOneToOne: false
                   ]
                 },"agente_tarefas": {
                   Row: {
-                    "agente_id": string,"ajuste_pendente": boolean,"ajustes": NonNullable<Json>,"anotacoes": string,"atualizado_em": string,"canal": string,"chamado_id": string,"cliente_id": string | null,"criado_em": string,"custo_etapas": NonNullable<Json>,"custo_usd": number,"decidida_em": string | null,"decidida_por": string | null,"estado": string,"etapa_atual": number,"etapas": NonNullable<Json>,"executando_desde": string | null,"id": string,"limite_minutos": number,"limite_usd": number,"motivo_pausa": string | null,"numero": number,"pedida_por": string | null,"pedido": string,"resultado": Json | null,"segundos_trabalhando": number,"setor_id": string | null,"skill_nome": string | null
+                    "agente_id": string,"ajuste_pendente": boolean,"ajustes": NonNullable<Json>,"anotacoes": string,"atualizado_em": string,"avisar_painel": boolean,"avisar_whatsapp": boolean,"canal": string,"chamado_id": string,"cliente_id": string | null,"criado_em": string,"custo_etapas": NonNullable<Json>,"custo_usd": number,"decidida_em": string | null,"decidida_por": string | null,"drive_subpasta": string | null,"estado": string,"etapa_atual": number,"etapas": NonNullable<Json>,"executando_desde": string | null,"id": string,"ler_drive": boolean,"limite_minutos": number,"limite_usd": number,"motivo_pausa": string | null,"numero": number,"pedida_por": string | null,"pedido": string,"prazo_desejado": string | null,"resultado": Json | null,"segundos_trabalhando": number,"setor_id": string | null,"skill_nome": string | null
                   }
                   Insert: {
-                    "agente_id": string,"ajuste_pendente"?: boolean,"ajustes"?: NonNullable<Json>,"anotacoes"?: string,"atualizado_em"?: string,"canal"?: string,"chamado_id": string,"cliente_id"?: string | null,"criado_em"?: string,"custo_etapas"?: NonNullable<Json>,"custo_usd"?: number,"decidida_em"?: string | null,"decidida_por"?: string | null,"estado"?: string,"etapa_atual"?: number,"etapas"?: NonNullable<Json>,"executando_desde"?: string | null,"id"?: string,"limite_minutos": number,"limite_usd": number,"motivo_pausa"?: string | null,"numero"?: never,"pedida_por"?: string | null,"pedido": string,"resultado"?: Json | null,"segundos_trabalhando"?: number,"setor_id"?: string | null,"skill_nome"?: string | null
+                    "agente_id": string,"ajuste_pendente"?: boolean,"ajustes"?: NonNullable<Json>,"anotacoes"?: string,"atualizado_em"?: string,"avisar_painel"?: boolean,"avisar_whatsapp"?: boolean,"canal"?: string,"chamado_id": string,"cliente_id"?: string | null,"criado_em"?: string,"custo_etapas"?: NonNullable<Json>,"custo_usd"?: number,"decidida_em"?: string | null,"decidida_por"?: string | null,"drive_subpasta"?: string | null,"estado"?: string,"etapa_atual"?: number,"etapas"?: NonNullable<Json>,"executando_desde"?: string | null,"id"?: string,"ler_drive"?: boolean,"limite_minutos": number,"limite_usd": number,"motivo_pausa"?: string | null,"numero"?: never,"pedida_por"?: string | null,"pedido": string,"prazo_desejado"?: string | null,"resultado"?: Json | null,"segundos_trabalhando"?: number,"setor_id"?: string | null,"skill_nome"?: string | null
                   }
                   Update: {
-                    "agente_id"?: string,"ajuste_pendente"?: boolean,"ajustes"?: NonNullable<Json>,"anotacoes"?: string,"atualizado_em"?: string,"canal"?: string,"chamado_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"custo_etapas"?: NonNullable<Json>,"custo_usd"?: number,"decidida_em"?: string | null,"decidida_por"?: string | null,"estado"?: string,"etapa_atual"?: number,"etapas"?: NonNullable<Json>,"executando_desde"?: string | null,"id"?: string,"limite_minutos"?: number,"limite_usd"?: number,"motivo_pausa"?: string | null,"numero"?: never,"pedida_por"?: string | null,"pedido"?: string,"resultado"?: Json | null,"segundos_trabalhando"?: number,"setor_id"?: string | null,"skill_nome"?: string | null
+                    "agente_id"?: string,"ajuste_pendente"?: boolean,"ajustes"?: NonNullable<Json>,"anotacoes"?: string,"atualizado_em"?: string,"avisar_painel"?: boolean,"avisar_whatsapp"?: boolean,"canal"?: string,"chamado_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"custo_etapas"?: NonNullable<Json>,"custo_usd"?: number,"decidida_em"?: string | null,"decidida_por"?: string | null,"drive_subpasta"?: string | null,"estado"?: string,"etapa_atual"?: number,"etapas"?: NonNullable<Json>,"executando_desde"?: string | null,"id"?: string,"ler_drive"?: boolean,"limite_minutos"?: number,"limite_usd"?: number,"motivo_pausa"?: string | null,"numero"?: never,"pedida_por"?: string | null,"pedido"?: string,"prazo_desejado"?: string | null,"resultado"?: Json | null,"segundos_trabalhando"?: number,"setor_id"?: string | null,"skill_nome"?: string | null
                   }
                   Relationships: [
                     {
@@ -1802,6 +1802,16 @@ isOneToOne: false
               "estado": string,"ferramentas": (string)[],"id": string,"modelo": string,"modo_contato": string,"nome": string,"regras": Json,"setor": string,"setor_id": string,"slug": string
             }[]
                            },
+"agentes_para_pedir":
+{ Args: { "p_chamado"?: string }; Returns: {
+              "custo_max": number,"custo_min": number,"custo_n": number,"descricao": string,"destino": string,"estado": string,"id": string,"limite_usd": number,"nome": string,"procedimentos": Json,"setor": string,"setor_id": string,"slug": string
+            }[]
+                           },
+"agentes_para_pedir_de":
+{ Args: { "p_chamado"?: string,"p_usuario": string }; Returns: {
+              "custo_max": number,"custo_min": number,"custo_n": number,"descricao": string,"destino": string,"estado": string,"id": string,"limite_usd": number,"nome": string,"procedimentos": Json,"setor": string,"setor_id": string,"slug": string
+            }[]
+                           },
 "alterar_status_chamado":
 { Args: { "p_chamado": string,"p_status": Database["public"]['Enums']["status_chamado"] }; Returns: undefined
                            },
@@ -2178,6 +2188,9 @@ isOneToOne: false
 "marcar_pendencias_vistas":
 { Args: { "p_tarefa": string }; Returns: undefined
                            },
+"meu_whatsapp_para_avisos":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "meus_setores":
 { Args: Record<PropertyKey, never>; Returns: string[]
                            },
@@ -2221,6 +2234,12 @@ isOneToOne: false
                            },
 "pedir_ajuste_tarefa":
 { Args: { "p_id": string,"p_texto": string }; Returns: boolean
+                           },
+"pedir_ao_agente":
+{ Args: { "p_agente": string,"p_avisar_painel"?: boolean,"p_avisar_whatsapp"?: boolean,"p_chamado"?: string,"p_cliente"?: string,"p_ler_drive"?: boolean,"p_pedido": string,"p_prazo"?: string,"p_skill"?: string,"p_subpasta"?: string }; Returns: Json
+                           },
+"pedir_ao_agente_de":
+{ Args: { "p_agente": string,"p_chamado_numero"?: number,"p_cliente"?: string,"p_origem": string,"p_pedido": string,"p_prazo"?: string,"p_usuario": string }; Returns: Json
                            },
 "pedir_leitura_da_pasta":
 { Args: { "p_tarefa": string }; Returns: boolean
