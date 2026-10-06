@@ -922,7 +922,7 @@ describe('modo seguro (critérios de aceite do Prompt 1)', () => {
 
   it('disjuntor (D5): com saldo esgotado há pouco, a conversa seguinte não chama a IA; um alerta só', async () => {
     const a = await contatoComEmpresas(['Indústria X'], '5531970000001');
-    const b = await contatoComEmpresas(['Indústria Y'], '5531970000002');
+    const b = await contatoComEmpresas([], '5531970000002');   // sem empresa: o CNPJ de teste da primeira se repetiria
     for (const c of [a.conversa, b.conversa]) await repos.atualizarConversa(c.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
     await receber(a.conversa.id, 'A1');
     await processarConversa(deps(new IaRoteirizada([SALDO()])), a.conversa.id, false);
@@ -962,7 +962,8 @@ describe('modo seguro (critérios de aceite do Prompt 1)', () => {
     expect(await processarConversa(deps(ia), conversa.id, false)).toBe('escalado');
     expect(await triagens(conversa.id)).toHaveLength(1);
     expect(alertas).toHaveLength(1);
-    expect((await falhas()).map((f) => `${f.tipo}:${f.acao}`)).toEqual(['envio:modo_seguro_sem_mensagem']);
+    // O CanalFalso lança "falha simulada" (tipo codigo); com a Z-API de verdade o tipo é envio (Task 1).
+    expect((await falhas()).map((f) => `${f.tipo}:${f.acao}`)).toEqual(['codigo:modo_seguro_sem_mensagem']);
   });
 
   it('mensagem do modo seguro vazia em Configurações: não manda nada, mas triagem e alerta acontecem', async () => {
@@ -978,7 +979,7 @@ describe('modo seguro (critérios de aceite do Prompt 1)', () => {
 });
 ```
 
-Antes de escrever, confira os ajudantes: `contatoComEmpresas(nomes, telefone?)` em `test/apoio/cenario.ts` (se o segundo parâmetro não for o telefone, use a forma que o arquivo oferece para criar dois contatos diferentes) e `CanalFalso` em `src/canal/falso.ts` (se não houver `falharEnvio`, **acrescente** a propriedade `falharEnvio = false` que faz `enviarTexto`/`enviarArquivo` lançarem `new Error('Z-API 500: fora')` — é um arquivo de teste do próprio trabalhador; o comportamento padrão não muda).
+Ajudantes conferidos em `fa76a76`: `contatoComEmpresas(nomes, telefone = '5531999990001', acesso)` (`test/apoio/cenario.ts:44`; o CNPJ vem da posição na lista, por isso o segundo contato do teste do disjuntor vem sem empresa) e `CanalFalso.falharEnvio` (`src/canal/falso.ts:10`, lança `'falha simulada'`). `CanalFalso` **não muda**.
 
 - [ ] **Step 2: Rode e veja falhar**
 
@@ -1150,13 +1151,12 @@ Expected: PASS, inclusive `processar-conversa.test.ts` inteiro **sem mudança** 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/trabalhador/src/modo-seguro.ts apps/trabalhador/src/processar-conversa.ts apps/trabalhador/src/retencao.ts apps/trabalhador/src/canal/falso.ts apps/trabalhador/test/confiabilidade/modo-seguro.test.ts
+git add apps/trabalhador/src/modo-seguro.ts apps/trabalhador/src/processar-conversa.ts apps/trabalhador/src/retencao.ts apps/trabalhador/test/confiabilidade/modo-seguro.test.ts
 git commit -m "feat(agente): modo seguro quando a IA falha — uma mensagem a cada 4 h, conversa com a equipe, alerta e disjuntor de saldo (confiabilidade, D1, D2, D5, D6, D12)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-(Tire `src/canal/falso.ts` do `git add` se ele não precisou mudar.)
 
 ---
 
