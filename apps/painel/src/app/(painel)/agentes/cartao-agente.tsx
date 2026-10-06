@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import type { Agente, Contagens, NumerosAgente } from '@/lib/agentes';
 import { cn } from '@/lib/cn';
 import { formatarDataHora, formatarUSD } from '@/lib/formatos';
+import { textoCartaoRadar } from './cartao-radar';
 import { falaComOCliente, percentualSozinho } from './lista';
 
 /** Ícone por agente: os iniciais têm o seu; os criados pela tela, o robô. */
@@ -27,10 +28,12 @@ function Numero({ rotulo, valor }: { rotulo: string; valor: string }) {
 }
 
 /** Cartão da tela Agentes (spec 7E.2, imagem 00-agentes-lista): estado em destaque, contagens, números do mês e o modo de falar. */
-export function CartaoAgente({ agente: a, contagens: c, numeros: n, mostrarNumeros, contatosTeste, prontas = null }: {
+export function CartaoAgente({ agente: a, contagens: c, numeros: n, mostrarNumeros, contatosTeste, prontas = null, radar = null }: {
   agente: Agente; contagens: Contagens; numeros: NumerosAgente | undefined; mostrarNumeros: boolean; contatosTeste: number;
   /** D16: tarefas aguardando aprovação que a pessoa vê; maisAntiga é o id da que o REVISAR abre. */
   prontas?: { n: number; maisAntiga: string } | null;
+  /** I5: radar lido para o cartão; null = não lido. */
+  radar?: { semI5: boolean; paraDecidir: number | null; ultimoGiro: string | null } | null;
 }) {
   const Icone = ICONE_AGENTE[a.slug] ?? Bot;
   const fala = falaComOCliente(a);
@@ -80,12 +83,23 @@ export function CartaoAgente({ agente: a, contagens: c, numeros: n, mostrarNumer
         </p>
       )}
       {/* Marcadores rotulados do que vem depois (D26): nada clicável. */}
-      {a.tipos.includes('trabalho') && (
+      {a.tipos.includes('trabalho') && a.slug !== 'radar' && (
         <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted">Tarefas de trabalho: pedidas dentro das demandas do setor.</p>
       )}
-      {a.slug === 'radar' && (
-        <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted">Novidades da legislação: chegam na etapa do Radar.</p>
-      )}
+      {a.slug === 'radar' && (() => {
+        const t = textoCartaoRadar({ semI5: radar?.semI5 ?? true, paraDecidir: radar?.paraDecidir ?? 0, ultimoGiro: radar?.ultimoGiro ?? null });
+        const decidir = !!radar && !radar.semI5 && (radar.paraDecidir ?? 0) > 0;
+        return (
+          <div className="flex flex-col gap-1 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted" data-testid="radar-resumo">
+            <p className="flex items-center gap-2">
+              <Radar aria-hidden size={16} className="text-brand" />
+              <span className={decidir ? 'font-bold text-foreground' : undefined}>{t.principal}</span>
+              {decidir && <Link href="/agentes/radar" className="font-bold uppercase text-brand hover:underline">Decidir</Link>}
+            </p>
+            {t.giro && <p>{t.giro}</p>}
+          </div>
+        );
+      })()}
       <p className="inline-flex items-center gap-1.5 text-sm text-muted">
         <CircleUserRound aria-hidden size={14} />Fala com o cliente: <b className="text-foreground">{fala.modo}</b>{fala.detalhe && <span>({fala.detalhe})</span>}
       </p>

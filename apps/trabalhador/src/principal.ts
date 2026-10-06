@@ -1,4 +1,4 @@
-import { criarClienteServico, criarRepos } from '@escritorio/db';
+import { criarClienteServico, criarRepos, criarReposRadar } from '@escritorio/db';
 import { criarClienteIa } from './agente/cliente-ia';
 import { processarSimulacao } from './agente/simular';
 import { criarAlertas } from './alertas';
@@ -19,6 +19,8 @@ import { processarConversa } from './processar-conversa';
 import { limparRetencao } from './retencao';
 import { canalDaSugestao } from './sugestao/ferramentas';
 import { processarSugestao } from './sugestao/processar';
+import { cicloRadar, enviosRadar } from './radar/ciclo';
+import { criarClienteIaRadar } from './radar/cliente';
 import { criarServidor } from './servidor';
 import { guardarNaTarefa, removerDaTarefa } from './tarefa/armazenamento';
 import { enviarAvisoTarefa } from './tarefa/avisos';
@@ -123,6 +125,13 @@ async function principal() {
   // Todo dia às 07:00: certificado digital perto de vencer vira demanda no Fiscal (Parte H1).
   await boss.work(FILAS.certificados, async () => { await demandasDeCertificado(depsTarefas); });
   await boss.schedule(FILAS.certificados, '0 7 * * *', {}, FUSO);
+
+  // Parte I5: o Radar de legislação. Só lê a web nas fontes do dono e grava sugestões; aos clientes, só o que uma pessoa aprovou.
+  const depsRadar = { repos, radar: criarReposRadar(db), ia: criarClienteIaRadar(cfg.ANTHROPIC_API_KEY), envio, relogio };
+  await boss.work(FILAS.radar, async () => { await cicloRadar(depsRadar); });
+  await boss.schedule(FILAS.radar, '* * * * *');
+  await boss.work(FILAS.radarEnvios, async () => { await enviosRadar(depsRadar); });
+  await boss.schedule(FILAS.radarEnvios, '* * * * *');
 
   const app = criarServidor({ canal, repos, fila: filaDe(boss), segredo: cfg.WEBHOOK_SEGREDO, relogio });
   await app.listen({ host: '0.0.0.0', port: cfg.PORTA });

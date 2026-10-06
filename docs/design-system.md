@@ -173,3 +173,15 @@ A lista aparece com `?` em qualquer tela, fora de campos de texto, ou pelo menu 
 - Também confere o teclado: link "Pular para o conteúdo", `?` e a volta do foco.
 - O teste falha em violação séria ou crítica. As moderadas aparecem no log como `[a11y]`.
 - Tela nova: acrescente a rota na lista do spec.
+
+## Radar (Parte I5)
+
+Telas em `app/(painel)/agentes/[slug]/radar/`. Só tokens, nunca cor solta; nada se diz só pela cor.
+
+- **Selo da fonte:** **Oficial** (`success`, ícone de escudo com check) e **Confirmar** (`warning`, ícone de alerta). O selo vem do banco, pelo caminho da fonte.
+- **Impacto:** cada novidade tem **borda esquerda** (`border-l-4`) e um selo com **ícone e palavra**: **Impacto alto** (`danger`, alerta), **Impacto médio** (`warning`) e **Impacto baixo** (`info`). Nunca só a cor.
+- **Rascunho para o cliente:** bloco com **borda tracejada** e cadeado com o texto **só sai com aprovação**. O botão **APROVAR E ENVIAR** é o único caminho.
+- **Faixa do giro** (`role="status"`): `info` com ícone girando enquanto o giro anda, `success` quando termina, `danger` com a palavra **Falhou.** quando falha. **Ver o que leu** abre a lista das páginas lidas.
+- **Selos das fontes:** **FED**, **MG** e **MUN**; a fonte fora do ar leva ícone de alerta e o texto "fora do ar no último giro" (para leitor de tela).
+- **Cadeado "só o dono":** ícone de cadeado com o texto, nas partes que só o dono muda (fontes, agenda, avisos, limite).
+- **Cartão do Radar em `/agentes`:** mostra **"N novidades para decidir"**, **"1 novidade para decidir"** ou **"Nada para decidir"**, e o último giro.

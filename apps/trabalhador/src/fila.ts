@@ -24,6 +24,10 @@ export const FILAS = {
   pastaDrive: 'pasta_drive',
   /** Parte I4 (D9): um aviso de tarefa ao WhatsApp de quem pediu; { avisoId }. */
   avisoTarefa: 'aviso_tarefa',
+  /** Parte I5 (D5): a cada minuto, o ciclo do Radar (abre e roda giros). Uma vez de cada vez. */
+  radar: 'radar',
+  /** Parte I5 (D14): a cada minuto, os envios do Radar que uma pessoa aprovou. */
+  radarEnvios: 'radar-envios',
 } as const;
 
 export interface Fila {
@@ -63,6 +67,9 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao, FILAS.certificados]) {
     await boss.createQueue(nome, { name: nome, retryLimit: 2 });
   }
+  // Parte I5: um ciclo por vez ("stately" sem chave: um esperando e um rodando); o giro pode levar até 40 min (D8).
+  await boss.createQueue(FILAS.radar, { name: FILAS.radar, policy: 'stately', retryLimit: 0, expireInSeconds: 3000 });
+  await boss.createQueue(FILAS.radarEnvios, { name: FILAS.radarEnvios, policy: 'stately', retryLimit: 0, expireInSeconds: 600 });
   return boss;
 }
 

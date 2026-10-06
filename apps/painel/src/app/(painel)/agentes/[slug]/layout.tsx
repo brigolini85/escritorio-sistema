@@ -38,7 +38,7 @@ export default async function FichaDoAgente({ params, children }: { params: Prom
         <FaixaComoAtua situacao={{ semI2: !comI2, estado: agente.estado, modo: agente.modoContato, tipos: agente.tipos, setor: agente.setor,
           contatosTeste: contatosTeste.length, setorAtivo: agente.setorAtivo }} />
       )}
-      {!agente.portaDeEntrada && !semMigracao && agente.tipos.includes('trabalho') && (
+      {!agente.portaDeEntrada && !semMigracao && agente.slug !== 'radar' && agente.tipos.includes('trabalho') && (
         <FaixaTarefas situacao={{ semI3: !comI3, estado: agente.estado, setor: agente.setor, setorAtivo: agente.setorAtivo }} />
       )}
       {children}

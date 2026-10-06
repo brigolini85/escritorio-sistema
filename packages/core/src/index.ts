@@ -16,3 +16,4 @@ export * from './tarefas';
 export * from './drive';
 export * from './planilha';
 export * from './pedir';
+export * from './radar';

@@ -6,10 +6,10 @@ import { describe, expect, it } from 'vitest';
 // Caminho novo = este teste falha até alguém o pôr aqui E escrever o teste da funcionalidade dele.
 const SRC = join(__dirname, '../../src');
 const ESPERADO = {
-  chamaIa: { 'agente/executar.ts': 1, 'agente/simular.ts': 1, 'assistente/executar.ts': 1, 'sugestao/processar.ts': 1, 'tarefa/executar.ts': 1 },
-  gravaUso: { 'agente/executar.ts': 1, 'agente/simular.ts': 1, 'assistente/executar.ts': 1, 'sugestao/processar.ts': 1, 'sugestao/ferramentas.ts': 1, 'processar-conversa.ts': 1, 'tarefa/executar.ts': 1 },
+  chamaIa: { 'agente/executar.ts': 1, 'agente/simular.ts': 1, 'assistente/executar.ts': 1, 'sugestao/processar.ts': 1, 'tarefa/executar.ts': 1, 'radar/giro.ts': 1 },
+  gravaUso: { 'agente/executar.ts': 1, 'agente/simular.ts': 1, 'assistente/executar.ts': 1, 'sugestao/processar.ts': 1, 'sugestao/ferramentas.ts': 1, 'processar-conversa.ts': 1, 'tarefa/executar.ts': 1, 'radar/giro.ts': 1 },
   transcreve: { 'processar-conversa.ts': 1 },
-  sdk: { 'agente/cliente-ia.ts': 1 }, // o único lugar que fala com a Anthropic direto
+  sdk: { 'agente/cliente-ia.ts': 1, 'radar/cliente.ts': 1 }, // os lugares que falam com a Anthropic direto (o do Radar espera até 5 min por chamada)
 };
 
 function arquivos(dir: string): string[] {
