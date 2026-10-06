@@ -34,6 +34,10 @@ export async function limparBanco(): Promise<void> {
   await c.query("delete from auth.users where email like '%.local'");
   await c.query(`update public.configuracoes set agente_pausado = false, alerta_ia_80_mes = null, teto_ia_usd = 50, telefone_dono = null,
     espera_verde_min = 5, espera_ambar_min = 15`);
+  // Parte I5: o Radar volta às sementes (fontes, agenda, sem giros nem novidades). Sem a I5 no banco, nada.
+  await c.query(`do $$ begin
+    if to_regprocedure('public.restaurar_radar_inicial()') is not null then perform public.restaurar_radar_inicial(); end if;
+    end $$`);
   await c.end();
 }
 
@@ -246,3 +250,4 @@ export async function situacaoDriveTeste(email: string | null, erro: string | nu
   await sqlTeste(`insert into public.drive_conta (id, email, erro) values (1, $1, $2)
     on conflict (id) do update set email = excluded.email, erro = excluded.erro, verificado_em = now()`, [email, erro]);
 }
+export * from './radar';
