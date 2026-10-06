@@ -1,5 +1,7 @@
 import { CONDUCAO_EXPIRA_HORAS, SLUG_ATENDIMENTO, empresaDoUso, estaNoExpediente, type AcessoContato } from '@escritorio/core';
-import type { AgenteSetor, Configuracoes, ContatoEncontrado, Conversa, EmpresaDoContato, OrientacaoAgente, PerfilAgente, Repos } from '@escritorio/db';
+import type {
+  AgenteSetor, Configuracoes, ContatoEncontrado, Conversa, EmpresaDoContato, OrientacaoAgente, PedidoAoContato, PerfilAgente, Repos,
+} from '@escritorio/db';
 import { carregarAgentesSetor, carregarPerfil } from './perfil';
 
 export type ContextoAgente = {
@@ -22,6 +24,8 @@ export type ContextoAgente = {
   agentesSetor?: AgenteSetor[];
   /** Parte I2 (D6): o agente que está conduzindo esta conversa ("Passa a conversa"), se ainda vale. */
   conducao?: AgenteSetor | null;
+  /** Parte I3a (D26): pedidos de pendência já enviados a este contato e ainda abertos. Ausente quando não há (o Thiago de antes). */
+  pedidosAoContato?: PedidoAoContato[];
 };
 
 export async function carregarContexto(
@@ -46,6 +50,15 @@ export async function carregarContexto(
     console.error('[motor] agentes dos setores não lidos; só o Thiago atende', conversa.id, erro);
   }
   const conducao = lidos ? await conducaoQueVale(repos, conversa, agentesSetor, agora) : null;
+  // Parte I3a (D26): banco sem a I3 (null) ou erro: nenhum, e o Thiago segue como antes.
+  let pedidosAoContato: PedidoAoContato[] = [];
+  if (contato) {
+    try {
+      pedidosAoContato = (await repos.pendenciasPedidasAoContato(contato.id)) ?? [];
+    } catch (erro) {
+      console.error('[motor] pedidos ao contato não lidos', conversa.id, erro);
+    }
+  }
   return {
     conversa,
     contato,
@@ -60,6 +73,7 @@ export async function carregarContexto(
     agente,
     agentesSetor,
     conducao,
+    ...(pedidosAoContato.length ? { pedidosAoContato } : {}),
   };
 }
 

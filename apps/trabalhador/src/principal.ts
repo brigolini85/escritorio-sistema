@@ -8,7 +8,7 @@ import { lerConfig } from './config';
 import { criarEmail } from './email';
 import { LimitadorEnvio, enviarMensagemDoPainel, verificarEnviadaPorMim } from './envio';
 import { processarAssistente } from './assistente/processar';
-import { FILAS, criarBoss, filaDe, type JobAssistente, type JobSimulacao, type JobSugestao } from './fila';
+import { FILAS, criarBoss, filaDe, type JobAssistente, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa } from './fila';
 import { criarArmazenamento } from './midia/armazenamento';
 import { criarTranscritor } from './midia/transcritor';
 import { processarConversa } from './processar-conversa';
@@ -16,6 +16,8 @@ import { limparRetencao } from './retencao';
 import { canalDaSugestao } from './sugestao/ferramentas';
 import { processarSugestao } from './sugestao/processar';
 import { criarServidor } from './servidor';
+import { enviarPedidoDePendencia } from './tarefa/pendencias';
+import { processarTarefa } from './tarefa/processar';
 import { alertasPeriodicos, batimento, demandasDeCertificado, resumoDiario } from './tarefas';
 
 const FUSO = { tz: 'America/Sao_Paulo' };
@@ -63,6 +65,14 @@ async function principal() {
       await processarSugestao({ repos, ia: deps.ia, canal: canalDaSugestao() }, job!.data.sugestaoId, job!.retryCount >= job!.retryLimit);
     });
   }
+  // Parte I3a: tarefas de trabalho, uma de cada vez (máquina com pouca memória, D6). Nada envia ao cliente.
+  await boss.work<JobTarefa>(FILAS.agenteTrabalho, { includeMetadata: true }, async ([job]) => {
+    await processarTarefa({ repos, ia: deps.ia, midia, fila: filaDe(boss), relogio }, job!.data.tarefaId, job!.retryCount >= job!.retryLimit);
+  });
+  // Parte I3a (D7): o pedido de pendência que uma pessoa aprovou, na voz do Thiago.
+  await boss.work<JobPendencia>(FILAS.pendenciaCliente, async ([job]) => {
+    await enviarPedidoDePendencia({ repos, envio }, job!.data.pendenciaId);
+  });
   await boss.work<{ mensagemId: string }>(FILAS.enviarMensagem, { includeMetadata: true }, async ([job]) => {
     await enviarMensagemDoPainel(envio, job!.data.mensagemId, job!.retryCount >= job!.retryLimit);
   });

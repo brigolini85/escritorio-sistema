@@ -3,7 +3,7 @@ import type { Alertas } from './alertas';
 import type { CanalWhatsApp } from './canal/tipos';
 import type { Email } from './email';
 import { enviarDoSistema, type DepsEnvio } from './envio';
-import { FILAS, agendarAssistente, type Fila } from './fila';
+import { FILAS, agendarAssistente, agendarPedidoPendencia, agendarTarefa, type Fila } from './fila';
 
 export type DepsTarefas = { repos: Repos; canal: CanalWhatsApp; alertas: Alertas; envio: DepsEnvio; email: Email; fila: Fila; relogio: () => Date };
 
@@ -20,6 +20,11 @@ export async function batimento(d: DepsTarefas): Promise<void> {
   for (const p of await d.repos.perguntasAssistenteParadas(2)) {
     await agendarAssistente(d.fila, { usuarioId: p.usuarioId, canal: p.canal, conversaId: p.conversaId, telefone: p.canal === 'whatsapp' ? p.telefone : null });
   }
+  // Parte I3a (D8): tarefa "trabalhando" sem vez em andamento há 2 minutos (o job não entrou ou se perdeu) volta para a fila.
+  for (const tarefaId of await d.repos.tarefasParadas(2)) await agendarTarefa(d.fila, tarefaId);
+  // Parte I3a (F5): pedido ao cliente aprovado que não saiu (job perdido, tentativas esgotadas, queda entre reservar e marcar) volta para a fila;
+  // o banco solta antes as reservas de mais de 10 min sem mensagem.
+  for (const pendenciaId of await d.repos.pedidosAoClienteParados(2)) await agendarPedidoPendencia(d.fila, pendenciaId, 'batimento');
   const conectado = await d.canal.status().then((s) => s.conectado).catch(() => false);
   if (conectado) {
     await d.repos.registrarSinalVida('whatsapp');

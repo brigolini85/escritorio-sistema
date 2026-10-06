@@ -45,6 +45,11 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   await boss.createQueue(FILAS.simularAgente, { name: FILAS.simularAgente, policy: 'stately', retryLimit: 2, retryDelay: 15, retryBackoff: true });
   // Mesma configuração em apps/painel/src/lib/fila.ts; singletonKey = id da sugestão (o painel enfileira).
   await boss.createQueue(FILAS.sugerirResposta, { name: FILAS.sugerirResposta, policy: 'stately', retryLimit: 1, retryDelay: 5 });
+  // Mesma configuração em apps/painel/src/lib/fila.ts. "stately" + singletonKey = tarefa: uma vez por tarefa (D6); 30 min por vez no máximo
+  // (a vez para de abrir rodadas aos 20 min, F6: a expiração fica acima para o job não ser repetido com a vez ainda rodando).
+  await boss.createQueue(FILAS.agenteTrabalho, { name: FILAS.agenteTrabalho, policy: 'stately', retryLimit: 2, retryDelay: 30, retryBackoff: true, expireInSeconds: 1800 });
+  // Mesma configuração em apps/painel/src/lib/fila.ts; singletonKey = pendência + vez do pedido.
+  await boss.createQueue(FILAS.pendenciaCliente, { name: FILAS.pendenciaCliente, policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true });
   await boss.createQueue(FILAS.enviarMensagem, { name: FILAS.enviarMensagem, retryLimit: 5, retryDelay: 10, retryBackoff: true });
   await boss.createQueue(FILAS.removerArquivos, { name: FILAS.removerArquivos, retryLimit: 10, retryDelay: 60, retryBackoff: true });
   for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao, FILAS.certificados]) {
@@ -85,3 +90,7 @@ export async function agendarTarefa(fila: Fila, tarefaId: string): Promise<void>
 }
 /** Job da fila `pendencia_cliente`: a pendência cujo pedido a pessoa aprovou. */
 export type JobPendencia = { pendenciaId: string };
+/** vez: o número do pedido (o painel, a cada PEDIR AO CLIENTE / COBRAR DE NOVO) ou 'batimento' (pedido que não saiu, F5). A reserva no banco impede o envio duplo. */
+export async function agendarPedidoPendencia(fila: Fila, pendenciaId: string, vez: number | 'batimento'): Promise<void> {
+  await fila.enviar(FILAS.pendenciaCliente, { pendenciaId } satisfies JobPendencia, { singletonKey: `${pendenciaId}:${vez}` });
+}

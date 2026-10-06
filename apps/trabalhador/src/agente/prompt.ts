@@ -4,6 +4,7 @@ import type { SkillCarregada } from '@escritorio/db';
 import { secaoAgentesSetor } from './agentes-setor';
 import type { ContextoAgente } from './contexto';
 import { limparTextoOrientacao, linhaOrientacao, orientacoesDaConversa, type OrientacoesDaConversa } from './orientacoes';
+import { secaoPedidosAoContato } from './pedidos-ao-contato';
 import { AVISO_LIMITES_NAS_ORIENTACOES, secaoSkills, temLimites } from './skills';
 
 export type AnexoParaIa = { tipo: 'imagem' | 'documento'; mime: string; base64: string; nome: string };
@@ -47,6 +48,9 @@ export function montarBlocosSistema(ctx: ContextoAgente): { system: Anthropic.Te
   // Parte I2 (D1): os agentes ativos para este contato. Sem nenhum, nada muda (retratos da I1).
   const agentes = secaoAgentesSetor(ctx.agentesSetor ?? []);
   if (agentes) system.push({ type: 'text', text: agentes });
+  // Parte I3a (D26): pedidos do escritório a este contato. Sem nenhum, nada muda (retratos da I1).
+  const pedidos = secaoPedidosAoContato(ctx.pedidosAoContato ?? []);
+  if (pedidos) system.push({ type: 'text', text: pedidos });
   const daEmpresa = ctx.empresaEmFoco
     ? montarOrientacoesEmpresa(ctx.empresaEmFoco.nome, o.daEmpresa, temLimites(ctx.agente?.skills ?? [])) : null;
   if (daEmpresa) system.push({ type: 'text', text: daEmpresa });

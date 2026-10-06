@@ -9,6 +9,10 @@ import { NAO_CONSEGUIU_SEGUIR, acessoAoSetor } from './roteamento';
  * se ele devolver, o Thiago trata a mesma mensagem (sem o mesmo agente na lista). Sem condução, o Thiago (que pode chamar um agente).
  */
 export async function atenderComAgentes(d: DepsAgente, ctx: ContextoAgente, conteudo: Anthropic.ContentBlockParam[]): Promise<ResultadoAgente> {
+  // Parte I3a (D26): o contato escreveu com pedido aberto; a tarefa ganha o aviso (no máximo um por hora). Falha não para a vez.
+  if (ctx.pedidosAoContato?.length && ctx.contato) {
+    await d.repos.contatoRespondeuPendencias(ctx.contato.id).catch((e) => console.error('[tarefa] aviso de resposta não gravado', ctx.conversa.id, e));
+  }
   const a = ctx.conducao;
   if (!a) return executarAgente(d, ctx, conteudo);
   // A mesma conferência do chamar_agente (F14). Sem acessoConferido: o agente confere de novo antes de cada ferramenta (D7).
