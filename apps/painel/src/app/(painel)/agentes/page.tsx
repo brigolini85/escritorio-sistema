@@ -10,7 +10,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import type { ParamsBusca } from '@/lib/tabela-url';
 import { SemPermissao } from '../treinar-agente/tela-orientacoes';
 import { CartaoAgente } from './cartao-agente';
-import { radarSemMigracao } from './cartao-radar';
+import { radarSemMigracao } from './radar-sem-migracao';
 import { FiltrosAgentes } from './filtros-agentes';
 import { contarPorEstado, filtrarAgentes, lerFiltrosAgentes } from './lista';
 import { NovoAgente } from './novo-agente';
