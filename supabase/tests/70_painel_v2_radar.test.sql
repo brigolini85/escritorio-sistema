@@ -2,7 +2,7 @@
 -- Só o dono muda fontes e agenda; lê quem vê os Agentes; o trabalhador abre, pega e fecha os giros e registra as novidades.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(138);
+select plan(145);
 
 update public.usuarios set dono = false where dono;   -- outro teste ou e2e pode ter deixado um dono
 insert into auth.users (id, email) values
@@ -91,6 +91,9 @@ select is(interno.fonte_da_url('https://gov.br.exemplo.com/receitafederal'), nul
 select is(interno.fonte_da_url('https://fakegov.br/receitafederal'), null::uuid, 'fakegov.br não é gov.br');
 select is(interno.fonte_da_url('https://gov.br@golpe.net/receitafederal'), null::uuid, 'o usuário antes do @ não engana');
 select is(interno.fonte_da_url('ftp://cfc.org.br'), null::uuid, 'só http e https');
+select is(interno.fonte_da_url('https://evil.com\.gov.br/receitafederal/x'), null::uuid, 'barra invertida no endereço não vale (o navegador abre evil.com)');
+select is(interno.fonte_da_url('https://gov%2Ebr/receitafederal/x'), null::uuid, 'endereço com % não vale');
+select is(interno.fonte_da_url('https://gov.br /receitafederal/x'), null::uuid, 'endereço com espaço não vale');
 
 -- 33–43: salvar_fonte_radar só do dono
 set local role authenticated;
@@ -239,6 +242,19 @@ select is((select fontes_ids from public.radar_giros where origem = 'nova_tentat
   array[(select id from public.radar_fontes where nome like 'Prefeitura%')], 'só a fonte que estava fora');
 update public.radar_giros set estado = 'concluido', terminado_em = '2026-11-04 16:10+00' where origem = 'nova_tentativa';
 select is(public.abrir_giros_radar('2026-11-04 17:00+00'), null::text, 'uma nova tentativa por dia');
+
+-- fonte_id que não é código de fonte não trava o dia; a nova tentativa não abre depois das 20 h em SP
+delete from public.radar_giros;
+insert into public.radar_giros (origem, estado, dia, terminado_em, nova_tentativa_em, fontes_fora) values
+  ('agenda', 'concluido', '2026-11-08', '2026-11-08 10:30+00', '2026-11-08 12:00+00', '[{"fonte_id":"x","nome":"A"},{"fonte_id":null,"nome":"B"},{"nome":"C"}]');
+select is(public.abrir_giros_radar('2026-11-08 13:00+00'), null::text, 'fonte_id inválido ou nulo: não dá erro e não abre nova tentativa');
+delete from public.radar_giros;
+insert into public.radar_giros (origem, estado, dia, terminado_em, nova_tentativa_em, fontes_fora) values
+  ('agenda', 'concluido', '2026-11-09', '2026-11-09 15:00+00', '2026-11-09 20:00+00',
+   jsonb_build_array(jsonb_build_object('fonte_id', (select id from public.radar_fontes where nome like 'Prefeitura%'), 'nome', 'Prefeitura', 'motivo', 'fora do ar')));
+select is(public.abrir_giros_radar('2026-11-09 23:00+00'), null::text, '20:00 em SP: a nova tentativa não abre');
+select is(public.abrir_giros_radar('2026-11-09 22:59+00'), 'nova_tentativa', '19:59 em SP: abre');
+delete from public.radar_giros;
 
 -- 91–101: pegar_giro_radar
 select is(public.pegar_giro_radar(), null::jsonb, 'sem giro pendente: null');
@@ -399,6 +415,7 @@ select public.somar_custo_giro('fc400000-0000-0000-0000-000000000007', -1);
 select is((select custo_usd from public.radar_giros where id = 'fc400000-0000-0000-0000-000000000007'), 0.75::numeric, 'valor negativo soma 0');
 
 -- restaurar_radar_inicial: ninguém pela API
+select throws_ok($$ select public.salvar_config_radar('{"hora":"07:30"}') $$, '42501', null, 'service_role não chama as funções das pessoas');
 select throws_ok($$ select public.restaurar_radar_inicial() $$, '42501', null, 'service_role não chama restaurar_radar_inicial');
 reset role;
 select set_config('request.jwt.claims', '', true);

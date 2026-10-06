@@ -10,7 +10,8 @@ language sql stable set search_path = '' as $$ select (p at time zone 'America/S
 -- D2: o host sem "www." (o usuário antes do @ não engana) e o caminho, em minúsculas. As mesmas regras de fonteDaUrl do core.
 create function interno.host_da_url(p_url text) returns text
 language sql immutable set search_path = '' as $$
-  select nullif(regexp_replace(substring(lower(btrim(p_url)) from '^https?://(?:[^/?#@]*@)?([^/?#:]+)'), '^www\.', ''), '')
+  select case when lower(btrim(p_url)) ~ '[\s\\[:cntrl:]]' then null
+              else nullif(regexp_replace(substring(lower(btrim(p_url)) from '^https?://(?:[^/?#@\\]*@)?([a-z0-9.-]+)(?::[0-9]{1,5})?(?:[/?#]|$)'), '^www\.', ''), '') end
 $$;
 create function interno.caminho_da_url(p_url text) returns text
 language sql immutable set search_path = '' as $$
@@ -386,14 +387,15 @@ begin
     insert into public.radar_giros (origem, estado, dia, criado_em) values ('agenda', 'pendente', v_dia, p_agora);
     return 'agenda';
   end if;
-  select g.fontes_fora into t from public.radar_giros g
+  select array(select f.id from public.radar_fontes f
+                where f.ativa and exists (select 1 from jsonb_array_elements(g.fontes_fora) e where e ->> 'fonte_id' = f.id::text)) as ids into t
+    from public.radar_giros g
    where g.origem = 'agenda' and g.dia = v_dia and g.nova_tentativa_em is not null and g.nova_tentativa_em <= p_agora
+     and (p_agora at time zone 'America/Sao_Paulo')::time < '20:00'
      and not exists (select 1 from public.radar_giros x where x.origem = 'nova_tentativa' and x.dia = v_dia)
    limit 1;
-  if found then
-    insert into public.radar_giros (origem, estado, dia, criado_em, fontes_ids)
-    values ('nova_tentativa', 'pendente', v_dia, p_agora,
-            array(select (e ->> 'fonte_id')::uuid from jsonb_array_elements(t.fontes_fora) e where e ->> 'fonte_id' is not null));
+  if found and cardinality(t.ids) > 0 then
+    insert into public.radar_giros (origem, estado, dia, criado_em, fontes_ids) values ('nova_tentativa', 'pendente', v_dia, p_agora, t.ids);
     return 'nova_tentativa';
   end if;
   return null;
@@ -498,7 +500,7 @@ begin
     lidas = case when jsonb_typeof(p_dados -> 'lidas') = 'array' then p_dados -> 'lidas' else '[]'::jsonb end,
     resumo = left(nullif(btrim(p_dados ->> 'resumo'), ''), 1000), erro = left(nullif(btrim(p_dados ->> 'erro'), ''), 300),
     nova_tentativa_em = case
-      when g.origem = 'agenda' and exists (select 1 from jsonb_array_elements(v_fora) e where e ->> 'fonte_id' is not null)
+      when g.origem = 'agenda' and exists (select 1 from jsonb_array_elements(v_fora) e join public.radar_fontes f on f.id::text = e ->> 'fonte_id')
        and interno.dia_sp(v_fim + interval '5 hours') = g.dia
        and ((v_fim + interval '5 hours') at time zone 'America/Sao_Paulo')::time < '20:00'
       then v_fim + interval '5 hours' end
@@ -523,7 +525,7 @@ begin
 end $$;
 
 revoke execute on function public.salvar_fonte_radar(uuid, jsonb), public.remover_fonte_radar(uuid), public.salvar_config_radar(jsonb),
-  public.pedir_giro_radar(), public.procurar_fonte_oficial_radar(uuid) from public, anon;
+  public.pedir_giro_radar(), public.procurar_fonte_oficial_radar(uuid) from public, anon, service_role;
 grant execute on function public.salvar_fonte_radar(uuid, jsonb), public.remover_fonte_radar(uuid), public.salvar_config_radar(jsonb),
   public.pedir_giro_radar(), public.procurar_fonte_oficial_radar(uuid) to authenticated;
 revoke execute on function public.abrir_giros_radar(timestamptz), public.pegar_giro_radar(), public.registrar_novidade_radar(uuid, jsonb),
