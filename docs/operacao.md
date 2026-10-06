@@ -246,10 +246,89 @@ A partir da I2, o Thiago pode **chamar o agente de um setor** (o primeiro é o F
 | Só o Thiago | `selecionar_empresa`, `abrir_chamado`, `sinalizar_nao_entendido`, `passar_para_pessoa`, `enviar_documento` | o banco recusa nos agentes dos setores; o agente usa `devolver_ao_thiago` e o Thiago faz |
 
 - **Sugestões na demanda** (bloco do agente, na demanda): a nota interna e a correção do agente aparecem como **Aguardando aprovação**, com **Aprovar** e **Descartar**. Quem decide: **alguém do setor da demanda**; na **triagem**, só o administrador. O conteúdo de uma demanda de **pedido de nota** segue a permissão **Pedidos de nota** (sem acesso, a pessoa não vê nem decide). Aprovar uma nota interna grava a nota **com o nome de quem aprovou**. A **correção não altera o pedido**: a pessoa aplica à mão. Depois de decidida, a sugestão mostra quem e quando.
-- **Pré-análise do pedido de nota:** roda **sozinha** quando um pedido de nota de **venda** é aberto, **desde que** o agente do setor Fiscal esteja **ativo para aquele contato** (Ligado, ou Teste com o contato na lista, e com modo escolhido) **e** a ferramenta **"Conferir pedido de nota"** esteja **marcada** na aba Ferramentas da ficha do Fiscal. **O Fiscal nasce sem nenhuma ferramenta marcada:** sem marcar essa, nenhuma pré-análise aparece. Ela confere destinatário e CNPJ, endereço, produto e preço de cada item, mudança de preço nos últimos 30 dias e se o arquivo do Bling sai. Cada linha vem como **Falta**, **Atenção** ou **OK**. **Não usa IA e não tem custo.** Fica gravada na demanda e, na I3, vira tarefa com pendências.
+- **Pré-análise do pedido de nota:** roda **sozinha** quando um pedido de nota de **venda** é aberto, **desde que** o agente do setor Fiscal esteja **ativo para aquele contato** (Ligado, ou Teste com o contato na lista, e com modo escolhido) **e** a ferramenta **"Conferir pedido de nota"** esteja **marcada** na aba Ferramentas da ficha do Fiscal. **O Fiscal nasce sem nenhuma ferramenta marcada:** sem marcar essa, nenhuma pré-análise aparece. Ela confere destinatário e CNPJ, endereço, produto e preço de cada item, mudança de preço nos últimos 30 dias e se o arquivo do Bling sai. Cada linha vem como **Falta**, **Atenção** ou **OK**. **Não usa IA e não tem custo.** Fica gravada na demanda e **não vira tarefa** (sem IA não há pendência nem aprovação a fazer).
 - **Custos:** cada chamada do agente do setor é gravada como `especialista_setor` com o agente. Veja em **Gastos com IA › Por agente** e na aba **Atividade e custo** da ficha.
-- **Como testar com segurança:** ponha o Fiscal em **Teste** com **o seu contato** na lista (e um modo escolhido). Só o seu contato fala com ele; os outros seguem com o Thiago. Depois, na conversa, abra o **"por quê?"** e confira as decisões `chamar_agente` e as do agente. A aba **Testar** dos agentes dos setores chega na I3; até lá, teste assim.
+- **Como testar com segurança:** ponha o Fiscal em **Teste** com **o seu contato** na lista (e um modo escolhido). Só o seu contato fala com ele; os outros seguem com o Thiago. Depois, na conversa, abra o **"por quê?"** e confira as decisões `chamar_agente` e as do agente. A aba **Testar** dos agentes dos setores chega na I3b; até lá, teste assim.
 - **Trocar o trabalhador:** só depois de aplicar as migrações da F até a I2 juntas (sem a I2 ele só tem o Thiago). Antes de trocar, confira o estado dos agentes (item 2 da caixa acima).
+
+### Tarefas de trabalho dos agentes (Parte I3a)
+
+Um agente do tipo **Trabalho** faz uma **tarefa longa em segundo plano, sempre dentro de uma demanda**. O primeiro é o **Agente Contábil** (fechamento), mas ele é só configuração: as skills reais são as suas, subidas pela tela. O agente lê os arquivos enviados à tarefa, segue as etapas do procedimento, abre pendências quando falta alguma coisa e entrega um **rascunho**. Nada do rascunho vale, e nada sai ao cliente, antes de uma pessoa do setor aprovar.
+
+> **⚠ Antes de aplicar a atualização do banco da I3a (caixa do dono).**
+> 1. **Aplique as migrações da F até a I3a juntas**, no mesmo `supabase db push` (as três da I3a são `20261016000100`, `20261016000200` e `20261016000300`) e só então troque o trabalhador. Sem a I3a no banco, o trabalhador novo roda como o da I2 (aviso no log, o Thiago atende como antes); o painel esconde o bloco e o botão na demanda, a tela da tarefa mostra "As tarefas aparecem quando a atualização do banco da Parte I3 for aplicada." e a ficha do agente mostra a faixa de aviso.
+> 2. **A I3a só acrescenta** (colunas novas em `agentes` com padrão, tabelas novas, o compartimento `tarefas`, funções novas). **Nenhum agente começa a trabalhar sozinho:** uma tarefa só nasce pelo botão **TAREFA PARA O AGENTE**.
+> 3. **Pedido ao cliente nunca sai sozinho.** Quando uma tarefa precisa de um documento do cliente, o agente só **sugere** a mensagem. Uma pessoa do setor lê e edita o texto, **escolhe o contato** e só então clica **Mandar pelo Thiago**; o botão fica **travado** até haver contato e mensagem. O Thiago manda na conversa daquele contato.
+> 4. **Tetos de pedidos ao cliente** (valem no banco): **24 h** entre um pedido e a cobrança de novo, **5 pedidos** por pendência, **3 por contato por dia** e **30 por dia para o escritório inteiro**. Passou de um deles, a tela explica e nada é mandado.
+> 5. **Os pedidos respeitam as 3 pausas** (a geral, a da empresa e a do contato): com qualquer uma ligada, o pedido **espera** e não conta no limite. Um pedido aprovado e **não enviado em 24 h é descartado**: a tela mostra **Não enviado**, com **COBRAR DE NOVO**.
+> 6. **Depois que o WhatsApp (Z-API) aceitou a mensagem, ela nunca é reenviada.** O único caso raro de mensagem em dobro é o trabalhador cair exatamente entre o aceite e o registro.
+> 7. **Limites por tarefa:** **US$ 2,00 e 20 minutos** por padrão (tempo de trabalho somado, não relógio). **Só o dono muda**, na Visão geral do agente. Ao passar de um, a tarefa **pausa e pergunta**.
+> 8. **Arquivos da tarefa:** até **10 MB** por arquivo, **30 por tarefa**; tipos **PDF, XML, CSV, TXT, OFX, JPG e PNG**. Todo download é **registrado na auditoria**. **Ainda não há regra de retenção** dos arquivos do compartimento `tarefas` (pendente: o dono decide quanto tempo guardar).
+> 9. **Resultado:** só o **CSV** nesta etapa. **XLSX do Domínio, relatório e Google Drive** chegam na **I3b**.
+> 10. **Trocar o trabalhador** só depois do item 1; confira antes o estado dos agentes (`select slug, estado, tipos, modo_contato from agentes`). Veja "Trocar o trabalhador" abaixo.
+
+**Quem pode pedir e como.**
+- A tarefa nasce na **demanda** (painel lateral), no botão **TAREFA PARA O AGENTE**: você escolhe o agente, o procedimento e escreve **o que o agente deve fazer**. A janela completa **Pedir ao agente** e o pedido pelo WhatsApp da equipe chegam na I4.
+- O agente precisa ser **do setor da demanda** e ter o tipo **Trabalho**; a demanda precisa estar aberta e com setor ativo (**setor inativo: nada de tarefa**, o bloco mostra o aviso).
+- **Ligado:** qualquer pessoa ativa do setor da demanda, ou administrador. **Teste:** **só o dono e o administrador** pedem. **Desligado:** não recebe.
+- **Uma tarefa ativa por demanda.** Para pedir outra, termine ou descarte a atual.
+
+**Os estados e os botões.**
+
+| Estado | O que significa | Botões |
+|---|---|---|
+| Trabalhando | O agente está trabalhando (ou na fila para continuar) | Pausar |
+| Aguardando pendências | O agente parou e espera respostas | Pausar |
+| Pausada | Parada por uma pessoa, por limite de custo ou de tempo, pelo teto mensal de IA, agente desligado, falha ou por ter parado sem resultado | Continuar |
+| Pronto para aprovar | Há um rascunho de resultado | Aprovar e concluir, Pedir ajuste, Descartar |
+| Aprovada | Uma pessoa aprovou | (só leitura) |
+| Descartada | Descartada por uma pessoa, ou a demanda foi concluída por outro caminho | (só leitura) |
+
+- **Pausar / Continuar:** pausa e retoma. Quando a pausa foi por **limite**, o botão vira **Continuar com mais um limite** e soma mais uma fatia do limite do agente (US$ e minutos). **Pedir ajuste** numa tarefa pausada por limite também soma uma fatia.
+- **Aprovar e concluir:** só com a tarefa **pronta e sem pendência aberta** ("Responda as pendências antes de aprovar."). Grava a **nota interna** ("Resultado da tarefa do <agente>, aprovado por <pessoa>: <resumo>") e **conclui a demanda**. Nada é mandado ao cliente: a pessoa fala com ele pelo Atendimento.
+- **Pedir ajuste:** escreva o que mudar (até 1.000 caracteres); o agente volta a trabalhar e precisa entregar de novo.
+- **Descartar:** descarta o rascunho; **a demanda continua aberta**.
+
+**Etapas pelo Procedimento.** A skill do tipo **Procedimento** pode ter uma seção `## Etapas` com uma lista numerada (até 8 etapas). A barra da tarefa usa esses nomes e acrescenta **Aprovação** no fim, que é sempre da pessoa. Sem procedimento, ou sem a seção, as etapas são "Ler os documentos", "Fazer o trabalho", "Revisar pendências" e "Aprovação". Exemplo curto de um Procedimento de fechamento:
+
+    ---
+    name: fechamento-mensal
+    description: Fechamento contábil mensal de uma empresa
+    tipo: procedimento
+    ---
+    # Fechamento mensal
+
+    ## Etapas
+    1. Coletar documentos
+    2. Ler e lançar
+    3. Conciliar
+    4. Revisar pendências
+
+    Leia todos os arquivos da tarefa. Lance só o que tiver documento. O que faltar vira pendência.
+
+**Arquivos.**
+- O agente lê os arquivos que estão na tarefa. Envie pelo botão **Enviar arquivo** na tela da tarefa (ou escolha um que o cliente mandou na conversa, nos últimos 30 dias, em **Já recebi**). Limites: 10 MB por arquivo, 30 por tarefa; PDF e imagem até **4 MB por leitura**; um arquivo maior pede ao agente que abra uma pendência pedindo em partes. O agente **nunca apaga nem altera** um arquivo.
+- Arquivos da **pasta do Drive** e a **planilha do Domínio** (XLSX) chegam na I3b.
+
+**Pendências.** Quando falta algo, o agente **para** em vez de chutar e abre uma pendência:
+- **Do cliente:** a pessoa do setor clica **Pedir ao cliente**, revisa a mensagem, escolhe o contato (precisa ter permissão no setor e **"pode ser procurado"**) e manda **pelo Thiago**; ver a caixa acima para os tetos. **Cobrar de novo** só depois de 24 h. **Já recebi** registra a resposta com observação e, se quiser, um arquivo.
+- **Para o analista:** perguntas com **respostas rápidas** (botões) e campo livre, respondidas na tela da tarefa.
+- Quando a **última** pendência aberta é respondida, a tarefa **retoma sozinha**; resposta parcial não retoma.
+- Quando o contato **responde na conversa** ou manda o arquivo, o **Thiago sabe do pedido**: agradece, diz que passa para a equipe e **não abre uma demanda repetida**; a tarefa ganha o aviso "o contato respondeu na conversa". A chegada automática do arquivo, sem **Já recebi**, fica para depois.
+
+**"Nunca inventa valores."** O código confere cada linha do resultado: ela precisa citar como **fonte** um **arquivo lido nesta tarefa** ou uma **pendência respondida** (a pendência **aberta** só vale em linha marcada **provisória**). O que faltar volta ao agente como pendência a abrir. Os **valores em R$** do resumo e dos destaques precisam estar **no formato brasileiro** (1.234,56) e bater com as linhas. **Risco que sobra:** número solto sem "R$" ou "reais" no resumo, o texto livre das linhas e as observações **não são conferidos pelo código**. Por isso a aprovação humana é obrigatória: leia o rascunho antes de aprovar. Para baixar, **BAIXAR CSV** (separador `;`, vírgula decimal; o nome traz "rascunho" até aprovar).
+
+**Custos e limites.** Cada chamada é gravada como `especialista_setor` com o agente e a tarefa (aparece em **Gastos com IA › Por agente** e na aba **Atividade e custo** da ficha); a tela da tarefa mostra o custo **por etapa**. Os limites (US$ 2,00 e 20 min por padrão) o dono muda na **Visão geral** do agente de Trabalho (US$ 0,10 a 50; 1 a 240 min); cada tarefa copia os valores ao nascer.
+
+**Como testar com segurança.**
+1. Ponha o **Contábil** em **Teste** (só o dono e o administrador pedem tarefas).
+2. Suba a skill de **Procedimento** (com `## Etapas`, como o exemplo) e a de **Limites** ("nunca invente valores…") e ligue as duas.
+3. Numa **demanda de teste** do Contábil, clique **TAREFA PARA O AGENTE** e depois **Enviar arquivo** com um extrato **fictício**.
+4. Para uma pendência do cliente, use o **seu** contato de teste (com o Contábil marcado em "pode ser procurado"). Veja a retomada sozinha e o **BAIXAR CSV**; **Aprovar e concluir** só grava a nota e conclui a demanda.
+
+**Trocar o trabalhador:** só depois de aplicar F–I3a juntas (caixa acima). O **batimento** (a cada minuto) reenfileira uma tarefa parada e os pedidos aprovados que não saíram; há **um consumidor de tarefa por vez** (uma tarefa de cada vez, de propósito, por causa da memória). Para o cliente, nada muda até uma pessoa pedir uma tarefa e aprovar um pedido; o Thiago só ganha o bloco "pedidos do escritório a este contato" quando há um pedido enviado e aberto (14 dias).
+
+**Sobras da I2 resolvidas nesta parte:** falha ao encerrar a condução não derruba a vez; as ferramentas do agente só alcançam demanda que o contato vê; nota interna e correção em pedido de nota seguem a regra do fluxo de nota; **Passa a conversa** com `ok` também trava o envio do Thiago; o aviso de fora do expediente é mandado pelo sistema, uma vez; a pré-análise acha o agente que acabou de devolver a condução; a ficha avisa de setor inativo. **Ficam para depois:** limite de 20 sugestões reconhecido pelo texto do erro; consultas repetidas em `agentesParaContato`; `nome` e `setor` sem tratamento no prompt do especialista; teste de que o especialista não tem `chamar_agente`; pessoa que assume no meio da vez não encerra a condução; resposta duplicada se o Thiago chamou `responder` antes de `chamar_agente`; mudar o modo no meio da condução (documentado); e2e de quem é de outro setor e não decide a sugestão.
 
 ### Quando chegar o e-mail "WhatsApp desconectado"
 
