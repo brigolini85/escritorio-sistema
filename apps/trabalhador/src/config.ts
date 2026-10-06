@@ -14,6 +14,8 @@ export const Config = z.object({
   TRANSCRICAO_MODELO: z.string().min(1),
   // Vazio no .env conta como não informado; o transcritor usa o vocabulário padrão.
   TRANSCRICAO_VOCABULARIO: z.string().optional().transform((v) => v || undefined),
+  // Parte I3b (D3): a chave da conta de serviço do Drive (JSON ou base64). Vazio = Drive não configurado.
+  GOOGLE_DRIVE_CONTA_SERVICO: z.string().optional().transform((v) => v?.trim() || undefined),
   SMTP_HOST: z.string().min(1),
   SMTP_PORTA: z.coerce.number().default(587),
   SMTP_USUARIO: z.string().min(1),

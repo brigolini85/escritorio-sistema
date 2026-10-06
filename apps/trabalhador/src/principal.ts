@@ -5,6 +5,8 @@ import { criarAlertas } from './alertas';
 import type { MensagemRecebida } from './canal/tipos';
 import { criarCanalZapi } from './canal/zapi';
 import { lerConfig } from './config';
+import { driveDoAmbiente } from './drive/google';
+import { anunciarSituacaoDrive } from './drive/situacao';
 import { criarEmail } from './email';
 import { LimitadorEnvio, enviarMensagemDoPainel, verificarEnviadaPorMim } from './envio';
 import { processarAssistente } from './assistente/processar';
@@ -27,6 +29,10 @@ async function principal() {
   const relogio = () => new Date();
   const db = criarClienteServico(cfg.SUPABASE_URL, cfg.SUPABASE_SERVICE_ROLE_KEY);
   const repos = criarRepos(db);
+  // Parte I3b (D3, D9): o Drive só de leitura; sem a chave, as tarefas seguem só com os arquivos enviados.
+  const drive = driveDoAmbiente(cfg.GOOGLE_DRIVE_CONTA_SERVICO);
+  if (drive.erro) console.error('[drive]', drive.erro);
+  await anunciarSituacaoDrive(repos, drive);
   const canal = criarCanalZapi({ instancia: cfg.ZAPI_INSTANCIA, token: cfg.ZAPI_TOKEN, clientToken: cfg.ZAPI_CLIENT_TOKEN });
   const midia = criarArmazenamento(db);
   const envio = { repos, canal, limitador: new LimitadorEnvio(20), midia };
