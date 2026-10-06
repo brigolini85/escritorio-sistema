@@ -11,7 +11,7 @@ import { PedirAoAgente } from './pedir-ao-agente';
 /** D21: o bloco "Tarefa do agente <setor>" no painel lateral da demanda. D3/D6: com tarefa ativa o botão segue (a tarefa nasce em demanda nova); F10: setor desativado não cria. */
 export function TarefaNaDemanda({ chamado, resumo, pedir, podePedir, setorInativo = false, empresas, drive }: {
   chamado: { id: string; numero: number; empresa: { id: string; nome: string } | null }; resumo: ResumoTarefaDemanda | null; pedir: DadosPedir; podePedir: boolean;
-  setorInativo?: boolean; empresas?: EmpresaOpcao[]; drive?: { pasta: boolean; configurado: boolean };
+  setorInativo?: boolean; empresas?: EmpresaOpcao[]; drive?: { pasta: boolean; configurado: boolean; erro?: boolean };
 }) {
   const ativa = !!resumo && tarefaAtiva(resumo.estado);
   return (

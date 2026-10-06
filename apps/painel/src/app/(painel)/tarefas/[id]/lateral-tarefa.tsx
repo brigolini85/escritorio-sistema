@@ -1,7 +1,24 @@
+import { tarefaAtiva } from '@escritorio/core';
+import { CalendarClock } from 'lucide-react';
 import { RelativeTime } from '@/components/patterns/relative-time';
 import { Card } from '@/components/ui/card';
 import { formatarUSD } from '@/lib/formatos';
-import { custoPorEtapa, rotuloQuem, type TarefaTela } from '@/lib/tarefas-tela';
+import { custoPorEtapa, rotuloQuem, textoAvisos, textoPrazoDesejado, type PedidoDaTarefa, type TarefaTela } from '@/lib/tarefas-tela';
+
+/** I4: o que a pessoa pediu (prazo desejado, avisos, Drive). Só aparece com a I4 no banco. */
+export function PedidoTarefa({ t, pedido }: { t: TarefaTela; pedido: PedidoDaTarefa }) {
+  const prazo = pedido.prazoDesejado ? textoPrazoDesejado(pedido.prazoDesejado, new Date()) : null;
+  const atrasado = prazo?.atrasado === true && tarefaAtiva(t.estado);
+  const texto = prazo ? (atrasado || !prazo.atrasado ? prazo.texto : prazo.texto.replace(' · passou', '')) : null;
+  return (
+    <Card className="flex flex-col gap-1 p-4 text-sm" role="region" aria-label="Pedido">
+      <h2 className="text-xs font-bold uppercase tracking-wide text-brand">Pedido</h2>
+      {texto && <p className={atrasado ? 'flex items-center gap-1 font-bold text-danger' : ''}>{atrasado && <CalendarClock aria-hidden size={14} />}{texto}</p>}
+      <p>{textoAvisos(pedido)}</p>
+      {pedido.subpasta ? <p>Drive: só a subpasta {pedido.subpasta}</p> : !pedido.lerDrive ? <p>Drive: sem leitura automática</p> : null}
+    </Card>
+  );
+}
 
 export function CustoTarefa({ t }: { t: TarefaTela }) {
   const usados = Math.round(t.segundosTrabalhando / 60);

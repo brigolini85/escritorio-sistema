@@ -20,7 +20,7 @@ const ACEITA = '.pdf,.xml,.csv,.txt,.ofx,.jpg,.jpeg,.png';
 /** Spec 7E.5: a mesma tarefa do WhatsApp. Cartões só dos agentes que a pessoa pode pedir (D5; o dono vê todos, D15); o destino aparece antes de enviar (D6). */
 export function PedirAoAgente({ chamado, dados, empresas = [], drive }: {
   chamado: { id: string; numero: number; empresa: { id: string; nome: string } | null } | null;
-  dados: DadosPedir; empresas?: EmpresaOpcao[]; drive?: { pasta: boolean; configurado: boolean };
+  dados: DadosPedir; empresas?: EmpresaOpcao[]; drive?: { pasta: boolean; configurado: boolean; erro?: boolean };
 }) {
   const router = useRouter();
   const id = useId();
@@ -141,6 +141,7 @@ export function PedirAoAgente({ chamado, dados, empresas = [], drive }: {
               {comDrive && <Button size="sm" variant="outline" type="button" onClick={() => { setUsarDrive(true); setMostrarSub(!mostrarSub); }}>
                 <FolderOpen aria-hidden size={16} /> Pasta do Drive</Button>}
             </div>
+            {dados.i4 && drive?.configurado && drive.erro && <p className="text-xs text-warning" role="status">Não consegui conferir a situação do Drive agora; a leitura pode falhar.</p>}
             {comDrive && mostrarSub && (
               <div className="flex flex-col gap-1">
                 <Label htmlFor={`${id}-sub`}>Subpasta (opcional)</Label>

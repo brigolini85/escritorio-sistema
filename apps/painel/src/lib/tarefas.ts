@@ -4,7 +4,7 @@ import { rotuloDoAgente } from '@/lib/agente-demanda';
 import { semMigracaoI1 } from '@/lib/agentes';
 import { lerDriveDaTarefa } from '@/lib/drive';
 import type { supabaseServidor } from '@/lib/supabase/servidor';
-import { ehMotivoSegurado, type AgenteDeTrabalho, type MotivoSegurado, type ResumoTarefaDemanda, type TarefaTela } from './tarefas-tela';
+import { ehMotivoSegurado, type AgenteDeTrabalho, type MotivoSegurado, type PedidoDaTarefa, type ResumoTarefaDemanda, type TarefaTela } from './tarefas-tela';
 
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;
 const COLUNAS = `id, numero, estado, motivo_pausa, setor_id, chamado_id, pedido, canal, criado_em, etapas, etapa_atual, resultado, ajuste_pendente,
@@ -118,4 +118,17 @@ export async function lerArquivosDaConversa(sb: Sb, pendenciaId: string): Promis
   const { data, error } = await sb.rpc('arquivos_da_conversa_para_pendencia', { p_id: pendenciaId });
   if (error) console.error('[tarefas] arquivos da conversa', error);
   return ((data ?? []) as { mensagem_id: string; nome: string; criado_em: string }[]).map((a) => ({ mensagemId: a.mensagem_id, nome: a.nome, criadoEm: a.criado_em }));
+}
+
+/** I4: o pedido como saiu da janela (prazo, avisos, Drive) e se veio pelo Assistente. Banco sem a I4 = null (a tela da I3 segue igual). */
+export async function lerPedidoDaTarefa(sb: Sb, id: string): Promise<PedidoDaTarefa | null> {
+  const [t, ev] = await Promise.all([
+    sb.from('agente_tarefas').select('prazo_desejado, avisar_painel, avisar_whatsapp, drive_subpasta, ler_drive').eq('id', id).maybeSingle(),
+    sb.from('agente_tarefa_eventos').select('texto').eq('tarefa_id', id).order('criado_em').limit(1).maybeSingle(),
+  ]);
+  if (t.error) { if (!semMigracaoI1(t.error)) console.error('[tarefas] pedido', t.error); return null; }
+  if (!t.data) return null;
+  const d = t.data as unknown as { prazo_desejado: string | null; avisar_painel: boolean; avisar_whatsapp: boolean; drive_subpasta: string | null; ler_drive: boolean };
+  return { prazoDesejado: d.prazo_desejado, avisarPainel: d.avisar_painel, avisarWhatsapp: d.avisar_whatsapp, subpasta: d.drive_subpasta, lerDrive: d.ler_drive,
+    pediuPeloAssistente: (ev.data as { texto: string } | null)?.texto === 'pediu a tarefa pelo Assistente' };
 }

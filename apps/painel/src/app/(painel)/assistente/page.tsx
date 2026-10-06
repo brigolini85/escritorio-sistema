@@ -7,9 +7,12 @@ import { EmptyState } from '@/components/patterns/empty-state';
 import { variantesBotao } from '@/components/ui/button';
 import { lerConversaAssistente } from '@/lib/conversas-assistente';
 import { usaAssistente } from '@/lib/permissoes';
+import { lerDadosNovaDemanda } from '@/lib/nova-demanda-dados';
+import { lerDadosPedir } from '@/lib/pedir-agente';
 import { lerChaveResultado } from '@/lib/resultados-assistente';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
+import { PedirAoAgente } from '../demandas/pedir-ao-agente';
 import { AtualizarAoVivo } from '../atendimento/atualizar-ao-vivo';
 import { ProvedorAssistente } from './compositor-assistente';
 import { COLUNA_CHAT, ConversaComResultado, EsqueletoTela } from './conversa-com-resultado';
@@ -30,6 +33,10 @@ export default async function Assistente({ searchParams }: { searchParams: Promi
   const sb = await supabaseServidor();
   const historico = await lerHistoricoAssistente(sb, u.id, conversaId);
   const aberta = historico.aberta;
+  // I4 (D17): o botão PEDIR AO AGENTE sem demanda; sem a I4 ou sem agente para a pessoa, some.
+  const pedir = await lerDadosPedir(sb, null);
+  const { empresas } = pedir.i4 && pedir.agentes.length > 0 ? await lerDadosNovaDemanda(sb, u) : { empresas: [] };
+  const podePedir = pedir.i4 && pedir.agentes.length > 0;
 
   const cabecalho = (
     <header className="flex flex-col gap-3 border-b border-border px-4 pb-3 pt-4">
@@ -37,12 +44,15 @@ export default async function Assistente({ searchParams }: { searchParams: Promi
         <h1 id="titulo-assistente" className="min-w-0 truncate text-2xl font-light text-foreground">
           Assistente · <span className="font-extrabold text-brand">{aberta ? aberta.nome : 'Geral'}</span>
         </h1>
-        {aberta && (
-          <Link href={`/atendimento/${aberta.id}`} className={variantesBotao({ variant: 'outline', size: 'sm' })}>
-            <ExternalLink aria-hidden size={16} strokeWidth={1.75} />
-            Abrir no Atendimento
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {podePedir && <div className="[&_button]:w-auto"><PedirAoAgente chamado={null} dados={pedir} empresas={empresas} /></div>}
+          {aberta && (
+            <Link href={`/atendimento/${aberta.id}`} className={variantesBotao({ variant: 'outline', size: 'sm' })}>
+              <ExternalLink aria-hidden size={16} strokeWidth={1.75} />
+              Abrir no Atendimento
+            </Link>
+          )}
+        </div>
       </div>
       {aberta && (
         <p className="text-sm text-muted">{aberta.empresa ? `${aberta.empresa} · ` : ''}O assistente conhece este cliente e as demandas desta conversa.</p>

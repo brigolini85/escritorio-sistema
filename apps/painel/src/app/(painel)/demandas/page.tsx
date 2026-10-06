@@ -226,7 +226,7 @@ async function DetalheCarregado({ sb, u, id, podeConversa, podeCsv, verPedidos, 
 }
 
 /** Demanda do painel lateral (visão demandas_lista), com a linha do tempo, os contatos da empresa e o comprador. RLS vale. */
-async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null; contatos: { id: string; nome: string }[]; trabalho: TrabalhoDoAgente; tarefa: { resumo: ResumoTarefaDemanda | null; pedir: DadosPedir; drive: { pasta: boolean; configurado: boolean }; empresas: EmpresaOpcao[] } | null } | null> {
+async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null; contatos: { id: string; nome: string }[]; trabalho: TrabalhoDoAgente; tarefa: { resumo: ResumoTarefaDemanda | null; pedir: DadosPedir; drive: { pasta: boolean; configurado: boolean; erro?: boolean }; empresas: EmpresaOpcao[] } | null } | null> {
   const { data: d } = await sb.from('demandas_lista').select('*').eq('id', id).maybeSingle();
   if (!d) return null;
   // Sem acesso a pedidos (P11): o pedido, a descrição e os textos livres da linha do tempo nem saem do servidor.
@@ -261,7 +261,7 @@ async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ de
     },
     comprador: (comprador as CompradorCadastrado | null) ?? null,
     trabalho,
-    tarefa: daTarefa.semI3 ? null : { resumo: daTarefa.tarefa, pedir, empresas, drive: { pasta: !!pasta?.pasta, configurado: !!situacao.situacao?.email && !situacao.situacao.erro } },
+    tarefa: daTarefa.semI3 ? null : { resumo: daTarefa.tarefa, pedir, empresas, drive: { pasta: !!pasta?.pasta, configurado: !!situacao.situacao?.email, erro: !!situacao.situacao?.erro || situacao.erro } },
     contatos: (vinculos ?? []).map((v) => ({ id: v.contatos.id, nome: v.contatos.nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
   };
 }

@@ -87,3 +87,19 @@ export function textoDoPedido(p: PendenciaTela, agora: Date): string | null {
 }
 /** D7: a janela "Pedir ao cliente" só libera "Mandar pelo Thiago" com contato escolhido e mensagem. */
 export const podeMandarPedido = (contatoId: string, texto: string): boolean => contatoId !== '' && texto.trim().length >= 3;
+
+/** I4: o que a pessoa pediu na janela PEDIR AO AGENTE. `null` na leitura = banco sem a I4. */
+export type PedidoDaTarefa = { prazoDesejado: string | null; avisarPainel: boolean; avisarWhatsapp: boolean; subpasta: string | null; lerDrive: boolean; pediuPeloAssistente: boolean };
+export function textoAvisos(p: PedidoDaTarefa): string {
+  if (p.avisarPainel && p.avisarWhatsapp) return 'Avisos: painel e WhatsApp';
+  if (p.avisarPainel) return 'Avisos: painel';
+  if (p.avisarWhatsapp) return 'Avisos: WhatsApp';
+  return 'Sem avisos';
+}
+/** Prazo desejado em Brasília (dd/MM HH:mm). "atrasado" só vale com a tarefa ativa: quem chama decide. */
+export function textoPrazoDesejado(iso: string, agora: Date): { texto: string; atrasado: boolean } {
+  const partes = Object.fromEntries(new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  const atrasado = new Date(iso).getTime() < agora.getTime();
+  return { texto: `Prazo desejado: ${partes.day}/${partes.month} ${partes.hour}:${partes.minute}${atrasado ? ' · passou' : ''}`, atrasado };
+}

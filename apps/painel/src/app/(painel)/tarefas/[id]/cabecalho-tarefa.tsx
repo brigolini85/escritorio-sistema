@@ -8,7 +8,7 @@ import { BotoesTarefa } from './botoes-tarefa';
 const CHIPS = ['trabalhando', 'aguardando_pendencias', 'pronta'] as const;
 const CANAL = { painel: 'pelo painel', whatsapp: 'pelo WhatsApp', automatico: 'automático' } as const;
 
-export function CabecalhoTarefa({ t, podeMexer }: { t: TarefaTela; podeMexer: boolean }) {
+export function CabecalhoTarefa({ t, podeMexer, pediuPeloAssistente = false }: { t: TarefaTela; podeMexer: boolean; pediuPeloAssistente?: boolean }) {
   const emChips = (CHIPS as readonly string[]).includes(t.estado);
   return (
     <header className="flex flex-col gap-3">
@@ -18,7 +18,7 @@ export function CabecalhoTarefa({ t, podeMexer }: { t: TarefaTela; podeMexer: bo
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-success">Tarefa do {t.agente}</p>
             <h2 className="text-lg font-bold">{t.pedido}</h2>
-            <p className="text-sm text-muted">pedido por <b>{t.pedidaPor ?? 'alguém da equipe'}</b> {CANAL[t.canal]} · <RelativeTime data={t.criadoEm} /></p>
+            <p className="text-sm text-muted">pedido por <b>{t.pedidaPor ?? 'alguém da equipe'}</b> {pediuPeloAssistente && t.canal === 'painel' ? 'pelo Assistente' : CANAL[t.canal]} · <RelativeTime data={t.criadoEm} /></p>
           </div>
         </div>
         {podeMexer && <BotoesTarefa id={t.id} estado={t.estado} motivoPausa={t.motivoPausa} />}

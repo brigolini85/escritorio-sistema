@@ -49,7 +49,7 @@ export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, v
   pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; contatos: { id: string; nome: string }[]; agora: Date;
   trabalho?: TrabalhoDoAgente | null; podeDecidirSugestao?: boolean;
   /** D21: a tarefa do agente de Trabalho (null = banco sem a I3). setorInativo: F10, o banco recusa criar. */
-  tarefa?: { resumo: ResumoTarefaDemanda | null; pedir: DadosPedir; drive: { pasta: boolean; configurado: boolean }; empresas?: EmpresaOpcao[]; podePedir: boolean; setorInativo?: boolean } | null;
+  tarefa?: { resumo: ResumoTarefaDemanda | null; pedir: DadosPedir; drive: { pasta: boolean; configurado: boolean; erro?: boolean }; empresas?: EmpresaOpcao[]; podePedir: boolean; setorInativo?: boolean } | null;
 }) {
   if (!d) {
     return (
