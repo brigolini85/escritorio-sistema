@@ -16,6 +16,10 @@ export const FILAS = {
   simularAgente: 'simular_agente',
   /** Sugerir resposta (Atendimento): o painel grava o pedido (pedir_sugestao_resposta) e enfileira { sugestaoId }. */
   sugerirResposta: 'sugerir_resposta',
+  /** Parte I3a (D6): uma vez de uma tarefa de trabalho; o painel enfileira { tarefaId } com este nome (singletonKey = tarefa). */
+  agenteTrabalho: 'agente_trabalho',
+  /** Parte I3a (D7): mandar ao cliente o pedido de uma pendência que a pessoa aprovou; { pendenciaId }. */
+  pendenciaCliente: 'pendencia_cliente',
 } as const;
 
 export interface Fila {
@@ -73,3 +77,11 @@ export function filaDe(boss: PgBoss): Fila {
 
 /** Job da fila `sugerir_resposta`: o id da linha em `sugestoes_resposta` (status pendente). */
 export type JobSugestao = { sugestaoId: string };
+
+/** Job da fila `agente_trabalho`: a tarefa a trabalhar (o banco diz se ainda está "trabalhando"). */
+export type JobTarefa = { tarefaId: string };
+export async function agendarTarefa(fila: Fila, tarefaId: string): Promise<void> {
+  await fila.enviar(FILAS.agenteTrabalho, { tarefaId } satisfies JobTarefa, { singletonKey: tarefaId });
+}
+/** Job da fila `pendencia_cliente`: a pendência cujo pedido a pessoa aprovou. */
+export type JobPendencia = { pendenciaId: string };
