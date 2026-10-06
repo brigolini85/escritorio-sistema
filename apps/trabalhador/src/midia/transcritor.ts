@@ -31,6 +31,8 @@ export function criarTranscritor(
       form.append('response_format', 'verbose_json');
       const r = await buscar(`${cfg.baseUrl}/audio/transcriptions`, {
         method: 'POST', headers: { Authorization: `Bearer ${cfg.apiKey}` }, body: form,
+        // Revisão geral I6/I9: o fornecedor travado não segura a vez da conversa.
+        signal: AbortSignal.timeout(120_000),
       });
       if (!r.ok) throw new Error(`transcrição falhou: ${r.status}`);
       const j = (await r.json()) as { text: string; duration?: unknown };

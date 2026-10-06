@@ -8,7 +8,7 @@ import type { DepsAgente } from './agente/ferramentas';
 import { montarConteudoUsuario, type AnexoParaIa } from './agente/prompt';
 import { enviarDoSistema } from './envio';
 import { ESPERA_OCUPADA_SEGUNDOS, FILAS, TRAVA_VEZ_SEGUNDOS, agendarAssistente, naVez, type Fila } from './fila';
-import type { ArmazenamentoMidia } from './midia/armazenamento';
+import { ArquivoGrandeDemais, type ArmazenamentoMidia } from './midia/armazenamento';
 import type { Transcricao, Transcritor } from './midia/transcritor';
 
 export type DepsProcessamento = DepsAgente & { transcritor: Transcritor; midia: ArmazenamentoMidia; alertas: Alertas; relogio: () => Date; fila: Fila };
@@ -23,6 +23,8 @@ const MAX_BYTES_ANEXO = 5 * 1024 * 1024;
 const IMAGENS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 const AVISO_ANEXO_FALHOU = '[anexo não pôde ser baixado]';
+// Revisão geral I6: acima do limite o arquivo nem é baixado; o agente sabe o motivo (e passa à equipe se precisar dele).
+const AVISO_ANEXO_GRANDE = '[anexo grande demais: não foi aberto]';
 
 function anexoParaIa(m: Mensagem, bytes: Uint8Array, mimeCompleto: string, nome: string): AnexoParaIa | null {
   if (bytes.length > MAX_BYTES_ANEXO) return null;
@@ -86,7 +88,7 @@ async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: M
     } catch (e) {
       console.error('[mídia] falha ao preparar', m.id, e);
       // O agente precisa saber que o arquivo não veio; e a origem sai para não tentar (e avisar) de novo.
-      m.conteudo = `${m.conteudo ?? ''} ${AVISO_ANEXO_FALHOU}`.trim();
+      m.conteudo = `${m.conteudo ?? ''} ${e instanceof ArquivoGrandeDemais ? AVISO_ANEXO_GRANDE : AVISO_ANEXO_FALHOU}`.trim();
       m.midia_url_origem = null;
       await d.repos.atualizarMensagem(m.id, { conteudo: m.conteudo, midia_url_origem: null });
     }
