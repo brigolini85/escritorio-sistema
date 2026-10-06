@@ -14,6 +14,7 @@ import {
   FILAS, criarBoss, filaDe, type JobAssistente, type JobAviso, type JobPastaDrive, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa,
 } from './fila';
 import { criarArmazenamento } from './midia/armazenamento';
+import { removerArquivosDoJob } from './midia/remocao';
 import { criarTranscritor } from './midia/transcritor';
 import { processarConversa } from './processar-conversa';
 import { limparRetencao } from './retencao';
@@ -58,7 +59,9 @@ async function principal() {
     }),
   };
   const depsTarefas = { repos, canal, alertas, envio, email, relogio, fila: filaDe(boss) };
-  await boss.work<{ paths: string[] }>(FILAS.removerArquivos, async ([job]) => { await midia.remover(job!.data.paths); });
+  await boss.work<{ paths: string[] }>(FILAS.removerArquivos, async ([job]) => {
+    await removerArquivosDoJob(job!.data.paths, { anexos: (p) => midia.remover(p), tarefas: remover });
+  });
   // 4 consumidores: conversas diferentes andam em paralelo; a política "stately" garante uma execução por conversa.
   for (let i = 0; i < 4; i++) {
     await boss.work<{ conversaId: string }>(FILAS.processarConversa, { includeMetadata: true }, async ([job]) => {
