@@ -30,7 +30,8 @@ async function lerArquivosDaTarefa(sb: Sb, id: string) {
 export async function lerTarefa(sb: Sb, id: string): Promise<{ tarefa: TarefaTela | null; semI3: boolean }> {
   const { data, error } = await sb.from('agente_tarefas').select(COLUNAS).eq('id', id).maybeSingle();
   if (semMigracaoI1(error)) return { tarefa: null, semI3: true };
-  if (error) console.error('[tarefas] leitura', error);
+  // Revisão geral (painel M1): erro do banco não é "não encontrei": lança e a página mostra a tela de erro (tentar de novo).
+  if (error) { console.error('[tarefas] leitura', error); throw new Error('Não consegui ler a tarefa agora.'); }
   if (!data) return { tarefa: null, semI3: false };
   const t = data as unknown as Linha;
   const [pend, arq, ev, seg, drive] = await Promise.all([
@@ -43,6 +44,8 @@ export async function lerTarefa(sb: Sb, id: string): Promise<{ tarefa: TarefaTel
     lerDriveDaTarefa(sb, t.clientes?.id ?? null),
   ]);
   for (const e of [pend.error, arq.error, ev.error, seg.error]) if (e) console.error('[tarefas] leitura', e);
+  // Sem pendências lidas a tela liberaria APROVAR: melhor a tela de erro (M1). Os pedidos segurados são só aviso.
+  if (pend.error || arq.error || ev.error) throw new Error('Não consegui ler a tarefa agora.');
   const segurados = new Map<string, MotivoSegurado>();
   for (const x of (seg.data ?? []) as { pendencia_id: string; motivo: string }[]) if (ehMotivoSegurado(x.motivo)) segurados.set(x.pendencia_id, x.motivo);
   return {
