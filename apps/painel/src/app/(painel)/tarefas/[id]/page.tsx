@@ -27,8 +27,6 @@ export default async function PaginaTarefa({ params }: { params: Promise<{ id: s
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        migalhas={[{ rotulo: 'Gestão das demandas', href: '/demandas' }, { rotulo: t.setor ?? 'Triagem' },
-          { rotulo: `Nº ${t.demanda.numero}`, href: `/demandas?demanda=${t.demanda.id}` }, { rotulo: 'Tarefa do agente' }]}
         secao={`Nº ${t.demanda.numero} · ${t.setor ?? 'Triagem'}`}
         titulo={<>{t.demanda.titulo}{t.empresa ? <> · <span className="text-brand">{t.empresa.nome}</span></> : null}</>}
       />
