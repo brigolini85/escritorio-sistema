@@ -87,13 +87,13 @@ isOneToOne: false
                   ]
                 },"agente_pendencias": {
                   Row: {
-                    "arquivo_id": string | null,"contato_id": string | null,"criado_em": string,"detalhe": string | null,"estado": string,"id": string,"mensagem": string | null,"mensagem_id": string | null,"numero": number,"opcoes": (string)[],"pedido_em": string | null,"pedido_enviado_em": string | null,"pedido_por": string | null,"pedido_texto": string | null,"pedidos": number,"pergunta": string,"respondeu_na_conversa_em": string | null,"respondida_em": string | null,"respondida_por": string | null,"resposta": string | null,"tarefa_id": string,"tipo": string,"vista_em": string | null
+                    "arquivo_id": string | null,"contato_id": string | null,"criado_em": string,"detalhe": string | null,"estado": string,"id": string,"mensagem": string | null,"mensagem_id": string | null,"numero": number,"opcoes": (string)[],"pedido_em": string | null,"pedido_enviado_em": string | null,"pedido_por": string | null,"pedido_texto": string | null,"pedidos": number,"pergunta": string,"repassada_em": string | null,"respondeu_na_conversa_em": string | null,"respondida_em": string | null,"respondida_por": string | null,"resposta": string | null,"tarefa_id": string,"tipo": string,"vista_em": string | null
                   }
                   Insert: {
-                    "arquivo_id"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"detalhe"?: string | null,"estado"?: string,"id"?: string,"mensagem"?: string | null,"mensagem_id"?: string | null,"numero": number,"opcoes"?: (string)[],"pedido_em"?: string | null,"pedido_enviado_em"?: string | null,"pedido_por"?: string | null,"pedido_texto"?: string | null,"pedidos"?: number,"pergunta": string,"respondeu_na_conversa_em"?: string | null,"respondida_em"?: string | null,"respondida_por"?: string | null,"resposta"?: string | null,"tarefa_id": string,"tipo": string,"vista_em"?: string | null
+                    "arquivo_id"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"detalhe"?: string | null,"estado"?: string,"id"?: string,"mensagem"?: string | null,"mensagem_id"?: string | null,"numero": number,"opcoes"?: (string)[],"pedido_em"?: string | null,"pedido_enviado_em"?: string | null,"pedido_por"?: string | null,"pedido_texto"?: string | null,"pedidos"?: number,"pergunta": string,"repassada_em"?: string | null,"respondeu_na_conversa_em"?: string | null,"respondida_em"?: string | null,"respondida_por"?: string | null,"resposta"?: string | null,"tarefa_id": string,"tipo": string,"vista_em"?: string | null
                   }
                   Update: {
-                    "arquivo_id"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"detalhe"?: string | null,"estado"?: string,"id"?: string,"mensagem"?: string | null,"mensagem_id"?: string | null,"numero"?: number,"opcoes"?: (string)[],"pedido_em"?: string | null,"pedido_enviado_em"?: string | null,"pedido_por"?: string | null,"pedido_texto"?: string | null,"pedidos"?: number,"pergunta"?: string,"respondeu_na_conversa_em"?: string | null,"respondida_em"?: string | null,"respondida_por"?: string | null,"resposta"?: string | null,"tarefa_id"?: string,"tipo"?: string,"vista_em"?: string | null
+                    "arquivo_id"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"detalhe"?: string | null,"estado"?: string,"id"?: string,"mensagem"?: string | null,"mensagem_id"?: string | null,"numero"?: number,"opcoes"?: (string)[],"pedido_em"?: string | null,"pedido_enviado_em"?: string | null,"pedido_por"?: string | null,"pedido_texto"?: string | null,"pedidos"?: number,"pergunta"?: string,"repassada_em"?: string | null,"respondeu_na_conversa_em"?: string | null,"respondida_em"?: string | null,"respondida_por"?: string | null,"resposta"?: string | null,"tarefa_id"?: string,"tipo"?: string,"vista_em"?: string | null
                   }
                   Relationships: [
                     {
@@ -311,6 +311,31 @@ isOneToOne: false
       columns: ["tarefa_id"]
 isOneToOne: false
       referencedRelation: "agente_tarefas"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"agente_tarefa_avisos": {
+                  Row: {
+                    "canal": string,"chave": string,"criado_em": string,"enviado_em": string | null,"estado": string,"id": string,"mensagem": string,"motivo": string | null,"pendencias": (number)[],"reservado_em": string | null,"tarefa_id": string,"tipo": string,"usuario_id": string
+                  }
+                  Insert: {
+                    "canal": string,"chave": string,"criado_em"?: string,"enviado_em"?: string | null,"estado"?: string,"id"?: string,"mensagem": string,"motivo"?: string | null,"pendencias"?: (number)[],"reservado_em"?: string | null,"tarefa_id": string,"tipo": string,"usuario_id": string
+                  }
+                  Update: {
+                    "canal"?: string,"chave"?: string,"criado_em"?: string,"enviado_em"?: string | null,"estado"?: string,"id"?: string,"mensagem"?: string,"motivo"?: string | null,"pendencias"?: (number)[],"reservado_em"?: string | null,"tarefa_id"?: string,"tipo"?: string,"usuario_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agente_tarefa_avisos_tarefa_id_fkey"
+      columns: ["tarefa_id"]
+isOneToOne: false
+      referencedRelation: "agente_tarefas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agente_tarefa_avisos_usuario_id_fkey"
+      columns: ["usuario_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
       referencedColumns: ["id"]
     }
                   ]
@@ -1863,6 +1888,9 @@ isOneToOne: false
 "aviso_login":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"avisos_tarefa_parados":
+{ Args: Record<PropertyKey, never>; Returns: string[]
+                           },
 "cadastrar_contato":
 { Args: { "p_agente_pausado"?: boolean,"p_cliente"?: string,"p_manter"?: (string)[],"p_nome": string,"p_telefone": string }; Returns: Json
                            },
@@ -2176,6 +2204,9 @@ isOneToOne: false
 "marcar_arquivos_removidos":
 { Args: { "p_ids": (string)[] }; Returns: number
                            },
+"marcar_aviso_tarefa":
+{ Args: { "p_id": string,"p_ok": boolean }; Returns: undefined
+                           },
 "marcar_conversa_lida":
 { Args: { "p_ate": string,"p_conversa": string }; Returns: boolean
                            },
@@ -2255,6 +2286,11 @@ isOneToOne: false
               "chamado_numero": number,"empresa": string,"numero": number,"pendencia_id": string,"pergunta": string,"setor": string
             }[]
                            },
+"pendencias_repassadas_de":
+{ Args: { "p_usuario": string }; Returns: {
+              "agente": string,"detalhe": string,"empresa": string,"numero": number,"opcoes": (string)[],"pergunta": string,"tarefa_id": string,"tarefa_numero": number
+            }[]
+                           },
 "permissoes_dos_niveis":
 { Args: { "n": Json }; Returns: (string)[]
                            },
@@ -2318,6 +2354,9 @@ isOneToOne: false
 "registrar_arquivo_tarefa":
 { Args: { "p_caminho": string,"p_mime": string,"p_nome": string,"p_tamanho": number,"p_tarefa": string }; Returns: string
                            },
+"registrar_avisos_da_tarefa":
+{ Args: { "p_tarefa": string }; Returns: string[]
+                           },
 "registrar_pedido_fora_do_acesso":
 { Args: { "p_cliente": string,"p_contato": string,"p_dia": string,"p_setor": string }; Returns: Json
                            },
@@ -2330,6 +2369,9 @@ isOneToOne: false
 "remover_acesso":
 { Args: { "p_id": string }; Returns: undefined
                            },
+"reservar_aviso_tarefa":
+{ Args: { "p_id": string }; Returns: Json
+                           },
 "reservar_envio_pendencia":
 { Args: { "p_id": string }; Returns: {
               "cliente_id": string,"contato_id": string,"contato_nome": string,"id": string,"numero": number,"tarefa_id": string,"telefone": string,"texto": string
@@ -2337,6 +2379,9 @@ isOneToOne: false
                            },
 "responder_pendencia":
 { Args: { "p_id": string,"p_resposta": string }; Returns: boolean
+                           },
+"responder_pendencia_de":
+{ Args: { "p_pendencia": number,"p_resposta": string,"p_tarefa_numero": number,"p_usuario": string }; Returns: Json
                            },
 "restaurar_agentes_iniciais":
 { Args: Record<PropertyKey, never>; Returns: undefined
