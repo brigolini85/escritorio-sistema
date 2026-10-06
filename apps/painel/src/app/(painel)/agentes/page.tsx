@@ -10,6 +10,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import type { ParamsBusca } from '@/lib/tabela-url';
 import { SemPermissao } from '../treinar-agente/tela-orientacoes';
 import { CartaoAgente } from './cartao-agente';
+import { radarSemMigracao } from './cartao-radar';
 import { FiltrosAgentes } from './filtros-agentes';
 import { contarPorEstado, filtrarAgentes, lerFiltrosAgentes } from './lista';
 import { NovoAgente } from './novo-agente';
@@ -22,7 +23,7 @@ async function lerRadarDoCartao(sb: Sb, ler: boolean) {
     sb.from('radar_novidades').select('id', { count: 'exact', head: true }).eq('estado', 'para_decidir'),
     sb.from('radar_giros').select('criado_em, terminado_em').order('criado_em', { ascending: false }).limit(1).maybeSingle(),
   ]);
-  if (semMigracaoI1(cont.error)) return { semI5: true, paraDecidir: null, ultimoGiro: null };
+  if (radarSemMigracao({ contagem: cont, giro })) return { semI5: true, paraDecidir: null, ultimoGiro: null };
   if (cont.error) {
     console.error('[agentes] contagem do Radar', cont.error);
     return { semI5: false, paraDecidir: null, ultimoGiro: null };
