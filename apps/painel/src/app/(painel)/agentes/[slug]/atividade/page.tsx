@@ -63,7 +63,7 @@ export default async function Atividade({ params, searchParams }: { params: Prom
         )}
       </Card>
       <p className="text-sm text-muted">Custo diário conta só chamadas ligadas a uma conversa; o total do mês em Gastos com IA pode ser maior.</p>
-      <p className="text-sm text-muted">Tarefas de trabalho: chegam numa próxima etapa.{u.papel === 'admin' && <> Todos os gastos em <Link href="/gastos-ia" className="font-bold text-brand">Gastos com IA</Link>.</>}</p>
+      <p className="text-sm text-muted">Tarefas de trabalho: cada uma tem a sua tela, aberta pela demanda.{u.papel === 'admin' && <> Todos os gastos em <Link href="/gastos-ia" className="font-bold text-brand">Gastos com IA</Link>.</>}</p>
     </div>
   );
 }

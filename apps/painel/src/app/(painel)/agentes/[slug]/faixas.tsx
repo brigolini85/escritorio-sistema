@@ -1,20 +1,29 @@
 import { Info, TriangleAlert } from 'lucide-react';
 import type { EstadoAgente, ModoContato, TipoAgente } from '@escritorio/core';
 
-type SituacaoAgente = { semI2: boolean; estado: EstadoAgente; modo: ModoContato | null; tipos: TipoAgente[]; setor: string | null; contatosTeste: number };
+type SituacaoAgente = { semI2: boolean; estado: EstadoAgente; modo: ModoContato | null; tipos: TipoAgente[]; setor: string | null; contatosTeste: number; semI3?: boolean; setorAtivo?: boolean };
 
 /** D14: o que o agente do setor faz agora no atendimento, na ordem em que uma situação vence a outra. */
 export function textoComoAtua(s: SituacaoAgente): { texto: string; aviso: boolean } {
   if (s.semI2) return { texto: 'Os agentes dos setores passam a atender quando a atualização do banco da Parte I2 for aplicada.', aviso: true };
-  if (!s.tipos.includes('conversa')) return { texto: 'Tarefas de trabalho chegam na próxima etapa.', aviso: false };
+  if (s.setorAtivo === false) return { texto: `O setor ${s.setor ?? 'do agente'} está inativo: o agente não atende.`, aviso: true };
+  if (!s.tipos.includes('conversa')) return textoTarefas(s);
   if (s.estado === 'desligado') return { texto: 'Desligado: o Thiago atende como sempre.', aviso: false };
   if (!s.modo) return { texto: 'Escolha como fala com o cliente: sem isso o agente não atende.', aviso: true };
   if (s.estado === 'teste') return { texto: `Em teste: atende só os contatos da lista (${s.contatosTeste}). Com os outros, o Thiago segue como sempre.`, aviso: false };
   return { texto: `Ligado: atende quando o Thiago identifica um assunto do setor ${s.setor ?? 'do agente'}.`, aviso: false };
 }
 
-export function FaixaComoAtua({ situacao }: { situacao: SituacaoAgente }) {
-  const { texto, aviso } = textoComoAtua(situacao);
+/** D25: o que o agente de Trabalho faz agora; D24g: setor inativo vence (agentes_para_contato e a criação de tarefa não acham o agente). */
+export function textoTarefas(s: { semI3?: boolean; estado: EstadoAgente; setor: string | null; setorAtivo?: boolean }): { texto: string; aviso: boolean } {
+  if (s.semI3) return { texto: 'As tarefas de trabalho aparecem quando a atualização do banco da Parte I3 for aplicada.', aviso: true };
+  if (s.setorAtivo === false) return { texto: `O setor ${s.setor ?? 'do agente'} está inativo: o agente não atende.`, aviso: true };
+  if (s.estado === 'desligado') return { texto: 'Desligado: não recebe tarefas.', aviso: false };
+  if (s.estado === 'teste') return { texto: 'Em teste: só o dono e o administrador pedem tarefas.', aviso: false };
+  return { texto: `Ligado: recebe tarefas das demandas do setor ${s.setor ?? 'do agente'}.`, aviso: false };
+}
+
+function Faixa({ texto, aviso }: { texto: string; aviso: boolean }) {
   const Icone = aviso ? TriangleAlert : Info;
   return (
     <p className={aviso
@@ -24,6 +33,14 @@ export function FaixaComoAtua({ situacao }: { situacao: SituacaoAgente }) {
       {texto}
     </p>
   );
+}
+
+export function FaixaComoAtua({ situacao }: { situacao: SituacaoAgente }) {
+  return <Faixa {...textoComoAtua(situacao)} />;
+}
+
+export function FaixaTarefas({ situacao }: { situacao: Parameters<typeof textoTarefas>[0] }) {
+  return <Faixa {...textoTarefas(situacao)} />;
 }
 
 /** D23: homologação sem a migração. */

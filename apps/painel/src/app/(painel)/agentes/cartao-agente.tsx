@@ -72,7 +72,7 @@ export function CartaoAgente({ agente: a, contagens: c, numeros: n, mostrarNumer
       )}
       {/* Marcadores rotulados do que vem depois (D26): nada clicável. */}
       {a.tipos.includes('trabalho') && (
-        <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted">Tarefas de trabalho: chegam numa próxima etapa.</p>
+        <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted">Tarefas de trabalho: pedidas dentro das demandas do setor.</p>
       )}
       {a.slug === 'radar' && (
         <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted">Novidades da legislação: chegam na etapa do Radar.</p>

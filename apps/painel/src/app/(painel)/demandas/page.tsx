@@ -10,6 +10,8 @@ import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
 import { variantesBotao } from '@/components/ui/button';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { COLUNA_DA_ORDEM, ORDEM_PADRAO, ORDENS, lerFiltrosDemandas, temFiltro, type FiltrosDemandas, type Prioridade, type Visao } from '@/lib/demandas';
+import { lerAgentesDeTrabalho, lerTarefaDaDemanda } from '@/lib/tarefas';
+import type { AgenteDeTrabalho, ResumoTarefaDemanda } from '@/lib/tarefas-tela';
 import { lerTrabalhoDoAgente, type TrabalhoDoAgente } from '@/lib/agente-demanda';
 import { filtrarConsulta } from '@/lib/demandas-consulta';
 import { ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
@@ -208,18 +210,25 @@ async function DetalheCarregado({ sb, u, id, podeConversa, podeCsv, verPedidos, 
     <DetalheDemanda demanda={aberta?.demanda ?? null} comprador={aberta?.comprador ?? null} podeConversa={podeConversa} podeCsv={podeCsv} verPedidos={verPedidos} podePrazo={podePrazo}
       pessoas={pessoas} setores={setores} contatos={aberta?.contatos ?? []} agora={agora}
       trabalho={aberta?.trabalho ?? null}
+      tarefa={aberta?.tarefa ? {
+        ...aberta.tarefa,
+        // F10: setor desativado (fora da lista de ativos) não recebe tarefa nova; o banco recusa também.
+        setorInativo: !!aberta.demanda.setorId && !setores.some((s) => s.id === aberta.demanda.setorId),
+        podePedir: !!aberta.demanda.setorId && setores.some((s) => s.id === aberta.demanda.setorId)
+          && (u.papel === 'admin' || u.setores.includes(aberta.demanda.setorId)),
+      } : null}
       podeDecidirSugestao={u.papel === 'admin' || (aberta?.demanda.setorId ? u.setores.includes(aberta.demanda.setorId) : false)} />
   );
 }
 
 /** Demanda do painel lateral (visão demandas_lista), com a linha do tempo, os contatos da empresa e o comprador. RLS vale. */
-async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null; contatos: { id: string; nome: string }[]; trabalho: TrabalhoDoAgente } | null> {
+async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null; contatos: { id: string; nome: string }[]; trabalho: TrabalhoDoAgente; tarefa: { resumo: ResumoTarefaDemanda | null; agentes: AgenteDeTrabalho[] } | null } | null> {
   const { data: d } = await sb.from('demandas_lista').select('*').eq('id', id).maybeSingle();
   if (!d) return null;
   // Sem acesso a pedidos (P11): o pedido, a descrição e os textos livres da linha do tempo nem saem do servidor.
   const semPedido = !verPedidos && ehPedidoDeNota(d);
   const unidade = semPedido ? null : (d.pedido_venda as PedidoVendaSalvo | null)?.unidade_id ?? null;
-  const [{ data: eventos }, { data: cliente }, { data: vinculos }, { data: comprador }, trabalho] = await Promise.all([
+  const [{ data: eventos }, { data: cliente }, { data: vinculos }, { data: comprador }, trabalho, daTarefa, agentesDeTrabalho] = await Promise.all([
     sb.from('chamado_eventos').select('tipo, texto, criado_em, usuarios(nome)').eq('chamado_id', id).order('criado_em'),
     d.cliente_id ? sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj').eq('id', d.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
     d.cliente_id
@@ -227,6 +236,8 @@ async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ de
       : Promise.resolve({ data: [] as { contatos: { id: string; nome: string; ativo: boolean } }[] }),
     unidade ? sb.from('parceiros_unidades').select(COLUNAS_COMPRADOR).eq('id', unidade).maybeSingle() : Promise.resolve({ data: null }),
     lerTrabalhoDoAgente(sb, id, verPedidos && !semPedido, d.setor),
+    lerTarefaDaDemanda(sb, id, d.setor),
+    lerAgentesDeTrabalho(sb, id),
   ]);
   return {
     demanda: {
@@ -240,6 +251,7 @@ async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ de
     },
     comprador: (comprador as CompradorCadastrado | null) ?? null,
     trabalho,
+    tarefa: daTarefa.semI3 ? null : { resumo: daTarefa.tarefa, agentes: agentesDeTrabalho ?? [] },
     contatos: (vinculos ?? []).map((v) => ({ id: v.contatos.id, nome: v.contatos.nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
   };
 }

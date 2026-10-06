@@ -20,13 +20,15 @@ export type Agente = {
   id: string; slug: string; nome: string; descricao: string; setorId: string | null; setor: string | null; tipos: TipoAgente[];
   estado: EstadoAgente; modelo: string | null; modoContato: ModoContato | null; ferramentas: string[]; portaDeEntrada: boolean;
   criadoEm: string; atualizadoEm: string; atualizadoPor: string | null;
+  /** Só presente (false) quando o setor do agente está inativo (D24g). */
+  setorAtivo?: boolean;
 };
 type LinhaAgente = {
   id: string; slug: string; nome: string; descricao: string; setor_id: string | null; tipos: string[]; estado: string; modelo: string | null;
   modo_contato: string | null; ferramentas: string[]; porta_de_entrada: boolean; criado_em: string; atualizado_em: string;
-  setores?: { nome: string } | null; atualizador?: { nome: string } | null;
+  setores?: { nome: string; ativo?: boolean } | null; atualizador?: { nome: string } | null;
 };
-export const COLUNAS_AGENTE = 'id, slug, nome, descricao, setor_id, tipos, estado, modelo, modo_contato, ferramentas, porta_de_entrada, criado_em, atualizado_em, setores(nome), atualizador:usuarios!agentes_atualizado_por_fkey(nome)';
+export const COLUNAS_AGENTE = 'id, slug, nome, descricao, setor_id, tipos, estado, modelo, modo_contato, ferramentas, porta_de_entrada, criado_em, atualizado_em, setores(nome, ativo), atualizador:usuarios!agentes_atualizado_por_fkey(nome)';
 
 const de = <T extends string>(lista: readonly T[], v: unknown): v is T => (lista as readonly unknown[]).includes(v);
 
@@ -38,6 +40,7 @@ export function lerLinhaAgente(l: LinhaAgente): Agente {
     tipos: tipos.length ? tipos : ['conversa'], estado: de(ESTADOS_AGENTE, l.estado) ? l.estado : 'desligado', modelo: l.modelo,
     modoContato: de(MODOS_CONTATO, l.modo_contato) ? l.modo_contato : null, ferramentas: l.ferramentas ?? [], portaDeEntrada: l.porta_de_entrada === true,
     criadoEm: l.criado_em, atualizadoEm: l.atualizado_em, atualizadoPor: l.atualizador?.nome ?? null,
+    ...(l.setores && l.setores.ativo === false ? { setorAtivo: false } : {}),
   };
 }
 
@@ -215,6 +218,19 @@ async function i2NoBanco(sb: Sb): Promise<boolean> {
 export function parteI2Aplicada(sb: Sb): Promise<boolean> {
   const memo = i2DaRequisicao();
   return (memo.p ??= i2NoBanco(sb));
+}
+
+/** Parte I3a (D22): o banco já tem as tarefas? Só a tabela ausente diz "não". Cache por requisição, como a I2. */
+const i3DaRequisicao = cache(() => ({ p: null as Promise<boolean> | null }));
+export function parteI3Aplicada(sb: Sb): Promise<boolean> {
+  const memo = i3DaRequisicao();
+  return (memo.p ??= Promise.resolve(sb.from('agente_tarefas').select('id').limit(1).then(({ error }) => !semMigracaoI1(error))));
+}
+/** D13: limites das tarefas do agente; null = banco sem a I3. */
+export async function lerLimitesTarefa(sb: Sb, slug: string): Promise<{ usd: number; minutos: number } | null> {
+  const { data, error } = await sb.from('agentes').select('tarefa_limite_usd, tarefa_limite_minutos').eq('slug', slug).maybeSingle();
+  if (semMigracaoI1(error) || !data) return null;
+  return { usd: Number(data.tarefa_limite_usd), minutos: data.tarefa_limite_minutos };
 }
 
 /** "Usada no mês" das regras (D11): regra → conversas. null: banco sem a I2 (a tela mostra "—"). */

@@ -14,9 +14,11 @@ import { variantesBotao } from '@/components/ui/button';
 import { SheetBody, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { Prioridade } from '@/lib/demandas';
 import type { TrabalhoDoAgente } from '@/lib/agente-demanda';
+import type { AgenteDeTrabalho, ResumoTarefaDemanda } from '@/lib/tarefas-tela';
 import { pendenciasCsvBling } from '@/lib/resumo-pedido';
 import { BotaoAssumir, BotoesDemanda, CamposDemanda, EditarDescricao, EditarTitulo, type PessoaSetor } from './acoes-demanda';
 import { abertaPor } from './colunas-demandas';
+import { TarefaNaDemanda } from './tarefa-demanda';
 import { TrabalhoAgente } from './trabalho-agente';
 
 export type DemandaAberta = {
@@ -40,10 +42,12 @@ function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
 }
 
 /** Painel lateral da demanda (spec 6.3, imagem 05): tudo se resolve aqui, sem sair da tela. */
-export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, verPedidos, podePrazo, pessoas, setores, contatos, agora, trabalho, podeDecidirSugestao }: {
+export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, verPedidos, podePrazo, pessoas, setores, contatos, agora, trabalho, podeDecidirSugestao, tarefa }: {
   demanda: DemandaAberta | null; comprador: CompradorCadastrado | null; podeConversa: boolean; podeCsv: boolean; verPedidos: boolean; podePrazo: boolean;
   pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; contatos: { id: string; nome: string }[]; agora: Date;
   trabalho?: TrabalhoDoAgente | null; podeDecidirSugestao?: boolean;
+  /** D21: a tarefa do agente de Trabalho (null = banco sem a I3). setorInativo: F10, o banco recusa criar. */
+  tarefa?: { resumo: ResumoTarefaDemanda | null; agentes: AgenteDeTrabalho[]; podePedir: boolean; setorInativo?: boolean } | null;
 }) {
   if (!d) {
     return (
@@ -96,6 +100,12 @@ export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, v
         {trabalho && (trabalho.preAnalise || trabalho.sugestoes.length > 0) ? (
           <Secao titulo={trabalho.agente ?? (d.setor ? `Agente ${d.setor}` : 'Agente do setor')}>
             <TrabalhoAgente trabalho={trabalho} podeDecidir={podeDecidirSugestao === true} />
+          </Secao>
+        ) : null}
+        {tarefa && (tarefa.resumo || tarefa.setorInativo || (tarefa.podePedir && tarefa.agentes.length > 0 && d.status !== 'concluido')) ? (
+          <Secao titulo={`Tarefa do agente ${d.setor ?? ''}`.trim()}>
+            <TarefaNaDemanda chamadoId={d.id} resumo={tarefa.resumo} agentes={d.status === 'concluido' ? [] : tarefa.agentes} podePedir={tarefa.podePedir}
+              setorInativo={tarefa.setorInativo === true} />
           </Secao>
         ) : null}
         <Secao titulo="Linha do tempo">

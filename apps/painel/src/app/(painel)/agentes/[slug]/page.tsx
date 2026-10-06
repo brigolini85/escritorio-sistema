@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { INFO_MODO, INFO_TIPO_SKILL, TEXTO_FALA_THIAGO, TIPOS_SKILL } from '@escritorio/core';
 import { Card } from '@/components/ui/card';
-import { lerAgente, lerMudancas, lerRegras, lerSkills } from '@/lib/agentes';
+import { lerAgente, lerLimitesTarefa, lerMudancas, lerRegras, lerSkills, souDono } from '@/lib/agentes';
 import { supabaseServidor } from '@/lib/supabase/servidor';
+import { LimitesTarefa } from './limites-tarefa';
 import { OrdemPrioridade, ResumoFerramentas, UltimasMudancas } from './coluna-lateral';
 
 /** Visão geral: skills por tipo, como fala com o cliente, ferramentas, prioridade e últimas mudanças. */
@@ -12,7 +13,10 @@ export default async function VisaoGeral({ params }: { params: Promise<{ slug: s
   const sb = await supabaseServidor();
   const { agente, semMigracao } = await lerAgente(sb, slug);
   if (!agente) notFound();
-  const [skills, regras, mudancas] = semMigracao ? [[], [], []] : await Promise.all([lerSkills(sb, agente.id), lerRegras(sb, agente.id), lerMudancas(sb, agente.id, 5)]);
+  const [skills, regras, mudancas, limites, dono] = semMigracao ? ([[], [], [], null, false] as [never[], never[], never[], null, boolean]) : await Promise.all([
+    lerSkills(sb, agente.id), lerRegras(sb, agente.id), lerMudancas(sb, agente.id, 5),
+    agente.tipos.includes('trabalho') ? lerLimitesTarefa(sb, slug) : Promise.resolve(null), souDono(sb),
+  ]);
   const fala = agente.portaDeEntrada ? TEXTO_FALA_THIAGO : agente.modoContato ? INFO_MODO[agente.modoContato].rotulo : 'a definir';
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -44,6 +48,7 @@ export default async function VisaoGeral({ params }: { params: Promise<{ slug: s
         <ResumoFerramentas agente={agente} />
       </div>
       <div className="flex flex-col gap-4">
+        {agente.tipos.includes('trabalho') && limites && <LimitesTarefa slug={slug} limites={limites} dono={dono} />}
         <OrdemPrioridade />
         <UltimasMudancas mudancas={mudancas} />
       </div>

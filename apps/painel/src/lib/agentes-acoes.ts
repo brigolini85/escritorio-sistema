@@ -117,3 +117,12 @@ export async function buscarContatosParaTeste(q: string): Promise<ContatoTeste[]
     return [];
   }
 }
+
+/** D13: só o dono (o banco confere de novo e grava no histórico do agente). */
+export async function salvarLimitesTarefa(slug: string, usd: number, minutos: number): Promise<ResultadoAcao> {
+  if (!Slug.safeParse(slug).success) return { ok: false, erro: 'Agente não encontrado.' };
+  if (!Number.isFinite(usd) || !Number.isInteger(minutos)) return { ok: false, erro: 'Limites inválidos.' };
+  const r = await chamar((sb) => sb.rpc('salvar_limites_tarefa', { p_slug: slug, p_usd: usd, p_minutos: minutos }));
+  if (r.ok) revalidatePath(`/agentes/${slug}`, 'layout');
+  return r;
+}

@@ -7,7 +7,7 @@ describe('faixa da ficha pelo estado (D14)', () => {
   it('cada situação, na ordem de prioridade', () => {
     expect(textoComoAtua({ ...base, semI2: true, estado: 'ligado' })).toEqual({
       texto: 'Os agentes dos setores passam a atender quando a atualização do banco da Parte I2 for aplicada.', aviso: true });
-    expect(textoComoAtua({ ...base, tipos: ['trabalho'], estado: 'ligado' }).texto).toBe('Tarefas de trabalho chegam na próxima etapa.');
+    expect(textoComoAtua({ ...base, tipos: ['trabalho'], estado: 'ligado' }).texto).toBe('Ligado: recebe tarefas das demandas do setor Fiscal.');
     expect(textoComoAtua(base)).toEqual({ texto: 'Desligado: o Thiago atende como sempre.', aviso: false });
     expect(textoComoAtua({ ...base, estado: 'teste', modo: null })).toEqual({ texto: 'Escolha como fala com o cliente: sem isso o agente não atende.', aviso: true });
     expect(textoComoAtua({ ...base, estado: 'teste', contatosTeste: 2 }).texto)

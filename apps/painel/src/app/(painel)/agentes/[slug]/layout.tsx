@@ -1,13 +1,13 @@
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { acessoAosAgentes, lerAgente, lerContagens, lerContatosTeste, lerModelos, lerMudancas, lerNumeros, parteI2Aplicada, souDono } from '@/lib/agentes';
+import { acessoAosAgentes, lerAgente, lerContagens, lerContatosTeste, lerModelos, lerMudancas, lerNumeros, parteI2Aplicada, parteI3Aplicada, souDono } from '@/lib/agentes';
 import { lerPeriodo } from '@/lib/gastos';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { SemPermissao } from '../../treinar-agente/tela-orientacoes';
 import { AbasAgente } from './abas-agente';
 import { CabecalhoAgente } from './cabecalho-agente';
-import { FaixaComoAtua, FaixaSemMigracao } from './faixas';
+import { FaixaComoAtua, FaixaSemMigracao, FaixaTarefas } from './faixas';
 
 /** Ficha do agente (spec 7E.3): cabeçalho e abas em todas as abas. Quem não vê os agentes recebe a tela de sempre do Treinar (D22). */
 export default async function FichaDoAgente({ params, children }: { params: Promise<{ slug: string }>; children: ReactNode }) {
@@ -18,13 +18,14 @@ export default async function FichaDoAgente({ params, children }: { params: Prom
   const { agente, semMigracao } = await lerAgente(sb, slug);
   if (!agente) notFound();
   const mes = lerPeriodo({}, new Date());
-  const [contagens, numeros, contatosTeste, modelos, mudancas, comI2] = await Promise.all([
+  const [contagens, numeros, contatosTeste, modelos, mudancas, comI2, comI3] = await Promise.all([
     semMigracao ? Promise.resolve(null) : lerContagens(sb, [agente]),
     acesso.numeros && !semMigracao ? lerNumeros(sb, mes.de, mes.ate) : Promise.resolve(null),
     semMigracao ? Promise.resolve([]) : lerContatosTeste(sb, agente.id),
     lerModelos(sb),
     semMigracao ? Promise.resolve([]) : lerMudancas(sb, agente.id, 200),
     semMigracao ? Promise.resolve(false) : parteI2Aplicada(sb),
+    semMigracao ? Promise.resolve(false) : parteI3Aplicada(sb),
   ]);
   const c = contagens?.get(agente.id);
   return (
@@ -33,8 +34,12 @@ export default async function FichaDoAgente({ params, children }: { params: Prom
         contatosTeste={contatosTeste} modelos={modelos} mudancas={mudancas} />
       <AbasAgente slug={agente.slug} contagem={c ? { skills: c.skills, ferramentas: c.ferramentas } : {}} />
       {semMigracao && <FaixaSemMigracao />}
-      {!agente.portaDeEntrada && !semMigracao && (
-        <FaixaComoAtua situacao={{ semI2: !comI2, estado: agente.estado, modo: agente.modoContato, tipos: agente.tipos, setor: agente.setor, contatosTeste: contatosTeste.length }} />
+      {!agente.portaDeEntrada && !semMigracao && agente.tipos.includes('conversa') && (
+        <FaixaComoAtua situacao={{ semI2: !comI2, estado: agente.estado, modo: agente.modoContato, tipos: agente.tipos, setor: agente.setor,
+          contatosTeste: contatosTeste.length, setorAtivo: agente.setorAtivo }} />
+      )}
+      {!agente.portaDeEntrada && !semMigracao && agente.tipos.includes('trabalho') && (
+        <FaixaTarefas situacao={{ semI3: !comI3, estado: agente.estado, setor: agente.setor, setorAtivo: agente.setorAtivo }} />
       )}
       {children}
     </div>
