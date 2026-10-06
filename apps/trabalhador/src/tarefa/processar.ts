@@ -1,5 +1,5 @@
 import { etapasDoProcedimento, mesReferencia, type MotivoFimVez } from '@escritorio/core';
-import { SemI3b, type Repos } from '@escritorio/db';
+import { SemI3b, type OpcoesDoPedido, type Repos } from '@escritorio/db';
 import { erroTemporarioIa } from '../agente/cliente-ia';
 import { carregarPerfil } from '../agente/perfil';
 import { agendarTarefa } from '../fila';
@@ -11,6 +11,16 @@ import { montarSistemaTarefa } from './prompt';
 let avisouSemI3 = false;
 let avisouPasta = false;
 const segundosDesde = (inicio: Date, agora: Date) => Math.max(0, (agora.getTime() - inicio.getTime()) / 1000);
+const DATA_HORA_BRASILIA = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+});
+
+/** I4 (D7): o prazo desejado vai ao agente numa linha; não muda o prazo da demanda. */
+export function linhaDoPedido(o: OpcoesDoPedido): string | null {
+  if (!o.prazoDesejado) return null;
+  const quando = DATA_HORA_BRASILIA.format(new Date(o.prazoDesejado)).replace(', ', ' ');
+  return `Prazo desejado por quem pediu: ${quando} (Brasília). Se não der tempo, diga nas observações.`;
+}
 
 /** D22: null em iniciarExecucaoTarefa também é "não pegou"; só a falta da tabela (a leitura falha) é banco sem a I3. */
 async function bancoSemI3(repos: Repos, id: string): Promise<boolean> {
@@ -61,6 +71,8 @@ async function umaVez(d: DepsTarefa, id: string, inicio: Date): Promise<MotivoFi
   if (t.agenteEstado === 'desligado' || !t.agenteTipos.includes('trabalho')) return 'agente_desligado';
   const config = await d.repos.obterConfiguracoes();
   if ((await d.repos.custoIaDoMes(mesReferencia(inicio))) >= config.tetoIaUsd) return 'teto';
+  // I4 (D7, D17): null = banco sem a I4; a vez segue como na I3b.
+  const opcoes = await d.repos.opcoesDoPedido(t.id).catch(() => null);
   const perfil = await carregarPerfil(d.repos, t.agenteSlug);
   const primeiraVez = t.etapas.length === 0;
   if (!t.etapas.length) {
@@ -76,25 +88,32 @@ async function umaVez(d: DepsTarefa, id: string, inicio: Date): Promise<MotivoFi
   let lerPasta: VezDaTarefa['lerPasta'];
   if (d.drive && d.guardar && d.remover) {
     const depsPasta: DepsPasta = { repos: d.repos, drive: d.drive, guardar: d.guardar, remover: d.remover, relogio: d.relogio };
-    const p = await d.repos.pastaDriveDaTarefa(t.id).catch((e) => {
+    const p = await d.repos.pastaDriveDaTarefa(t.id).catch(async (e) => {
       // F4: banco sem a I3b é esperado (lerPastaDaTarefa avisa); qualquer outro erro aparece no log, uma vez.
       if (!(e instanceof SemI3b) && !avisouPasta) {
         avisouPasta = true;
         console.error('[drive] não deu para saber a pasta da tarefa', id, e instanceof Error ? e.message : e);
+      }
+      // I4 (D19b): a leitura automática que não aconteceu deixa rastro na linha do tempo.
+      if (!(e instanceof SemI3b) && primeiraVez) {
+        await d.repos.eventoTarefa(id, 'não deu para ler a pasta do Drive agora: use Ler a pasta de novo').catch(() => {});
       }
       return null;
     });
     if (p?.pasta) {
       // F4: lerPastaComAviso nunca lança; o Drive nunca derruba a vez.
       lerPasta = (sub) => lerPastaComAviso(depsPasta, t.id, sub);
-      if (primeiraVez) {
-        const r = await lerPasta(null);
+      if (primeiraVez && opcoes?.lerDrive !== false) {
+        const r = await lerPasta(opcoes?.subpasta ?? null);
         if (r.situacao === 'lida' && r.novos.length) t.arquivos = (await d.repos.tarefaParaTrabalho(t.id).catch(() => null))?.arquivos ?? t.arquivos;
       }
     }
   }
   const vez: VezDaTarefa = { tarefa: t, perfil, entregou: false, abriuPendencia: false, lidosNaVez: 0, ...(lerPasta ? { lerPasta } : {}) };
-  const motivo = await executarTarefa(d, vez, config, montarSistemaTarefa(t, perfil, orientacoes, setores), inicio);
+  const system = montarSistemaTarefa(t, perfil, orientacoes, setores);
+  const linha = opcoes ? linhaDoPedido(opcoes) : null;
+  if (linha) system.push({ type: 'text', text: linha });
+  const motivo = await executarTarefa(d, vez, config, system, inicio);
   if (vez.lidosNaVez) await d.repos.eventoTarefa(t.id, `leu ${vez.lidosNaVez} arquivo${vez.lidosNaVez > 1 ? 's' : ''}`);
   return motivo;
 }
