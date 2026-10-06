@@ -89,6 +89,8 @@ const CENARIOS: Cenario[] = [
       if (!p.ia.requisicoes.length) f.push('a IA não foi chamada');
       if (g.buscas < 1) f.push(`radar_giros.buscas = ${g.buscas} (esperava ao menos 1)`);
       const links = linksDasRespostas(p.ia);
+      if (!links.length) f.push('nenhum resultado web nas respostas');
+      if (!blocos(p.ia).some((b) => b.type === 'server_tool_use' && b.name === 'web_search')) f.push('nenhuma busca web (server_tool_use web_search) nas respostas');
       for (const u of links) if (!doDominio(u, 'gov.br') && !doDominio(u, 'cfc.org.br')) f.push(`link fora das fontes: ${u}`);
       const vistos = new Set(links.map((u) => normalizarUrl(u)));
       for (const n of await novidadesDe(p.giroId)) {
@@ -135,12 +137,13 @@ const CENARIOS: Cenario[] = [
       const f: string[] = [];
       const g = await giroDe(p.giroId);
       if (g.estado !== 'concluido') f.push(`o giro terminou ${g.estado}: ${g.erro ?? ''}`);
-      if (!g.fontes_fora.some((x) => x.nome === 'Portal Fora do Ar')) f.push(`fontes_fora = ${JSON.stringify(g.fontes_fora)}`);
+      if (!g.fontes_fora.some((x) => x.nome === 'Portal Fora do Ar')) f.push(`fontes_fora = ${JSON.stringify(g.fontes_fora)} (o modelo pode não ter tentado ler a página fora do ar)`);
       const faixa = textoFaixaGiro({ estado: g.estado as 'concluido', iniciadoEm: g.iniciado_em, terminadoEm: g.terminado_em, fontes: g.fontes, novidades: g.novidades,
         repetidas: g.repetidas, fontesFora: g.fontes_fora, novaTentativaEm: g.nova_tentativa_em, erro: g.erro }, new Date());
       console.log(`  faixa: ${faixa}`);
       if (!faixa.includes('Portal Fora do Ar fora do ar')) f.push(`a faixa não diz "Portal Fora do Ar fora do ar": ${faixa}`);
-      const horaSP = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false }).format(new Date(g.terminado_em!)));
+      if (!g.terminado_em) { f.push('o giro não tem terminado_em'); return f; }
+      const horaSP = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hourCycle: 'h23' }).format(new Date(g.terminado_em)));
       if (horaSP < 15) { if (!g.nova_tentativa_em) f.push(`terminou às ${horaSP}h (antes das 15h) e nova_tentativa_em está vazio`); }
       else { console.log(`  (terminou às ${horaSP}h, depois das 15h: nova_tentativa_em = ${g.nova_tentativa_em})`); if (g.nova_tentativa_em) f.push(`terminou depois das 15h e nova_tentativa_em = ${g.nova_tentativa_em}`); }
       return f;
@@ -161,10 +164,6 @@ const CENARIOS: Cenario[] = [
       const f: string[] = [];
       const g = await giroDe(p.giroId);
       if (g.estado !== 'concluido') f.push(`o giro terminou ${g.estado}: ${g.erro ?? ''}`);
-      await enviosRadar({ repos, radar, envio: p.envio, relogio: () => new Date() });
-      if (p.canal.enviados.length) f.push(`saiu mensagem sem aprovação: ${JSON.stringify(p.canal.enviados)}`);
-      const n0 = (await sqlTeste<{ n: string }>('select count(*) as n from public.radar_envios'))[0]!.n;
-      if (Number(n0) !== 0) f.push(`radar_envios tem ${n0} linhas antes de aprovar`);
       const fiscal = await setorId('Fiscal');
       const clientes = (await db.from('clientes').select('id, razao_social').in('razao_social', ['Padaria Sol', 'Mercado Lua'])).data!;
       // A novidade do giro serve se é do Fiscal e atinge as duas empresas; senão, uma de teste.
@@ -178,10 +177,18 @@ const CENARIOS: Cenario[] = [
       console.log(`  novidade usada: ${nov ? 'a do giro' : 'de teste (nenhuma do giro serve)'}`);
       nov ??= await novidadeRadarTeste({ titulo: 'Mudança de regra de teste', url: 'https://www.gov.br/receitafederal/pt-br/teste', setores: ['Fiscal'], criterios: { ufs: ['MG'] } });
       const texto = 'Olá! Mudou uma regra; já estamos cuidando.';
+      // Com a novidade já escolhida (e com rascunho), "nada saiu" não é vazio.
+      await sqlTeste('update public.radar_novidades set mensagem_cliente = $2 where id = $1', [nov, texto]);
+      await enviosRadar({ repos, radar, envio: p.envio, relogio: () => new Date() });
+      if (p.canal.enviados.length) f.push(`saiu mensagem sem aprovação: ${JSON.stringify(p.canal.enviados)}`);
+      const n0 = (await sqlTeste<{ n: string }>('select count(*) as n from public.radar_envios'))[0]!.n;
+      if (Number(n0) !== 0) f.push(`radar_envios tem ${n0} linhas antes de aprovar`);
       const [r] = await comoPessoa<{ n: number }>(p.ana, 'select public.aprovar_envio_radar($1, $2, $3::uuid[], $4) as n', [nov, fiscal, clientes.map((c) => c.id), texto]);
       if (r?.n !== 1) f.push(`aprovar_envio_radar devolveu ${r?.n} (esperava 1: só o João)`);
       const enviados = await enviosRadar({ repos, radar, envio: p.envio, relogio: () => new Date() });
       if (enviados !== 1) f.push(`enviosRadar enviou ${enviados} (esperava 1)`);
+      const n1 = (await sqlTeste<{ n: string }>('select count(*) as n from public.radar_envios'))[0]!.n;
+      if (Number(n1) !== 1) f.push(`radar_envios tem ${n1} linhas depois de aprovar (esperava 1)`);
       if (p.canal.enviados.length !== 1 || p.canal.enviados[0]!.telefone !== '5531999990001' || p.canal.enviados[0]!.texto !== texto) {
         f.push(`o canal recebeu ${JSON.stringify(p.canal.enviados)}`);
       }
