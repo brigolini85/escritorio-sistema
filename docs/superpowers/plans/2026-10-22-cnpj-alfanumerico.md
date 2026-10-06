@@ -29,6 +29,19 @@
 
 **Onde trabalhar:** worktree nova `C:/Users/Thiago/Desktop/PROJETO/AGENTESDEIA/.claude/worktrees/producao-cnpj`, branch `producao-cnpj`, criada **a partir da ponta da branch `producao-prontidao`** (o plano anterior): `git worktree add .claude/worktrees/producao-cnpj -b producao-cnpj producao-prontidao`. **A confirmar com o dono (D8):** este plano não depende dos dois anteriores (só dos números das migrações); se o dono quiser o CNPJ antes, ele pode partir de `planos-producao` — aí a migração continua `20261101000500` (fica depois das que ainda não existem, sem problema) e o pgTAP `84`. **Antes da Task 1, anote o SHA de partida** → **BASE**.
 
+## Auto-revisão contra o código (06/10, antes da execução)
+
+Varri `apps`, `packages`, `supabase` e `scripts` atrás de tudo que valida, formata, compara ou busca CNPJ (`grep -rni cnpj`, `\d{14}`, `length === 14`, `somenteDigitos`, inserts em `clientes`/`parceiros_unidades`). Resultado:
+- **Banco:** só os dois `check` (`base.sql:41`, `cadastros_comerciais.sql:24`) e o `unique` (`clientes.cnpj`; `parceiros_unidades (cliente_id, cnpj)`). Nenhuma função, visão ou RPC compara ou formata CNPJ; `salvar_ficha_cliente` grava o que o painel manda (o painel normaliza). **Coberto pela Task 2.**
+- **Quem grava CNPJ:** `clientes/acoes.ts:35,40` (`ClienteForm`), `cadastros-acoes.ts:40,41` (`UnidadeForm`), `salvar_ficha_cliente` (`lerFicha`). Nenhum caminho do trabalhador grava CNPJ. **Coberto pela Task 4.**
+- **Campo que tinha ficado de fora:** `clientes/[id]/secao-dados-antiga.tsx:76` (CNPJ com `inputMode="numeric"`). **Acrescentado à Task 4 (item 8).**
+- **Limpeza da pontuação:** a primeira versão tirava só `.`, `/`, `-`, travessões e espaços; agora tira tudo que não é `0–9A–Za–z`, igual a `cnpjLimpo` do painel (`formatos.ts:37`), para o painel e o core darem o mesmo resultado. **Mudança de comportamento só para entrada estranha:** o `validarCnpj` de hoje aceitava `"CNPJ 11.222.333/0001-81"` (as letras sumiam com `\D`); o novo recusa (sobram 18 caracteres). Nenhum teste nem tela manda isso (os testes antigos usam o número com ou sem máscara).
+- **Buscas:** `buscarEmpresas` (assistente: `buscar_empresas` e `listar_demandas`) → Task 3; busca global e lista de clientes → Task 5. **Limitação que fica (fora do escopo):** o seletor `EscolherEmpresa` filtra pelo `detalhe` sem máscara (`nova-demanda-dados.ts:26`, `contatos/dados-contatos.ts:151`); digitar "12.ABC" ali não acha `12ABC34501DE35` — é o mesmo que já acontece hoje com "11.222" e um numérico. Listado na Entrega.
+- **O que o agente vê:** `consultar_cadastro` do agente e do assistente usam `cnpjFormatado` → Task 6; `tarefa/ferramentas.ts:221` → Task 6; `pre-analise-nota.ts:18` → Task 6. O prompt só cita "CNPJ" como palavra; não muda.
+- **Dados de teste e e2e:** os CNPJs fixos (`11222333000181`, `11222333000262`, `12345678000190`, `41000000000101`, `21448390000107`, e os `11222333000100 + i` de `test/apoio/cenario.ts:47`) são todos numéricos de 14 dígitos: passam no `check` novo; vários têm dígito errado, por isso o banco **não** confere o dígito (D3).
+- **Cálculo:** conferido com `node` em 06/10: `12ABC34501DE35` válido; `11222333000181` e `19131243000197` válidos; `21448390000107` e `11222333000100` inválidos (dados de teste antigos).
+- **Numéricos existentes:** a forma `^[0-9A-Z]{12}[0-9]{2}$` contém `^\d{14}$`; nenhum `update` em dados; a máscara numérica sai igual (`formatarCnpj` = `mascararCNPJ`).
+
 ## Escopo: 8 tasks
 
 1. core: normalizar, validar, formatar e buscar (Task 1, **primeira**: tudo depende dela);
@@ -57,7 +70,7 @@
 
 ## Restrições globais
 
-- **Só mexer em:** `packages/core/src/{documentos,pre-analise-nota,index}.ts`, `packages/core/test/{cnpj-alfanumerico,pre-analise-nota-cnpj}.test.ts` (**novos**), `supabase/migrations/20261101000500_cnpj_alfanumerico.sql` e `supabase/tests/84_cnpj_alfanumerico.test.sql` (**novos**), `packages/db/src/repos.ts` (só `buscarEmpresas`), `packages/db/src/tipos.gen.ts` (regerado), `packages/db/test/cnpj.test.ts` (**novo**), `apps/painel/src/app/(painel)/clientes/{esquemas.ts,cadastros-esquemas.ts,acoes.ts,(lista)/page.tsx,ficha/ficha.ts,ficha/acoes.ts,ficha/ficha-cliente.tsx,ficha/blocos-empresa.tsx,novo/form-antigo.tsx,[id]/secao-parceiros.tsx}`, `apps/painel/src/app/api/busca/route.ts`, `apps/painel/src/lib/{busca,consultas-publicas}.ts`, testes **novos** do painel (`apps/painel/src/lib/cnpj-alfanumerico.test.ts`, `apps/painel/src/app/(painel)/clientes/ficha/ficha-cnpj.test.ts`), `apps/painel/e2e/cnpj-alfanumerico.spec.ts` (**novo**), `apps/trabalhador/src/agente/pedido-nota.ts` (só `cnpjFormatado`), `apps/trabalhador/src/tarefa/ferramentas.ts` (só a linha do `cnpj` em `consultar_cadastro`), `apps/trabalhador/test/agente/cnpj-alfanumerico.test.ts` (**novo**), `apps/trabalhador/src/cenarios/cenarios.ts` e `rodar.ts` (só o cenário novo e o campo opcional `cnpjEmpresa`), `docs/operacao.md`. **Nada em `prompt.ts`, nos retratos, em `packages/core/src/bling.ts`.**
+- **Só mexer em:** `packages/core/src/{documentos,pre-analise-nota,index}.ts`, `packages/core/test/{cnpj-alfanumerico,pre-analise-nota-cnpj}.test.ts` (**novos**), `supabase/migrations/20261101000500_cnpj_alfanumerico.sql` e `supabase/tests/84_cnpj_alfanumerico.test.sql` (**novos**), `packages/db/src/repos.ts` (só `buscarEmpresas`), `packages/db/src/tipos.gen.ts` (regerado), `packages/db/test/cnpj.test.ts` (**novo**), `apps/painel/src/app/(painel)/clientes/{esquemas.ts,cadastros-esquemas.ts,acoes.ts,(lista)/page.tsx,ficha/ficha.ts,ficha/acoes.ts,ficha/ficha-cliente.tsx,ficha/blocos-empresa.tsx,novo/form-antigo.tsx,[id]/secao-parceiros.tsx,[id]/secao-dados-antiga.tsx}`, `apps/painel/src/app/api/busca/route.ts`, `apps/painel/src/lib/{busca,consultas-publicas}.ts`, testes **novos** do painel (`apps/painel/src/lib/cnpj-alfanumerico.test.ts`, `apps/painel/src/app/(painel)/clientes/ficha/ficha-cnpj.test.ts`), `apps/painel/e2e/cnpj-alfanumerico.spec.ts` (**novo**), `apps/trabalhador/src/agente/pedido-nota.ts` (só `cnpjFormatado`), `apps/trabalhador/src/tarefa/ferramentas.ts` (só a linha do `cnpj` em `consultar_cadastro`), `apps/trabalhador/test/agente/cnpj-alfanumerico.test.ts` (**novo**), `apps/trabalhador/src/cenarios/cenarios.ts` e `rodar.ts` (só o cenário novo e o campo opcional `cnpjEmpresa`), `docs/operacao.md`. **Nada em `prompt.ts`, nos retratos, em `packages/core/src/bling.ts`.**
 - **Testes de partes anteriores não mudam:** nenhum pgTAP de `01` a `83`; nenhum `*.test.ts` existente (em especial `packages/core/test/documentos.test.ts`, `pre-analise-nota.test.ts`, `bling.test.ts`, `apps/painel/src/lib/busca.test.ts`, `formatos.test.ts`, os testes da ficha); nenhum e2e existente. Teste antigo quebrou → **pare** e avise.
 - **Os CNPJs numéricos não mudam:** nenhum `update` em `clientes.cnpj` ou `parceiros_unidades.cnpj` na migração; a Entrega prova que um banco com os dados de antes passa pelo `check` novo.
 - **O teste congelado `22_regressao_visibilidade.test.sql` 100/100** e `git diff 8f5eb71 -- supabase/tests/22_regressao_visibilidade.test.sql` vazio.
@@ -197,9 +210,10 @@ Expected: FAIL (funções novas não existem; `validarCnpj('12.ABC.345/01DE-35')
 /** CNPJ guardado: 14 caracteres, 12 letras maiúsculas ou números + 2 dígitos (IN RFB 2.229/2024, desde jul/2026). */
 const FORMA_CNPJ = /^[0-9A-Z]{12}[0-9]{2}$/;
 
-/** Tira pontuação e espaços e passa para maiúsculas; null se não tiver a forma de um CNPJ. */
+/** Tira tudo que não é letra ou número (como `cnpjLimpo` do painel) e passa para maiúsculas; null se não tiver a forma de um CNPJ. */
 export function normalizarCnpj(entrada: string | null | undefined): string | null {
-  const c = (entrada ?? '').replace(/[\s.\/\-–—]/g, '').toUpperCase();
+  // Ç e acentos também saem; o que sobrar com 13 caracteres não tem a forma e é recusado.
+  const c = (entrada ?? '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
   return FORMA_CNPJ.test(c) ? c : null;
 }
 
@@ -447,7 +461,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 4: Painel. Formulários, ficha do cliente e a busca automática (D1, D4, D5)
 
 **Files:**
-- Modify: `apps/painel/src/app/(painel)/clientes/esquemas.ts`, `.../clientes/cadastros-esquemas.ts`, `.../clientes/acoes.ts` (só se `dados.cnpj` vier de outro lugar que não `ClienteForm`), `.../clientes/ficha/ficha.ts`, `.../clientes/ficha/acoes.ts`, `.../clientes/ficha/ficha-cliente.tsx`, `.../clientes/ficha/blocos-empresa.tsx`, `.../clientes/novo/form-antigo.tsx`, `apps/painel/src/lib/consultas-publicas.ts`
+- Modify: `apps/painel/src/app/(painel)/clientes/esquemas.ts`, `.../clientes/cadastros-esquemas.ts`, `.../clientes/acoes.ts` (só se `dados.cnpj` vier de outro lugar que não `ClienteForm`), `.../clientes/ficha/ficha.ts`, `.../clientes/ficha/acoes.ts`, `.../clientes/ficha/ficha-cliente.tsx`, `.../clientes/ficha/blocos-empresa.tsx`, `.../clientes/novo/form-antigo.tsx`, `.../clientes/[id]/secao-dados-antiga.tsx`, `apps/painel/src/lib/consultas-publicas.ts`
 - Create: `apps/painel/src/app/(painel)/clientes/ficha/ficha-cnpj.test.ts`
 
 **Interfaces:**
@@ -501,7 +515,7 @@ Expected: FAIL.
 5. `lib/consultas-publicas.ts`, `consultarCnpj`: `const numero = normalizarCnpj(cnpj); if (!numero) return { ok: false, motivo: 'nao_encontrado' };` (importe de `@escritorio/core`).
 6. `clientes/ficha/ficha-cliente.tsx`: um ajudante `const cnpjDoCampo = () => { const el = form()?.elements.namedItem('cnpj'); return el instanceof HTMLInputElement ? normalizarCnpj(el.value) ?? '' : ''; };` e troque `digitos('cnpj')` por `cnpjDoCampo()` nas linhas 97 e 137 (`n.length === 14` continua valendo: o normalizado tem 14).
 7. `clientes/ficha/blocos-empresa.tsx`, o `CampoComLupa` do CNPJ: `inputMode="text" autoCapitalize="characters" spellCheck={false} maxLength={18}` (o resto igual) e o `FormField` ganha `ajuda={AJUDA_CNPJ}`. A máscara inicial `mascararCNPJ(c.cnpj)` já entende letras.
-8. `clientes/novo/form-antigo.tsx`: o `Input name="cnpj"` com os mesmos atributos do item 7.
+8. `clientes/novo/form-antigo.tsx:33` e `clientes/[id]/secao-dados-antiga.tsx:76`: o `Input name="cnpj"` com os mesmos atributos do item 7 (os dois salvam por `salvarCliente` → `ClienteForm`, que já normaliza pelo item 1); no `secao-dados-antiga.tsx`, `defaultValue={mascararCNPJ(c.cnpj)}`.
 9. `clientes/acoes.ts:44`: confira que `dados.cnpj` vem de `ClienteForm` (já normalizado); se vier de outro lugar, normalize antes da consulta do arquivado.
 
 - [ ] **Step 4: Rode**
@@ -512,7 +526,7 @@ Expected: PASS, inclusive os testes antigos da ficha (`ficha.test.ts`, `acoes.te
 - [ ] **Step 5: Commit**
 
 ```bash
-git add "apps/painel/src/app/(painel)/clientes/esquemas.ts" "apps/painel/src/app/(painel)/clientes/cadastros-esquemas.ts" "apps/painel/src/app/(painel)/clientes/acoes.ts" "apps/painel/src/app/(painel)/clientes/ficha/ficha.ts" "apps/painel/src/app/(painel)/clientes/ficha/acoes.ts" "apps/painel/src/app/(painel)/clientes/ficha/ficha-cliente.tsx" "apps/painel/src/app/(painel)/clientes/ficha/blocos-empresa.tsx" "apps/painel/src/app/(painel)/clientes/novo/form-antigo.tsx" apps/painel/src/lib/consultas-publicas.ts "apps/painel/src/app/(painel)/clientes/ficha/ficha-cnpj.test.ts"
+git add "apps/painel/src/app/(painel)/clientes/esquemas.ts" "apps/painel/src/app/(painel)/clientes/cadastros-esquemas.ts" "apps/painel/src/app/(painel)/clientes/acoes.ts" "apps/painel/src/app/(painel)/clientes/ficha/ficha.ts" "apps/painel/src/app/(painel)/clientes/ficha/acoes.ts" "apps/painel/src/app/(painel)/clientes/ficha/ficha-cliente.tsx" "apps/painel/src/app/(painel)/clientes/ficha/blocos-empresa.tsx" "apps/painel/src/app/(painel)/clientes/novo/form-antigo.tsx" "apps/painel/src/app/(painel)/clientes/[id]/secao-dados-antiga.tsx" apps/painel/src/lib/consultas-publicas.ts "apps/painel/src/app/(painel)/clientes/ficha/ficha-cnpj.test.ts"
 git commit -m "feat(painel): ficha, cadastro e unidade aceitam CNPJ com letras; busca automática manda o CNPJ inteiro (cnpj, D1, D4, D5)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -745,5 +759,6 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 5. **Pendências para listar no fim:**
    - **as decisões a confirmar com o dono:** D3 (conferir o dígito também no banco, depois de limpar os dados de teste), D4 (o texto da ajuda), D5 (a BrasilAPI pode não atender o CNPJ com letras: trocar de serviço?), D6 (testar um CSV com CNPJ com letras no Bling), D8 (base da branch);
    - o relatório da D3 (quantos CNPJs com dígito errado no local; o comando para o dono);
+   - a limitação do seletor `EscolherEmpresa` (busca pelo CNPJ sem máscara; já era assim com os numéricos);
    - o custo dos cenários.
 6. **Não juntar** a branch em nada. **Parar** ao fim e esperar o dono ver.
