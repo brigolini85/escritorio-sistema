@@ -58,6 +58,8 @@ export function criarCanalZapi(
       const c = r.data;
       // Criação de grupo e outros avisos chegam como ReceivedCallback com `notification` preenchido.
       if (c.notification) return null;
+      // Revisão geral M5: reação (👍 numa mensagem) não é pedido do cliente: não vira mensagem nem chama o agente.
+      if ((c as { reaction?: unknown }).reaction) return null;
       const comum = {
         idProvedor: c.messageId, telefone: c.phone, enviadaPorMim: c.fromMe, ehGrupo: c.isGroup, nomeRemetente: c.senderName ?? null,
       };

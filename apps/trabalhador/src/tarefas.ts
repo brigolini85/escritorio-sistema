@@ -101,7 +101,8 @@ export async function resumoDiario(d: DepsTarefas): Promise<void> {
     await enviarDoSistema(d.envio, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: null, autor: 'sistema', texto })
       .catch((e) => console.error('[resumo whatsapp]', e));
   }
-  if (cfg.emailAlertas) await d.email.enviar(cfg.emailAlertas, 'Resumo do dia', texto);
+  // Revisão geral M1: e-mail fora não derruba o job (a nova tentativa mandaria o WhatsApp ao dono de novo).
+  if (cfg.emailAlertas) await d.email.enviar(cfg.emailAlertas, 'Resumo do dia', texto).catch((e) => console.error('[resumo e-mail]', e));
 }
 
 /** Todo dia de manhã: certificado perto de vencer vira demanda no Fiscal (spec 7D.1, D21). O dia é o de São Paulo. */
