@@ -47,7 +47,7 @@ export const FERRAMENTAS_RADAR: Anthropic.Tool[] = [
 export type VezDoGiro = {
   giro: GiroParaRodar; perfil: PerfilAgente;
   /** URL normalizada → título: tudo o que apareceu em busca ou leitura neste giro (D1, barreira 2). */
-  linksVistos: Map<string, string>;
+  linksVistos: Map<string, { url: string; titulo: string }>;
   /** server_tool_use de leitura ainda sem resultado (o resultado pode chegar na resposta seguinte). */
   leiturasPendentes: Map<string, string>;
   lidas: { url: string; titulo: string }[];
@@ -71,7 +71,7 @@ export function lerResultadosWeb(conteudo: readonly Anthropic.ContentBlock[], ve
     if (b.type === 'web_search_tool_result' && Array.isArray(b.content)) {
       for (const r of b.content as { type: string; url?: string; title?: string }[]) {
         const n = r.type === 'web_search_result' && r.url ? normalizarUrl(r.url) : null;
-        if (n) vez.linksVistos.set(n, r.title ?? r.url!);
+        if (n) vez.linksVistos.set(n, { url: r.url!, titulo: r.title ?? r.url! });
       }
     }
     if (b.type === 'web_fetch_tool_result' && b.content && typeof b.content === 'object') {
@@ -80,10 +80,11 @@ export function lerResultadosWeb(conteudo: readonly Anthropic.ContentBlock[], ve
       if (c.type === 'web_fetch_result' && c.url) {
         const n = normalizarUrl(c.url);
         const titulo = c.content?.title ?? c.url;
-        if (n) vez.linksVistos.set(n, titulo);
+        if (n) vez.linksVistos.set(n, { url: c.url, titulo });
         // O link pedido também conta (redirecionamento: o resultado traz o endereço final).
         const np = pedida ? normalizarUrl(pedida) : null;
-        if (np) vez.linksVistos.set(np, titulo);
+        // Guarda o endereço que a ferramenta devolveu, nunca o pedido (que pode ter vindo do modelo com âncora ou usuário).
+        if (np && !vez.linksVistos.has(np)) vez.linksVistos.set(np, { url: c.url, titulo });
         if (vez.lidas.length < LIMITES_RADAR.lidasPorGiro) vez.lidas.push({ url: c.url, titulo });
       } else if (c.type === 'web_fetch_tool_result_error' && pedida && FORA_DO_AR.has(c.error_code ?? '')) {
         const f = fonteDaUrl(pedida, vez.giro.fontes);
@@ -107,14 +108,16 @@ export async function executarFerramentaRadar(d: DepsFerramentas, vez: VezDoGiro
       const url = texto(e.url, 2000);
       const norm = url ? normalizarUrl(url) : null;
       if (!url || !norm) return falha('Link inválido.');
-      if (!vez.linksVistos.has(norm)) return falha('Cite um link que apareceu na busca ou na leitura deste giro.');
+      // Grava o endereço como apareceu na busca ou na leitura, nunca o texto do modelo (âncora, usuário e esquema diferentes passariam).
+      const visto = vez.linksVistos.get(norm);
+      if (!visto) return falha('Cite um link que apareceu na busca ou na leitura deste giro.');
       const nomes = Array.isArray(e.setores) ? e.setores.filter((s): s is string => typeof s === 'string').map((s) => s.trim().toLowerCase()) : [];
       const setores = vez.giro.setores.filter((s) => nomes.includes(s.nome.toLowerCase())).map((s) => s.id).slice(0, LIMITES_RADAR.setoresPorNovidade);
       if (!setores.length) return falha('Escolha de 1 a 3 setores da lista <setores>.');
       const impacto = (IMPACTOS as readonly string[]).includes(String(e.impacto)) ? (e.impacto as Impacto) : null;
       if (!impacto) return falha('Impacto: alto, medio ou baixo.');
       const r = await d.radar.registrarNovidadeRadar(vez.giro.id, {
-        titulo: texto(e.titulo, 200) ?? '', url, urlNormalizada: norm, publicadoEm: data(e.publicado_em), resumo: texto(e.resumo, LIMITES_RADAR.resumo) ?? '',
+        titulo: texto(e.titulo, 200) ?? '', url: visto.url, urlNormalizada: norm, publicadoEm: data(e.publicado_em), resumo: texto(e.resumo, LIMITES_RADAR.resumo) ?? '',
         impacto, setores, criterios: criteriosParaBanco(lerCriterios(e.criterios)), vigenciaInicio: data(e.vigencia_inicio),
         vigenciaTexto: texto(e.vigencia_texto, 120), mensagemCliente: texto(e.mensagem_cliente, LIMITES_RADAR.mensagemCliente), assunto: texto(e.assunto, 60),
       });

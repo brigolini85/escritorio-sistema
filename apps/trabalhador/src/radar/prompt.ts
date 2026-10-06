@@ -64,7 +64,7 @@ export function montarPedidoGiro(g: GiroParaRodar, agora: Date): string {
     `<ja_registradas>\n${g.recentes.length ? g.recentes.map((t) => `- ${limpo(t)}`).join('\n') : '(nenhuma)'}\n</ja_registradas>`,
   ];
   if (g.origem === 'confirmar' && g.novidade) {
-    partes.push(`<noticia_a_confirmar>\nTítulo: ${limpo(g.novidade.titulo)}\nLink: ${g.novidade.url}\nResumo: ${limpo(g.novidade.resumo)}\n</noticia_a_confirmar>`,
+    partes.push(`<noticia_a_confirmar>\nTítulo: ${limpo(g.novidade.titulo)}\nLink: ${limpo(g.novidade.url)}\nResumo: ${limpo(g.novidade.resumo)}\n</noticia_a_confirmar>`,
       'Procure o ato oficial correspondente nas fontes acima. Se achar, registre com registrar_novidade usando o link oficial. Se não achar, termine dizendo que não achou.');
   } else {
     partes.push(`Faça o giro: até ${LIMITES_RADAR.buscasPorGiro} buscas e ${LIMITES_RADAR.leiturasPorGiro} páginas lidas no total.`);

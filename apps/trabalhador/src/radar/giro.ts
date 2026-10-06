@@ -25,7 +25,7 @@ export async function rodarGiro(d: DepsGiro, g: GiroParaRodar): Promise<Resultad
   const modelo = modeloDoPerfil(perfil, config);
   const preco = config.precosModelos[modelo] ?? { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
   const tools = [
-    ...(ferramentasWeb(g.fontes) as unknown as Anthropic.ToolUnion[]),
+    ...(ferramentasWeb(g.origem === 'confirmar' ? g.fontes.filter((f) => f.oficial) : g.fontes) as unknown as Anthropic.ToolUnion[]),
     ...FERRAMENTAS_RADAR,
     ...(temSkillSobDemanda(perfil.skills) ? FERRAMENTAS_SKILL : []),
   ];
@@ -59,7 +59,8 @@ export async function rodarGiro(d: DepsGiro, g: GiroParaRodar): Promise<Resultad
     if (r.stop_reason !== 'tool_use' || usos.length === 0) {
       if (vez.terminou || lembrado) break;
       lembrado = true;
-      messages.push({ role: 'assistant', content: r.content });
+      // A API recusa turno do assistente vazio: sem conteúdo, só o lembrete.
+      if (r.content.length) messages.push({ role: 'assistant', content: r.content });
       messages.push({ role: 'user', content: [{ type: 'text', text: LEMBRETE_GIRO }] });
       continue;
     }
