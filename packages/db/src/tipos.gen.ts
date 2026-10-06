@@ -1393,6 +1393,106 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"radar_config": {
+                  Row: {
+                    "assuntos": (string)[],"atualizado_em": string,"atualizado_por": string | null,"avisar_painel": boolean,"aviso_alto": boolean,"dias": (number)[],"hora": string,"id": number,"limite_usd_giro": number,"resumo_whatsapp": boolean
+                  }
+                  Insert: {
+                    "assuntos"?: (string)[],"atualizado_em"?: string,"atualizado_por"?: string | null,"avisar_painel"?: boolean,"aviso_alto"?: boolean,"dias"?: (number)[],"hora"?: string,"id"?: number,"limite_usd_giro"?: number,"resumo_whatsapp"?: boolean
+                  }
+                  Update: {
+                    "assuntos"?: (string)[],"atualizado_em"?: string,"atualizado_por"?: string | null,"avisar_painel"?: boolean,"aviso_alto"?: boolean,"dias"?: (number)[],"hora"?: string,"id"?: number,"limite_usd_giro"?: number,"resumo_whatsapp"?: boolean
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "radar_config_atualizado_por_fkey"
+      columns: ["atualizado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"radar_fontes": {
+                  Row: {
+                    "ativa": boolean,"atualizado_em": string,"caminho": string | null,"criado_em": string,"dominio": string,"etiqueta": string,"id": string,"nome": string,"oficial": boolean,"ordem": number,"paginas": (string)[]
+                  }
+                  Insert: {
+                    "ativa"?: boolean,"atualizado_em"?: string,"caminho"?: string | null,"criado_em"?: string,"dominio": string,"etiqueta"?: string,"id"?: string,"nome": string,"oficial"?: boolean,"ordem"?: number,"paginas"?: (string)[]
+                  }
+                  Update: {
+                    "ativa"?: boolean,"atualizado_em"?: string,"caminho"?: string | null,"criado_em"?: string,"dominio"?: string,"etiqueta"?: string,"id"?: string,"nome"?: string,"oficial"?: boolean,"ordem"?: number,"paginas"?: (string)[]
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"radar_giros": {
+                  Row: {
+                    "buscas": number,"criado_em": string,"custo_usd": number,"dia": string,"erro": string | null,"estado": string,"fontes": number,"fontes_fora": NonNullable<Json>,"fontes_ids": (string)[] | null,"id": string,"iniciado_em": string | null,"lidas": NonNullable<Json>,"nova_tentativa_em": string | null,"novidade_id": string | null,"novidades": number,"origem": string,"paginas": number,"pedido_por": string | null,"repetidas": number,"resumo": string | null,"terminado_em": string | null
+                  }
+                  Insert: {
+                    "buscas"?: number,"criado_em"?: string,"custo_usd"?: number,"dia": string,"erro"?: string | null,"estado"?: string,"fontes"?: number,"fontes_fora"?: NonNullable<Json>,"fontes_ids"?: (string)[] | null,"id"?: string,"iniciado_em"?: string | null,"lidas"?: NonNullable<Json>,"nova_tentativa_em"?: string | null,"novidade_id"?: string | null,"novidades"?: number,"origem": string,"paginas"?: number,"pedido_por"?: string | null,"repetidas"?: number,"resumo"?: string | null,"terminado_em"?: string | null
+                  }
+                  Update: {
+                    "buscas"?: number,"criado_em"?: string,"custo_usd"?: number,"dia"?: string,"erro"?: string | null,"estado"?: string,"fontes"?: number,"fontes_fora"?: NonNullable<Json>,"fontes_ids"?: (string)[] | null,"id"?: string,"iniciado_em"?: string | null,"lidas"?: NonNullable<Json>,"nova_tentativa_em"?: string | null,"novidade_id"?: string | null,"novidades"?: number,"origem"?: string,"paginas"?: number,"pedido_por"?: string | null,"repetidas"?: number,"resumo"?: string | null,"terminado_em"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "radar_giros_novidade_fk"
+      columns: ["novidade_id"]
+isOneToOne: false
+      referencedRelation: "radar_novidades"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_giros_pedido_por_fkey"
+      columns: ["pedido_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"radar_novidades": {
+                  Row: {
+                    "achado_em": string,"assunto": string | null,"avisada_em": string | null,"chamado_id": string | null,"clientes_afetados": number,"criterios": NonNullable<Json>,"decidida_em": string | null,"decidida_por": string | null,"estado": string,"fonte_id": string | null,"fonte_nome": string,"giro_id": string | null,"id": string,"impacto": string,"mensagem_cliente": string | null,"publicado_em": string | null,"resumo": string,"selo": string,"setores": (string)[],"titulo": string,"url": string,"url_normalizada": string,"vigencia_inicio": string | null,"vigencia_texto": string | null
+                  }
+                  Insert: {
+                    "achado_em"?: string,"assunto"?: string | null,"avisada_em"?: string | null,"chamado_id"?: string | null,"clientes_afetados"?: number,"criterios"?: NonNullable<Json>,"decidida_em"?: string | null,"decidida_por"?: string | null,"estado"?: string,"fonte_id"?: string | null,"fonte_nome": string,"giro_id"?: string | null,"id"?: string,"impacto": string,"mensagem_cliente"?: string | null,"publicado_em"?: string | null,"resumo": string,"selo": string,"setores"?: (string)[],"titulo": string,"url": string,"url_normalizada": string,"vigencia_inicio"?: string | null,"vigencia_texto"?: string | null
+                  }
+                  Update: {
+                    "achado_em"?: string,"assunto"?: string | null,"avisada_em"?: string | null,"chamado_id"?: string | null,"clientes_afetados"?: number,"criterios"?: NonNullable<Json>,"decidida_em"?: string | null,"decidida_por"?: string | null,"estado"?: string,"fonte_id"?: string | null,"fonte_nome"?: string,"giro_id"?: string | null,"id"?: string,"impacto"?: string,"mensagem_cliente"?: string | null,"publicado_em"?: string | null,"resumo"?: string,"selo"?: string,"setores"?: (string)[],"titulo"?: string,"url"?: string,"url_normalizada"?: string,"vigencia_inicio"?: string | null,"vigencia_texto"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "radar_novidades_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "chamados"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_novidades_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "demandas_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_novidades_decidida_por_fkey"
+      columns: ["decidida_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_novidades_fonte_id_fkey"
+      columns: ["fonte_id"]
+isOneToOne: false
+      referencedRelation: "radar_fontes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_novidades_giro_id_fkey"
+      columns: ["giro_id"]
+isOneToOne: false
+      referencedRelation: "radar_giros"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"respostas_prontas": {
                   Row: {
                     "ativo": boolean,"id": string,"pergunta": string,"resposta": string
@@ -1767,7 +1867,10 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "abrir_pendencia_tarefa":
+            "abrir_giros_radar":
+{ Args: { "p_agora": string }; Returns: string
+                           },
+"abrir_pendencia_tarefa":
 { Args: { "p_detalhe": string,"p_mensagem": string,"p_opcoes": (string)[],"p_pergunta": string,"p_tarefa": string,"p_tipo": string }; Returns: number
                            },
 "acesso_do_contato":
@@ -1876,6 +1979,9 @@ isOneToOne: false
                            },
 "concluir_etapa_tarefa":
 { Args: { "p_etapa": number,"p_id": string,"p_resumo": string }; Returns: undefined
+                           },
+"concluir_giro_radar":
+{ Args: { "p_dados": Json,"p_giro": string }; Returns: undefined
                            },
 "contato_arquivado_do_telefone":
 { Args: { "p_telefone": string }; Returns: Json
@@ -2222,6 +2328,9 @@ isOneToOne: false
 "pedir_ajuste_tarefa":
 { Args: { "p_id": string,"p_texto": string }; Returns: boolean
                            },
+"pedir_giro_radar":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "pedir_leitura_da_pasta":
 { Args: { "p_tarefa": string }; Returns: boolean
                            },
@@ -2230,6 +2339,9 @@ isOneToOne: false
                            },
 "pedir_sugestao_resposta":
 { Args: { "p_conversa": string }; Returns: string
+                           },
+"pegar_giro_radar":
+{ Args: Record<PropertyKey, never>; Returns: Json
                            },
 "pendencias_pedidas_ao_contato":
 { Args: { "p_contato": string }; Returns: {
@@ -2281,6 +2393,9 @@ isOneToOne: false
 "prazos_resumo":
 { Args: { "p_inicio"?: string }; Returns: Json
                            },
+"procurar_fonte_oficial_radar":
+{ Args: { "p_novidade": string }; Returns: string
+                           },
 "proximo_dia_util":
 { Args: { "p_dia": string }; Returns: string
                            },
@@ -2299,6 +2414,9 @@ isOneToOne: false
 "registrar_arquivo_tarefa":
 { Args: { "p_caminho": string,"p_mime": string,"p_nome": string,"p_tamanho": number,"p_tarefa": string }; Returns: string
                            },
+"registrar_novidade_radar":
+{ Args: { "p_dados": Json,"p_giro": string }; Returns: Json
+                           },
 "registrar_pedido_fora_do_acesso":
 { Args: { "p_cliente": string,"p_contato": string,"p_dia": string,"p_setor": string }; Returns: Json
                            },
@@ -2309,6 +2427,9 @@ isOneToOne: false
 { Args: { "p_email": string,"p_erro": string,"p_sem_leitor"?: boolean }; Returns: undefined
                            },
 "remover_acesso":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
+"remover_fonte_radar":
 { Args: { "p_id": string }; Returns: undefined
                            },
 "reservar_envio_pendencia":
@@ -2327,6 +2448,9 @@ isOneToOne: false
                            },
 "restaurar_orientacao":
 { Args: { "p_versao_id": string }; Returns: string
+                           },
+"restaurar_radar_inicial":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "restaurar_unidade":
 { Args: { "p_com_rede"?: boolean,"p_id": string }; Returns: Json
@@ -2352,7 +2476,13 @@ isOneToOne: false
 "salvar_agente":
 { Args: { "p_dados": Json,"p_slug": string }; Returns: undefined
                            },
+"salvar_config_radar":
+{ Args: { "p_dados": Json }; Returns: undefined
+                           },
 "salvar_ficha_cliente":
+{ Args: { "p_dados": Json,"p_id": string }; Returns: string
+                           },
+"salvar_fonte_radar":
 { Args: { "p_dados": Json,"p_id": string }; Returns: string
                            },
 "salvar_guarda_tarefas":
@@ -2394,6 +2524,9 @@ isOneToOne: false
 { Args: { "p_cliente": string,"p_exceto": string }; Returns: {
               "contato_id": string,"nome": string,"telefone": string
             }[]
+                           },
+"somar_custo_giro":
+{ Args: { "p_giro": string,"p_usd": number }; Returns: undefined
                            },
 "somar_custo_tarefa":
 { Args: { "p_custo": number,"p_id": string }; Returns: undefined
