@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { normalizarTelefone } from '@escritorio/core';
+import { telefoneDoWhatsApp } from '@escritorio/core';
 import type { Repos } from '@escritorio/db';
 import type { CanalWhatsApp } from './canal/tipos';
 import { FILAS, agendarProcessamento, type Fila } from './fila';
@@ -36,8 +36,20 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
       return { ok: true };
     }
 
-    const telefone = normalizarTelefone(m.telefone);
-    if (!telefone) return { ok: true };
+    const telefone = telefoneDoWhatsApp(m.telefone);
+    if (!telefone) {
+      // Revisão geral I7: número estrangeiro ou identificador "@lid" não vira conversa (o agente e o envio são só para o Brasil),
+      // mas a equipe fica sabendo (uma vez por hora por número) para responder pelo celular do escritório.
+      const bruto = m.telefone.slice(0, 60);
+      req.log.warn({ telefone: bruto }, 'mensagem de número fora do formato brasileiro');
+      const aviso = `Mensagem de WhatsApp de um número fora do padrão brasileiro (${bruto}) não foi atendida pelo agente. Responda pelo celular do escritório.`;
+      try {
+        if (!(await d.repos.alertaRecente(aviso, 60))) await d.repos.registrarAlerta({ nivel: 'aviso', mensagem: aviso });
+      } catch (e) {
+        req.log.error(e, 'alerta do número fora do padrão não registrado');
+      }
+      return { ok: true };
+    }
 
     const contato = await d.repos.buscarContato(telefone);
     const conversa = await d.repos.obterOuCriarConversa(telefone, contato?.id ?? null);
