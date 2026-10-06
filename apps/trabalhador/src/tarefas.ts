@@ -1,9 +1,11 @@
+import { MOTIVOS_PASSAGEM } from '@escritorio/core';
 import type { Repos } from '@escritorio/db';
 import type { Alertas } from './alertas';
 import type { CanalWhatsApp } from './canal/tipos';
 import type { Email } from './email';
 import { enviarDoSistema, type DepsEnvio } from './envio';
-import { FILAS, agendarAssistente, agendarAviso, agendarPedidoPendencia, agendarTarefa, type Fila } from './fila';
+import { FILAS, agendarAssistente, agendarAviso, agendarPedidoPendencia, agendarProcessamento, agendarTarefa, type Fila } from './fila';
+import { passarAEquipeSemResposta } from './processar-conversa';
 
 export type DepsTarefas = { repos: Repos; canal: CanalWhatsApp; alertas: Alertas; envio: DepsEnvio; email: Email; fila: Fila; relogio: () => Date };
 
@@ -27,6 +29,8 @@ export async function batimento(d: DepsTarefas): Promise<void> {
   for (const pendenciaId of await d.repos.pedidosAoClienteParados(2)) await agendarPedidoPendencia(d.fila, pendenciaId, 'batimento');
   // Parte I4 (D9): aviso que não saiu (fila perdida, fora do horário) volta para a fila.
   for (const avisoId of await d.repos.avisosTarefaParados()) await agendarAviso(d.fila, avisoId);
+  // Revisão geral C1: mensagem de cliente parada; uma falha aqui não derruba o resto do batimento (o WhatsApp abaixo).
+  await mensagensParadas(d).catch((e) => console.error('[parada] mensagens paradas', e));
   const conectado = await d.canal.status().then((s) => s.conectado).catch(() => false);
   if (conectado) {
     await d.repos.registrarSinalVida('whatsapp');
@@ -104,4 +108,39 @@ export async function resumoDiario(d: DepsTarefas): Promise<void> {
 export async function demandasDeCertificado(d: Pick<DepsTarefas, 'repos' | 'relogio'>): Promise<number> {
   const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d.relogio());
   return d.repos.gerarDemandasCertificado(hoje);
+}
+
+/** Revisão geral C1: a mensagem parada volta à fila no máximo 2 vezes (3 min entre elas); 5 min depois da última, vai à equipe. */
+export const PARADA = { deMin: 3, ateMin: 24 * 60, maxDevolucoes: 2, entreDevolucoesMin: 3, antesDaEquipeMin: 5 } as const;
+
+/**
+ * Revisão geral C1: mensagem de cliente que ninguém processou (enfileirar falhou no webhook, reentrega duplicada, tentativas da
+ * fila esgotadas antes do agente). Primeiro tenta de novo; sem sucesso, a conversa vai para a equipe. Conversa com a vez em
+ * andamento, com a equipe ou com mensagem de mais de 24 h fica de fora (conversas_com_mensagem_parada).
+ */
+export async function mensagensParadas(d: DepsTarefas): Promise<{ devolvidas: number; aEquipe: number }> {
+  let devolvidas = 0;
+  let aEquipe = 0;
+  for (const p of await d.repos.conversasComMensagemParada(PARADA.deMin, PARADA.ateMin)) {
+    const desdeUltima = p.ultimoReenvio ? Date.now() - new Date(p.ultimoReenvio).getTime() : Number.POSITIVE_INFINITY;
+    try {
+      if (p.reenvios < PARADA.maxDevolucoes) {
+        if (desdeUltima < PARADA.entreDevolucoesMin * 60_000) continue;
+        await agendarProcessamento(d.fila, p.conversaId);
+        await d.repos.marcarReenfileirada(p.conversaId);
+        devolvidas++;
+        continue;
+      }
+      if (desdeUltima < PARADA.antesDaEquipeMin * 60_000) continue;
+      if ((await passarAEquipeSemResposta(d, p.conversaId, 'Mensagem do cliente sem resposta do agente', MOTIVOS_PASSAGEM.semResposta)) !== 'escalado') continue;
+      aEquipe++;
+      const c = await d.repos.obterConversa(p.conversaId);
+      await d.alertas.alertar({ nivel: 'aviso', mensagem: `A mensagem de ${c.telefone} ficou sem resposta do agente e passou para a equipe (Triagem).` })
+        .catch((e) => console.error('[parada] alerta não registrado', p.conversaId, e));
+    } catch (e) {
+      // Uma conversa com problema não para as outras; ela volta na próxima batida.
+      console.error('[parada] conversa não tratada', p.conversaId, e);
+    }
+  }
+  return { devolvidas, aEquipe };
 }

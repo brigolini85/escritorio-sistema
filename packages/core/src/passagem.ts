@@ -9,6 +9,9 @@ export const MOTIVOS_PASSAGEM = {
   pausaContato: 'agente desligado para este contato',
   pausaEmpresa: 'agente pausado para esta empresa',
   falha: 'falha no agente de IA',
+  // Revisão geral C1 e I4: mensagem que ficou sem resposta do agente; muitas mensagens seguidas (resposta automática).
+  semResposta: 'mensagem do cliente ficou sem resposta do agente',
+  volume: 'muitas mensagens seguidas (possível resposta automática)',
 } as const;
 
 const ESCALADAS: Record<string, string> = {

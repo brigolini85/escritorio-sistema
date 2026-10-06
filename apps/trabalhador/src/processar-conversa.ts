@@ -90,7 +90,7 @@ async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: M
   return anexos;
 }
 
-async function encaminharParaHumano(d: DepsProcessamento, conversa: Conversa, motivo: string, textoCliente: string | null): Promise<void> {
+async function encaminharParaHumano(d: Pick<DepsProcessamento, 'repos' | 'envio'>, conversa: Conversa, motivo: string, textoCliente: string | null): Promise<void> {
   const abertos = await d.repos.chamadosAbertosDaConversa(conversa.id);
   if (!abertos.some((c) => c.setor_id === null)) {
     await d.repos.abrirChamado({
@@ -115,11 +115,61 @@ async function assumidaPorHumano(d: DepsProcessamento, conversaId: string): Prom
 }
 
 /** O agente passou para uma pessoa (spec 7A.2). Falha ao marcar não refaz o atendimento (relançar repetiria ferramentas). */
-async function marcarPassagem(d: DepsProcessamento, conversaId: string, motivo: string): Promise<void> {
+async function marcarPassagem(d: Pick<DepsProcessamento, 'repos'>, conversaId: string, motivo: string): Promise<void> {
   await d.repos.marcarAguardandoPessoa(conversaId, motivo).catch((e) => console.error('[passagem] não marcada', conversaId, e));
 }
 
+/**
+ * Revisão geral C1: passa à equipe a conversa cujas mensagens o agente não vai atender (falha antes do agente na última
+ * tentativa, ou o batimento depois de 2 devoluções): Triagem, "esperando pessoa", o aviso "IA indisponível" e as mensagens
+ * marcadas. Conversa já com a equipe: só marca. Telefone da equipe (assistente) ou interno: só marca (não é atendimento).
+ */
+export async function passarAEquipeSemResposta(
+  d: Pick<DepsProcessamento, 'repos' | 'envio'>, conversaId: string, motivoChamado: string, motivoPassagem: string,
+): Promise<'humano' | 'escalado' | 'interno'> {
+  const ids = (await d.repos.mensagensNaoProcessadas(conversaId)).map((m) => m.id);
+  const conversa = await d.repos.obterConversa(conversaId);
+  if (conversa.estado === 'humano') {
+    await d.repos.marcarProcessadas(ids);
+    return 'humano';
+  }
+  if ((await d.repos.usuarioDoAssistente(conversa.telefone)) || (await d.repos.ehTelefoneInterno(conversa.telefone))) {
+    await d.repos.marcarProcessadas(ids);
+    return 'interno';
+  }
+  const aviso = await d.repos.obterConfiguracoes().then((c) => c.mensagens.ia_indisponivel ?? null)
+    .catch((e) => { console.error('[agente] configurações não lidas; passa à equipe sem aviso', conversaId, e); return null; });
+  await encaminharParaHumano(d, conversa, motivoChamado, aviso);
+  await marcarPassagem(d, conversa.id, motivoPassagem);
+  await d.repos.marcarProcessadas(ids);
+  return 'escalado';
+}
+
 export async function processarConversa(d: DepsProcessamento, conversaId: string, ultimaTentativa: boolean): Promise<DesfechoProcessamento> {
+  try {
+    return await processarConversaSemProtecao(d, conversaId, ultimaTentativa);
+  } catch (e) {
+    // Revisão geral C1: na última tentativa, a falha ANTES do agente (banco, mídia, contexto) passa a conversa à equipe em vez
+    // de deixar a mensagem sem resposta. Falha ao marcar depois do agente segue como antes (o cliente já foi atendido).
+    if (e instanceof ErroDepoisDoAgente) throw e.causa;
+    if (!ultimaTentativa) throw e;
+    console.error('[agente] falha antes do agente na última tentativa; passa à equipe', conversaId, e);
+    try {
+      return await passarAEquipeSemResposta(d, conversaId, 'Falha no agente de IA', MOTIVOS_PASSAGEM.falha);
+    } catch (e2) {
+      // Nem isso: a mensagem segue não processada e o batimento tenta de novo (mensagensParadas).
+      console.error('[agente] não passou à equipe', conversaId, e2);
+      throw e;
+    }
+  }
+}
+
+/** Erro ao marcar as mensagens depois que o agente já agiu: não vira passagem à equipe (o cliente já foi atendido). */
+class ErroDepoisDoAgente extends Error {
+  constructor(readonly causa: unknown) { super('falha depois do agente'); }
+}
+
+async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: string, ultimaTentativa: boolean): Promise<DesfechoProcessamento> {
   const novas = await d.repos.mensagensNaoProcessadas(conversaId);
   if (novas.length === 0) return 'sem-mensagens';
   const ids = novas.map((m) => m.id);
@@ -229,11 +279,14 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
       desfecho = 'escalado';
     }
   }
-  await d.repos.marcarProcessadas(ids);
-
-  if (config.alertaIa80Mes !== mes && (await d.repos.custoIaDoMes(mes)) >= 0.8 * config.tetoIaUsd) {
-    await d.alertas.alertar({ nivel: 'operacional', mensagem: `O gasto com IA do mês passou de 80% do teto (US$ ${config.tetoIaUsd}).` });
-    await d.repos.marcarAlertaIa80(mes);
+  try {
+    await d.repos.marcarProcessadas(ids);
+    if (config.alertaIa80Mes !== mes && (await d.repos.custoIaDoMes(mes)) >= 0.8 * config.tetoIaUsd) {
+      await d.alertas.alertar({ nivel: 'operacional', mensagem: `O gasto com IA do mês passou de 80% do teto (US$ ${config.tetoIaUsd}).` });
+      await d.repos.marcarAlertaIa80(mes);
+    }
+  } catch (e) {
+    throw new ErroDepoisDoAgente(e);
   }
   return desfecho;
 }
