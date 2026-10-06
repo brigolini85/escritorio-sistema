@@ -17,11 +17,11 @@ test('demanda sem tarefa: Cláudia pede ao Agente Contábil com o procedimento e
   await criarUsuarioTeste({ email: 'claudia@i3.local', senha: SENHA, nome: 'Cláudia Contábil', papel: 'atendente', setores: ['Contábil'] });
   await entrar(page, 'claudia@i3.local', SENHA);
   await page.goto(`/demandas?demanda=${d.id}`);
-  await page.getByRole('button', { name: 'Tarefa para o agente' }).click();
+  await page.getByRole('button', { name: 'Pedir ao agente' }).click();
   await expect(page.getByLabel('Agente', { exact: true })).toHaveText(/Agente Contábil/);
   await page.getByLabel('Procedimento').selectOption('fechamento-mensal');
-  await page.getByLabel('O que o agente deve fazer?').fill('Fazer o fechamento de outubro');
-  await page.getByRole('button', { name: 'Pedir ao agente' }).click();
+  await page.getByLabel('O que você quer?').fill('Fazer o fechamento de outubro');
+  await page.getByRole('button', { name: 'Enviar para o agente' }).click();
   await page.waitForURL('**/tarefas/**');
   const [t] = await sqlTeste<{ estado: string; skill_nome: string; canal: string }>('select estado, skill_nome, canal from public.agente_tarefas');
   expect(t).toEqual({ estado: 'trabalhando', skill_nome: 'fechamento-mensal', canal: 'painel' });
@@ -46,5 +46,5 @@ test('agente em Teste: quem não é dono nem administrador não vê o botão de 
   await page.goto(`/demandas?demanda=${d.id}`);
   // Task 14 (9bd17a8): o botão só aparece quando algum agente aceita o pedido; em Teste, para quem não é dono/admin, nenhum aceita.
   await expect(page.getByText('I3 Fechamento de outubro').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Tarefa para o agente' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Pedir ao agente' })).toHaveCount(0);
 });

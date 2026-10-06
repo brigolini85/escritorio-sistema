@@ -10,8 +10,12 @@ import { PainelLateralUrl } from '@/components/patterns/painel-lateral-url';
 import { variantesBotao } from '@/components/ui/button';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { COLUNA_DA_ORDEM, ORDEM_PADRAO, ORDENS, lerFiltrosDemandas, temFiltro, type FiltrosDemandas, type Prioridade, type Visao } from '@/lib/demandas';
-import { lerAgentesDeTrabalho, lerTarefaDaDemanda } from '@/lib/tarefas';
-import type { AgenteDeTrabalho, ResumoTarefaDemanda } from '@/lib/tarefas-tela';
+import { lerDadosPedir } from '@/lib/pedir-agente';
+import type { DadosPedir } from '@/lib/pedir-agente-tela';
+import { lerPastaDoCliente, lerSituacaoDrive } from '@/lib/drive';
+import type { EmpresaOpcao } from '@/components/patterns/escolher-empresa';
+import { lerTarefaDaDemanda } from '@/lib/tarefas';
+import type { ResumoTarefaDemanda } from '@/lib/tarefas-tela';
 import { lerTrabalhoDoAgente, type TrabalhoDoAgente } from '@/lib/agente-demanda';
 import { filtrarConsulta } from '@/lib/demandas-consulta';
 import { ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
@@ -222,13 +226,13 @@ async function DetalheCarregado({ sb, u, id, podeConversa, podeCsv, verPedidos, 
 }
 
 /** Demanda do painel lateral (visão demandas_lista), com a linha do tempo, os contatos da empresa e o comprador. RLS vale. */
-async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null; contatos: { id: string; nome: string }[]; trabalho: TrabalhoDoAgente; tarefa: { resumo: ResumoTarefaDemanda | null; agentes: AgenteDeTrabalho[] } | null } | null> {
+async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ demanda: DemandaAberta; comprador: CompradorCadastrado | null; contatos: { id: string; nome: string }[]; trabalho: TrabalhoDoAgente; tarefa: { resumo: ResumoTarefaDemanda | null; pedir: DadosPedir; drive: { pasta: boolean; configurado: boolean }; empresas: EmpresaOpcao[] } | null } | null> {
   const { data: d } = await sb.from('demandas_lista').select('*').eq('id', id).maybeSingle();
   if (!d) return null;
   // Sem acesso a pedidos (P11): o pedido, a descrição e os textos livres da linha do tempo nem saem do servidor.
   const semPedido = !verPedidos && ehPedidoDeNota(d);
   const unidade = semPedido ? null : (d.pedido_venda as PedidoVendaSalvo | null)?.unidade_id ?? null;
-  const [{ data: eventos }, { data: cliente }, { data: vinculos }, { data: comprador }, trabalho, daTarefa, agentesDeTrabalho] = await Promise.all([
+  const [{ data: eventos }, { data: cliente }, { data: vinculos }, { data: comprador }, trabalho, daTarefa, pedir, pasta, situacao] = await Promise.all([
     sb.from('chamado_eventos').select('tipo, texto, criado_em, usuarios(nome)').eq('chamado_id', id).order('criado_em'),
     d.cliente_id ? sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj').eq('id', d.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
     d.cliente_id
@@ -237,8 +241,14 @@ async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ de
     unidade ? sb.from('parceiros_unidades').select(COLUNAS_COMPRADOR).eq('id', unidade).maybeSingle() : Promise.resolve({ data: null }),
     lerTrabalhoDoAgente(sb, id, verPedidos && !semPedido, d.setor),
     lerTarefaDaDemanda(sb, id, d.setor),
-    lerAgentesDeTrabalho(sb, id),
+    lerDadosPedir(sb, id),
+    d.cliente_id ? lerPastaDoCliente(sb, d.cliente_id) : Promise.resolve(null),
+    lerSituacaoDrive(sb),
   ]);
+  // Demanda sem empresa: o pedido a um agente de outro setor precisa escolher a empresa (D6).
+  const empresas: EmpresaOpcao[] = !d.cliente_id && pedir.agentes.length > 0
+    ? ((await sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj').eq('ativo', true).order('razao_social')).data ?? []).map((c) => ({ id: c.id, nome: c.nome_fantasia ?? c.razao_social, detalhe: c.cnpj }))
+    : [];
   return {
     demanda: {
       id: d.id!, numero: Number(d.numero), titulo: d.titulo ?? '', descricao: semPedido ? '' : d.resumo ?? '', descricaoOculta: semPedido, status: d.status as StatusDemanda,
@@ -251,7 +261,7 @@ async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ de
     },
     comprador: (comprador as CompradorCadastrado | null) ?? null,
     trabalho,
-    tarefa: daTarefa.semI3 ? null : { resumo: daTarefa.tarefa, agentes: agentesDeTrabalho ?? [] },
+    tarefa: daTarefa.semI3 ? null : { resumo: daTarefa.tarefa, pedir, empresas, drive: { pasta: !!pasta?.pasta, configurado: !!situacao.situacao?.email && !situacao.situacao.erro } },
     contatos: (vinculos ?? []).map((v) => ({ id: v.contatos.id, nome: v.contatos.nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
   };
 }

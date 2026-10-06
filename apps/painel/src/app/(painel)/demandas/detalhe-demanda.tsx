@@ -14,7 +14,9 @@ import { variantesBotao } from '@/components/ui/button';
 import { SheetBody, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { Prioridade } from '@/lib/demandas';
 import type { TrabalhoDoAgente } from '@/lib/agente-demanda';
-import { algumPodePedir, type AgenteDeTrabalho, type ResumoTarefaDemanda } from '@/lib/tarefas-tela';
+import type { EmpresaOpcao } from '@/components/patterns/escolher-empresa';
+import type { DadosPedir } from '@/lib/pedir-agente-tela';
+import type { ResumoTarefaDemanda } from '@/lib/tarefas-tela';
 import { pendenciasCsvBling } from '@/lib/resumo-pedido';
 import { BotaoAssumir, BotoesDemanda, CamposDemanda, EditarDescricao, EditarTitulo, type PessoaSetor } from './acoes-demanda';
 import { abertaPor } from './colunas-demandas';
@@ -47,7 +49,7 @@ export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, v
   pessoas: PessoaSetor[]; setores: { id: string; nome: string }[]; contatos: { id: string; nome: string }[]; agora: Date;
   trabalho?: TrabalhoDoAgente | null; podeDecidirSugestao?: boolean;
   /** D21: a tarefa do agente de Trabalho (null = banco sem a I3). setorInativo: F10, o banco recusa criar. */
-  tarefa?: { resumo: ResumoTarefaDemanda | null; agentes: AgenteDeTrabalho[]; podePedir: boolean; setorInativo?: boolean } | null;
+  tarefa?: { resumo: ResumoTarefaDemanda | null; pedir: DadosPedir; drive: { pasta: boolean; configurado: boolean }; empresas?: EmpresaOpcao[]; podePedir: boolean; setorInativo?: boolean } | null;
 }) {
   if (!d) {
     return (
@@ -102,10 +104,11 @@ export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, v
             <TrabalhoAgente trabalho={trabalho} podeDecidir={podeDecidirSugestao === true} />
           </Secao>
         ) : null}
-        {tarefa && (tarefa.resumo || tarefa.setorInativo || (tarefa.podePedir && algumPodePedir(tarefa.agentes) && d.status !== 'concluido')) ? (
+        {tarefa && (tarefa.resumo || tarefa.setorInativo || (tarefa.podePedir && tarefa.pedir.agentes.length > 0 && d.status !== 'concluido')) ? (
           <Secao titulo={`Tarefa do agente ${d.setor ?? ''}`.trim()}>
-            <TarefaNaDemanda chamadoId={d.id} resumo={tarefa.resumo} agentes={d.status === 'concluido' ? [] : tarefa.agentes} podePedir={tarefa.podePedir}
-              setorInativo={tarefa.setorInativo === true} />
+            <TarefaNaDemanda chamado={{ id: d.id, numero: d.numero, empresa: d.empresa ? { id: d.empresa.id, nome: d.empresa.nome } : null }} resumo={tarefa.resumo}
+              pedir={d.status === 'concluido' ? { ...tarefa.pedir, agentes: [] } : tarefa.pedir} podePedir={tarefa.podePedir}
+              setorInativo={tarefa.setorInativo === true} empresas={tarefa.empresas} drive={tarefa.drive} />
           </Secao>
         ) : null}
         <Secao titulo="Linha do tempo">
