@@ -42,7 +42,9 @@ export async function executarTarefa(
     const segundosNaVez = (d.relogio().getTime() - inicio.getTime()) / 1000;
     if (s.segundosTrabalhando + segundosNaVez >= s.limiteMinutos * 60) return 'limite_tempo';
     if (segundosNaVez >= MINUTOS_POR_VEZ * 60) return 'continuar';
-    const r = await d.ia.criar({ model: modelo, max_tokens: 16000, system: sistema, tools, messages, output_config: { effort: 'medium' } });
+    // Revisão geral I8: cache automático no topo (além do marcador do sistema): a conversa que cresce, com os PDFs lidos,
+    // é lida do cache nas rodadas seguintes em vez de ser cobrada inteira a cada rodada (como no giro do Radar).
+    const r = await d.ia.criar({ model: modelo, max_tokens: 16000, system: sistema, tools, messages, output_config: { effort: 'medium' }, cache_control: { type: 'ephemeral' } });
     const uso = usoDaResposta(r.usage);
     const custo = calcularCustoUsd(uso, preco);
     await d.repos.registrarUsoIa({
