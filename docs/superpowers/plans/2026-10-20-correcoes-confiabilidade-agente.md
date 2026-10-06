@@ -49,25 +49,50 @@ Conferi no código o que a análise supõe. A análise foi escrita a partir de u
 
 | # | Decisão (o que o plano faz) | Alternativa | Por que não | Tasks |
 |---|---|---|---|---|
-| D1 | **A mensagem do modo seguro é a que já existe: `configuracoes.mensagens.ia_indisponivel`** (Configurações › Mensagens automáticas › "IA indisponível"; hoje "Recebemos sua mensagem, já vamos te atender."). A ajuda do campo passa a dizer quando ela vai. Vazio = não manda nada (como o aviso de privacidade). **A confirmar com o dono:** manter o texto atual ou trocar para o da análise ("Recebi sua mensagem. Já vou verificar e te retorno."). | Chave nova `mensagem_modo_seguro` (análise, Prompt 1, 3b). | Seriam dois textos para a mesma situação ("a IA não respondeu"); o dono já edita este. | 5, 7 |
+| D1 | **A mensagem do modo seguro é a que já existe: `configuracoes.mensagens.ia_indisponivel`** (Configurações › Mensagens automáticas › "IA indisponível"; hoje "Recebemos sua mensagem, já vamos te atender."). A ajuda do campo passa a dizer quando ela vai. Vazio = não manda nada (como o aviso de privacidade). **Fora do expediente** (revisão P1-5), o modo seguro manda a mensagem de **"Fora do horário"** (`mensagens.fora_do_horario`, com `{inicio}` e `{fim}` trocados pelo expediente), para não prometer atendimento que ninguém vai dar de madrugada. **A confirmar com o dono:** manter o texto atual ou trocar para o da análise ("Recebi sua mensagem. Já vou verificar e te retorno."), e se fora do expediente vale a de "Fora do horário" (proposta: sim). | Chave nova `mensagem_modo_seguro` (análise, Prompt 1, 3b). | Seriam dois textos para a mesma situação ("a IA não respondeu"); o dono já edita este. | 5, 7 |
 | D2 | **No máximo 1 mensagem do modo seguro a cada 4 horas por conversa**, pela reserva atômica `reservar_modo_seguro` (coluna `conversas.modo_seguro_em`); vale para **falha** e **teto** (os dois são "a IA não está respondendo"). A escalada que o próprio agente decide (recusa, terminou sem responder, limite de passos) continua como hoje (a conferência das 5 últimas mensagens em `encaminharParaHumano`). **A confirmar com o dono:** o prazo de 4 h. | Contar só as últimas 5 mensagens (hoje). | Num dia de saldo esgotado, o cliente que manda 6 mensagens recebe o aviso mais de uma vez. | 3, 5 |
 | D3 | **Tentativas:** ficam as que existem — 2 do SDK por chamada (respeitam `retry-after`) e 3 da fila com espera crescente a partir de 20 s. A análise pede "3 tentativas, 2 s/8 s/30 s": o efeito já existe (SDK em segundos, fila em dezenas de segundos). **Muda só o prazo do job:** `expireInSeconds: 900` explícito em `processar-conversa` (hoje vale o padrão do pg-boss, que pode mudar numa atualização). | Escrever um laço próprio de novas tentativas. | Duplicaria o que o SDK faz e somaria esperas. | 6 |
 | D4 | **Tipos de falha** (`tipoFalha` em `agente/cliente-ia.ts`): `passageiro` (conexão, tempo esgotado, 429, ≥ 500, 529), `saldo` (mensagem da API com "credit balance" ou "billing"), `chave` (401, 403), `pedido_invalido` (outros 400: `tool_use` sem resultado, JSON inválido), `envio` (erro da Z-API), `codigo` (qualquer outra exceção: erro dentro de ferramenta, banco). `erroTemporarioIa` **não muda** (testes antigos usam). | Ler só `status`. | O saldo esgotado chega como 400, igual a um pedido inválido; só a mensagem separa. | 1 |
-| D5 | **Disjuntor de saldo e chave:** depois de uma falha `saldo` ou `chave` registrada há menos de **10 minutos**, a conversa nova vai **direto** ao modo seguro **sem chamar a IA** (não espera 3 tentativas a cada mensagem, não gera 50 falhas iguais). Passados 10 min, a próxima mensagem tenta a IA de novo (o dono pode ter recarregado). | Tentar a IA em toda mensagem. | Cada mensagem esperaria e falharia de novo; o alerta e o registro virariam ruído. | 4, 5 |
+| D5 | **Disjuntor de saldo e chave:** depois de uma falha `saldo` ou `chave` registrada há menos de **10 minutos**, a conversa nova vai **direto** ao modo seguro **sem chamar a IA** (não espera 3 tentativas a cada mensagem, não gera 50 falhas iguais). Passados 10 min, a próxima mensagem tenta a IA de novo (o dono pode ter recarregado). O Assistente e as tarefas de trabalho, ao falhar por `saldo`/`chave`, registram a falha e disparam o mesmo alerta (revisão P1-4b), para o dono saber mesmo sem cliente escrevendo. **A confirmar com o dono:** os 10 min (revisão P1-4a; a sonda automática foi recusada, ver a seção da revisão). | Tentar a IA em toda mensagem. | Cada mensagem esperaria e falharia de novo; o alerta e o registro virariam ruído. | 4, 5 |
 | D6 | **Alertas:** `saldo` e `chave` → nível **`operacional`** (e-mail de alertas + WhatsApp do dono, `alertas.ts`), texto fixo, **no máximo 1 a cada 30 min** (`alertaRecente`, como o WhatsApp desconectado); demais falhas definitivas → nível **`aviso`** (Início) para o **setor conhecido** da conversa (o agente que conduz, ou a demanda aberta mais recente da conversa com setor), sem setor = administrador; 1 por conversa a cada 4 h (vai junto da reserva da D2). **A confirmar com o dono:** quem recebe e por qual canal (a análise diz "admin e atendentes do setor"). | Alerta crítico (só e-mail). | O dono quer saber na hora que o saldo acabou; o WhatsApp do dono sai pela Z-API, que segue funcionando quando a Anthropic cai. | 5 |
 | D7 | **Tabela `falhas_agente`** (e não `decisoes_agente`): tipo, etapa (`ia`, `ferramenta`, `envio`, `outro`), tentativa, última tentativa, erro resumido (até 300 caracteres, **sem texto do cliente**: só nome da classe, status e a primeira linha da mensagem do erro), modelo, conversa, empresa, agente, e o que o sistema fez (`tentar_de_novo`, `modo_seguro`, `modo_seguro_sem_mensagem`). **Só o administrador lê** (RLS); ninguém grava pela API (o trabalhador grava com a chave de serviço). **Guarda de 1 ano**, junto da retenção das conversas (`retencao.ts`). **A confirmar com o dono:** o prazo de guarda. | `decisoes_agente`. | `decisoes_agente` conta como "o agente já agiu" (`contarDecisoesDesde`) e decide a nova tentativa; misturar quebraria essa regra. | 3, 4, 5 |
-| D8 | **"Falhas do agente hoje" no Início**, só no **Painel de situação** (o administrador): uma linha sob os três números do cartão do agente, "N falhas do agente hoje" e, quando houver, "· M por saldo ou chave da IA", com o ícone de alerta (vermelho nunca sozinho). Zero = "Nenhuma falha do agente hoje". Sem a migração, a linha não aparece. **A confirmar com o dono:** se atendentes também devem ver (a análise põe o estado ao vivo para todos no Prompt 4). | Um quarto número no `dl` de 3 colunas. | Mudaria a grade que os e2e do Início conferem. | 7 |
+| D8 | **"Falhas do agente hoje" no Início**, só no **Painel de situação** (o administrador): uma linha sob os três números do cartão do agente, "N falhas do agente hoje" (só as que **não** se resolveram: `ultima = true`, revisão P1-7) e, quando houver, "· M por saldo ou chave da IA" e "· instabilidade: K" (as novas tentativas), com o ícone de alerta (vermelho nunca sozinho; só a instabilidade não deixa vermelho). Zero = "Nenhuma falha do agente hoje". Sem a migração, a linha não aparece. **A confirmar com o dono:** se atendentes também devem ver (a análise põe o estado ao vivo para todos no Prompt 4). | Um quarto número no `dl` de 3 colunas. | Mudaria a grade que os e2e do Início conferem. | 7 |
 | D9 | **Webhook:** já é idempotente (acima). Só **acrescenta** o teste da reentrega **depois** de processada (o caso real: a Z-API reenvia minutos depois). Nenhum código muda. | Índice novo. | Já existe `unique`. | 6 |
 | D10 | **Paralelismo:** já são 4 conversas ao mesmo tempo (1 por conversa). Vira a variável de ambiente **`CONCORRENCIA_AGENTE`** (padrão **4**, aceita 1 a 8) em `config.ts`, e não uma coluna em `configuracoes` (a análise sugere `configuracoes.concorrencia_agente`): o número de consumidores só muda ao ligar o trabalhador, e a máquina tem pouca memória. | Coluna em `configuracoes`. | Mudar no painel sem reiniciar não teria efeito e enganaria o dono. | 6 |
-| D11 | **Mensagem parada:** o `batimento` (a cada minuto) devolve à fila a conversa com mensagem de cliente **não processada há 3 a 30 min** (job perdido, ou que falhou de vez por erro de banco); **acima de 30 min**, faz o **modo seguro** daquela conversa (D1, D2) com o tipo `codigo` e marca as mensagens como processadas. Assim nenhuma mensagem fica parada sem pessoa. Conversa com a equipe (`estado = 'humano'`) fica de fora (já tem pessoa). | Só alertar. | Alerta sem triagem deixa a conversa sem dono. | 3, 4, 6 |
+| D11 | **Mensagem parada (refeita na revisão P1-2/P1-8):** o `batimento` (a cada minuto) olha as conversas com o agente que têm mensagem de cliente **não processada há mais de 3 min e menos de 24 h**. (1) Se o lote já teve ação do agente (D16), só marca como processadas. (2) Senão, se o lote foi devolvido à fila **menos de 2 vezes** e a última devolução foi há mais de 3 min, devolve de novo e marca (`mensagens.reenfileirada += 1`, `reenfileirada_em`). (3) Com **2 devoluções** e a última há mais de 5 min, faz o **modo seguro** (D1, D2) com o tipo `codigo` e marca as mensagens como processadas. Depois de uma queda longa, a primeira coisa é tentar de novo, não o modo seguro. Conversa com a equipe (`estado = 'humano'`) fica de fora; mensagem com mais de 24 h, também (sobra antiga). | Só alertar; ou modo seguro pela idade. | Alerta sem triagem deixa a conversa sem dono; idade sozinha manda ao modo seguro o que a IA atenderia. | 3, 4, 6 |
+| D16 | **Lote já atendido (revisão P1-1):** antes de chamar a IA, `processarConversa` grava em `decisoes_agente` a etapa **`lote`** com `{ mensagens: [ids] }` e o turno da vez; e, **antes disso**, confere se algum `lote` anterior com **exatamente** estas mensagens teve ação do agente no mesmo turno (qualquer decisão do turno fora `lote` e `orientacoes_cortadas`). Se teve (o trabalhador caiu depois de agir e antes de `marcarProcessadas`), só marca como processadas e devolve o desfecho novo `ja-atendido`, sem chamar a IA nem mandar nada. `contarDecisoesDesde` passa a ignorar `lote` (a regra da nova tentativa continua igual). O batimento (D11) usa a mesma conferência. | Conferir só pela idade. | Repetiria resposta, demanda e pedido de nota. | 3, 4, 5, 6 |
 | D12 | **Exceção dentro de ferramenta ou erro de envio** depois de o agente já ter agido: **não** tenta de novo (relançar repetiria ferramentas, regra de hoje); vai ao modo seguro com o tipo `codigo` ou `envio`. Se a própria mensagem do modo seguro falhar (Z-API fora), a triagem e o alerta acontecem do mesmo jeito e a falha fica com `modo_seguro_sem_mensagem`. | — | — | 5 |
 | D13 | **Diagnóstico antes de corrigir:** 3 rodadas completas de `pnpm --filter @escritorio/trabalhador cenarios` com o registro ligado (`CENARIOS_DIAGNOSTICO=<arquivo .jsonl>`); o relatório separa **falha técnica** (exceção, erro da API, erro de envio) de **falha de comportamento** (o modelo fez diferente do esperado). **Só falha técnica e defeito de código são corrigidos aqui (Task 8).** Falha de comportamento cuja correção exigiria mudar `prompt.ts` ou as regras fixas vira **pendência para o dono** (Prompt 1, REGRAS: não mudar o prompt); a correção sugerida pode ser uma **orientação** em Treinar o agente, que o dono aprova. **A confirmar com o dono:** se aceita mudar o prompt para as falhas de comportamento. | Corrigir o prompt direto. | A análise proíbe; e o prompt tem retratos (`test/agente/__retratos__`) que travam o pedido do Thiago. | 2, 8 |
 | D14 | **Custo dos cenários com Claude de verdade:** diagnóstico 3 rodadas (≈ US$ 8–12) + Entrega 3 rodadas (≈ US$ 8–12) + as reexecuções da Task 8. **Teto: US$ 30** neste plano; passou, parar e listar como pendência. | — | — | 2, 8, Entrega |
 | D15 | **Base da branch** (a confirmar com o dono): `planos-producao` (= `fa76a76`, com I3b). As migrações deste plano começam em `20261101000100` para ficar **depois** das que a Parte I ainda vai criar (I4, I5 usam `202610180…` a `202610310…`). Se a Parte I criar uma migração com número maior que `20261101000100` antes deste plano ser juntado, **pare** e avise. | Partir da Parte I depois da I5. | O dono ainda não juntou a Parte I; esperar atrasaria a produção. | todas |
 
+## Revisão crítica de 06/10 (sessão agentesdeia-ab) — decisões
+
+Arquivo da revisão: `C:\Users\Thiago\Desktop\CAPTURAS-PAINEL-V2\REVISAO-PLANOS-PRODUCAO.txt`. Cada achado do plano 1 e o que foi feito neste plano:
+
+| Achado | Gravidade | Decisão | O que mudou |
+|---|---|---|---|
+| P1-1 resposta e ferramentas em dobro quando o trabalhador cai entre agir e marcar como processada | alta | **Aceito** | D16 (nova): no começo de cada vez o trabalhador grava a decisão `lote` com os ids das mensagens e o turno; antes de chamar a IA, e no batimento, confere se aquele lote já teve ação do agente (decisão com o mesmo turno, fora `lote`/`orientacoes_cortadas`): se teve, só marca como processadas, sem responder. `contarDecisoesDesde` passa a ignorar `lote` (senão a nova tentativa em erro passageiro nunca mais aconteceria). Tasks 3, 4, 5, 6 (teste "respondeu e caiu antes de marcar"). |
+| P1-2 depois de uma queda longa, tudo vai direto ao modo seguro | média | **Aceito** | D11 refeita: a idade não manda ao modo seguro; o batimento devolve a conversa à fila até **2 vezes** (marcando `mensagens.reenfileirada` e `reenfileirada_em`); só depois de 2 devoluções sem sucesso (5 min depois da última) vai ao modo seguro. Depois de uma queda, a primeira coisa é tentar de novo. Tasks 3, 4, 6. |
+| P1-3 custo dos cenários medido só no último cenário (`limparBanco` trunca `uso_ia`) | média | **Aceito** | Regras de ambiente: "Custo dos cenários" — cópia de `uso_ia` por gatilho num esquema de rascunho, somada no fim de cada rodada; o `.jsonl` da Task 2 continua por cenário. |
+| P1-4 (a) 10 min sem tentar depois da recarga; (b) saldo acabando à noite sem cliente escrevendo não avisa | média | **Aceito em parte** | (b) aceito: o Assistente e as tarefas de trabalho, ao falhar por `saldo`/`chave`, também registram a falha e disparam o mesmo alerta (Task 5). (a) **recusado** a sonda a cada minuto: seria uma chamada paga fora de qualquer conversa, sem lugar em `uso_ia`, para ganhar no máximo 10 min; os 10 min viram decisão do dono (D5). |
+| P1-5 "já vamos te atender" de madrugada | média | **Aceito como decisão do dono** | D1 ganha a pergunta: fora do expediente, usar a mensagem de "fora do horário" (que já existe) no lugar da de "IA indisponível". Proposta: **sim** (Task 5 implementa: fora do expediente, `mensagens.fora_do_horario` com `{inicio}`/`{fim}` trocados, como o agente já faz). |
+| P1-6 erro de rede da Z-API vira `codigo`; corpo da resposta da Z-API no `erro` | baixa | **Aceito em parte** | O resumo do erro da Z-API para no status (`Z-API 500`), sem o corpo (Task 1). **Recusado** classificar pelo caminho: exigiria embrulhar todos os envios; a rede da Z-API fica como `codigo` e isso está dito no manual. |
+| P1-7 o número do Início conta as tentativas que deram certo | baixa | **Aceito** | `falhas_agente_hoje` devolve `total` (só `ultima = true`), `instabilidade` (`tentar_de_novo`) e `conta`; o texto vira "2 falhas do agente hoje · 1 por saldo ou chave da IA · instabilidade: 7". Tasks 3, 7. |
+| P1-8 reenfileirar a cada minuto por 30 min | baixa | **Aceito** | Junto com P1-2: no máximo 2 devoluções por lote. |
+| P1-9 sem teste do aviso ao setor | baixa | **Aceito** | Teste novo na Task 5 (demanda aberta no Fiscal → aviso com o `setorId` do Fiscal). |
+
+Os achados transversais do plano 2 que valem aqui: **P2-6** (ordem das migrações) → seção "Integração e versão" abaixo.
+
+## Integração e versão (P2-6)
+
+- **Ordem de junção:** Parte I completa (até a I5) → este plano (confiabilidade) → prontidão → CNPJ. Uma tag por versão (`v2026.11-<n>`) antes de qualquer `db push` na produção (diagnóstico 8 da análise).
+- **Números:** as migrações deste plano (`20261101…`) são maiores que todas as da Parte I (`2026101x–2026103x`). **Nunca aplicar `20261101…` num banco que ainda não tem todas as da Parte I:** o `supabase db push` seguinte recusaria as da Parte I ("anteriores à última aplicada") e só passaria com `--include-all`. A Entrega deste plano não aplica nada; quem aplica (o dono) faz **um** `--dry-run` com a lista inteira (Parte I + estes) e confere a ordem.
+- **Se a Parte I criar uma migração com número ≥ `20261101000100`** antes de este plano ser executado, **renumere** as deste plano para depois da última da Parte I no começo da execução (`git mv`, mesmo nome, só o número; o pgTAP idem a partir do maior `NN_` + 1) e anote na Entrega.
+
 ## Restrições globais
 
-- **Só mexer em:** `supabase/migrations/20261101000100_confiabilidade_agente.sql` (**novo**), `supabase/tests/80_confiabilidade_agente.test.sql` (**novo**), `packages/db/src/repos.ts` (métodos e tipos **novos**; nenhum método existente muda de assinatura), `packages/db/src/tipos.gen.ts` (regerado com `pnpm db:tipos`, nunca à mão), `packages/db/test/limpar.ts` (só a limpeza da tabela nova), `packages/db/test/confiabilidade.test.ts` (**novo**), `apps/trabalhador/src/agente/cliente-ia.ts` (só acréscimos), `apps/trabalhador/src/modo-seguro.ts` (**novo**), `apps/trabalhador/src/processar-conversa.ts` (só o que a Task 5 diz), `apps/trabalhador/src/{fila,config,principal,tarefas,retencao}.ts` (só o que as Tasks 5 e 6 dizem), `apps/trabalhador/src/cenarios/{rodar,diagnostico,relatorio-falhas}.ts`, `apps/trabalhador/package.json` (só o script `cenarios-relatorio`), testes **novos** em `apps/trabalhador/test/confiabilidade/`, `apps/painel/src/lib/falhas-agente.ts` e `.test.ts` (**novos**), `apps/painel/src/app/(painel)/inicio/{dados-situacao.ts,cartao-agente.tsx}`, `apps/painel/src/app/(painel)/configuracoes/secoes/mensagens.tsx` (só a ajuda do campo), `apps/painel/e2e/inicio-falhas-agente.spec.ts` (**novo**), `docs/relatorios/falhas-agente.md` (**novo**), `docs/operacao.md`. A Task 8 pode mexer em outros arquivos **do trabalhador** que o relatório apontar, **nunca** em `apps/trabalhador/src/agente/prompt.ts`, `apps/trabalhador/src/agente/orientacoes-skill-dono.ts` nem nos retratos.
+- **Só mexer em:** `supabase/migrations/20261101000100_confiabilidade_agente.sql` (**novo**), `supabase/tests/80_confiabilidade_agente.test.sql` (**novo**), `packages/db/src/repos.ts` (métodos e tipos **novos**; nenhum método existente muda de assinatura), `packages/db/src/tipos.gen.ts` (regerado com `pnpm db:tipos`, nunca à mão), `packages/db/test/limpar.ts` (só a limpeza da tabela nova), `packages/db/test/confiabilidade.test.ts` (**novo**), `apps/trabalhador/src/agente/cliente-ia.ts` (só acréscimos), `apps/trabalhador/src/modo-seguro.ts` (**novo**), `apps/trabalhador/src/processar-conversa.ts` (só o que a Task 5 diz), `apps/trabalhador/src/agente/atender.ts` (só o `turno` repassado, revisão P1-1), `apps/trabalhador/src/assistente/processar.ts` e `apps/trabalhador/src/tarefa/processar.ts` (só o registro de saldo/chave, revisão P1-4b), `apps/trabalhador/src/{fila,config,principal,tarefas,retencao}.ts` (só o que as Tasks 5 e 6 dizem), `apps/trabalhador/src/cenarios/{rodar,diagnostico,relatorio-falhas}.ts`, `apps/trabalhador/package.json` (só o script `cenarios-relatorio`), testes **novos** em `apps/trabalhador/test/confiabilidade/`, `apps/painel/src/lib/falhas-agente.ts` e `.test.ts` (**novos**), `apps/painel/src/app/(painel)/inicio/{dados-situacao.ts,cartao-agente.tsx}`, `apps/painel/src/app/(painel)/configuracoes/secoes/mensagens.tsx` (só a ajuda do campo), `apps/painel/e2e/inicio-falhas-agente.spec.ts` (**novo**), `docs/relatorios/falhas-agente.md` (**novo**), `docs/operacao.md`. A Task 8 pode mexer em outros arquivos **do trabalhador** que o relatório apontar, **nunca** em `apps/trabalhador/src/agente/prompt.ts`, `apps/trabalhador/src/agente/orientacoes-skill-dono.ts` nem nos retratos.
 - **Testes de partes anteriores não mudam:** nenhum pgTAP de `01` a `54`; nenhum `*.test.ts` existente; nenhum e2e existente. Se um teste antigo quebrar por causa deste plano, **pare** e avise: é mudança de comportamento. Em especial `processar-conversa.test.ts:285` ("falha temporária da IA é relançada, exceto na última tentativa") e `:296` continuam passando sem mudança.
 - **O teste congelado `supabase/tests/22_regressao_visibilidade.test.sql` continua 100/100** e `git diff 8f5eb71 -- supabase/tests/22_regressao_visibilidade.test.sql` sai vazio. Nada entra no Realtime (a tabela nova fica fora do `supabase_realtime`). Nunca use `usuario_liberado` em código novo; use `eh_usuario_ativo`, `eh_admin`, `tem_permissao`, `eh_dono`.
 - **O pedido do Thiago não muda:** `git log --format=%h BASE.. -- apps/trabalhador/test/agente/__retratos__ apps/trabalhador/src/agente/prompt.ts` sai **vazio** e `retrato-thiago.test.ts` passa. Se um retrato precisar mudar, **pare**.
@@ -95,7 +120,21 @@ Conferi no código o que a análise supõe. A análise foi escrita a partir de u
   - Um agente de cada vez (nada de subagentes em paralelo). Nunca rode ao mesmo tempo o painel de teste do dono, o `next dev` deste plano, os cenários e os e2e.
 - **Portas 3001 a 3010 são do dono:** nenhum servidor deste plano usa essas portas; os e2e usam a 3100 (padrão do `playwright.config.ts`), as capturas a **3107**.
 - **E2e, testes e cenários só contra o banco local:** `apps/painel/e2e/trava-local.ts` e `limparBanco` recusam outro banco. **Nunca rode nada contra a homologação, nunca use nem altere `.env.homologacao`.** Nenhum `supabase db push` neste plano, nem `--dry-run`.
-- **Cenários com Claude real gastam dinheiro:** rode só os comandos indicados (Tasks 2 e 8, e a Entrega), um de cada vez, e anote a soma de `uso_ia.custo_usd` do banco local depois de cada rodada (`select round(sum(custo_usd), 4) from uso_ia`, antes do próximo `db reset`). Teto D14.
+- **Cenários com Claude real gastam dinheiro:** rode só os comandos indicados (Tasks 2 e 8, e a Entrega), um de cada vez. Teto D14.
+- **Custo dos cenários (revisão P1-3):** cada cenário chama `limparBanco`, que **trunca `uso_ia`**: a soma no fim da rodada mede só o último. Antes de **cada** rodada (depois do `supabase db reset`), crie a cópia por gatilho, num esquema de rascunho que o `truncate` não alcança:
+
+```sql
+create schema if not exists rascunho_custo;
+create table if not exists rascunho_custo.uso (custo_usd numeric, funcionalidade text, criado_em timestamptz default now());
+create or replace function rascunho_custo.copiar() returns trigger language plpgsql security definer set search_path = '' as $$
+begin insert into rascunho_custo.uso (custo_usd, funcionalidade) values (new.custo_usd, new.funcionalidade); return new; end $$;
+drop trigger if exists copiar_custo on public.uso_ia;
+create trigger copiar_custo after insert on public.uso_ia for each row execute function rascunho_custo.copiar();
+grant usage on schema rascunho_custo to service_role, authenticated;
+grant insert on rascunho_custo.uso to service_role, authenticated;
+```
+
+  Rode pelo `psql` do contêiner do Supabase local (`docker exec -i supabase_db_<projeto> psql -U postgres`), **só no banco local**. Depois da rodada: `select round(sum(custo_usd), 4) from rascunho_custo.uso;` (anote) e `truncate rascunho_custo.uso;`. Ao terminar o trabalho: `drop trigger copiar_custo on public.uso_ia; drop schema rascunho_custo cascade;` — o próximo `supabase db reset` também apaga tudo. O total do `.jsonl` (Task 2) tem de bater com este.
 - **Nenhum trabalhador é ligado nem desligado neste plano.** O da porta **3001 é o teste do dono: não desligue nem mate esse processo.**
 - **Antes de mudar texto ou `data-testid` usado em teste,** rode `grep -rn "<texto>" apps/painel/e2e apps/painel/src`. **Ficam como estão:** "Agente", "Atendendo", "Pausado", "Parado pelo teto de IA", `data-agente-numero="conversas|resolvidas|demandas"`, "IA indisponível", "Recebemos sua mensagem, já vamos te atender.".
 - **Nada de cor, tamanho ou espaçamento solto no JSX:** nada de `#hex`, `bg-white`, `text-[13px]`, `w-[220px]`, `grid-cols-[...]` nem `shadow-[...]`. Só tokens e a escala do Tailwind. `escala.test.ts` e `tokens.test.ts` continuam passando. Ícones só com `size={12|14|16|20}`.
@@ -114,6 +153,8 @@ Situações que a análise implica e que nenhum teste antigo cobre. Cada uma tem
 4. **Falha depois de agir:** o agente abriu a demanda e a Z-API falhou no `responder` → não repete a ferramenta, vai ao modo seguro com `envio`; se o modo seguro também não sai (Z-API fora), a triagem e o alerta acontecem e a falha registra `modo_seguro_sem_mensagem`. Task 5.
 5. **Mensagem parada:** job perdido (o trabalhador reiniciou no meio), ou que falhou de vez por erro de banco → em até 3 min volta à fila; passou de 30 min → modo seguro; conversa já com a equipe não é tocada. Tasks 4 e 6.
 6. **Webhook reentregue depois de respondido:** a Z-API manda de novo a mesma mensagem 10 minutos depois → nada gravado, nada agendado, nada enviado. Task 6.
+8. **Trabalhador cai depois de responder (revisão P1-1):** a vez abriu a demanda e respondeu, e o processo morreu antes de marcar as mensagens → nem a nova tentativa da fila nem o batimento respondem de novo ou repetem ferramentas. Tasks 4, 5, 6.
+9. **Volta depois de 1 hora fora (revisão P1-2):** as mensagens paradas voltam à fila primeiro; só vão à equipe depois de 2 tentativas sem sucesso. Task 6.
 7. **Texto do cliente vazando para o registro:** a exceção traz o conteúdo da mensagem (ex.: erro 400 que ecoa o pedido) → `falhas_agente.erro` guarda só classe, status e a primeira linha, cortada em 300. Task 1.
 
 ---
@@ -203,8 +244,12 @@ describe('resumoDoErro (D7, Foco 7)', () => {
     expect(r.length).toBeLessThanOrEqual(300);
   });
   it('erro comum e valor que não é erro', () => {
-    expect(resumoDoErro(new Error('Z-API 500: fora'))).toBe('Error: Z-API 500: fora');
+    expect(resumoDoErro(new Error('registrarDecisao: falhou'))).toBe('Error: registrarDecisao: falhou');
     expect(resumoDoErro(42)).toBe('42');
+  });
+  it('Z-API: só o status, nunca o corpo da resposta (pode ter o telefone do cliente; revisão P1-6)', () => {
+    expect(resumoDoErro(new Error('Z-API 500: {"phone":"5531988887777","error":"x"}'))).toBe('Error: Z-API 500');
+    expect(resumoDoErro(new Error('Z-API não devolveu id da mensagem'))).toBe('Error: Z-API não devolveu id da mensagem');
   });
 });
 ```
@@ -238,7 +283,8 @@ export function tipoFalha(e: unknown): TipoFalha {
 export function resumoDoErro(e: unknown): string {
   if (!(e instanceof Error)) return String(e).split('\n')[0]!.slice(0, 300);
   const status = e instanceof Anthropic.APIError && e.status ? ` ${e.status}` : '';
-  const linha = (e.message ?? '').split('\n')[0]!.trim();
+  // Z-API: só "Z-API <status>"; o corpo da resposta pode trazer o telefone do cliente (revisão P1-6).
+  const linha = (e.message ?? '').split('\n')[0]!.trim().replace(/^(Z-API \d{3}):.*$/, '$1');
   return `${e.constructor.name}${status}: ${linha}`.slice(0, 300);
 }
 ```
@@ -518,8 +564,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - tabela `public.falhas_agente (id uuid pk, conversa_id uuid → conversas on delete set null, cliente_id uuid → clientes on delete set null, agente_id uuid → agentes on delete set null, tipo text check in ('passageiro','saldo','chave','pedido_invalido','envio','codigo'), etapa text check in ('ia','ferramenta','envio','outro'), tentativa int ≥ 0, ultima boolean, erro text check length ≤ 300, modelo text, acao text check in ('tentar_de_novo','modo_seguro','modo_seguro_sem_mensagem'), criado_em timestamptz)`; RLS: `select` só `eh_admin()`; sem `insert/update/delete` para `authenticated`;
   - coluna `public.conversas.modo_seguro_em timestamptz`;
   - `public.reservar_modo_seguro(p_conversa uuid, p_horas int default 4) returns boolean` (só `service_role`);
-  - `public.falhas_agente_hoje(p_agora timestamptz default now()) returns jsonb` → `{"total": n, "conta": m}` (`conta` = saldo + chave), só administrador;
-  - `public.conversas_com_mensagem_parada(p_de_min int, p_ate_min int) returns table (conversa_id uuid, desde timestamptz)` (só `service_role`).
+  - `public.falhas_agente_hoje(p_agora timestamptz default now()) returns jsonb` → `{"total": n, "conta": m, "instabilidade": k}` (`total` = `ultima = true`; `conta` = saldo + chave entre elas; `instabilidade` = `tentar_de_novo`), só administrador (revisão P1-7);
+  - colunas `public.mensagens.reenfileirada int not null default 0` e `public.mensagens.reenfileirada_em timestamptz` (revisão P1-2/P1-8);
+  - `public.conversas_com_mensagem_parada(p_de_min int, p_ate_min int) returns table (conversa_id uuid, desde timestamptz, reenvios int, ultimo_reenvio timestamptz)` (só `service_role`; `reenvios` = o maior `reenfileirada` das mensagens paradas);
+  - `public.marcar_reenfileirada(p_conversa uuid) returns void` (só `service_role`; soma 1 e grava a hora nas mensagens não processadas daquela conversa).
 
 - [ ] **Step 1: Escreva o teste que falha** — `supabase/tests/80_confiabilidade_agente.test.sql`:
 
@@ -527,7 +575,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 -- Plano de confiabilidade do agente, Task 3 (D2, D7, D8, D11).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(23);
 
 insert into auth.users (id, email) values
   ('f8000000-0000-0000-0000-00000000000a', 'admin@conf.local'), ('f8000000-0000-0000-0000-00000000000b', 'ana@conf.local');
@@ -567,6 +615,10 @@ select is(public.reservar_modo_seguro('f8100000-0000-0000-0000-0000000000ff', 4)
 select results_eq($$ select conversa_id from public.conversas_com_mensagem_parada(3, 30) $$,
   $$ values ('f8100000-0000-0000-0000-00000000000a'::uuid) $$, 'parada há 10 min entra; há 1 min e com a equipe não');
 select is((select count(*)::int from public.conversas_com_mensagem_parada(30, 600)), 0, 'nenhuma acima de 30 min');
+-- revisão P1-2/P1-8: a devolução à fila é contada por mensagem
+select lives_ok($$ select public.marcar_reenfileirada('f8100000-0000-0000-0000-00000000000a') $$, 'marca a devolução');
+select is((select reenvios from public.conversas_com_mensagem_parada(3, 30)), 1, 'reenvios = 1');
+select isnt((select ultimo_reenvio from public.conversas_com_mensagem_parada(3, 30)), null, 'com a hora da devolução');
 update public.mensagens set processada_em = now() where conversa_id = 'f8100000-0000-0000-0000-00000000000a';
 select is((select count(*)::int from public.conversas_com_mensagem_parada(3, 30)), 0, 'processada sai da lista');
 
@@ -582,9 +634,10 @@ select throws_ok($$ insert into public.falhas_agente (tipo, etapa, tentativa, ul
 -- 17–20: o administrador lê; falhas_agente_hoje conta só o dia de Brasília e separa saldo/chave
 select set_config('request.jwt.claims', '{"sub":"f8000000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
 select is((select count(*)::int from public.falhas_agente), 3, 'administrador lê as 3');
-select is((public.falhas_agente_hoje() ->> 'total')::int, 2, 'hoje: 2 (a de 2 dias atrás fica de fora)');
+select is((public.falhas_agente_hoje() ->> 'total')::int, 1, 'hoje: 1 que não se resolveu (a de 2 dias atrás e a nova tentativa ficam de fora; P1-7)');
 select is((public.falhas_agente_hoje() ->> 'conta')::int, 1, 'hoje por saldo ou chave: 1');
 select throws_ok($$ select public.conversas_com_mensagem_parada(3, 30) $$, '42501', null, 'administrador também não chama a função do trabalhador');
+select is((public.falhas_agente_hoje() ->> 'instabilidade')::int, 1, 'instabilidade: as novas tentativas de hoje (P1-7)');
 
 select * from finish();
 rollback;
@@ -645,18 +698,32 @@ declare
   v_de timestamptz := ((p_agora at time zone 'America/Sao_Paulo')::date)::timestamp at time zone 'America/Sao_Paulo';
 begin
   if not public.eh_admin() then raise exception 'Só o administrador vê as falhas do agente.'; end if;
-  -- "tentar_de_novo" conta: o dono quer saber que a IA está instável mesmo quando a nova tentativa resolveu.
-  return (select jsonb_build_object('total', count(*), 'conta', count(*) filter (where f.tipo in ('saldo', 'chave')))
+  -- Revisão P1-7: "total" é o que não se resolveu; a nova tentativa vai à parte ("instabilidade"), sem alarme falso.
+  return (select jsonb_build_object(
+            'total', count(*) filter (where f.ultima),
+            'conta', count(*) filter (where f.ultima and f.tipo in ('saldo', 'chave')),
+            'instabilidade', count(*) filter (where f.acao = 'tentar_de_novo'))
             from public.falhas_agente f where f.criado_em >= v_de and f.criado_em < v_de + interval '1 day');
 end $$;
 revoke execute on function public.falhas_agente_hoje(timestamptz) from public, anon;
 grant execute on function public.falhas_agente_hoje(timestamptz) to authenticated;
 
+-- Revisão P1-2/P1-8: quantas vezes o batimento já devolveu esta mensagem à fila, e quando.
+alter table public.mensagens add column reenfileirada int not null default 0, add column reenfileirada_em timestamptz;
+
+create function public.marcar_reenfileirada(p_conversa uuid) returns void
+language sql volatile security definer set search_path = '' as $$
+  update public.mensagens set reenfileirada = reenfileirada + 1, reenfileirada_em = now()
+   where conversa_id = p_conversa and direcao = 'entrada' and processada_em is null
+$$;
+revoke execute on function public.marcar_reenfileirada(uuid) from public, anon, authenticated;
+grant execute on function public.marcar_reenfileirada(uuid) to service_role;
+
 -- Conversa com o agente com mensagem de cliente não processada entre p_de_min e p_ate_min minutos (a mais antiga decide).
 create function public.conversas_com_mensagem_parada(p_de_min int, p_ate_min int)
-returns table (conversa_id uuid, desde timestamptz)
+returns table (conversa_id uuid, desde timestamptz, reenvios int, ultimo_reenvio timestamptz)
 language sql stable security definer set search_path = '' as $$
-  select m.conversa_id, min(m.criado_em)
+  select m.conversa_id, min(m.criado_em), max(m.reenfileirada), max(m.reenfileirada_em)
     from public.mensagens m join public.conversas c on c.id = m.conversa_id
    where m.direcao = 'entrada' and m.processada_em is null and c.estado = 'agente'
    group by m.conversa_id
@@ -671,7 +738,7 @@ Regere os tipos: `pnpm db:tipos` (Supabase local ligado; com as portas temporár
 - [ ] **Step 4: Rode**
 
 Run: `supabase db reset && supabase test db`
-Expected: todos os arquivos passam, `80` com 20/20, `22` com 100/100. Se `throws_ok(..., '42501', …)` do teste 15 vier com outro código (o PostgREST não entra aqui; é SQL direto), confira com `\df+` que o `revoke` valeu e **corrija a migração**, não o teste.
+Expected: todos os arquivos passam, `80` com 23/23, `22` com 100/100. Se `throws_ok(..., '42501', …)` do teste 15 vier com outro código (o PostgREST não entra aqui; é SQL direto), confira com `\df+` que o `revoke` valeu e **corrija a migração**, não o teste.
 
 - [ ] **Step 5: Commit** (devolva `config.toml` e `.env` antes)
 
@@ -697,7 +764,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `registrarFalhaAgente(f: NovaFalhaAgente): Promise<void>` — banco sem a migração: não lança (só `console.error`).
   - `reservarModoSeguro(conversaId: string, horas: number): Promise<boolean>` — banco sem a migração: `true` (comportamento de hoje: manda).
   - `falhaDefinitivaRecente(minutos: number): Promise<'saldo' | 'chave' | null>` — banco sem a migração: `null`.
-  - `conversasComMensagemParada(deMin: number, ateMin: number): Promise<{ conversaId: string; desde: string }[]>` — banco sem a migração: `[]`.
+  - `conversasComMensagemParada(deMin: number, ateMin: number): Promise<{ conversaId: string; desde: string; reenvios: number; ultimoReenvio: string | null }[]>` — banco sem a migração: `[]`.
+  - `marcarReenfileirada(conversaId: string): Promise<void>` — banco sem a migração: não faz nada.
+  - `loteJaAtendido(conversaId: string, mensagemIds: string[]): Promise<boolean>` (revisão P1-1, D16) — `true` se existe decisão `lote` com exatamente estes ids **e** outra decisão do mesmo `turno` que não seja `lote` nem `orientacoes_cortadas`.
+  - **Muda (exceção pedida pela revisão P1-1):** `contarDecisoesDesde` passa a ignorar também a etapa `lote` (mesma assinatura; os testes antigos de nova tentativa continuam passando porque hoje não existe `lote`).
 
 - [ ] **Step 1: Escreva o teste que falha** — `packages/db/test/confiabilidade.test.ts`:
 
@@ -732,12 +802,26 @@ describe('falhas do agente (confiabilidade)', () => {
     expect(await repos.reservarModoSeguro(c.id, 4)).toBe(false);
   });
 
-  it('acha a conversa com mensagem parada entre os limites', async () => {
+  it('acha a conversa com mensagem parada entre os limites e conta as devoluções', async () => {
     const c = await repos.obterOuCriarConversa('5531980000012', null);
     await repos.inserirMensagemEntrada({ conversaId: c.id, clienteId: null, idProvedor: 'P1', tipo: 'texto', conteudo: 'oi' });
     await db.from('mensagens').update({ criado_em: new Date(Date.now() - 5 * 60_000).toISOString() }).eq('id_provedor', 'P1');
     expect((await repos.conversasComMensagemParada(3, 30)).map((x) => x.conversaId)).toEqual([c.id]);
     expect(await repos.conversasComMensagemParada(30, 600)).toEqual([]);
+    await repos.marcarReenfileirada(c.id);
+    expect((await repos.conversasComMensagemParada(3, 30))[0]).toMatchObject({ reenvios: 1, ultimoReenvio: expect.any(String) });
+  });
+
+  it('lote já atendido (D16): só com lote + ação no mesmo turno; contarDecisoesDesde ignora o lote', async () => {
+    const c = await repos.obterOuCriarConversa('5531980000013', null);
+    const { id } = await repos.inserirMensagemEntrada({ conversaId: c.id, clienteId: null, idProvedor: 'L1', tipo: 'texto', conteudo: 'oi' });
+    const desde = new Date(Date.now() - 60_000).toISOString();
+    await repos.registrarDecisao({ conversaId: c.id, clienteId: null, etapa: 'lote', entrada: { mensagens: [id] }, saida: null, turno: 'T1' });
+    expect(await repos.loteJaAtendido(c.id, [id])).toBe(false);
+    expect(await repos.contarDecisoesDesde(c.id, desde)).toBe(0);
+    await repos.registrarDecisao({ conversaId: c.id, clienteId: null, etapa: 'responder', entrada: { texto: 'Olá' }, saida: { enviado: true }, turno: 'T1' });
+    expect(await repos.loteJaAtendido(c.id, [id])).toBe(true);
+    expect(await repos.loteJaAtendido(c.id, [id, '00000000-0000-0000-0000-000000000000'])).toBe(false);
   });
 
   it('erro maior que 300 é cortado antes de gravar (a trava do banco não derruba o registro)', async () => {
@@ -794,13 +878,34 @@ e no fim do objeto devolvido por `criarRepos`:
       return (linhas[0]?.tipo as 'saldo' | 'chave' | undefined) ?? null;
     },
 
-    /** D11: conversas com o agente e mensagem de cliente parada entre `deMin` e `ateMin` minutos. */
-    async conversasComMensagemParada(deMin: number, ateMin: number): Promise<{ conversaId: string; desde: string }[]> {
+    /** D11: conversas com o agente e mensagem de cliente parada entre `deMin` e `ateMin` minutos, com as devoluções à fila. */
+    async conversasComMensagemParada(deMin: number, ateMin: number): Promise<{ conversaId: string; desde: string; reenvios: number; ultimoReenvio: string | null }[]> {
       const r = await db.rpc('conversas_com_mensagem_parada', { p_de_min: deMin, p_ate_min: ateMin });
       if (r.error && SEM_PARTE_I.has(r.error.code)) return [];
-      return checar(r, 'conversasComMensagemParada').map((x) => ({ conversaId: x.conversa_id, desde: x.desde }));
+      return checar(r, 'conversasComMensagemParada').map((x) => ({ conversaId: x.conversa_id, desde: x.desde, reenvios: x.reenvios, ultimoReenvio: x.ultimo_reenvio }));
+    },
+
+    /** D11 (revisão P1-2/P1-8): o batimento devolveu as mensagens paradas desta conversa à fila mais uma vez. */
+    async marcarReenfileirada(conversaId: string): Promise<void> {
+      const r = await db.rpc('marcar_reenfileirada', { p_conversa: conversaId });
+      if (r.error && !SEM_PARTE_I.has(r.error.code)) throw new Error(`marcarReenfileirada: ${r.error.message}`);
+    },
+
+    /** D16 (revisão P1-1): este lote de mensagens já teve ação do agente (o trabalhador caiu antes de marcar como processadas)? */
+    async loteJaAtendido(conversaId: string, mensagemIds: string[]): Promise<boolean> {
+      const lotes = checar(await db.from('decisoes_agente').select('entrada, turno').eq('conversa_id', conversaId).eq('etapa', 'lote')
+        .order('criado_em', { ascending: false }).limit(20), 'loteJaAtendido');
+      const alvo = [...mensagemIds].sort().join(',');
+      const turnos = lotes.filter((l) => l.turno && [...((l.entrada as { mensagens?: string[] } | null)?.mensagens ?? [])].sort().join(',') === alvo).map((l) => l.turno!);
+      if (turnos.length === 0) return false;
+      const acoes = await db.from('decisoes_agente').select('id', { count: 'exact', head: true }).eq('conversa_id', conversaId)
+        .in('turno', turnos).not('etapa', 'in', '(lote,orientacoes_cortadas)');
+      if (acoes.error) throw new Error(`loteJaAtendido: ${acoes.error.message}`);
+      return (acoes.count ?? 0) > 0;
     },
 ```
+
+Em `contarDecisoesDesde` (`repos.ts:511-516`), troque `.neq('etapa', 'orientacoes_cortadas')` por `.not('etapa', 'in', '(orientacoes_cortadas,lote)')` e o comentário por `/** Ações do agente na conversa desde `desdeIso` (decide a nova tentativa). O aviso de orientações cortadas e o registro do lote (D16) não são ação. */`.
 
 (`SEM_PARTE_I` tem os códigos de "tabela/função não existe": `42P01`, `42883`, `PGRST202`, `PGRST205`…; serve para qualquer migração que ainda não chegou. Se `checar` tiver outra forma de devolver o `data` de RPC que retorna tabela, siga a que `tarefasParadas` usa no mesmo arquivo.)
 
@@ -1143,6 +1248,89 @@ Em `apps/trabalhador/src/retencao.ts`, depois de `assistente_mensagens`:
 
 e **não** mude o objeto devolvido (o `retencao.test.ts` fixa as chaves: confira; se ele usar `toEqual` com o objeto inteiro, **não** acrescente `falhas` ao retorno).
 
+- [ ] **Step 3b: O que a revisão crítica acrescentou (P1-1, P1-4b, P1-5, P1-9)** — primeiro os testes, no fim de `test/confiabilidade/modo-seguro.test.ts`:
+
+```ts
+describe('revisão crítica', () => {
+  it('P1-1 (D16): respondeu e caiu antes de marcar como processada → a nova vez não responde de novo nem repete ferramentas', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
+    await receber(conversa.id, 'M1');
+    const [m] = await repos.mensagensNaoProcessadas(conversa.id);
+    // O que a vez que caiu deixou: o lote e a resposta no mesmo turno, sem marcar a mensagem.
+    await repos.registrarDecisao({ conversaId: conversa.id, clienteId: null, etapa: 'lote', entrada: { mensagens: [m!.id] }, saida: null, turno: 'T-caiu' });
+    await repos.registrarDecisao({ conversaId: conversa.id, clienteId: null, etapa: 'responder', entrada: { texto: 'Olá!' }, saida: { enviado: true }, turno: 'T-caiu' });
+    const ia = new IaRoteirizada([]);
+    expect(await processarConversa(deps(ia), conversa.id, false)).toBe('ja-atendido');
+    expect(ia.recebidos).toHaveLength(0);
+    expect(canal.enviados).toHaveLength(0);
+    expect(await repos.mensagensNaoProcessadas(conversa.id)).toHaveLength(0);
+  });
+
+  it('P1-1 (D16): a vez normal grava o lote com o mesmo turno das ferramentas', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
+    await receber(conversa.id, 'M1');
+    await processarConversa(deps(new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Olá!' } }), fim()])), conversa.id, false);
+    const { data } = await db.from('decisoes_agente').select('etapa, turno').eq('conversa_id', conversa.id);
+    const lote = data!.find((x) => x.etapa === 'lote')!;
+    expect(data!.find((x) => x.etapa === 'responder')!.turno).toBe(lote.turno);
+  });
+
+  it('P1-9: com demanda aberta no Fiscal, o aviso vai para o Fiscal', async () => {
+    const { conversa, empresas } = await contatoComEmpresas(['Indústria X']);
+    await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
+    const fiscal = (await db.from('setores').select('id').eq('nome', 'Fiscal').single()).data!.id;
+    await db.from('chamados').insert({ cliente_id: empresas[0]!.id, conversa_id: conversa.id, setor_id: fiscal, titulo: 'NF de venda' });
+    await receber(conversa.id, 'M1');
+    await processarConversa(deps(new IaRoteirizada([SOBRECARGA()])), conversa.id, true);
+    expect(alertas.filter((a) => a.nivel === 'aviso').map((a) => a.setorId)).toEqual([fiscal]);
+  });
+
+  it('P1-5: fora do expediente, o modo seguro manda a mensagem de fora do horário', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
+    await receber(conversa.id, 'M1');
+    const domingo = { ...deps(new IaRoteirizada([SALDO()])), relogio: () => new Date('2026-09-27T13:00:00Z') };
+    await processarConversa(domingo, conversa.id, false);
+    expect(canal.enviados.map((e) => e.texto)).toHaveLength(1);
+    expect(canal.enviados[0]!.texto).not.toBe(AVISO);
+    expect(canal.enviados[0]!.texto).toContain('Nossa equipe atende');
+  });
+});
+```
+
+(`AVISO`, `SALDO`, `SOBRECARGA`, `receber`, `deps` e `alertas` são os do começo do arquivo. O texto padrão de "fora do horário" está em `20260927000100_base.sql:107` — "Nossa equipe atende de segunda a sexta…".)
+
+Depois a implementação:
+1. **D16 em `processarConversa`** — logo depois do bloco do teto e do disjuntor, e antes de `const historico = …`:
+
+```ts
+  // D16 (revisão P1-1): o trabalhador caiu depois de agir e antes de marcar como processadas — não responde de novo.
+  if (await d.repos.loteJaAtendido(conversa.id, ids)) {
+    await d.repos.marcarProcessadas(ids);
+    return 'ja-atendido';
+  }
+  const turno = randomUUID();
+  await d.repos.registrarDecisao({ conversaId: conversa.id, clienteId: ctx.empresaEmFoco?.id ?? null, etapa: 'lote', entrada: { mensagens: ids }, saida: null, turno });
+```
+
+   e a chamada passa o turno: `atenderComAgentes(d, ctx, montarConteudoUsuario(…), turno)`. `DesfechoProcessamento` ganha `'ja-atendido'`; `import { randomUUID } from 'node:crypto'`.
+2. **`agente/atender.ts`** (acrescente ao "Só mexer em"): `atenderComAgentes(d, ctx, conteudo, turno?: string)` repassa `{ turno }` nas três chamadas de `executarAgente` (`executarAgente(d, ctx, conteudo, undefined, { turno })` no lugar de `executarAgente(d, ctx, conteudo)`, e `turno` junto do `papel` na do especialista). Sem `turno`, tudo como hoje (`executarAgente` sorteia).
+3. **P1-5 em `entrarEmModoSeguro`**: a chamada em `processarConversa` (as três: teto, disjuntor, `catch`) passa `mensagem: ctx.noExpediente ? config.mensagens.ia_indisponivel ?? null : avisoForaDoHorario(ctx)` (importe `avisoForaDoHorario` de `./agente/ferramentas`: `ferramentas.ts:400`, já troca `{inicio}`/`{fim}`).
+4. **P1-4b — o Assistente e as tarefas também registram saldo e chave:** em `assistente/processar.ts`, no `catch` de `executarAssistente` (linha 78), antes de `if (!ultimaTentativa) throw e;`:
+
+```ts
+    // Confiabilidade (revisão P1-4b): saldo ou chave da IA também vistos pelo Assistente; o batimento avisa o dono.
+    const tipo = tipoFalha(e);
+    if (tipo === 'saldo' || tipo === 'chave') {
+      await d.repos.registrarFalhaAgente({ conversaId: null, clienteId: null, agenteId: null, tipo, etapa: 'ia', tentativa: 0, ultima: true,
+        erro: resumoDoErro(e), modelo: null, acao: 'modo_seguro_sem_mensagem' });
+    }
+```
+
+   e o mesmo bloco em `tarefa/processar.ts`, no `catch` da linha 43, antes de `if (erroTemporarioIa(e) && !ultimaTentativa)`. O **alerta** sai pelo batimento (Task 6, item 4), que tem `alertas`; assim nenhuma dependência nova entra no Assistente nem nas tarefas. Acrescente `apps/trabalhador/src/{agente/atender,assistente/processar,tarefa/processar}.ts` ao "Só mexer em" das Restrições globais.
+
 - [ ] **Step 4: Rode**
 
 Run: `pnpm --filter @escritorio/trabalhador test && pnpm --filter @escritorio/trabalhador typecheck`
@@ -1151,7 +1339,7 @@ Expected: PASS, inclusive `processar-conversa.test.ts` inteiro **sem mudança** 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/trabalhador/src/modo-seguro.ts apps/trabalhador/src/processar-conversa.ts apps/trabalhador/src/retencao.ts apps/trabalhador/test/confiabilidade/modo-seguro.test.ts
+git add apps/trabalhador/src/modo-seguro.ts apps/trabalhador/src/processar-conversa.ts apps/trabalhador/src/retencao.ts apps/trabalhador/src/agente/atender.ts apps/trabalhador/src/assistente/processar.ts apps/trabalhador/src/tarefa/processar.ts apps/trabalhador/test/confiabilidade/modo-seguro.test.ts
 git commit -m "feat(agente): modo seguro quando a IA falha — uma mensagem a cada 4 h, conversa com a equipe, alerta e disjuntor de saldo (confiabilidade, D1, D2, D5, D6, D12)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -1171,7 +1359,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Produces:
   - `Config.CONCORRENCIA_AGENTE: number` (1–8, padrão 4);
   - `export const MINUTOS_PARADA = { devolver: 3, modoSeguro: 30 } as const;` em `tarefas.ts`;
-  - `export async function conversasParadas(d: DepsTarefas): Promise<{ devolvidas: number; modoSeguro: number }>` em `tarefas.ts`, chamada pelo `batimento`.
+  - `export async function conversasParadas(d: DepsTarefas): Promise<{ devolvidas: number; modoSeguro: number; jaAtendidas: number }>` e `export async function alertarContaDaIa(d: Pick<DepsTarefas, 'repos' | 'alertas'>): Promise<void>` em `tarefas.ts`, chamadas pelo `batimento` (revisão P1-1, P1-2, P1-4b, P1-8).
 
 - [ ] **Step 1: Escreva os testes que falham**
 
@@ -1220,15 +1408,17 @@ import { lerConfig } from '../../src/config';
 import { LimitadorEnvio } from '../../src/envio';
 import { FILAS } from '../../src/fila';
 import { criarArmazenamento } from '../../src/midia/armazenamento';
-import { conversasParadas, type DepsTarefas } from '../../src/tarefas';
+import { MSG_ALERTA_CONTA } from '../../src/modo-seguro';
+import { alertarContaDaIa, conversasParadas, type DepsTarefas } from '../../src/tarefas';
 import { db, repos } from '../apoio/cenario';
 import { FilaFalsa } from '../apoio/fila-falsa';
 
 const AVISO = 'Recebemos sua mensagem, já vamos te atender.';
 let fila: FilaFalsa;
 let canal: CanalFalso;
+// Segunda 10h: dentro do expediente (a mensagem do modo seguro é a de "IA indisponível", revisão P1-5).
 const deps = (): DepsTarefas => ({
-  repos, canal, fila, relogio: () => new Date(), email: { enviar: async () => {} },
+  repos, canal, fila, relogio: () => new Date('2026-09-28T13:00:00Z'), email: { enviar: async () => {} },
   alertas: { alertar: async () => {} }, envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) },
 });
 async function parada(telefone: string, minutos: number, estado: 'agente' | 'humano' = 'agente') {
@@ -1241,18 +1431,58 @@ async function parada(telefone: string, minutos: number, estado: 'agente' | 'hum
 
 beforeEach(async () => { await limparBanco(); fila = new FilaFalsa(); canal = new CanalFalso(); });
 
-describe('mensagem parada (D11, Foco 5)', () => {
-  it('3 a 30 min: volta à fila; acima de 30: modo seguro e processada; com a equipe: nada', async () => {
-    const volta = await parada('5531988880011', 5);
-    const segura = await parada('5531988880012', 45);
-    const equipe = await parada('5531988880013', 45, 'humano');
-    const r = await conversasParadas(deps());
-    expect(r).toEqual({ devolvidas: 1, modoSeguro: 1 });
-    expect(fila.enviados.filter((j) => j.nome === FILAS.processarConversa).map((j) => (j.dados as { conversaId: string }).conversaId)).toEqual([volta.id]);
-    expect(canal.enviados.filter((e) => e.telefone === segura.telefone).map((e) => e.texto)).toEqual([AVISO]);
-    expect(await repos.mensagensNaoProcessadas(segura.id)).toHaveLength(0);
+/** Marca as mensagens paradas como já devolvidas `n` vezes, a última há `min` minutos. */
+async function devolvida(conversaId: string, n: number, min: number) {
+  await db.from('mensagens').update({ reenfileirada: n, reenfileirada_em: new Date(Date.now() - min * 60_000).toISOString() }).eq('conversa_id', conversaId);
+}
+const devolvidasAgora = () => fila.enviados.filter((j) => j.nome === FILAS.processarConversa).map((j) => (j.dados as { conversaId: string }).conversaId);
+
+describe('mensagem parada (D11 refeita, revisão P1-1, P1-2, P1-8)', () => {
+  it('nova ou depois de uma queda: volta à fila (não vai ao modo seguro pela idade) e conta a devolução', async () => {
+    const nova = await parada('5531988880011', 5);
+    const depoisDaQueda = await parada('5531988880012', 45);
+    expect(await conversasParadas(deps())).toEqual({ devolvidas: 2, modoSeguro: 0, jaAtendidas: 0 });
+    expect(devolvidasAgora().sort()).toEqual([nova.id, depoisDaQueda.id].sort());
+    expect(canal.enviados).toHaveLength(0);
+    expect((await db.from('mensagens').select('reenfileirada').eq('conversa_id', nova.id)).data).toEqual([{ reenfileirada: 1 }]);
+  });
+  it('devolvida há pouco: espera; 2 devoluções e 5 min sem sucesso: modo seguro e processada', async () => {
+    const espera = await parada('5531988880013', 20);
+    await devolvida(espera.id, 1, 1);
+    const esgotada = await parada('5531988880014', 20);
+    await devolvida(esgotada.id, 2, 10);
+    expect(await conversasParadas(deps())).toEqual({ devolvidas: 0, modoSeguro: 1, jaAtendidas: 0 });
+    expect(canal.enviados.filter((e) => e.telefone === esgotada.telefone).map((e) => e.texto)).toEqual([AVISO]);
+    expect(await repos.mensagensNaoProcessadas(esgotada.id)).toHaveLength(0);
+    expect(await repos.mensagensNaoProcessadas(espera.id)).toHaveLength(1);
+  });
+  it('já atendida (o trabalhador caiu depois de responder): só marca como processada, sem fila e sem mensagem', async () => {
+    const c = await parada('5531988880015', 10);
+    const [m] = await repos.mensagensNaoProcessadas(c.id);
+    await repos.registrarDecisao({ conversaId: c.id, clienteId: null, etapa: 'lote', entrada: { mensagens: [m!.id] }, saida: null, turno: 'T9' });
+    await repos.registrarDecisao({ conversaId: c.id, clienteId: null, etapa: 'responder', entrada: {}, saida: {}, turno: 'T9' });
+    expect(await conversasParadas(deps())).toEqual({ devolvidas: 0, modoSeguro: 0, jaAtendidas: 1 });
+    expect(devolvidasAgora()).toEqual([]);
+    expect(canal.enviados).toHaveLength(0);
+    expect(await repos.mensagensNaoProcessadas(c.id)).toHaveLength(0);
+  });
+  it('com a equipe: nada', async () => {
+    const equipe = await parada('5531988880016', 45, 'humano');
+    expect(await conversasParadas(deps())).toEqual({ devolvidas: 0, modoSeguro: 0, jaAtendidas: 0 });
     expect(await repos.mensagensNaoProcessadas(equipe.id)).toHaveLength(1);
-    expect(canal.enviados.filter((e) => e.telefone === equipe.telefone)).toHaveLength(0);
+  });
+});
+
+describe('alerta de saldo visto fora das conversas (revisão P1-4b)', () => {
+  it('o batimento avisa o dono uma vez quando o Assistente ou uma tarefa registrou saldo acabado', async () => {
+    const recebidos: { nivel: string; mensagem: string }[] = [];
+    const d = { ...deps(), alertas: { alertar: async (a: { nivel: string; mensagem: string }) => { recebidos.push(a); } } };
+    await repos.registrarFalhaAgente({ conversaId: null, clienteId: null, agenteId: null, tipo: 'saldo', etapa: 'ia', tentativa: 0, ultima: true,
+      erro: 'BadRequestError 400: credit balance', modelo: null, acao: 'modo_seguro_sem_mensagem' });
+    await alertarContaDaIa(d);
+    await repos.registrarAlerta({ nivel: 'operacional', mensagem: MSG_ALERTA_CONTA.saldo });   // o que alertas.alertar gravaria
+    await alertarContaDaIa(d);
+    expect(recebidos.filter((a) => a.mensagem === MSG_ALERTA_CONTA.saldo)).toHaveLength(1);
   });
 });
 
@@ -1295,38 +1525,66 @@ Expected: `webhook-reentregue` **PASSA já** (é o comportamento de hoje, D9: o 
 `apps/trabalhador/src/tarefas.ts`:
 
 ```ts
-import { MOTIVOS_PASSAGEM } from '@escritorio/core';
-import { entrarEmModoSeguro } from './modo-seguro';
-// (junto dos imports existentes; agendarProcessamento vem de './fila')
+import { MOTIVOS_PASSAGEM, estaNoExpediente, formatarMensagem } from '@escritorio/core';
+import { MINUTOS_DISJUNTOR, MSG_ALERTA_CONTA, entrarEmModoSeguro } from './modo-seguro';
+// (junto dos imports existentes; agendarProcessamento vem de './fila'. estaNoExpediente: core/expediente.ts:16; formatarMensagem: core/texto.ts:1.)
 
-/** D11: mensagem de cliente parada (job perdido ou que falhou de vez). Até 30 min volta à fila; depois, modo seguro. */
-export const MINUTOS_PARADA = { devolver: 3, modoSeguro: 30 } as const;
+/** D11 (refeita na revisão P1-2/P1-8): parada há 3 min volta à fila até 2 vezes; depois de 2 sem sucesso, modo seguro. */
+export const PARADA = { minutos: 3, esperaEntreDevolucoes: 3, maxDevolucoes: 2, esperaDepoisDaUltima: 5, janelaHoras: 24 } as const;
+const minutosDesde = (iso: string | null, agora: number) => (iso ? (agora - new Date(iso).getTime()) / 60_000 : Infinity);
 
-export async function conversasParadas(d: DepsTarefas): Promise<{ devolvidas: number; modoSeguro: number }> {
-  const devolver = await d.repos.conversasComMensagemParada(MINUTOS_PARADA.devolver, MINUTOS_PARADA.modoSeguro);
-  for (const p of devolver) await agendarProcessamento(d.fila, p.conversaId);
-  // Acima de 30 min (até 1 dia, para não mexer em sobra antiga): a equipe assume; as mensagens saem da lista.
-  const velhas = await d.repos.conversasComMensagemParada(MINUTOS_PARADA.modoSeguro, 24 * 60);
-  if (velhas.length) {
-    const cfg = await d.repos.obterConfiguracoes();
-    for (const p of velhas) {
-      const conversa = await d.repos.obterConversa(p.conversaId);
-      await entrarEmModoSeguro(d, { conversa, tipo: 'codigo', motivoTriagem: 'Mensagem de cliente sem resposta',
-        motivoPassagem: MOTIVOS_PASSAGEM.falha, mensagem: cfg.mensagens.ia_indisponivel ?? null, setorId: null });
-      await d.repos.registrarFalhaAgente({ conversaId: conversa.id, clienteId: conversa.cliente_em_foco, agenteId: null, tipo: 'codigo',
-        etapa: 'outro', tentativa: 0, ultima: true, erro: 'Mensagem parada há mais de 30 minutos', modelo: null, acao: 'modo_seguro' });
-      await d.repos.marcarProcessadas((await d.repos.mensagensNaoProcessadas(conversa.id)).map((m) => m.id));
+export async function conversasParadas(d: DepsTarefas): Promise<{ devolvidas: number; modoSeguro: number; jaAtendidas: number }> {
+  const r = { devolvidas: 0, modoSeguro: 0, jaAtendidas: 0 };
+  const paradas = await d.repos.conversasComMensagemParada(PARADA.minutos, PARADA.janelaHoras * 60);
+  if (paradas.length === 0) return r;
+  const agora = Date.now();
+  const cfg = await d.repos.obterConfiguracoes();
+  for (const p of paradas) {
+    const ids = (await d.repos.mensagensNaoProcessadas(p.conversaId)).map((m) => m.id);
+    // D16 (revisão P1-1): o agente já agiu neste lote e o trabalhador caiu antes de marcar — não responde de novo.
+    if (await d.repos.loteJaAtendido(p.conversaId, ids)) {
+      await d.repos.marcarProcessadas(ids);
+      r.jaAtendidas++;
+      continue;
     }
+    if (p.reenvios < PARADA.maxDevolucoes) {
+      // Depois de uma queda longa também cai aqui: primeiro tenta de novo, nunca o modo seguro pela idade (P1-2).
+      if (minutosDesde(p.ultimoReenvio, agora) < PARADA.esperaEntreDevolucoes) continue;
+      await agendarProcessamento(d.fila, p.conversaId);
+      await d.repos.marcarReenfileirada(p.conversaId);
+      r.devolvidas++;
+      continue;
+    }
+    if (minutosDesde(p.ultimoReenvio, agora) < PARADA.esperaDepoisDaUltima) continue;
+    const conversa = await d.repos.obterConversa(p.conversaId);
+    // Revisão P1-5: fora do expediente, a mensagem de "fora do horário".
+    const mensagem = estaNoExpediente(d.relogio(), cfg.expediente)
+      ? cfg.mensagens.ia_indisponivel ?? null : formatarMensagem(cfg.mensagens.fora_do_horario ?? '', cfg.expediente as never);
+    await entrarEmModoSeguro(d, { conversa, tipo: 'codigo', motivoTriagem: 'Mensagem de cliente sem resposta',
+      motivoPassagem: MOTIVOS_PASSAGEM.falha, mensagem, setorId: null });
+    await d.repos.registrarFalhaAgente({ conversaId: conversa.id, clienteId: conversa.cliente_em_foco, agenteId: null, tipo: 'codigo',
+      etapa: 'outro', tentativa: p.reenvios, ultima: true, erro: 'Mensagem parada: 2 novas tentativas sem resposta', modelo: null, acao: 'modo_seguro' });
+    await d.repos.marcarProcessadas(ids);
+    r.modoSeguro++;
   }
-  return { devolvidas: devolver.length, modoSeguro: velhas.length };
+  return r;
+}
+
+/** Revisão P1-4b: saldo ou chave registrados pelo Assistente ou por uma tarefa também avisam o dono (no máximo 1 a cada 30 min). */
+export async function alertarContaDaIa(d: Pick<DepsTarefas, 'repos' | 'alertas'>): Promise<void> {
+  const tipo = await d.repos.falhaDefinitivaRecente(MINUTOS_DISJUNTOR);
+  if (!tipo || (await d.repos.alertaRecente(MSG_ALERTA_CONTA[tipo], 30))) return;
+  await d.alertas.alertar({ nivel: 'operacional', mensagem: MSG_ALERTA_CONTA[tipo] });
 }
 ```
 
 No `batimento`, depois da linha das pendências (`pedidosAoClienteParados`) e **antes** de conferir o WhatsApp:
 
 ```ts
-  // Plano de confiabilidade (D11): nenhuma mensagem de cliente fica parada sem pessoa. Falha aqui não para o batimento.
+  // Plano de confiabilidade (D11, D16): nenhuma mensagem de cliente fica parada sem pessoa. Falha aqui não para o batimento.
   await conversasParadas(d).catch((e) => console.error('[batimento] conversas paradas', e));
+  // Revisão P1-4b: saldo ou chave vistos fora das conversas (Assistente, tarefas) também avisam o dono.
+  await alertarContaDaIa(d).catch((e) => console.error('[batimento] alerta da conta da IA', e));
 ```
 
 (`DepsTarefas` já tem `repos`, `envio`, `alertas`, `relogio`, `fila`: serve de `DepsModoSeguro`.)
@@ -1369,15 +1627,16 @@ import { lerFalhasHoje, textoFalhasHoje } from './falhas-agente';
 
 describe('falhas do agente hoje (D8)', () => {
   it('lê o jsonb da função e recusa o que não é', () => {
-    expect(lerFalhasHoje({ total: 3, conta: 1 })).toEqual({ total: 3, conta: 1 });
-    expect(lerFalhasHoje({ total: '2', conta: '0' })).toEqual({ total: 2, conta: 0 });
+    expect(lerFalhasHoje({ total: 3, conta: 1, instabilidade: 4 })).toEqual({ total: 3, conta: 1, instabilidade: 4 });
+    expect(lerFalhasHoje({ total: '2', conta: '0' })).toEqual({ total: 2, conta: 0, instabilidade: 0 });
     expect(lerFalhasHoje(null)).toBeNull();
     expect(lerFalhasHoje({ total: 'x' })).toBeNull();
   });
-  it('texto: zero, uma, várias e as de saldo ou chave', () => {
-    expect(textoFalhasHoje({ total: 0, conta: 0 })).toBe('Nenhuma falha do agente hoje');
-    expect(textoFalhasHoje({ total: 1, conta: 0 })).toBe('1 falha do agente hoje');
-    expect(textoFalhasHoje({ total: 5, conta: 2 })).toBe('5 falhas do agente hoje · 2 por saldo ou chave da IA');
+  it('texto: zero, uma, várias, as de saldo ou chave e a instabilidade à parte (revisão P1-7)', () => {
+    expect(textoFalhasHoje({ total: 0, conta: 0, instabilidade: 0 })).toBe('Nenhuma falha do agente hoje');
+    expect(textoFalhasHoje({ total: 0, conta: 0, instabilidade: 7 })).toBe('Nenhuma falha do agente hoje · instabilidade: 7');
+    expect(textoFalhasHoje({ total: 1, conta: 0, instabilidade: 0 })).toBe('1 falha do agente hoje');
+    expect(textoFalhasHoje({ total: 5, conta: 2, instabilidade: 3 })).toBe('5 falhas do agente hoje · 2 por saldo ou chave da IA · instabilidade: 3');
   });
 });
 ```
@@ -1393,20 +1652,23 @@ Expected: FAIL.
 
 ```ts
 /** Plano de confiabilidade (D8): o número do Início, lido de falhas_agente_hoje (só o administrador). */
-export type FalhasHoje = { total: number; conta: number };
+/** total = as que não se resolveram; instabilidade = novas tentativas (revisão P1-7: não acendem vermelho). */
+export type FalhasHoje = { total: number; conta: number; instabilidade: number };
 
 export function lerFalhasHoje(bruto: unknown): FalhasHoje | null {
   if (!bruto || typeof bruto !== 'object') return null;
-  const o = bruto as { total?: unknown; conta?: unknown };
+  const o = bruto as { total?: unknown; conta?: unknown; instabilidade?: unknown };
   const total = Number(o.total);
   const conta = Number(o.conta ?? 0);
-  return Number.isFinite(total) && Number.isFinite(conta) ? { total, conta } : null;
+  const instabilidade = Number(o.instabilidade ?? 0);
+  return [total, conta, instabilidade].every(Number.isFinite) ? { total, conta, instabilidade } : null;
 }
 
 export function textoFalhasHoje(f: FalhasHoje): string {
-  if (f.total === 0) return 'Nenhuma falha do agente hoje';
-  const base = `${f.total} ${f.total === 1 ? 'falha' : 'falhas'} do agente hoje`;
-  return f.conta > 0 ? `${base} · ${f.conta} por saldo ou chave da IA` : base;
+  const base = f.total === 0 ? 'Nenhuma falha do agente hoje' : `${f.total} ${f.total === 1 ? 'falha' : 'falhas'} do agente hoje`;
+  const conta = f.conta > 0 ? ` · ${f.conta} por saldo ou chave da IA` : '';
+  const instavel = f.instabilidade > 0 ? ` · instabilidade: ${f.instabilidade}` : '';
+  return `${base}${conta}${instavel}`;
 }
 ```
 
@@ -1462,7 +1724,7 @@ test.beforeEach(async () => {
   await db.from('falhas_agente').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 });
 
-test('cartão do agente: nenhuma falha, depois 3 com 1 de saldo (D8)', async ({ page }) => {
+test('cartão do agente: nenhuma falha, depois 2 com 1 de saldo e 1 de instabilidade (D8, revisão P1-7)', async ({ page }) => {
   await entrar(page, ADMIN.email, SENHA);
   await abrirInicio(page, 'situacao');
   const linha = page.getByTestId('inicio-agente').locator('[data-agente-falhas]');
@@ -1473,7 +1735,7 @@ test('cartão do agente: nenhuma falha, depois 3 com 1 de saldo (D8)', async ({ 
     { tipo: 'envio', etapa: 'envio', tentativa: 0, ultima: true, erro: 'Error: Z-API 500', acao: 'modo_seguro_sem_mensagem' },
   ]);
   await page.reload();
-  await expect(linha).toHaveText('3 falhas do agente hoje · 1 por saldo ou chave da IA');
+  await expect(linha).toHaveText('2 falhas do agente hoje · 1 por saldo ou chave da IA · instabilidade: 1');   // P1-7: a nova tentativa vai à parte
   expect((await new AxeBuilder({ page }).include('[data-testid="inicio-agente"]').analyze()).violations).toEqual([]);
 });
 
@@ -1581,7 +1843,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - **o que a equipe vê:** a conversa em "Esperando pessoa" no Atendimento, uma demanda de triagem sem responsável "Falha no agente de IA", o aviso no Início; no cartão do agente (Painel de situação), "N falhas do agente hoje" (D6, D8);
   - **saldo acabou ou chave recusada:** o dono recebe e-mail e WhatsApp ("O saldo da IA (Anthropic) acabou…"), no máximo um a cada 30 min; por 10 minutos depois de cada falha o agente nem tenta (disjuntor); **o que fazer:** recarregar os créditos no console da Anthropic (ligar a recarga automática), ou conferir a `ANTHROPIC_API_KEY` do trabalhador; depois, as conversas em "Esperando pessoa" continuam com a equipe (o agente não retoma sozinho conversa que já foi para pessoa) (D5, D6);
   - **instabilidade (529, 429):** o agente tenta de novo sozinho (2 vezes na hora e mais 3 em segundos); só vai ao modo seguro se todas falharem (D3);
-  - **mensagem parada:** o sistema tenta de novo a cada minuto por 30 minutos; depois disso a conversa vai para a equipe (D11);
+  - **mensagem parada:** o sistema devolve a conversa à fila até 2 vezes (de 3 em 3 minutos, também depois de uma queda do trabalhador); se não der, a conversa vai para a equipe; se o agente já tinha respondido antes da queda, ele não responde de novo (D11, D16);
+  - **fora do expediente**, a mensagem do modo seguro é a de "Fora do horário" (D1);
+  - **o número "falhas do agente hoje"** conta só o que não se resolveu; as novas tentativas aparecem como "instabilidade" (D8);
+  - um erro de rede ao falar com a Z-API aparece como `codigo` (não `envio`) em `falhas_agente` (revisão P1-6, limitação aceita);
   - **`CONCORRENCIA_AGENTE`** (padrão 4, de 1 a 8; mais = mais memória) no ambiente do trabalhador (D10);
   - **onde ver os detalhes:** a tabela `falhas_agente` (Supabase › Table Editor; só o administrador), guardada por 1 ano; o relatório do diagnóstico em `docs/relatorios/falhas-agente.md`;
   - **como o dono valida** (análise §7, Prompt 1): na homologação **só depois** do `db push` aprovado e com a lista de telefones permitidos do Plano de prontidão: trocar a `ANTHROPIC_API_KEY` do trabalhador de teste por uma chave inválida, mandar mensagem de um número de teste → uma mensagem "IA indisponível", a conversa em "Esperando pessoa", o alerta; voltar a chave.
@@ -1609,11 +1874,11 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
    - mostre os números exatos de cada suíte, de cada lote e de cada rodada (passaram, falharam, pulados) e o custo de cada rodada. Nada de "deve passar";
    - **volta sem a migração:** num banco local sem `20261101000100_*.sql` (mova o arquivo para a pasta de rascunho e `supabase db reset`; anote o método), confira que `pnpm --filter @escritorio/trabalhador exec vitest run test/processar-conversa.test.ts` passa (o trabalhador sem a tabela: registro só no log, reserva = manda, disjuntor desligado, mensagem parada não é lida) e que o Início abre sem a linha de falhas; depois devolva o arquivo e `supabase db reset`;
    - ao terminar, devolva `supabase/config.toml` e `.env` às portas originais, a partir das cópias, confira com `git status` e **apague `.vez-supabase.txt`** se a linha for desta worktree.
-2. **Capturas** (larguras 1366 e 1920, tema claro e escuro, painel local `next dev -p 3107`, **nunca** a homologação): o cartão do agente com "Nenhuma falha do agente hoje" e com "3 falhas do agente hoje · 1 por saldo ou chave da IA"; Configurações › Mensagens automáticas com a ajuda nova. Salve em `C:\Users\Thiago\Desktop\CAPTURAS-PAINEL-V2\confiabilidade\` com nomes `conf-<tela>-<largura>-<tema>.png`.
+2. **Capturas** (larguras 1366 e 1920, tema claro e escuro, painel local `next dev -p 3107`, **nunca** a homologação): o cartão do agente com "Nenhuma falha do agente hoje" e com "2 falhas do agente hoje · 1 por saldo ou chave da IA · instabilidade: 1"; Configurações › Mensagens automáticas com a ajuda nova. Salve em `C:\Users\Thiago\Desktop\CAPTURAS-PAINEL-V2\confiabilidade\` com nomes `conf-<tela>-<largura>-<tema>.png`.
 3. **Homologação: nada.** Este plano não roda `supabase db push` nem `--dry-run` (Regras de ambiente). Deixe por escrito para o dono: a migração só acrescenta (uma tabela, uma coluna em `conversas`, três funções); o trabalhador novo funciona **sem** ela (D: volta sem a migração); a ordem certa é aplicar junto com as migrações pendentes da Parte I quando o dono der o "ok".
 4. **Trabalhador: NÃO suba nenhum**; o da 3001 é o teste do dono. Entregue "pronto para trocar", com o roteiro de validação do §7 da análise (Task 9) e a variável nova `CONCORRENCIA_AGENTE` (opcional).
 5. **Pendências para listar no fim:**
-   - **as decisões a confirmar com o dono:** D1 (texto da mensagem; manter "IA indisponível" ou trocar), D2 (prazo de 4 h), D6 (quem recebe os alertas e por qual canal), D7 (guarda de 1 ano das falhas), D8 (só o administrador vê o número), D13 (mudar o prompt para falhas de comportamento ou só orientações), D15 (base da branch);
+   - **as decisões a confirmar com o dono:** D1 (texto da mensagem; manter "IA indisponível" ou trocar; fora do expediente usar "Fora do horário" — revisão P1-5), D5 (os 10 min do disjuntor — revisão P1-4), D2 (prazo de 4 h), D6 (quem recebe os alertas e por qual canal), D7 (guarda de 1 ano das falhas), D8 (só o administrador vê o número), D13 (mudar o prompt para falhas de comportamento ou só orientações), D15 (base da branch);
    - o relatório `docs/relatorios/falhas-agente.md`: falhas antes e depois, as de comportamento com a orientação sugerida, as passageiras da API (quantas);
    - o custo total dos cenários deste plano;
    - **conflitos esperados com a Parte I** (I4, I5 em outra branch): `processar-conversa.ts`, `principal.ts`, `tarefas.ts`, `fila.ts`, `cartao-agente.tsx` — liste os trechos mudados aqui para quem juntar;
