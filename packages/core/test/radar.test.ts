@@ -70,8 +70,8 @@ describe('clientes possivelmente afetados (D10)', () => {
       .toEqual(['simples', 'simples', 'mei', 'presumido', 'real', 'imune', null, null]);
   });
   it('lerCriterios limpa o que veio do modelo', () => {
-    expect(lerCriterios({ regimes: ['Real', 'presumido', 'xx'], ufs: ['mg', 'ZZ'], cnaes: ['47.11-3', '9'], municipios: [' Conselheiro Lafaiete '], com_funcionarios: true }))
-      .toEqual({ regimes: ['real', 'presumido'], ufs: ['MG'], cnaes: ['47113'], segmentos: [], municipios: ['Conselheiro Lafaiete'], comFuncionarios: true });
+    expect(lerCriterios({ regimes: ['Real', 'presumido', 'xx'], ufs: ['mg', 'ZZ'], cnaes: ['47.11-3', '9'], segmentos: ['comercio', 'x'], municipios: [' Conselheiro Lafaiete '], com_funcionarios: true }))
+      .toEqual({ regimes: ['real', 'presumido'], ufs: ['MG'], cnaes: ['47113'], segmentos: ['comercio'], municipios: ['Conselheiro Lafaiete'], comFuncionarios: true });
     expect(lerCriterios('lixo')).toEqual(SEM_CRITERIO);
   });
   it('vai ao banco em snake_case', () => {
