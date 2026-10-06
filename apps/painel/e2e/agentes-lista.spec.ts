@@ -11,7 +11,8 @@ test('dono vê os 7 agentes, filtra, busca e cria um agente desligado', async ({
   await criarDono();
   await entrar(page, 'dono@agentes.local', SENHA);
   await page.getByRole('link', { name: 'Agentes' }).click();
-  await expect(page).toHaveURL(/\/agentes$/);
+  // Depois de um lote longo o servidor de desenvolvimento recompila a tela (passava dos 5 s; ficou maior com o Radar, I5).
+  await expect(page).toHaveURL(/\/agentes$/, { timeout: 30_000 });
   await expect(page.locator('[data-testid^="agente-"]')).toHaveCount(7);
   // Cada cartão ocupa a coluna inteira da grade (sem cartões de larguras diferentes).
   for (const cartao of await page.locator('[data-testid^="agente-"]').all()) {
@@ -31,7 +32,7 @@ test('dono vê os 7 agentes, filtra, busca e cria um agente desligado', async ({
   await page.getByRole('button', { name: 'Novo agente' }).click();
   await page.getByLabel('Nome').fill('Agente do IRPF');
   await page.getByRole('button', { name: 'Criar agente' }).click();
-  await expect(page).toHaveURL(/\/agentes\/agente-do-irpf$/);
+  await expect(page).toHaveURL(/\/agentes\/agente-do-irpf$/, { timeout: 30_000 });
   const { data } = await db.from('agentes').select('estado, modo_contato, ferramentas').eq('slug', 'agente-do-irpf').single();
   expect(data).toEqual({ estado: 'desligado', modo_contato: null, ferramentas: [] });
 });
@@ -56,7 +57,8 @@ test('dono que não é administrador nem treina: o menu mostra Agentes e a tela 
   await criarUsuarioTeste({ email: 'bia@agentes.local', senha: SENHA, nome: 'Bia Dona', papel: 'atendente' }).then(marcarDonoTeste);
   await entrar(page, 'bia@agentes.local', SENHA);
   await page.getByRole('link', { name: 'Agentes' }).click();
-  await expect(page).toHaveURL(/\/agentes$/);
+  // Depois de um lote longo o servidor de desenvolvimento recompila a tela (passava dos 5 s; ficou maior com o Radar, I5).
+  await expect(page).toHaveURL(/\/agentes$/, { timeout: 30_000 });
   await expect(page.locator('[data-testid^="agente-"]')).toHaveCount(7);
   await expect(page.getByRole('button', { name: 'Novo agente' })).toBeVisible();
 });
