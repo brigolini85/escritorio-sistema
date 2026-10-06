@@ -1,6 +1,7 @@
 import { mesReferencia } from '@escritorio/core';
 import type { ArquivoAssistente, MensagemAssistente } from '@escritorio/db';
 import type { JobAssistente } from '../fila';
+import { prepararPedidoAoAgente } from './agentes';
 import { carregarContextoAssistente } from './contexto';
 import { MENSAGEM_VAZIA, executarAssistente } from './executar';
 import type { DepsAssistente } from './ferramentas';
@@ -74,7 +75,9 @@ export async function processarAssistente(d: DepsAssistente, j: JobAssistente, u
   try {
     const ctx = await carregarContextoAssistente(d.repos, usuario, j.canal, j.conversaId, agora);
     ctx.perguntaMaisRecenteEm = new Date(perguntas.at(-1)!.criado_em);
-    r = await executarAssistente(d, ctx, historico);
+    // Parte I4 (D2): só com pedido a um agente (ou pendência repassada) o pedido à IA ganha a seção e as ferramentas novas.
+    const extra = await prepararPedidoAoAgente(d, ctx, historico).catch((e) => { console.error('[assistente] pedir ao agente indisponível', e); return null; });
+    r = await executarAssistente(d, ctx, historico, extra ?? undefined);
   } catch (e) {
     if (!ultimaTentativa) throw e;
     console.error('[assistente] falha', e);

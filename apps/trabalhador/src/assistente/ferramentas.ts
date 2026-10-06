@@ -8,6 +8,7 @@ import type { ClienteIa } from '../agente/cliente-ia';
 import { buscarParceiros, buscarProdutos } from '../agente/cadastros';
 import { cnpjFormatado, entregaDoPedido, formatarReais, mesmaUnidade, montarPedidoNota } from '../agente/pedido-nota';
 import type { CanalWhatsApp } from '../canal/tipos';
+import type { Fila } from '../fila';
 import { contextoDoAssistente, type ContextoAssistente } from './contexto';
 import { neutro } from './prompt';
 import { itensSemPreco, periodoEmIso, totaisDeVendas, totalDoPedido } from './vendas';
@@ -17,7 +18,7 @@ import { TITULO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, podeCorrigirPedidos, podeVerC
 const SEM_PEDIDOS = 'Você não tem acesso aos pedidos de nota. Peça ao administrador na tela Usuários.';
 const RESUMO_SEM_ACESSO_PEDIDO = 'Pedido de nota: sem acesso.';
 
-export type DepsAssistente = { repos: Repos; ia: ClienteIa; canal: CanalWhatsApp };
+export type DepsAssistente = { repos: Repos; ia: ClienteIa; canal: CanalWhatsApp; /** I4: enfileira a tarefa pedida; sem ela, o batimento começa em 2 min. */ fila?: Fila };
 export type EstadoAssistente = { ctx: ContextoAssistente; resposta: string[]; arquivo: ArquivoAssistente | null; csvs: { nome: string; conteudo: string }[];
   /** Antes e depois de cada prévia mostrada nesta execução e ainda não gravada: vão na resposta mesmo que o modelo não os escreva,
    * e o CSV dessas demandas espera a gravação. */

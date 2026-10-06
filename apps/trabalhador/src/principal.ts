@@ -64,7 +64,7 @@ async function principal() {
   }
   for (let i = 0; i < 2; i++) {
     await boss.work<JobAssistente>(FILAS.assistente, { includeMetadata: true }, async ([job]) => {
-      await processarAssistente({ repos, ia: deps.ia, canal }, job!.data, job!.retryCount >= job!.retryLimit);
+      await processarAssistente({ repos, ia: deps.ia, canal, fila: filaDe(boss) }, job!.data, job!.retryCount >= job!.retryLimit);
     });
   }
   // Testes do Treinar o agente: nada grava nem envia (o envio de `deps` é trocado por um bloqueado dentro da simulação).
