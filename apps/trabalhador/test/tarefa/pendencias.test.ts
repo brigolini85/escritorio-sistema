@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import type PgBoss from 'pg-boss';
+import type { Repos } from '@escritorio/db';
 import { criarTarefaTeste, limparBanco, sqlTeste } from '@escritorio/db/teste';
 import { CanalFalso } from '../../src/canal/falso';
 import { LimitadorEnvio } from '../../src/envio';
@@ -42,6 +43,59 @@ describe('pedido ao cliente (D7)', () => {
     canal.falharEnvio = false;
     await enviarPedidoDePendencia({ repos, envio: envio() }, t.pendencias[0]!);
     expect(canal.enviados).toHaveLength(1);
+  });
+
+  it('a Z-API aceitou e gravar o status falhou: não libera nem relança; nunca manda de novo', async () => {
+    const { contato, empresas } = await contatoComEmpresas(['Padaria Sol'], '5531999990505', PROCURAVEL);
+    const ch = (await db.from('chamados').insert({ cliente_id: empresas[0]!.id, setor_id: await setorId('Contábil'), titulo: 'Fechamento' }).select('id').single()).data!;
+    const t = await criarTarefaTeste({ chamadoId: ch.id, pendencias: [{ tipo: 'cliente', pergunta: 'Extrato', contatoId: contato.id, pedidoTexto: 'Pode mandar?' }] });
+    const reposQueFalha: Repos = Object.assign(Object.create(repos) as Repos, { marcarEnviada: async () => { throw new Error('banco fora'); } });
+    const e = { ...envio(), repos: reposQueFalha };
+    await enviarPedidoDePendencia({ repos, envio: e }, t.pendencias[0]!);
+    await enviarPedidoDePendencia({ repos, envio: e }, t.pendencias[0]!);
+    expect(canal.enviados).toHaveLength(1);
+    expect((await sqlTeste('select mensagem_id is not null as ok from public.agente_pendencias where id = $1', [t.pendencias[0]]))[0]).toEqual({ ok: true });
+  });
+
+  it('marcar a pendência falha sempre: a reserva fica, o job termina sem erro e o batimento não manda de novo', async () => {
+    const { contato, empresas } = await contatoComEmpresas(['Padaria Sol'], '5531999990506', PROCURAVEL);
+    const ch = (await db.from('chamados').insert({ cliente_id: empresas[0]!.id, setor_id: await setorId('Contábil'), titulo: 'Fechamento' }).select('id').single()).data!;
+    const t = await criarTarefaTeste({ chamadoId: ch.id, pendencias: [{ tipo: 'cliente', pergunta: 'Extrato', contatoId: contato.id, pedidoTexto: 'Pode mandar?' }] });
+    const reposQueFalha: Repos = Object.assign(Object.create(repos) as Repos, { marcarPendenciaEnviada: async () => { throw new Error('banco fora'); } });
+    await enviarPedidoDePendencia({ repos: reposQueFalha, envio: envio() }, t.pendencias[0]!);
+    expect(canal.enviados).toHaveLength(1);
+    // Passados 10 min, o banco não solta a reserva: a mensagem do pedido está na conversa.
+    await sqlTeste("update public.agente_pendencias set pedido_em = pedido_em - interval '20 minutes', pedido_enviado_em = now() - interval '15 minutes' where id = $1",
+      [t.pendencias[0]]);
+    await sqlTeste("update public.mensagens set criado_em = criado_em - interval '15 minutes' where direcao = 'saida'");
+    expect(await repos.pedidosAoClienteParados(2)).toEqual([]);
+    await enviarPedidoDePendencia({ repos, envio: envio() }, t.pendencias[0]!);
+    expect(canal.enviados).toHaveLength(1);
+    expect((await sqlTeste('select pedido_enviado_em is not null as ok from public.agente_pendencias where id = $1', [t.pendencias[0]]))[0]).toEqual({ ok: true });
+  });
+
+  it('as três pausas do atendimento seguram o pedido sem contar no limite; despausado, o batimento põe na fila e ele sai', async () => {
+    const { contato, empresas } = await contatoComEmpresas(['Padaria Sol'], '5531999990507', PROCURAVEL);
+    const ch = (await db.from('chamados').insert({ cliente_id: empresas[0]!.id, setor_id: await setorId('Contábil'), titulo: 'Fechamento' }).select('id').single()).data!;
+    const t = await criarTarefaTeste({ chamadoId: ch.id, pendencias: [{ tipo: 'cliente', pergunta: 'Extrato', contatoId: contato.id, pedidoTexto: 'Pode mandar?' }] });
+    await sqlTeste("update public.agente_pendencias set pedido_em = now() - interval '5 minutes' where id = $1", [t.pendencias[0]]);
+    const semEnvio = async () => (await sqlTeste('select pedido_enviado_em from public.agente_pendencias where id = $1', [t.pendencias[0]]))[0];
+    const pausas = [
+      ['configuracoes', 1], ['clientes', empresas[0]!.id], ['contatos', contato.id],
+    ] as const;
+    for (const [tabela, id] of pausas) {
+      await sqlTeste(`update public.${tabela} set agente_pausado = true where id = $1`, [id]);
+      await enviarPedidoDePendencia({ repos, envio: envio() }, t.pendencias[0]!);
+      expect(canal.enviados).toEqual([]);
+      expect(await semEnvio()).toEqual({ pedido_enviado_em: null });
+      expect(await repos.pedidosAoClienteParados(2)).toEqual([]);
+      await sqlTeste(`update public.${tabela} set agente_pausado = false where id = $1`, [id]);
+    }
+    const fila = new FilaFalsa();
+    await batimento({ repos, canal, alertas: { alertar: async () => {} } as never, envio: envio(), email: {} as never, fila, relogio: () => new Date() });
+    expect(fila.enviados).toContainEqual({ nome: FILAS.pendenciaCliente, dados: { pendenciaId: t.pendencias[0] }, opcoes: { singletonKey: `${t.pendencias[0]}:batimento` } });
+    await enviarPedidoDePendencia({ repos, envio: envio() }, t.pendencias[0]!);
+    expect(canal.enviados).toEqual([{ telefone: '5531999990507', texto: 'Pode mandar?' }]);
   });
 
   it('contato que não pode ser procurado pelo setor: nada sai (F22)', async () => {

@@ -3,7 +3,7 @@
 -- do envio); limites de volume conferidos também no envio.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(53);
 
 insert into public.clientes (id, razao_social, cnpj) values ('fa100000-0000-0000-0000-00000000000a', 'I3 Padaria Sol', '21448390000107');
 insert into public.chamados (id, cliente_id, setor_id, titulo) values
@@ -131,7 +131,42 @@ update public.contato_cliente_setores set pode_ser_procurado = false where conta
 set local role service_role;
 select is((select count(*)::int from public.reservar_envio_pendencia((select id from public.agente_pendencias where numero = 2))), 0, 'sem "pode ser procurado": não sai');
 
--- 42–43: os limites de volume valem também no envio (3 por contato por dia; 30 no escritório)
+-- 42–47: as três pausas do atendimento (geral, empresa, contato) seguram o pedido sem contar no limite; despausado, volta para a fila
+reset role;
+update public.contato_cliente_setores set pode_ser_procurado = true where contato_id = 'fa500000-0000-0000-0000-00000000000a';
+update public.configuracoes set agente_pausado = true where id = 1;
+set local role service_role;
+select is((select count(*)::int from public.reservar_envio_pendencia((select id from public.agente_pendencias where numero = 2))), 0, 'agente pausado no geral: não sai');
+select ok((select id from public.agente_pendencias where numero = 2) not in (select public.pedidos_ao_cliente_parados(2)), 'pausado: não volta para a fila');
+reset role;
+update public.configuracoes set agente_pausado = false where id = 1;
+update public.clientes set agente_pausado = true where id = 'fa100000-0000-0000-0000-00000000000a';
+set local role service_role;
+select is((select count(*)::int from public.reservar_envio_pendencia((select id from public.agente_pendencias where numero = 2))), 0, 'empresa pausada: não sai');
+reset role;
+update public.clientes set agente_pausado = false where id = 'fa100000-0000-0000-0000-00000000000a';
+update public.contatos set agente_pausado = true where id = 'fa500000-0000-0000-0000-00000000000a';
+set local role service_role;
+select is((select count(*)::int from public.reservar_envio_pendencia((select id from public.agente_pendencias where numero = 2))), 0, 'contato pausado: não sai');
+select ok((select pedido_enviado_em is null from public.agente_pendencias where numero = 2), 'pausado: não conta no limite');
+reset role;
+update public.contatos set agente_pausado = false where id = 'fa500000-0000-0000-0000-00000000000a';
+set local role service_role;
+select ok((select id from public.agente_pendencias where numero = 2) in (select public.pedidos_ao_cliente_parados(2)), 'despausado: volta para a fila');
+
+-- 48–49: reserva velha cujo pedido já saiu (mensagem na conversa do contato) não é solta: soltar mandaria de novo
+reset role;
+insert into public.mensagens (id, conversa_id, direcao, autor, conteudo, status_envio) values
+  ('fa800000-0000-0000-0000-00000000000b', 'fa700000-0000-0000-0000-00000000000a', 'saida', 'agente', 'Pode mandar o extrato?', 'enviada');
+update public.agente_pendencias set pedido_enviado_em = now() - interval '15 minutes' where numero = 2;
+set local role service_role;
+select ok((select id from public.agente_pendencias where numero = 2) not in (select public.pedidos_ao_cliente_parados(2)), 'pedido que saiu não volta para a fila');
+select ok((select pedido_enviado_em is not null from public.agente_pendencias where numero = 2), 'reserva do pedido que saiu fica');
+reset role;
+delete from public.mensagens where id = 'fa800000-0000-0000-0000-00000000000b';
+update public.agente_pendencias set pedido_enviado_em = null where numero = 2;
+
+-- 50–51: os limites de volume valem também no envio (3 por contato por dia; 30 no escritório)
 reset role;
 update public.contato_cliente_setores set pode_ser_procurado = true where contato_id = 'fa500000-0000-0000-0000-00000000000a';
 insert into public.agente_pendencias (tarefa_id, numero, tipo, pergunta, contato_id, pedido_texto, pedido_em, pedidos, pedido_enviado_em)
@@ -147,7 +182,7 @@ select 'fa300000-0000-0000-0000-00000000000a', n, 'cliente', 'Documento ' || n, 
 set local role service_role;
 select is((select count(*)::int from public.reservar_envio_pendencia((select id from public.agente_pendencias where numero = 2))), 0, '31º envio do dia no escritório: não sai');
 
--- 44–45: só o trabalhador chama; search_path vazio
+-- 52–53: só o trabalhador chama; search_path vazio
 reset role;
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in (
     'iniciar_execucao_tarefa', 'definir_etapas_tarefa', 'concluir_etapa_tarefa', 'anotar_tarefa', 'somar_custo_tarefa', 'abrir_pendencia_tarefa',

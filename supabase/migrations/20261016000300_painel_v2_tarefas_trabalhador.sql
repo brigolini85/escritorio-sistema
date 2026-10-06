@@ -194,6 +194,14 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- ---------- Pedido ao cliente (D7): reserva antes de enviar, para não mandar duas vezes ----------
+-- Agente pausado no geral, para a empresa ou para o contato (as pausas de processar-conversa): o Thiago não manda nada.
+create function interno.pedido_pausado(p_cliente uuid, p_contato uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce((select agente_pausado from public.configuracoes where id = 1), false)
+      or coalesce((select agente_pausado from public.clientes where id = p_cliente), false)
+      or coalesce((select agente_pausado from public.contatos where id = p_contato), false)
+$$;
+revoke execute on function interno.pedido_pausado(uuid, uuid) from public, anon, authenticated, service_role;
 create function public.reservar_envio_pendencia(p_id uuid)
 returns table (id uuid, tarefa_id uuid, numero int, cliente_id uuid, contato_id uuid, contato_nome text, telefone text, texto text)
 language plpgsql security definer set search_path = '' as $$
@@ -218,6 +226,8 @@ begin
        and p.estado = 'aberta' and p.pedido_em > now() - interval '24 hours' and p.pedido_enviado_em is null and p.mensagem_id is null
        and t.estado not in ('aprovada', 'descartada')
        and exists (select 1 from public.contatos_procuraveis(t.cliente_id, t.setor_id) cp where cp.contato_id = p.contato_id)
+       -- As três pausas que o atendimento respeita (geral, empresa, contato): pausado não sai nem conta no limite; sai quando voltar.
+       and not interno.pedido_pausado(t.cliente_id, p.contato_id)
     returning p.id, p.tarefa_id, p.numero::int, t.cliente_id, p.contato_id, c.nome, c.telefone, p.pedido_texto;
 end $$;
 create function public.liberar_envio_pendencia(p_id uuid) returns void
@@ -229,13 +239,23 @@ $$;
 create function public.pedidos_ao_cliente_parados(p_minutos int) returns setof uuid
 language plpgsql security definer set search_path = '' as $$
 begin
-  update public.agente_pendencias set pedido_enviado_em = null
-   where estado = 'aberta' and mensagem_id is null and pedido_enviado_em < now() - interval '10 minutes';
+  -- Não solta a reserva cujo pedido já foi registrado para envio (mensagem do sistema com o mesmo texto na conversa do contato, depois do
+  -- pedido, em qualquer status): o trabalhador caiu ou falhou depois de registrar. Soltar poderia mandar de novo; na dúvida, a pessoa cobra.
+  update public.agente_pendencias p set pedido_enviado_em = null
+   where p.estado = 'aberta' and p.mensagem_id is null and p.pedido_enviado_em < now() - interval '10 minutes'
+     and not exists (select 1 from public.mensagens m
+                       join public.conversas cv on cv.id = m.conversa_id
+                       join public.contatos ct on ct.id = p.contato_id
+                      where (cv.contato_id = p.contato_id or cv.telefone = ct.telefone)
+                        and m.direcao = 'saida' and m.conteudo = p.pedido_texto and m.criado_em >= p.pedido_em
+                        and m.status_envio is not null);
+  -- Pausado (geral, empresa ou contato) não volta para a fila enquanto durar; volta sozinho quando despausar (dentro das 24 h).
   return query
     select p.id from public.agente_pendencias p
       join public.agente_tarefas t on t.id = p.tarefa_id and t.estado not in ('aprovada', 'descartada')
      where p.estado = 'aberta' and p.contato_id is not null and p.pedido_enviado_em is null and p.mensagem_id is null
        and p.pedido_em < now() - make_interval(mins => greatest(p_minutos, 1)) and p.pedido_em > now() - interval '24 hours'
+       and not interno.pedido_pausado(t.cliente_id, p.contato_id)
      order by p.pedido_em limit 20;
 end $$;
 create function public.marcar_pendencia_enviada(p_id uuid, p_mensagem uuid) returns void
