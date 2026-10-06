@@ -34,13 +34,18 @@ const vazio = <span className="text-subtle">—</span>;
  */
 export async function SecaoDados({ id, u, pode, c, erro }: { id: string; u: UsuarioPainel; pode: boolean; c: Cliente; erro?: string }) {
   const sb = await supabaseServidor();
-  const [{ data: servicos }, { data: contratados }, { data: setores }, { data: usuarios }, { data: resp }] = await Promise.all([
+  const [rServicos, rContratados, rSetores, rUsuarios, rResp] = await Promise.all([
     sb.from('servicos').select('id, nome').eq('ativo', true).order('nome'),
     sb.from('cliente_servicos').select('servico_id').eq('cliente_id', id),
     sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
     sb.from('usuarios').select('id, nome').eq('ativo', true).order('nome'),
     sb.from('cliente_responsaveis').select('setor_id, usuario_id').eq('cliente_id', id),
   ]);
+  const [servicos, contratados, setores, usuarios, resp] = [rServicos.data, rContratados.data, rSetores.data, rUsuarios.data, rResp.data];
+  // Revisão geral (painel I7): leitura com erro não vira formulário vazio (salvar apagaria o contrato); aparece o aviso.
+  const erroServicos = Boolean(rServicos.error || rContratados.error);
+  const erroResponsaveis = Boolean(rSetores.error || rUsuarios.error || rResp.error);
+  for (const e of [rServicos.error, rContratados.error, rSetores.error, rUsuarios.error, rResp.error]) if (e) console.error('[clientes] ficha antiga', e);
   const marcados = new Set((contratados ?? []).map((s) => s.servico_id));
   const responsavel = (setor: string) => resp?.find((r) => r.setor_id === setor)?.usuario_id ?? '';
   const admin = u.papel === 'admin';
@@ -95,7 +100,7 @@ export async function SecaoDados({ id, u, pode, c, erro }: { id: string; u: Usua
           <CardTitle>Serviços do contrato</CardTitle>
           <CardDescription>O que o escritório faz para esta empresa. O agente usa esta lista: assunto fora dela vira demanda marcada &quot;Fora do contrato&quot;.</CardDescription>
         </CardHeader>
-        {pode ? (
+        {erroServicos ? <AvisoLeitura /> : pode ? (
           <form action={salvarServicos.bind(null, id)}>
             <CardContent>
               <fieldset className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -127,7 +132,7 @@ export async function SecaoDados({ id, u, pode, c, erro }: { id: string; u: Usua
           <CardTitle>Responsável por setor</CardTitle>
           <CardDescription>Quem recebe as demandas desta empresa em cada setor. Sem responsável, a demanda cai na fila do setor.</CardDescription>
         </CardHeader>
-        {pode ? (
+        {erroResponsaveis ? <AvisoLeitura /> : pode ? (
           <form action={salvarResponsaveis.bind(null, id)}>
             <CardContent>
               <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -158,4 +163,9 @@ export async function SecaoDados({ id, u, pode, c, erro }: { id: string; u: Usua
       </Card>
     </div>
   );
+}
+
+/** Revisão geral (painel I7): no lugar do formulário quando a leitura falhou. */
+function AvisoLeitura() {
+  return <CardContent><p role="alert" className="text-sm text-danger">Não consegui carregar esta parte agora. Recarregue a página antes de alterar.</p></CardContent>;
 }
