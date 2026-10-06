@@ -25,7 +25,7 @@ export function PendenciaAnalista({ tarefaId, p, podeMexer }: { tarefaId: string
         <>
           {p.opcoes.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {p.opcoes.map((o) => <Button key={o} variant="outline" size="sm" disabled={enviando} onClick={() => responder(o)}>{o}</Button>)}
+              {p.opcoes.map((o) => <Button key={o} variant="outline" size="sm" className="whitespace-nowrap" disabled={enviando} onClick={() => responder(o)}>{o}</Button>)}
             </div>
           )}
           <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (texto.trim()) responder(texto); }}>

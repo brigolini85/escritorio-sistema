@@ -46,6 +46,7 @@ export function ResultadoTarefa({ t }: { t: TarefaTela }) {
           )}
           {r.observacoes && <p className="text-sm text-muted">{r.observacoes}</p>}
           <a href={`/api/tarefas/csv?id=${t.id}`} className={variantesBotao({ variant: 'outline', size: 'sm' })}><Download aria-hidden size={16} /> Baixar CSV</a>
+          <a href={`/api/tarefas/planilha?id=${t.id}`} className={variantesBotao({ variant: 'outline', size: 'sm' })}><Download aria-hidden size={16} /> Baixar planilha</a>
         </>
       )}
       <p className="flex items-center gap-2 rounded-md border border-warning bg-warning-soft px-3 py-2 text-sm">

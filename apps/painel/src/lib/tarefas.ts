@@ -2,6 +2,7 @@ import 'server-only';
 import { ehResultadoTarefa, tarefaAtiva, type EstadoTarefa, type EtapaTarefa, type MotivoPausa, type TipoPendencia } from '@escritorio/core';
 import { rotuloDoAgente } from '@/lib/agente-demanda';
 import { semMigracaoI1 } from '@/lib/agentes';
+import { lerPastaDoCliente, lerSituacaoDrive } from '@/lib/drive';
 import type { supabaseServidor } from '@/lib/supabase/servidor';
 import { ehMotivoSegurado, type AgenteDeTrabalho, type MotivoSegurado, type ResumoTarefaDemanda, type TarefaTela } from './tarefas-tela';
 
@@ -17,6 +18,19 @@ type Linha = {
   clientes: { id: string; razao_social: string; nome_fantasia: string | null; cnpj: string } | null; pedidor: { nome: string } | null; decisor: { nome: string } | null;
 };
 
+/** I3b: a linha do arquivo pede removido_em; banco sem a I3b refaz sem a coluna. */
+async function lerArquivosDaTarefa(sb: Sb, id: string) {
+  const r = await sb.from('agente_tarefa_arquivos').select('id, nome, tamanho, origem, lido_em, detalhe, removido_em').eq('tarefa_id', id).order('criado_em');
+  if (!semMigracaoI1(r.error)) return r;
+  return sb.from('agente_tarefa_arquivos').select('id, nome, tamanho, origem, lido_em, detalhe').eq('tarefa_id', id).order('criado_em');
+}
+/** I3b: pasta do cliente e situação do Drive; null = banco sem a I3b. Erro de leitura vira "sem pasta/situação", já registrado no log. */
+async function lerDriveDaTarefa(sb: Sb, clienteId: string | null): Promise<TarefaTela['drive']> {
+  const [pasta, situacao] = await Promise.all([clienteId ? lerPastaDoCliente(sb, clienteId) : Promise.resolve(null), lerSituacaoDrive(sb)]);
+  if (situacao.semI3b || pasta?.semI3b) return null;
+  return { pasta: pasta?.pasta ?? null, situacao: situacao.situacao };
+}
+
 /** Parte I3a: a tarefa inteira para a página (D21). `semI3`: o banco ainda não tem a Parte I3 (a página mostra a faixa). */
 export async function lerTarefa(sb: Sb, id: string): Promise<{ tarefa: TarefaTela | null; semI3: boolean }> {
   const { data, error } = await sb.from('agente_tarefas').select(COLUNAS).eq('id', id).maybeSingle();
@@ -24,13 +38,14 @@ export async function lerTarefa(sb: Sb, id: string): Promise<{ tarefa: TarefaTel
   if (error) console.error('[tarefas] leitura', error);
   if (!data) return { tarefa: null, semI3: false };
   const t = data as unknown as Linha;
-  const [pend, arq, ev, seg] = await Promise.all([
+  const [pend, arq, ev, seg, drive] = await Promise.all([
     sb.from('agente_pendencias').select(`id, numero, tipo, pergunta, detalhe, opcoes, mensagem, estado, resposta, respondida_em, pedido_texto, pedido_em,
       pedido_enviado_em, mensagem_id, pedidos, respondedor:usuarios!agente_pendencias_respondida_por_fkey(nome), contatos(nome)`).eq('tarefa_id', id).order('numero'),
-    sb.from('agente_tarefa_arquivos').select('id, nome, tamanho, origem, lido_em, detalhe').eq('tarefa_id', id).order('criado_em'),
+    lerArquivosDaTarefa(sb, id),
     sb.from('agente_tarefa_eventos').select('quem, texto, criado_em, usuarios(nome)').eq('tarefa_id', id).order('criado_em'),
     // Revisão final: por que um pedido aprovado ainda não saiu (conversa com uma pessoa, pausa, limite do dia, contato sem procura).
     sb.rpc('pedidos_segurados_da_tarefa', { p_tarefa: id }),
+    lerDriveDaTarefa(sb, t.clientes?.id ?? null),
   ]);
   for (const e of [pend.error, arq.error, ev.error, seg.error]) if (e) console.error('[tarefas] leitura', e);
   const segurados = new Map<string, MotivoSegurado>();
@@ -58,8 +73,9 @@ export async function lerTarefa(sb: Sb, id: string): Promise<{ tarefa: TarefaTel
         pedidoTexto: p.pedido_texto, pedidoEm: p.pedido_em, pedidoEnviadoEm: p.mensagem_id ? p.pedido_enviado_em : null, pedidos: p.pedidos,
         segurado: segurados.get(p.id) ?? null,
       })),
-      arquivos: ((arq.data ?? []) as { id: string; nome: string; tamanho: number; origem: 'enviado' | 'conversa'; lido_em: string | null; detalhe: string | null }[])
-        .map((a) => ({ id: a.id, nome: a.nome, tamanho: a.tamanho, origem: a.origem, lido: a.lido_em !== null, detalhe: a.detalhe })),
+      arquivos: ((arq.data ?? []) as { id: string; nome: string; tamanho: number; origem: 'enviado' | 'conversa' | 'drive'; lido_em: string | null; detalhe: string | null; removido_em?: string | null }[])
+        .map((a) => ({ id: a.id, nome: a.nome, tamanho: a.tamanho, origem: a.origem, lido: a.lido_em !== null, detalhe: a.detalhe, removido: a.removido_em != null })),
+      drive,
       eventos: ((ev.data ?? []) as unknown as { quem: 'agente' | 'pessoa' | 'sistema'; texto: string; criado_em: string; usuarios: { nome: string } | null }[])
         .map((e) => ({ quem: e.quem, nome: e.usuarios?.nome ?? '', texto: e.texto, criadoEm: e.criado_em })),
     },

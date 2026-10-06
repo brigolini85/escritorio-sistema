@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { unstable_rethrow } from 'next/navigation';
 import { z } from 'zod';
 import { LIMITES_TAREFA, leituraDoArquivo, mimeDoArquivo } from '@escritorio/core';
-import { enfileirarPedidoPendencia, enfileirarTarefa } from '@/lib/fila';
+import { enfileirarLeituraPasta, enfileirarPedidoPendencia, enfileirarTarefa } from '@/lib/fila';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
@@ -44,6 +44,22 @@ export async function criarTarefa(chamadoId: string, agenteId: string, pedido: s
   if (!r.ok) return r;
   await depois(r.dados, true);
   return { ok: true, id: r.dados };
+}
+
+/** D7: a pessoa pede; o banco confere setor, pasta e intervalo; o trabalhador lê a pasta em seguida. */
+export async function lerPastaDeNovo(id: string): Promise<ResultadoTarefaAcao> {
+  if (!Uuid.safeParse(id).success) return NAO_ACHEI;
+  const r = await chamar<boolean>('pedir_leitura_da_pasta', { p_tarefa: id });
+  if (!r.ok) return r;
+  try {
+    await enfileirarLeituraPasta(id);
+  } catch (e) {
+    // O evento já está na linha do tempo; sem a fila, a pessoa pede de novo em 2 minutos.
+    console.error('[tarefas] leitura da pasta não enfileirada', id, e);
+    return { ok: false, erro: 'Não consegui pedir a leitura agora. Tente de novo em 2 minutos.' };
+  }
+  revalidatePath(`/tarefas/${id}`);
+  return { ok: true };
 }
 
 export async function pausarTarefa(id: string): Promise<ResultadoTarefaAcao> {

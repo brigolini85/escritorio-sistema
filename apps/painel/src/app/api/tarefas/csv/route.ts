@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { z } from 'zod';
 import { csvDoResultado } from '@escritorio/core';
 import { registrarAuditoria } from '@/lib/auditoria';
 import { obterUsuario } from '@/lib/sessao';
@@ -10,6 +11,7 @@ import { nomeDoCsv } from '@/lib/tarefas-tela';
 export async function GET(req: NextRequest) {
   const u = await obterUsuario();
   const id = req.nextUrl.searchParams.get('id') ?? '';
+  if (!z.string().uuid().safeParse(id).success) return new NextResponse('Resultado não encontrado ou sem acesso.', { status: 404 });
   const { tarefa } = await lerTarefa(await supabaseServidor(), id);
   if (!tarefa?.resultado) return new NextResponse('Resultado não encontrado ou sem acesso.', { status: 404 });
   await registrarAuditoria(u.id, 'download', 'csv_tarefa', id);

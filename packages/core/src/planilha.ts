@@ -47,11 +47,14 @@ const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xm
 
 // Estilo 1 = cabeçalho em negrito; 2 = dinheiro (#,##0.00); 0 = normal (o Nº da pendência fica "1", não "1,00").
 // Texto é sempre inlineStr (nunca <f>): "=", "+", "-", "@" no começo não viram fórmula.
+// O Excel recusa (pede reparo) célula de texto com mais de 32767 caracteres: corta e avisa com reticências.
+const MAX_CELULA = 32767;
+const limiteCelula = (s: string): string => (s.length > MAX_CELULA ? `${s.slice(0, MAX_CELULA - 1)}…` : s);
 function celula(ref: string, v: CelulaPlanilha, estilo: 0 | 1 | 2): string {
   if (v === null) return '';
   if (typeof v === 'number' && Number.isFinite(v)) return `<c r="${ref}"${estilo === 0 ? '' : ` s="${estilo}"`}><v>${v}</v></c>`;
   const s = estilo === 1 ? ' s="1"' : '';
-  return `<c r="${ref}" t="inlineStr"${s}><is><t xml:space="preserve">${xml(String(v))}</t></is></c>`;
+  return `<c r="${ref}" t="inlineStr"${s}><is><t xml:space="preserve">${xml(limiteCelula(String(v)))}</t></is></c>`;
 }
 
 function folha(a: AbaPlanilha): string {

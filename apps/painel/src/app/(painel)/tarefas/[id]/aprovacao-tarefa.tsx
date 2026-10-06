@@ -1,5 +1,5 @@
 'use client';
-import { CircleCheck, Lock, Trash2, Undo2 } from 'lucide-react';
+import { CircleCheck, Lock, Trash2, TriangleAlert, Undo2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
@@ -9,7 +9,8 @@ import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { formatarDataHora } from '@/lib/formatos';
 import { aprovarTarefa, descartarTarefa, pedirAjuste } from '@/lib/tarefas-acoes';
-import { TEXTO_SETOR_INATIVO, pendenciasAbertas, podeAprovar, type TarefaTela } from '@/lib/tarefas-tela';
+import { contarProvisorias } from '@escritorio/core';
+import { TEXTO_SETOR_INATIVO, pendenciasAbertas, podeAprovar, textoProvisorias, type TarefaTela } from '@/lib/tarefas-tela';
 
 /** D11: nada vale antes. Aprovar travado com pendência aberta (o banco recusa de novo). */
 export function AprovacaoTarefa({ t, podeMexer, setorInativo = false }: { t: TarefaTela; podeMexer: boolean; setorInativo?: boolean }) {
@@ -22,6 +23,7 @@ export function AprovacaoTarefa({ t, podeMexer, setorInativo = false }: { t: Tar
   });
   const decidida = t.estado === 'aprovada' || t.estado === 'descartada';
   const abertas = pendenciasAbertas(t);
+  const provisorias = textoProvisorias(contarProvisorias(t.resultado));
   return (
     <Card className="flex flex-col gap-3 border-t-4 border-t-brand p-4" role="region" aria-label="Aprovação">
       <h2 className="text-xs font-bold uppercase tracking-wide text-brand">Aprovação</h2>
@@ -34,6 +36,7 @@ export function AprovacaoTarefa({ t, podeMexer, setorInativo = false }: { t: Tar
         <p className="text-xs text-muted">{setorInativo ? TEXTO_SETOR_INATIVO : 'Quem aprova é uma pessoa do setor da demanda.'}</p>
       ) : (
         <>
+          {provisorias && <p role="status" className="flex items-start gap-2 rounded-md border border-warning bg-warning-soft px-3 py-2 text-sm"><TriangleAlert aria-hidden size={16} className="mt-0.5 shrink-0 text-warning" /> {provisorias}</p>}
           <Button disabled={enviando || !podeAprovar(t)} onClick={() => rodar(() => aprovarTarefa(t.id), 'Aprovada: a nota entrou na demanda e ela foi concluída.')}>
             <CircleCheck aria-hidden size={16} /> Aprovar e concluir
           </Button>

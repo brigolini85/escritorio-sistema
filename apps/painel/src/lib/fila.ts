@@ -20,6 +20,8 @@ function obterBoss(): Promise<PgBoss> {
     // Mesma configuração do trabalhador (apps/trabalhador/src/fila.ts, FILAS.agenteTrabalho e FILAS.pendenciaCliente).
     await b.createQueue('agente_trabalho', { name: 'agente_trabalho', policy: 'stately', retryLimit: 2, retryDelay: 30, retryBackoff: true, expireInSeconds: 1800 });
     await b.createQueue('pendencia_cliente', { name: 'pendencia_cliente', policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true });
+    // Mesma configuração do trabalhador (FILAS.pastaDrive).
+    await b.createQueue('pasta_drive', { name: 'pasta_drive', policy: 'stately', retryLimit: 1, retryDelay: 30 });
     return b;
   })().catch((e: unknown) => {
     // Falhou ao conectar: esquece a tentativa para a próxima chamada tentar de novo, em vez de repetir o erro para sempre.
@@ -57,6 +59,11 @@ export async function enfileirarTarefa(tarefaId: string): Promise<void> {
 /** Parte I3a (D7): o pedido ao cliente que a pessoa aprovou; a chave leva a vez (cobrar de novo é outro envio). */
 export async function enfileirarPedidoPendencia(pendenciaId: string, vez: number): Promise<void> {
   await (await obterBoss()).send('pendencia_cliente', { pendenciaId }, { singletonKey: `${pendenciaId}:${vez}` });
+}
+
+/** Parte I3b (D7): LER A PASTA DE NOVO; a chave única impede duas leituras da mesma tarefa ao mesmo tempo. */
+export async function enfileirarLeituraPasta(tarefaId: string): Promise<void> {
+  await (await obterBoss()).send('pasta_drive', { tarefaId }, { singletonKey: tarefaId });
 }
 
 export async function enfileirarRemocaoArquivos(paths: string[]): Promise<void> {

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
+import { semMigracaoI1 } from '@/lib/agentes';
 import { registrarAuditoria } from '@/lib/auditoria';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
@@ -16,10 +17,15 @@ export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id') ?? '';
   if (!z.string().uuid().safeParse(id).success) return new NextResponse(NAO_ACHEI, { status: 404 });
   const sb = await supabaseServidor();
-  const { data: a } = await sb.from('agente_tarefa_arquivos').select('tarefa_id, origem, bucket, caminho, nome, mensagem_id').eq('id', id).maybeSingle();
+  const COLUNAS = 'tarefa_id, origem, bucket, caminho, nome, mensagem_id';
+  let lido = await sb.from('agente_tarefa_arquivos').select(`${COLUNAS}, removido_em`).eq('id', id).maybeSingle();
+  // Banco sem a I3b: sem a coluna, lê como antes.
+  if (semMigracaoI1(lido.error)) lido = (await sb.from('agente_tarefa_arquivos').select(COLUNAS).eq('id', id).maybeSingle()) as unknown as typeof lido;
+  const a = lido.data as (NonNullable<typeof lido.data> & { removido_em?: string | null }) | null;
   if (!a) return new NextResponse(NAO_ACHEI, { status: 404 });
   const { data: veTarefa } = await sb.rpc('pode_ver_tarefa', { p_tarefa: a.tarefa_id });
   if (veTarefa !== true) return new NextResponse(NAO_ACHEI, { status: 404 });
+  if (a.removido_em != null) return new NextResponse('O arquivo foi apagado pela guarda dos arquivos das tarefas.', { status: 410 });
   if (a.origem === 'conversa') {
     // O anexo da conversa só sai para quem vê aquela conversa (a RLS das mensagens decide); sem a mensagem, ninguém baixa.
     const { data: msg } = a.mensagem_id ? await sb.from('mensagens').select('conversa_id').eq('id', a.mensagem_id).maybeSingle() : { data: null };

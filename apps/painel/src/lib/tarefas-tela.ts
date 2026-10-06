@@ -1,5 +1,6 @@
 import { ROTULO_ESTADO_TAREFA, TEXTO_MOTIVO_PAUSA, podeAprovarTarefa, type EstadoTarefa, type EtapaTarefa, type MotivoPausa, type ResultadoTarefa, type TipoPendencia } from '@escritorio/core';
 import { formatarDataHora } from '@/lib/formatos';
+import type { SituacaoDrive } from './drive-tela';
 
 /** Parte I3a: o que a tela da tarefa mostra (lido com a sessão da pessoa; a RLS decide). */
 export type PendenciaTela = {
@@ -17,7 +18,7 @@ const TEXTO_SEGURADO: Record<MotivoSegurado, string> = {
   nao_procuravel: 'Não pode ser enviado: o contato não pode mais ser procurado por este setor',
 };
 export const ehMotivoSegurado = (m: unknown): m is MotivoSegurado => typeof m === 'string' && m in TEXTO_SEGURADO;
-export type ArquivoTela = { id: string; nome: string; tamanho: number; origem: 'enviado' | 'conversa'; lido: boolean; detalhe: string | null };
+export type ArquivoTela = { id: string; nome: string; tamanho: number; origem: 'enviado' | 'conversa' | 'drive'; lido: boolean; detalhe: string | null; removido?: boolean };
 export type EventoTarefaTela = { quem: 'agente' | 'pessoa' | 'sistema'; nome: string; texto: string; criadoEm: string };
 export type TarefaTela = {
   id: string; numero: number; estado: EstadoTarefa; motivoPausa: MotivoPausa | null; agente: string; setorId: string | null; setor: string | null; /** F19: false só quando o setor está desativado. */ setorAtivo?: boolean;
@@ -26,6 +27,7 @@ export type TarefaTela = {
   etapas: EtapaTarefa[]; etapaAtual: number; resultado: ResultadoTarefa | null; ajustePendente: boolean;
   custoUsd: number; custoEtapas: Record<string, number>; limiteUsd: number; limiteMinutos: number; segundosTrabalhando: number;
   pendencias: PendenciaTela[]; arquivos: ArquivoTela[]; eventos: EventoTarefaTela[]; decididaPor: string | null; decididaEm: string | null;
+  /** I3b: null = banco sem a I3b. */ drive?: { pasta: string | null; situacao: SituacaoDrive | null } | null;
 };
 /** O bloco da demanda (D21). */
 export type ResumoTarefaDemanda = {
@@ -65,6 +67,11 @@ export function rotuloQuem(e: EventoTarefaTela, agente: string): string {
   return e.nome || 'Alguém da equipe';
 }
 export const nomeDoCsv = (t: Pick<TarefaTela, 'numero' | 'estado'>): string => `tarefa-${t.numero}-${t.estado === 'aprovada' ? 'aprovada' : 'rascunho'}.csv`;
+export const nomeDaPlanilha = (t: Pick<TarefaTela, 'numero' | 'estado'>): string => `tarefa-${t.numero}-${t.estado === 'aprovada' ? 'aprovada' : 'rascunho'}.xlsx`;
+/** D15b: a Aprovação avisa; quem decide é a pessoa. */
+export const textoProvisorias = (n: number): string | null =>
+  (n <= 0 ? null : `${n} linha${n > 1 ? 's provisórias' : ' provisória'}: confira antes de aprovar ou peça ajuste.`);
+export const ROTULO_ORIGEM: Record<ArquivoTela['origem'], string> = { enviado: 'Enviado', conversa: 'Da conversa', drive: 'Drive · só leitura' };
 /** Task 4: pedido aprovado que o Thiago não mandou em 24 h aparece como "não enviado" (e pode ser cobrado de novo). */
 export function situacaoPedidoNaTela(p: PendenciaTela, agora: Date): ReturnType<typeof situacaoPedido> | 'nao_enviado' {
   const s = situacaoPedido(p);
