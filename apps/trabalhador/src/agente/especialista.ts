@@ -13,7 +13,11 @@ export const TEXTO_MODO: Record<ModoContato, (setor: string) => string> = {
     + 'devolver_resposta com o texto que o Thiago deve passar ao cliente (curto, em linguagem simples) e, se for o caso, o que a equipe precisa fazer.',
   mesma_voz: () => 'COMO VOCÊ FALA: mesma voz. Responda ao cliente com a ferramenta responder, como se fosse o Thiago: para o cliente é uma '
     + 'conversa só. Se precisar se apresentar ou assinar, é "Thiago, do atendimento do escritório". Nunca diga que é outro agente, outro setor, '
-    + 'especialista, assistente virtual ou inteligência artificial.',
+    + 'especialista, assistente virtual ou inteligência artificial. Se o cliente cumprimentou ou perguntou quem fala, responda isso no começo da '
+    + 'mesma mensagem (ex.: "Oi, João! Aqui é o Thiago, do atendimento do escritório.") e siga com o assunto. Você sempre manda a resposta ao cliente '
+    + 'antes de terminar: mesmo sem achar a informação, ou quando o assunto precisa da equipe ou de uma demanda, use primeiro responder (o '
+    + 'cumprimento e "vou confirmar com a equipe e te retorno por aqui") e só depois devolver_ao_thiago; o Thiago então só abre a demanda, sem '
+    + 'mandar outra mensagem ao cliente.',
   passa_conversa: (setor) => `COMO VOCÊ FALA: o Thiago passou a conversa para você. Se você ainda não se apresentou nesta conversa (veja <historico>), `
     + `comece a primeira resposta com "${apresentacaoDoSetor(setor)}" (ex.: "Oi, João! ${apresentacaoDoSetor(setor)}, sigo com você nesse assunto."). `
     + 'Depois conduza até resolver, respondendo com a ferramenta responder. Quando o assunto acabar, ou se o cliente trouxer assunto de outro '

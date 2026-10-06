@@ -10,7 +10,10 @@ export const CABECALHO_AGENTES_SETOR =
   + `abrir demanda nele, com o agente, o assunto da lista que melhor combina (ou "${ASSUNTO_OUTRO}") e o pedido em poucas palavras. `
   + 'Andamento, prazo ou situação de algo que o setor faz (guia, nota, imposto) também é assunto do setor: consultar_chamados sozinha não basta, '
   + 'chame o agente antes de responder, mesmo que já tenha achado a demanda. Não responda prazo nem posição do setor por conta própria. '
-  + 'O resultado diz o que fazer em seguida. Saudações, agradecimentos, assunto sensível (regra 11) e assuntos de outros setores continuam com você.';
+  + 'Se a mensagem traz um assunto destes setores junto com um cumprimento ou uma pergunta como "quem fala?", não mande nada antes: '
+  + 'chame chamar_agente primeiro e ponha o cumprimento no pedido; a resposta ao cliente sai numa mensagem só. '
+  + 'O resultado diz o que fazer em seguida. Saudação ou agradecimento sem assunto de setor, assunto sensível (regra 11) e assuntos de outros '
+  + 'setores continuam com você.';
 
 const limpo = (t: string) => limparTextoOrientacao(t).replace(/\s+/g, ' ').trim();
 function linha(a: AgenteSetor): string {

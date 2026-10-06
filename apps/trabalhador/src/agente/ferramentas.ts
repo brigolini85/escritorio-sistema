@@ -30,6 +30,8 @@ export type EstadoExecucao = {
   /** O aviso de fora do expediente já saiu pelo sistema nesta vez (D24e). */ avisoForaEnviado?: boolean;
   /** Fim da parte do agente do setor: a resposta para o Thiago (por trás) ou a devolução (D4, D6). */ devolucao?: Devolucao; devolvido?: string;
   /** O acesso do contato ao setor do agente já foi conferido nesta execução (D7). */ acessoSetorConferido?: boolean;
+  /** I3b (D1b): o agente do setor chamado nesta rodada já mandou mensagem ao cliente; vale só até o fim da rodada. */
+  agenteFalouNaRodada?: boolean;
 };
 
 const TRIAGEM = 'triagem';

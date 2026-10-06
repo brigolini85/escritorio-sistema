@@ -111,6 +111,8 @@ async function despachar(
   if (estado.modo === 'por_tras' && ENVIAM.has(u.name)) return falha(AVISOS_AGENTE.porTrasNaoEnvia);
   // O agente do setor já falou com o cliente e devolveu: o Thiago não manda outra mensagem nesta vez (abrir_chamado segue livre).
   if (!estado.agenteSetor && estado.agenteRespondeu && ENVIAM.has(u.name)) return falha(estado.avisoTrava ?? AVISOS_AGENTE.jaRespondeuDevolveu);
+  // I3b (D1b): na mesma rodada do chamar_agente, o que envia foi escrito antes de o agente responder ("Aqui é o Thiago" repetido).
+  if (!estado.agenteSetor && estado.agenteFalouNaRodada && ENVIAM.has(u.name)) return falha(AVISOS_AGENTE.mesmaRodada);
   // Ferramenta conhecida fora do perfil não roda (D15 da I1); nome desconhecido segue o caminho de sempre (o executor recusa).
   if (NOMES_FERRAMENTAS.has(u.name) && !liberadas.has(u.name)) return falha(`Ferramenta não liberada para este agente: ${u.name}.`);
   if (estado.agenteSetor && !SEM_CONFERIR_ACESSO.has(u.name)) {
@@ -177,8 +179,18 @@ export async function executarAgente(
     const resultados: Anthropic.ToolResultBlockParam[] = [];
     const liberadas = new Set((pedido.tools ?? []).map((t) => (t as Anthropic.Tool).name));
     // Em ordem: selecionar_empresa precisa valer antes de abrir_chamado na mesma rodada.
+    // I3b (D1b): com chamar_agente na rodada, o que envia ao cliente roda depois dele (o resto segue a ordem do modelo:
+    // selecionar_empresa precisa valer antes de abrir_chamado e do próprio chamar_agente). Os resultados voltam na ordem do modelo.
+    // F15: só quando chamar_agente foi oferecido; sem agente ativo, a ordem do Thiago é a de antes.
+    const ordem = usos.some((u) => u.name === 'chamar_agente' && liberadas.has(u.name))
+      ? [...usos.filter((u) => !ENVIAM.has(u.name)), ...usos.filter((u) => ENVIAM.has(u.name))]
+      : usos;
+    estado.agenteFalouNaRodada = false;
+    const porId = new Map<string, Resultado>();
+    for (const u of ordem) porId.set(u.id, await despachar(d, estado, u, liberadas, executor, rodar));
+    estado.agenteFalouNaRodada = false;
     for (const u of usos) {
-      const res = await despachar(d, estado, u, liberadas, executor, rodar);
+      const res = porId.get(u.id)!;
       resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res.resultado, is_error: res.erro });
     }
     messages.push({ role: 'user', content: resultados });

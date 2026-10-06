@@ -25,6 +25,10 @@ export const AVISOS_AGENTE = {
     + 'se ele indicou algo para a equipe, só abra a demanda no setor dele (abrir_chamado), sem responder.',
   /** Sobra da I2 (D24d): Passa a conversa deu certo; o agente já falou e segue com o cliente. */
   conduzindo: 'A conversa passou para o agente do setor, que já respondeu ao cliente. Não mande mensagem ao cliente nesta vez.',
+  /** I3b (D1b): o Thiago pediu para enviar na mesma rodada em que o agente do setor já respondeu; ele escreveu sem ver a resposta do agente. */
+  mesmaRodada: 'O agente do setor já respondeu ao cliente nesta mensagem, com o cumprimento. Não mande mais nada sobre isso nesta vez.',
+  /** I3b (D1c): gravado na decisão quando a Mesma voz vira por trás porque o Thiago já tinha falado nesta vez. */
+  rebaixado: 'o Thiago já tinha mandado mensagem nesta vez',
 };
 
 export const NOMES_MODO: ReadonlySet<string> = new Set(['devolver_resposta', 'devolver_ao_thiago']);
@@ -92,8 +96,11 @@ export async function chamarAgente(d: DepsAgente, estado: EstadoExecucao, entrad
         }));
       } else {
         estado.chamouAgente = true;
-        const { modo, regraId } = modoParaAssunto(agente.regras, v.data.assunto, agente.modo);
-        registro = { agente_id: agente.id, regra_id: regraId, modo };
+        const { modo: modoDaRegra, regraId } = modoParaAssunto(agente.regras, v.data.assunto, agente.modo);
+        // I3b (D1c): o Thiago já falou nesta vez; uma segunda voz "como Thiago" seria a mensagem repetida. O agente devolve e o Thiago repassa.
+        const rebaixou = modoDaRegra === 'mesma_voz' && estado.respondeu;
+        const modo: ModoContato = rebaixou ? 'por_tras' : modoDaRegra;
+        registro = { agente_id: agente.id, regra_id: regraId, modo, ...(rebaixou ? { modo_da_regra: modoDaRegra, rebaixado: AVISOS_AGENTE.rebaixado } : {}) };
         if (modo === 'passa_conversa') await d.repos.iniciarConducao(ctx.conversa.id, agente.id);
         let r: ResultadoAgente;
         try {
@@ -111,7 +118,11 @@ export async function chamarAgente(d: DepsAgente, estado: EstadoExecucao, entrad
           await d.repos.encerrarConducao(ctx.conversa.id, r.status === 'devolvido' ? r.motivo : NAO_CONSEGUIU_SEGUIR)
             .catch((e) => console.error('[agente] condução não encerrada; o Thiago segue', ctx.conversa.id, e));
         }
-        if (r.respondeu) estado.respondeu = true;
+        if (r.respondeu) {
+          estado.respondeu = true;
+          // I3b (D1b): o que o Thiago pediu para enviar nesta mesma rodada foi escrito sem ver a resposta do agente.
+          estado.agenteFalouNaRodada = true;
+        }
         // Devolveu, não conseguiu, ou passou a conversa: o Thiago não manda outra mensagem nesta vez (no ok de Mesma voz ele ainda trata outro assunto).
         if (r.respondeu && (r.status !== 'ok' || modo === 'passa_conversa')) {
           estado.agenteRespondeu = true;
