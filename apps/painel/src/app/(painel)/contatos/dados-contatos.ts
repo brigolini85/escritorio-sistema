@@ -4,6 +4,7 @@ import {
   type ConsultaContatos, type ConversaDoContato, type FiltroRapido, type FiltrosContatos, type LinhaContato, type ResumoWhatsapp, type Vinculo,
 } from '@/lib/contatos';
 import type { Prioridade } from '@/lib/demandas';
+import { lerEmpresasAtivasDoSeletor } from '@/lib/listas-ativas';
 import type { supabaseServidor } from '@/lib/supabase/servidor';
 import { faixaDaConsulta, paginar, type Ordem, type Paginacao } from '@/lib/tabela-url';
 
@@ -146,9 +147,8 @@ async function lerListaSemVisao(sb: Sb, f: FiltrosContatos, ordemPedida: Ordem, 
 
 /** Empresas ativas para o seletor da barra e o "vincular empresa" (D5, D10). `detalhe` é o CNPJ (a busca do EscolherEmpresa). */
 export async function lerEmpresasAtivas(sb: Sb): Promise<{ id: string; nome: string; detalhe: string }[]> {
-  const { data, error } = await sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj').eq('ativo', true).order('razao_social');
-  if (error) console.error('[contatos] falha ao ler as empresas', error);
-  return (data ?? []).map((c) => ({ id: c.id, nome: nomeEmpresa(c), detalhe: c.cnpj }));
+  // Revisão geral (painel I4): em páginas, sem o corte de 1000 do PostgREST.
+  return (await lerEmpresasAtivasDoSeletor(sb)).linhas;
 }
 
 export type ContatoAberto = {

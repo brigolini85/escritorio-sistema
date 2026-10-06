@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import type { UsuarioPainel } from '@/lib/sessao';
+import { avisoDaLista, lerContatosAtivos } from '@/lib/listas-ativas';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato } from '../../atendimento/acoes';
 import { adicionarContato, anonimizarContato, removerContato, vincularContatoExistente } from '../acoes';
@@ -18,7 +19,10 @@ export async function SecaoContatosAntiga({ id, u, pode }: { id: string; u: Usua
   const sb = await supabaseServidor();
   const { data: vinculos } = await sb.from('contato_clientes')
     .select('pode_pedir_nota, pode_atualizar_preco, contatos!inner(id, nome, telefone, agente_pausado, ativo)').eq('cliente_id', id).eq('contatos.ativo', true);
-  const { data: todos } = await sb.from('contatos').select('id, nome, telefone').eq('ativo', true).order('nome');
+  // Revisão geral (painel I4): em páginas, sem o corte de 1000 do PostgREST; erro ou lista incompleta viram aviso.
+  const listaTodos = await lerContatosAtivos(sb);
+  const todos = listaTodos.linhas;
+  const avisoTodos = avisoDaLista(listaTodos, 'contatos');
   const lista = (vinculos ?? []).flatMap((v) => (v.contatos ? [{ ...v, contato: v.contatos }] : []))
     .sort((a, b) => a.contato.nome.localeCompare(b.contato.nome, 'pt-BR'));
   const jaVinculados = new Set(lista.map((v) => v.contato.id));
@@ -100,13 +104,14 @@ export async function SecaoContatosAntiga({ id, u, pode }: { id: string; u: Usua
                       {disponiveis.map((c) => <option key={c.id} value={c.id}>{c.nome} · {c.telefone}</option>)}
                     </select>
                   </FormField>
+                  {avisoTodos && <p role="status" className="text-sm text-warning">{avisoTodos}</p>}
                   <label className="flex items-center gap-2 text-base text-foreground"><input type="checkbox" name="pode_pedir_nota" className={classeCaixa} />Pode pedir nota (vínculo)</label>
                   <label className="flex items-center gap-2 text-base text-foreground"><input type="checkbox" name="pode_atualizar_preco" className={classeCaixa} />Pode mudar preço e cadastrar produto (vínculo)</label>
                 </CardContent>
                 <div className="flex justify-end border-t border-border px-4 py-3"><Button type="submit" size="sm" variant="outline">Vincular contato</Button></div>
               </form>
             ) : (
-              <CardContent><p className="text-sm text-muted">Todos os contatos cadastrados já estão ligados a esta empresa.</p></CardContent>
+              <CardContent><p className="text-sm text-muted">{avisoTodos ?? 'Todos os contatos cadastrados já estão ligados a esta empresa.'}</p></CardContent>
             )}
           </Card>
         </div>

@@ -14,6 +14,7 @@ import { lerDadosPedir } from '@/lib/pedir-agente';
 import type { DadosPedir } from '@/lib/pedir-agente-tela';
 import { lerPastaDoCliente, lerSituacaoDrive } from '@/lib/drive';
 import type { EmpresaOpcao } from '@/components/patterns/escolher-empresa';
+import { lerEmpresasAtivasDoSeletor } from '@/lib/listas-ativas';
 import { lerTarefaDaDemanda } from '@/lib/tarefas';
 import type { ResumoTarefaDemanda } from '@/lib/tarefas-tela';
 import { lerTrabalhoDoAgente, type TrabalhoDoAgente } from '@/lib/agente-demanda';
@@ -247,7 +248,7 @@ async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ de
   ]);
   // Demanda sem empresa: o pedido a um agente de outro setor precisa escolher a empresa (D6).
   const empresas: EmpresaOpcao[] = !d.cliente_id && pedir.agentes.length > 0
-    ? ((await sb.from('clientes').select('id, razao_social, nome_fantasia, cnpj').eq('ativo', true).order('razao_social')).data ?? []).map((c) => ({ id: c.id, nome: c.nome_fantasia ?? c.razao_social, detalhe: c.cnpj }))
+    ? (await lerEmpresasAtivasDoSeletor(sb)).linhas
     : [];
   return {
     demanda: {
