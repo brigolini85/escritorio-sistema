@@ -74,12 +74,21 @@ export async function enviarDocumentoDoSistema(
   }
 }
 
+const CAMINHO_DE_ANEXO = /^conversas\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[^/]+$/;
+
 /** Nova tentativa aceita "falhou"; a mensagem só fica "falhou" de vez na última tentativa da fila. */
 export async function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string, ultimaTentativa = true): Promise<void> {
   const m = await d.repos.obterMensagem(mensagemId);
   if (m.autor !== 'atendente' || (m.status_envio !== 'pendente' && m.status_envio !== 'falhou')) return;
   // Outra tarefa da fila já está enviando esta resposta: não manda de novo.
   if (!(await d.repos.reservarEnvio(m.id))) return;
+  // Revisão geral I1: a chave de serviço lê qualquer arquivo; só anexo de conversa sai daqui (o banco já confere quem pediu).
+  if (m.arquivo_path && !CAMINHO_DE_ANEXO.test(m.arquivo_path)) {
+    console.error(`[envio] caminho de arquivo recusado na mensagem ${m.id}`);
+    await d.repos.marcarFalha(m.id);
+    await d.repos.liberarEnvio(m.id);
+    return;
+  }
   const conversa = await d.repos.obterConversa(m.conversa_id);
   try {
     let idProvedor: string | null = null;

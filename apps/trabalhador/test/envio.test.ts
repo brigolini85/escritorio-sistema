@@ -131,6 +131,17 @@ describe('arquivo vai com o conteúdo (Base64), não como link', () => {
     await enviarMensagemDoPainel(d, m!.id);
     expect(canal.arquivosEnviados).toEqual([{ nome: 'guia.pdf', url: 'data:application/pdf;base64,AQID' }]);
   });
+
+  it('revisão geral I1: caminho fora de "conversas/<id>/" não é baixado nem enviado, e a resposta fica "falhou"', async () => {
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    const path = 'clientes/outra-empresa/contrato.pdf';
+    await db.storage.from('anexos').upload(path, new Uint8Array([1, 2, 3]), { contentType: 'application/pdf', upsert: true });
+    const { data: m } = await db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'saida', autor: 'atendente', tipo: 'documento',
+      conteudo: 'Segue', arquivo_path: path, arquivo_nome: 'contrato.pdf', arquivo_mime: 'application/pdf', status_envio: 'pendente' }).select().single();
+    await enviarMensagemDoPainel(d, m!.id);
+    expect(canal.enviados).toEqual([]);
+    expect((await repos.obterMensagem(m!.id)).status_envio).toBe('falhou');
+  });
 });
 
 describe('verificarEnviadaPorMim', () => {
