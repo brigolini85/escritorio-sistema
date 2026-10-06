@@ -215,6 +215,12 @@ function paraAcesso(j: unknown): AcessoContato | null {
   };
 }
 
+/**
+ * Revisão geral I9: quanto vale a reserva de uma resposta do painel. Fica acima do prazo da chamada de arquivo à Z-API
+ * (canal/zapi.ts, PRAZO_ZAPI_MS), para outro job não mandar de novo enquanto a primeira chamada ainda pode ter sucesso.
+ */
+export const RESERVA_ENVIO_MINUTOS = 5;
+
 export function criarRepos(db: Db) {
   return {
     async buscarContato(telefone: string): Promise<ContatoEncontrado | null> {
@@ -356,9 +362,9 @@ export function criarRepos(db: Db) {
       return checar(r, 'inserirSaidaExterna').id;
     },
 
-    /** Reserva o envio de uma resposta do painel; só uma tarefa por vez (reserva expira em 2 min). */
+    /** Reserva o envio de uma resposta do painel; só uma tarefa por vez (a reserva vence em RESERVA_ENVIO_MINUTOS). */
     async reservarEnvio(id: string): Promise<boolean> {
-      const limite = new Date(Date.now() - 2 * 60_000).toISOString();
+      const limite = new Date(Date.now() - RESERVA_ENVIO_MINUTOS * 60_000).toISOString();
       const r = await db.from('mensagens').update({ envio_reservado_em: new Date().toISOString() })
         .eq('id', id).in('status_envio', ['pendente', 'falhou'])
         .or(`envio_reservado_em.is.null,envio_reservado_em.lt.${limite}`).select('id');
@@ -577,8 +583,10 @@ export function criarRepos(db: Db) {
 
     async respostasPendentesAntigas(minutos: number): Promise<string[]> {
       const limite = new Date(Date.now() - minutos * 60_000).toISOString();
+      // Revisão geral I9: com a reserva ainda valendo, um job está enviando agora; reenfileirar mandaria de novo.
+      const reserva = new Date(Date.now() - RESERVA_ENVIO_MINUTOS * 60_000).toISOString();
       const linhas = checar(await db.from('mensagens').select('id').eq('autor', 'atendente').eq('status_envio', 'pendente')
-        .lt('criado_em', limite), 'respostasPendentesAntigas');
+        .lt('criado_em', limite).or(`envio_reservado_em.is.null,envio_reservado_em.lt.${reserva}`), 'respostasPendentesAntigas');
       return linhas.map((l) => l.id);
     },
 
