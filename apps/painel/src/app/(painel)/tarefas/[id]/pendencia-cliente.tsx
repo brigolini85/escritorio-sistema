@@ -8,10 +8,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { opcoesDaPendenciaCliente, pedirAoCliente, receberPendencia } from '@/lib/tarefas-acoes';
-import { podeCobrarDeNovo, situacaoPedidoNaTela, type PendenciaTela } from '@/lib/tarefas-tela';
+import { podeCobrarDeNovo, podeMandarPedido, situacaoPedidoNaTela, textoDoPedido, type PendenciaTela } from '@/lib/tarefas-tela';
 import { EnviarArquivo } from './enviar-arquivo';
 
-const SITUACAO = { a_pedir: 'ainda não pedido', enviando: 'enviando pelo WhatsApp', nao_enviado: 'não enviado: o pedido não saiu em 24 h', aguardando: 'aguardando resposta', recebida: 'recebida' } as const;
+const SITUACAO = { a_pedir: 'ainda não pedido', enviando: 'aprovado, aguardando envio', nao_enviado: 'não enviado: o pedido não saiu em 24 h', aguardando: 'aguardando resposta', recebida: 'recebida' } as const;
 
 /** D7: a pessoa escolhe o contato (só quem pode ser procurado no setor) e confere a mensagem; o Thiago manda. */
 export function PendenciaCliente({ tarefaId, p, setor, podeMexer }: { tarefaId: string; p: PendenciaTela; setor: string | null; podeMexer: boolean }) {
@@ -28,7 +28,7 @@ export function PendenciaCliente({ tarefaId, p, setor, podeMexer }: { tarefaId: 
   const abrir = (qual: 'pedir' | 'recebi') => iniciar(async () => {
     const o = await opcoesDaPendenciaCliente(p.id);
     setOpcoes(o);
-    setContato(o.contatos[0]?.id ?? '');
+    setContato('');
     setJanela(qual);
   });
   const pedir = () => iniciar(async () => {
@@ -42,7 +42,7 @@ export function PendenciaCliente({ tarefaId, p, setor, podeMexer }: { tarefaId: 
   return (
     <article className="flex flex-col gap-2 text-sm" aria-label={`Pendência ${p.numero}`}>
       <p className="font-bold">{p.pergunta}</p>
-      {p.contato && <p className="text-muted">Pedido pelo Thiago ao contato <b>{p.contato}</b> <Badge variant="success">{setor ?? 'setor'} permitido</Badge></p>}
+      {textoDoPedido(p, agora) && <p className="text-muted">{textoDoPedido(p, agora)} {p.contato && p.pedidoEnviadoEm && <Badge variant="success">{setor ?? 'setor'} permitido</Badge>}</p>}
       {(p.pedidoTexto ?? p.mensagem) && <blockquote className="rounded-md bg-surface-muted px-3 py-2 italic">“{p.pedidoTexto ?? p.mensagem}”</blockquote>}
       <p className="text-xs text-warning">{SITUACAO[situacao]}{p.estado === 'respondida' && p.resposta ? `: ${p.resposta}` : ''}</p>
       {podeMexer && p.estado === 'aberta' && (
@@ -62,6 +62,7 @@ export function PendenciaCliente({ tarefaId, p, setor, podeMexer }: { tarefaId: 
             <div className="flex flex-col gap-3">
               <Label htmlFor={`contato-${p.id}`}>Contato</Label>
               <select id={`contato-${p.id}`} className="h-9 rounded-md border border-input bg-surface px-2 text-sm" value={contato} onChange={(e) => setContato(e.target.value)}>
+                <option value="">Escolha o contato</option>
                 {opcoes.contatos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
               <Label htmlFor={`msg-${p.id}`}>Mensagem</Label>
@@ -70,7 +71,7 @@ export function PendenciaCliente({ tarefaId, p, setor, podeMexer }: { tarefaId: 
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setJanela(null)}>Cancelar</Button>
-            <Button disabled={enviando || !contato || texto.trim().length < 3} onClick={pedir}>Mandar pelo Thiago</Button>
+            <Button disabled={enviando || !podeMandarPedido(contato, texto)} onClick={pedir}>Mandar pelo Thiago</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

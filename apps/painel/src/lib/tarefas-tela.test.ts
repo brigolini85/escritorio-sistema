@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { custoPorEtapa, nomeDoCsv, pendenciasAbertas, podeAprovar, podeCobrarDeNovo, rotuloQuem, situacaoPedido, situacaoPedidoNaTela, textoDoEstado, type PendenciaTela, type TarefaTela } from './tarefas-tela';
+import { custoPorEtapa, nomeDoCsv, pendenciasAbertas, podeAprovar, podeCobrarDeNovo, rotuloQuem, situacaoPedido, situacaoPedidoNaTela, textoDoEstado, textoDoPedido, podeMandarPedido, type PendenciaTela, type TarefaTela } from './tarefas-tela';
 
 const AGORA = new Date('2026-10-02T12:00:00Z');
 const pend = (p: Partial<PendenciaTela>): PendenciaTela => ({
@@ -50,5 +50,19 @@ describe('situação do pedido na tela (Task 4: pedido sem envio há mais de 24 
     expect(situacaoPedidoNaTela(pend({ pedidoEm: '2026-10-01T11:00:00Z' }), AGORA)).toBe('nao_enviado');
     expect(situacaoPedidoNaTela(pend({ pedidoEm: '2026-10-01T11:00:00Z', pedidoEnviadoEm: '2026-10-01T11:01:00Z' }), AGORA)).toBe('aguardando');
     expect(situacaoPedidoNaTela(pend({}), AGORA)).toBe('a_pedir');
+  });
+});
+
+describe('texto do pedido (nunca diz que foi enviado sem pedidoEnviadoEm) e botão Mandar', () => {
+  it('textos por situação', () => {
+    expect(textoDoPedido(pend({}), AGORA)).toBeNull();
+    expect(textoDoPedido(pend({ contato: 'Roberto', pedidoEm: '2026-10-02T11:00:00Z' }), AGORA)).toBe('Aprovado, aguardando envio');
+    expect(textoDoPedido(pend({ contato: 'Roberto', pedidoEm: '2026-10-01T11:00:00Z' }), AGORA)).toBe('Não enviado');
+    expect(textoDoPedido(pend({ contato: 'Roberto', pedidoEm: '2026-10-01T11:00:00Z', pedidoEnviadoEm: '2026-10-01T11:05:00Z' }), AGORA)).toMatch(/^Pedido pelo Thiago ao contato Roberto em /);
+  });
+  it('Mandar pelo Thiago fica desabilitado sem contato escolhido', () => {
+    expect(podeMandarPedido('', 'Pode mandar o extrato?')).toBe(false);
+    expect(podeMandarPedido('c1', 'ok')).toBe(false);
+    expect(podeMandarPedido('c1', 'Pode mandar o extrato?')).toBe(true);
   });
 });

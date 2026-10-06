@@ -1,4 +1,5 @@
 import { ROTULO_ESTADO_TAREFA, TEXTO_MOTIVO_PAUSA, podeAprovarTarefa, type EstadoTarefa, type EtapaTarefa, type MotivoPausa, type ResultadoTarefa, type TipoPendencia } from '@escritorio/core';
+import { formatarDataHora } from '@/lib/formatos';
 
 /** Parte I3a: o que a tela da tarefa mostra (lido com a sessão da pessoa; a RLS decide). */
 export type PendenciaTela = {
@@ -57,3 +58,13 @@ export function situacaoPedidoNaTela(p: PendenciaTela, agora: Date): ReturnType<
   const s = situacaoPedido(p);
   return s === 'enviando' && p.pedidoEm && agora.getTime() - new Date(p.pedidoEm).getTime() >= DIA_MS ? 'nao_enviado' : s;
 }
+/** Fix Task 13: só diz "pedido ao contato" quando o Thiago mandou de verdade (pedidoEnviadoEm); senão, o pé do pedido. */
+export function textoDoPedido(p: PendenciaTela, agora: Date): string | null {
+  const s = situacaoPedidoNaTela(p, agora);
+  if (s === 'nao_enviado') return 'Não enviado';
+  if (s === 'enviando') return 'Aprovado, aguardando envio';
+  if (p.pedidoEnviadoEm) return `Pedido pelo Thiago${p.contato ? ` ao contato ${p.contato}` : ''} em ${formatarDataHora(p.pedidoEnviadoEm)}`;
+  return null;
+}
+/** D7: a janela "Pedir ao cliente" só libera "Mandar pelo Thiago" com contato escolhido e mensagem. */
+export const podeMandarPedido = (contatoId: string, texto: string): boolean => contatoId !== '' && texto.trim().length >= 3;

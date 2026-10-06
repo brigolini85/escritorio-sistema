@@ -1,5 +1,6 @@
 import { CircleCheck, FileWarning, Lock } from 'lucide-react';
 import { tarefaAtiva } from '@escritorio/core';
+import { textoDoPedido } from '@/lib/tarefas-tela';
 import type { TarefaTela } from '@/lib/tarefas-tela';
 import { EnviarArquivo } from './enviar-arquivo';
 
@@ -30,7 +31,7 @@ export function FontesTarefa({ t, podeMexer }: { t: TarefaTela; podeMexer: boole
           <div className="flex flex-col gap-2 rounded-md border border-danger bg-danger-soft p-3 text-sm">
             <p className="flex items-center gap-1 font-bold text-danger"><FileWarning aria-hidden size={16} /> Faltando</p>
             <ul className="flex flex-col gap-1">
-              {faltando.map((p) => <li key={p.id}>{p.pergunta}{p.pedidoEm ? <span className="text-muted"> · pedido ao cliente</span> : null}</li>)}
+              {faltando.map((p) => <li key={p.id}>{p.pergunta}{textoDoPedido(p, new Date()) ? <span className="text-muted"> · {textoDoPedido(p, new Date())}</span> : null}</li>)}
             </ul>
           </div>
         )}
