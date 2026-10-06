@@ -1358,7 +1358,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Consumes: `repos.conversasComMensagemParada` (Task 4), `entrarEmModoSeguro` (Task 5), `agendarProcessamento`, `criarServidor`.
 - Produces:
   - `Config.CONCORRENCIA_AGENTE: number` (1–8, padrão 4);
-  - `export const MINUTOS_PARADA = { devolver: 3, modoSeguro: 30 } as const;` em `tarefas.ts`;
+  - `export const PARADA = { minutos: 3, esperaEntreDevolucoes: 3, maxDevolucoes: 2, esperaDepoisDaUltima: 5, janelaHoras: 24 } as const;` em `tarefas.ts` (revisão P1-2/P1-8);
   - `export async function conversasParadas(d: DepsTarefas): Promise<{ devolvidas: number; modoSeguro: number; jaAtendidas: number }>` e `export async function alertarContaDaIa(d: Pick<DepsTarefas, 'repos' | 'alertas'>): Promise<void>` em `tarefas.ts`, chamadas pelo `batimento` (revisão P1-1, P1-2, P1-4b, P1-8).
 
 - [ ] **Step 1: Escreva os testes que falham**
