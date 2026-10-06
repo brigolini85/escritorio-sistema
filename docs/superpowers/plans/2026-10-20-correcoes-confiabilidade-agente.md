@@ -1195,20 +1195,20 @@ describe('webhook reentregue depois de processado (D9, Foco 6)', () => {
   it('a mesma mensagem 10 minutos depois: nada gravado, nada agendado', async () => {
     const canal = new CanalFalso();
     const app = criarServidor({ canal, repos, fila, segredo: SEGREDO, relogio: () => new Date() });
-    const corpo = canal.webhookDeTexto('5531988880001', 'ZAPI-REENTREGA-1', 'preciso da guia');
+    const corpo = f.texto;   // webhook sintético de texto (messageId 'MSG-TEXTO-1'), o mesmo de servidor.test.ts
     const primeira = await app.inject({ method: 'POST', url: `/webhook/zapi/${SEGREDO}`, payload: corpo });
     expect(primeira.statusCode).toBe(200);
-    await db.from('mensagens').update({ processada_em: new Date().toISOString() }).eq('id_provedor', 'ZAPI-REENTREGA-1');
+    await db.from('mensagens').update({ processada_em: new Date().toISOString() }).eq('id_provedor', 'MSG-TEXTO-1');
     const antes = fila.enviados.filter((j) => j.nome === FILAS.processarConversa).length;
     const segunda = await app.inject({ method: 'POST', url: `/webhook/zapi/${SEGREDO}`, payload: corpo });
     expect(segunda.statusCode).toBe(200);
-    expect((await db.from('mensagens').select('id').eq('id_provedor', 'ZAPI-REENTREGA-1')).data).toHaveLength(1);
+    expect((await db.from('mensagens').select('id').eq('id_provedor', 'MSG-TEXTO-1')).data).toHaveLength(1);
     expect(fila.enviados.filter((j) => j.nome === FILAS.processarConversa)).toHaveLength(antes);
   });
 });
 ```
 
-(Use o mesmo ajudante de corpo de webhook que `servidor.test.ts` usa; se ele montar o JSON da Z-API à mão, copie aquela função para este arquivo em vez de `canal.webhookDeTexto`. Confira também o nome da lista de jobs em `FilaFalsa` — `enviados` ou outro — e use o que existe.)
+(Acrescente `import * as f from '../fixtures/zapi/sinteticos';` no topo, como `servidor.test.ts:8`. `FilaFalsa.enviados` é `{ nome, dados, opcoes }[]` — `test/apoio/fila-falsa.ts:4`.)
 
 `apps/trabalhador/test/confiabilidade/fila-parada.test.ts`:
 
