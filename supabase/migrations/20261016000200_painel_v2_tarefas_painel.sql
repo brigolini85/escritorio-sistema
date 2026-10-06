@@ -12,7 +12,8 @@ declare t public.agente_tarefas%rowtype;
 begin
   if not public.eh_usuario_ativo() then raise exception 'Tarefa não encontrada.'; end if;
   select * into t from public.agente_tarefas where id = p_id for update;
-  if not found or not public.pode_ver_chamado(t.chamado_id) then raise exception 'Tarefa não encontrada.'; end if;
+  -- Demanda com pedido de nota: só quem vê "Pedidos de nota" acha a tarefa (revisão final; como pode_ver_tarefa).
+  if not found or not public.pode_ver_sugestoes_do_chamado(t.chamado_id) then raise exception 'Tarefa não encontrada.'; end if;
   if not (public.eh_admin() or coalesce(t.setor_id in (select public.meus_setores()), false)) then
     raise exception 'Só quem é do setor da demanda mexe na tarefa do agente.';
   end if;
@@ -93,9 +94,16 @@ begin
   end if;
   return a;
 end $$;
+-- Revisão final (Important 2): a conversa deste contato está com uma pessoa do escritório (o Thiago fica calado nela).
+-- A mesma conversa que o envio usa: a do contato ou a do telefone dele.
+create function interno.contato_com_pessoa(p_contato uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.conversas cv join public.contatos ct on ct.id = p_contato
+                  where (cv.contato_id = p_contato or cv.telefone = ct.telefone) and cv.estado = 'humano')
+$$;
 revoke execute on function interno.tarefa_da_pessoa(uuid), interno.evento_tarefa(uuid, text, text), interno.retomar_se_respondida(uuid),
   interno.extensao_aceita(text), interno.nome_livre_na_tarefa(uuid, text), interno.anexar_da_conversa(uuid, uuid),
-  interno.exigir_agente_de_trabalho(uuid) from public, anon, authenticated, service_role;
+  interno.exigir_agente_de_trabalho(uuid), interno.contato_com_pessoa(uuid) from public, anon, authenticated, service_role;
 
 -- ---------- Leituras da criação (a RLS de agentes esconde o agente da pessoa do setor) ----------
 create function public.agentes_de_trabalho_da_demanda(p_chamado uuid)
@@ -247,7 +255,8 @@ begin
   return interno.retomar_se_respondida(t.id);
 end $$;
 
-create function public.contatos_para_pendencia(p_id uuid) returns table (contato_id uuid, nome text)
+-- em_atendimento: a conversa do contato está com uma pessoa; a janela avisa que o pedido espera ela voltar para o Thiago.
+create function public.contatos_para_pendencia(p_id uuid) returns table (contato_id uuid, nome text, em_atendimento boolean)
 language plpgsql security definer set search_path = '' as $$
 #variable_conflict use_column
 declare p public.agente_pendencias%rowtype; t public.agente_tarefas%rowtype;
@@ -256,7 +265,7 @@ begin
   if not found or p.tipo <> 'cliente' then return; end if;
   t := interno.tarefa_da_pessoa(p.tarefa_id);
   if t.cliente_id is null or t.setor_id is null then return; end if;
-  return query select c.contato_id, c.nome from public.contatos_procuraveis(t.cliente_id, t.setor_id) c;
+  return query select c.contato_id, c.nome, interno.contato_com_pessoa(c.contato_id) from public.contatos_procuraveis(t.cliente_id, t.setor_id) c;
 end $$;
 
 create function public.arquivos_da_conversa_para_pendencia(p_id uuid)

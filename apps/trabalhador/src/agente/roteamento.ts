@@ -107,7 +107,9 @@ export async function chamarAgente(d: DepsAgente, estado: EstadoExecucao, entrad
           throw erro;
         }
         if (modo === 'passa_conversa' && r.status !== 'ok') {
-          await d.repos.encerrarConducao(ctx.conversa.id, r.status === 'devolvido' ? r.motivo : NAO_CONSEGUIU_SEGUIR);
+          // Revisão final (como a D24a): falha ao encerrar não derruba a vez do Thiago depois que o agente já falou (refazer duplicaria).
+          await d.repos.encerrarConducao(ctx.conversa.id, r.status === 'devolvido' ? r.motivo : NAO_CONSEGUIU_SEGUIR)
+            .catch((e) => console.error('[agente] condução não encerrada; o Thiago segue', ctx.conversa.id, e));
         }
         if (r.respondeu) estado.respondeu = true;
         // Devolveu, não conseguiu, ou passou a conversa: o Thiago não manda outra mensagem nesta vez (no ok de Mesma voz ele ainda trata outro assunto).

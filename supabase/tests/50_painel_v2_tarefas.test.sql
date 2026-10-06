@@ -2,7 +2,7 @@
 -- escrita só por funções, compartimento "tarefas" e a tarefa descartada quando a demanda é concluída por outro caminho.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(26);
+select plan(32);
 
 insert into auth.users (id, email) values
   ('f8000000-0000-0000-0000-00000000000a', 'claudia@i3a.local'), ('f8000000-0000-0000-0000-00000000000b', 'paula@i3a.local'),
@@ -85,6 +85,34 @@ select is((select texto from public.agente_tarefa_eventos where tarefa_id = 'f83
 select is((select count(*)::int from pg_policies where schemaname = 'storage' and tablename = 'objects' and cmd = 'SELECT' and qual like '%tarefas%'), 0,
   'sem política de leitura no compartimento tarefas (download só pela rota auditada)');
 select is((select array_length(allowed_mime_types, 1) from storage.buckets where id = 'tarefas'), 9, 'compartimento tarefas aceita só os tipos da D14');
+
+-- 27–32: demanda com pedido de nota: a tarefa segue "Pedidos de nota", como as sugestões (P11/I2; revisão final, Important 1)
+insert into public.chamados (id, cliente_id, setor_id, titulo, pedido_venda) values
+  ('f8200000-0000-0000-0000-00000000000c', 'f8100000-0000-0000-0000-00000000000a', (select id from public.setores where nome = 'Contábil'), 'Nota de outubro', '{"itens":[]}');
+insert into public.agente_tarefas (id, agente_id, chamado_id, cliente_id, setor_id, pedida_por, pedido, limite_usd, limite_minutos) values
+  ('f8300000-0000-0000-0000-00000000000b', (select id from public.agentes where slug = 'contabil'), 'f8200000-0000-0000-0000-00000000000c',
+   'f8100000-0000-0000-0000-00000000000a', (select id from public.setores where nome = 'Contábil'), 'f8000000-0000-0000-0000-00000000000a',
+   'Conferir a nota', 2, 20);
+insert into public.agente_pendencias (tarefa_id, numero, tipo, pergunta) values ('f8300000-0000-0000-0000-00000000000b', 1, 'analista', 'Qual CFOP?');
+insert into public.agente_tarefa_eventos (tarefa_id, quem, texto) values ('f8300000-0000-0000-0000-00000000000b', 'sistema', 'nota');
+insert into public.agente_tarefa_arquivos (tarefa_id, origem, bucket, caminho, nome, mime, tamanho) values
+  ('f8300000-0000-0000-0000-00000000000b', 'enviado', 'tarefas', 'f8300000-0000-0000-0000-00000000000b/1-pedido.pdf', 'pedido.pdf', 'application/pdf', 1);
+update public.usuario_permissoes set nivel = 'sem_acesso' where modulo = 'notas' and usuario_id = 'f8000000-0000-0000-0000-00000000000a';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"f8000000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+select is((select count(*)::int from public.agente_tarefas where id = 'f8300000-0000-0000-0000-00000000000b'), 0,
+  'sem "Pedidos de nota": Cláudia não vê a tarefa da demanda com pedido');
+select is((select count(*)::int from public.agente_pendencias where tarefa_id = 'f8300000-0000-0000-0000-00000000000b'), 0, 'nem as pendências');
+select is((select count(*)::int from public.agente_tarefa_arquivos where tarefa_id = 'f8300000-0000-0000-0000-00000000000b')
+        + (select count(*)::int from public.agente_tarefa_eventos where tarefa_id = 'f8300000-0000-0000-0000-00000000000b'), 0, 'nem os arquivos e a linha do tempo');
+select is(public.pode_mexer_na_tarefa('f8300000-0000-0000-0000-00000000000b'), false, 'nem mexe (nem envia arquivo)');
+reset role;
+update public.usuario_permissoes set nivel = 'ver' where modulo = 'notas' and usuario_id = 'f8000000-0000-0000-0000-00000000000a';
+set local role authenticated;
+select is((select count(*)::int from public.agente_pendencias where tarefa_id = 'f8300000-0000-0000-0000-00000000000b'), 1,
+  'com "Pedidos de nota": vê as pendências');
+select is(public.pode_ver_tarefa('f8300000-0000-0000-0000-00000000000b'), true, 'e vê a tarefa (download e CSV)');
+reset role;
 
 select * from finish();
 rollback;

@@ -13,7 +13,7 @@ import { FISCAL, skillTeste } from '../apoio/agente-setor';
 import { CASOS_RETRATO } from '../apoio/retrato';
 
 type Chamada = { nome: string; agente: string | null };
-function montar(modoPadrao: 'por_tras' | 'mesma_voz' | 'passa_conversa', roteiro: ConstructorParameters<typeof IaRoteirizada>[0]) {
+function montar(modoPadrao: 'por_tras' | 'mesma_voz' | 'passa_conversa', roteiro: ConstructorParameters<typeof IaRoteirizada>[0], reposExtra: Record<string, unknown> = {}) {
   const base = CASOS_RETRATO['contato-uma-empresa']!();
   // O contato fictício pode tudo (acessoFixo): aqui se testa o roteamento; o acesso de verdade é a Task 7.
   const ctx: ContextoAgente = { ...base, agentesSetor: [{ ...FISCAL, modo: modoPadrao }], acessoFixo: acessoTotal(base.setores) };
@@ -26,6 +26,7 @@ function montar(modoPadrao: 'por_tras' | 'mesma_voz' | 'passa_conversa', roteiro
     ultimasOrientacoesCortadas: async () => null, obterConversa: async () => ctx.conversa,
     iniciarConducao: async (_c: string, a: string) => { conducao.push(`inicia:${a}`); return true; },
     encerrarConducao: async (_c: string, m: string) => { conducao.push(`encerra:${m}`); return true; },
+    ...reposExtra,
   } as unknown as Repos;
   const chamadas: Chamada[] = [];
   const executor: ExecutorFerramentas = async (_d, estado, nome) => {
@@ -98,6 +99,13 @@ describe('Passa a conversa (D6)', () => {
     expect(t.conducao).toEqual([`inicia:${FISCAL.id}`, 'encerra:pediu boleto']);
     const paraThiago = JSON.parse((t.ia.recebidos[2]!.messages.at(-1)!.content as { content: string }[])[0]!.content);
     expect(paraThiago).toMatchObject({ devolvido: true, motivo: 'pediu boleto', instrucao: AVISOS_AGENTE.devolvido });
+  });
+  it('devolvido e a condução não encerra (banco fora): a vez do Thiago segue, com log (revisão final, como a D24a)', async () => {
+    const t = montar('mesma_voz', [usarFerramentas(chamar('Dúvida sobre <imposto>')), usarFerramentas({ nome: 'devolver_ao_thiago', entrada: { motivo: 'pediu boleto' } }),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Já passo pro Financeiro.' } }), fim()],
+      { encerrarConducao: async () => { throw new Error('banco fora'); } });
+    expect(await t.rodar()).toEqual({ status: 'ok' });
+    expect(t.chamadas).toEqual([{ nome: 'responder', agente: null }]);
   });
 });
 

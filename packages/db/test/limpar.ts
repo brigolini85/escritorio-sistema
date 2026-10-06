@@ -158,6 +158,15 @@ export async function criarTarefaTeste(p: {
         returning id`,
         [id, i + 1, x.tipo, x.pergunta, x.opcoes ?? [], x.mensagem ?? (x.tipo === 'cliente' ? `Pode mandar: ${x.pergunta}?` : null),
           x.resposta ? 'respondida' : 'aberta', x.resposta ?? null, x.contatoId ?? null, x.pedidoTexto ?? null, x.enviado === true]);
+      // Enviado de fato = com a mensagem na conversa do contato (revisão final: a reserva sozinha não conta como envio).
+      if (x.enviado && x.contatoId) {
+        await c.query(`with cv as (insert into public.conversas (telefone, contato_id) select telefone, id from public.contatos where id = $1
+                                    on conflict (telefone) do update set telefone = excluded.telefone returning id),
+                           m as (insert into public.mensagens (conversa_id, direcao, autor, conteudo, status_envio)
+                                 select cv.id, 'saida', 'agente', coalesce($2, 'Pedido do escritório'), 'enviada' from cv returning id)
+                      update public.agente_pendencias set mensagem_id = (select id from m) where id = $3`,
+          [x.contatoId, x.pedidoTexto ?? null, r.rows[0].id]);
+      }
       pendencias.push(r.rows[0].id as string);
     }
     await c.query('commit');

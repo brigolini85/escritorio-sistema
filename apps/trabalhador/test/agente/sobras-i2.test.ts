@@ -115,6 +115,29 @@ describe('sobras da I2 (D24)', () => {
     expect(canal.enviados[1]!.texto).toContain(config.mensagens.fora_do_horario!.slice(0, 20));
   });
 
+  it('(e) o aviso de fora do expediente que não sai não derruba a vez: o chamado fica e o erro vai ao log (revisão final)', async () => {
+    const { conversa } = await contatoComEmpresas(['Padaria Sol']);
+    await configurarAgenteTeste('fiscal', { estado: 'ligado', modo: 'mesma_voz' });
+    const fiscal = (await db.from('setores').select('id').eq('nome', 'Fiscal').single()).data!.id;
+    const config = await repos.obterConfiguracoes();
+    const original = canal.enviarTexto.bind(canal);
+    vi.spyOn(canal, 'enviarTexto').mockImplementation(async (tel: string, texto: string) => {
+      if (texto.includes(config.mensagens.fora_do_horario!.slice(0, 20))) throw new Error('Z-API fora');
+      return original(tel, texto);
+    });
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const ia = new IaRoteirizada([
+      usarFerramentas({ nome: 'chamar_agente', entrada: { agente: 'fiscal', assunto: 'outro', pedido: 'nota' } }),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Vou ver isso.' } }),
+      usarFerramentas({ nome: 'devolver_ao_thiago', entrada: { motivo: 'precisa de demanda' } }),
+      usarFerramentas({ nome: 'abrir_chamado', entrada: { setor_id: fiscal, titulo: 'Nota', resumo: 'Pedido de nota', fora_do_contrato: false,
+        prioridade: 'normal', pede_valores: false } }), fim(),
+    ]);
+    await expect(executarAgente(deps(ia), await ctxDe(conversa.id, NOITE), [{ type: 'text', text: 'preciso de uma nota' }])).resolves.toBeDefined();
+    expect((await db.from('chamados').select('titulo')).data).toEqual([{ titulo: 'Nota' }]);
+    expect(erro.mock.calls.some((c) => String(c[0]).includes('aviso de fora do expediente'))).toBe(true);
+  });
+
   it('(f) a pré-análise acha o agente que acabou de devolver a condução', async () => {
     const { conversa, empresas } = await contatoComEmpresas(['Padaria Sol']);
     await configurarAgenteTeste('fiscal', { estado: 'ligado', modo: 'passa_conversa', ferramentas: ['conferir_pedido_nota'] });

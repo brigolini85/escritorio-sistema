@@ -88,10 +88,16 @@ async function avisoForaPeloSistema(d: DepsAgente, estado: EstadoExecucao, r: Re
   const dados = JSON.parse(r.resultado) as Record<string, unknown>;
   const aviso = typeof dados.aviso_para_o_cliente === 'string' ? dados.aviso_para_o_cliente.trim() : '';
   if (!aviso) return r;
-  await enviarDoSistema(d.envio, {
-    conversaId: estado.ctx.conversa.id, telefone: estado.ctx.conversa.telefone, clienteId: estado.ctx.empresaEmFoco?.id ?? null,
-    autor: 'agente', texto: aviso, turnoAgente: estado.turno ?? null,
-  });
+  try {
+    await enviarDoSistema(d.envio, {
+      conversaId: estado.ctx.conversa.id, telefone: estado.ctx.conversa.telefone, clienteId: estado.ctx.empresaEmFoco?.id ?? null,
+      autor: 'agente', texto: aviso, turnoAgente: estado.turno ?? null,
+    });
+  } catch (e) {
+    // Revisão final: o chamado já foi aberto; derrubar a vez faria a fila refazer tudo. A trava segue valendo (o Thiago não manda o aviso).
+    console.error('[agente] aviso de fora do expediente não enviado', estado.ctx.conversa.id, e);
+    return r;
+  }
   estado.avisoForaEnviado = true;
   return ok({ ...dados, aviso_para_o_cliente: null, aviso_ja_enviado: true });
 }

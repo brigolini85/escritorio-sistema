@@ -6,6 +6,8 @@ import { montarPedido } from '../../src/agente/executar';
 import { CABECALHO_PEDIDOS_AO_CONTATO, secaoPedidosAoContato } from '../../src/agente/pedidos-ao-contato';
 import { CanalFalso } from '../../src/canal/falso';
 import { LimitadorEnvio } from '../../src/envio';
+import { processarConversa, type DepsProcessamento } from '../../src/processar-conversa';
+import { FilaFalsa } from '../apoio/fila-falsa';
 import { criarArmazenamento } from '../../src/midia/armazenamento';
 import { contatoComEmpresas, db, repos, setorId } from '../apoio/cenario';
 import { IaRoteirizada, fim, usarFerramentas } from '../apoio/ia-roteirizada';
@@ -56,6 +58,29 @@ describe('pedidos do escritório ao contato (D26)', () => {
     const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Recebi, obrigado! Vou passar para a equipe.' } }), fim()]);
     await atenderComAgentes({ repos, ia, envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) } }, ctx,
       [{ type: 'text', text: 'segue o extrato' }]);
+    const ev = (await db.from('agente_tarefa_eventos').select('texto').eq('tarefa_id', t.id)).data!;
+    expect(ev.map((e) => e.texto)).toContain('o contato respondeu na conversa (pendência 1): confira e marque Já recebi');
+  });
+
+  // Revisão final: com a conversa numa pessoa ou o agente pausado, o Thiago não atende, mas a tarefa também fica sabendo da resposta.
+  it.each(['humano', 'pausado'] as const)('conversa %s: o aviso "respondeu" chega à tarefa sem chamar a IA', async (caso) => {
+    const { conversa, contato, empresas } = await contatoComEmpresas(['Padaria Sol']);
+    const ch = (await db.from('chamados').insert({ cliente_id: empresas[0]!.id, setor_id: await setorId('Contábil'), titulo: 'Fechamento' }).select('id').single()).data!;
+    const t = await criarTarefaTeste({ chamadoId: ch.id, estado: 'aguardando_pendencias',
+      pendencias: [{ tipo: 'cliente', pergunta: 'Extrato', contatoId: contato.id, pedidoTexto: 'Pode mandar?', enviado: true }] });
+    if (caso === 'humano') await repos.atualizarConversa(conversa.id, { estado: 'humano', aviso_lgpd_enviado_em: new Date().toISOString() });
+    else await db.from('configuracoes').update({ agente_pausado: true }).eq('id', 1);
+    await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: 'R1', tipo: 'texto', conteudo: 'segue o extrato',
+      midiaUrlOrigem: null, arquivoMime: null });
+    const canal = new CanalFalso();
+    const ia = new IaRoteirizada([fim()]);
+    const d: DepsProcessamento = {
+      repos, ia, fila: new FilaFalsa(), envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) },
+      midia: criarArmazenamento(db), transcritor: { modelo: 'x', provedor: 'groq', transcrever: async () => ({ texto: '', segundos: 0 }) },
+      alertas: { alertar: async () => {} }, relogio: () => AGORA,
+    };
+    expect(await processarConversa(d, conversa.id, false)).toBe(caso);
+    expect(ia.recebidos).toHaveLength(0);
     const ev = (await db.from('agente_tarefa_eventos').select('texto').eq('tarefa_id', t.id)).data!;
     expect(ev.map((e) => e.texto)).toContain('o contato respondeu na conversa (pendência 1): confira e marque Já recebi');
   });

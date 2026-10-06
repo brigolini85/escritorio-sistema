@@ -98,6 +98,43 @@ describe('pedido ao cliente (D7)', () => {
     expect(canal.enviados).toEqual([{ telefone: '5531999990507', texto: 'Pode mandar?' }]);
   });
 
+  it('conversa com uma pessoa do escritório: o pedido espera sem contar no limite; voltou para o Thiago, o batimento põe na fila e ele sai', async () => {
+    const { contato, empresas } = await contatoComEmpresas(['Padaria Sol'], '5531999990508', PROCURAVEL);
+    const ch = (await db.from('chamados').insert({ cliente_id: empresas[0]!.id, setor_id: await setorId('Contábil'), titulo: 'Fechamento' }).select('id').single()).data!;
+    const t = await criarTarefaTeste({ chamadoId: ch.id, pendencias: [{ tipo: 'cliente', pergunta: 'Extrato', contatoId: contato.id, pedidoTexto: 'Pode mandar?' }] });
+    await sqlTeste("update public.agente_pendencias set pedido_em = now() - interval '5 minutes' where id = $1", [t.pendencias[0]]);
+    const conversa = await repos.obterOuCriarConversa('5531999990508', contato.id);
+    await db.from('conversas').update({ estado: 'humano' }).eq('id', conversa.id);
+    await enviarPedidoDePendencia({ repos, envio: envio() }, t.pendencias[0]!);
+    expect(canal.enviados).toEqual([]);
+    expect((await sqlTeste('select pedido_enviado_em from public.agente_pendencias where id = $1', [t.pendencias[0]]))[0]).toEqual({ pedido_enviado_em: null });
+    expect(await repos.pedidosAoClienteParados(2)).toEqual([]);
+    await db.from('conversas').update({ estado: 'agente' }).eq('id', conversa.id);
+    const fila = new FilaFalsa();
+    await batimento({ repos, canal, alertas: { alertar: async () => {} } as never, envio: envio(), email: {} as never, fila, relogio: () => new Date() });
+    expect(fila.enviados).toContainEqual({ nome: FILAS.pendenciaCliente, dados: { pendenciaId: t.pendencias[0] }, opcoes: { singletonKey: `${t.pendencias[0]}:batimento` } });
+    await enviarPedidoDePendencia({ repos, envio: envio() }, t.pendencias[0]!);
+    expect(canal.enviados).toEqual([{ telefone: '5531999990508', texto: 'Pode mandar?' }]);
+  });
+
+  it('uma pessoa assumiu a conversa entre a reserva e o envio: o trabalhador não manda e solta a reserva', async () => {
+    const { contato, empresas } = await contatoComEmpresas(['Padaria Sol'], '5531999990509', PROCURAVEL);
+    const ch = (await db.from('chamados').insert({ cliente_id: empresas[0]!.id, setor_id: await setorId('Contábil'), titulo: 'Fechamento' }).select('id').single()).data!;
+    const t = await criarTarefaTeste({ chamadoId: ch.id, pendencias: [{ tipo: 'cliente', pergunta: 'Extrato', contatoId: contato.id, pedidoTexto: 'Pode mandar?' }] });
+    const conversa = await repos.obterOuCriarConversa('5531999990509', contato.id);
+    const reposAssumida: Repos = Object.assign(Object.create(repos) as Repos, {
+      reservarEnvioPendencia: async (id: string) => {
+        const p = await repos.reservarEnvioPendencia(id);
+        await db.from('conversas').update({ estado: 'humano' }).eq('id', conversa.id);
+        return p;
+      },
+    });
+    await enviarPedidoDePendencia({ repos: reposAssumida, envio: envio() }, t.pendencias[0]!);
+    expect(canal.enviados).toEqual([]);
+    expect((await sqlTeste('select pedido_enviado_em, mensagem_id from public.agente_pendencias where id = $1', [t.pendencias[0]]))[0])
+      .toEqual({ pedido_enviado_em: null, mensagem_id: null });
+  });
+
   it('contato que não pode ser procurado pelo setor: nada sai (F22)', async () => {
     const { contato, empresas } = await contatoComEmpresas(['Padaria Sol'], '5531999990503');
     const ch = (await db.from('chamados').insert({ cliente_id: empresas[0]!.id, setor_id: await setorId('Contábil'), titulo: 'Fechamento' }).select('id').single()).data!;
@@ -106,6 +143,9 @@ describe('pedido ao cliente (D7)', () => {
     expect(canal.enviados).toEqual([]);
     expect((await sqlTeste('select pedido_enviado_em, mensagem_id from public.agente_pendencias where id = $1', [t.pendencias[0]]))[0])
       .toEqual({ pedido_enviado_em: null, mensagem_id: null });
+    // Revisão final: o batimento não põe de novo na fila o pedido que não pode sair (a tela mostra "não pode ser enviado").
+    await sqlTeste("update public.agente_pendencias set pedido_em = now() - interval '5 minutes' where id = $1", [t.pendencias[0]]);
+    expect(await repos.pedidosAoClienteParados(2)).toEqual([]);
   });
 });
 

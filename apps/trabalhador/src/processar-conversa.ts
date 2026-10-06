@@ -1,7 +1,7 @@
 import { MOTIVOS_PASSAGEM, custoTranscricaoUsd, empresaDoUso, mesReferencia, motivoDaEscalada } from '@escritorio/core';
 import type { Conversa, Mensagem } from '@escritorio/db';
 import type { Alertas } from './alertas';
-import { atenderComAgentes } from './agente/atender';
+import { atenderComAgentes, avisarRespostaAosPedidos } from './agente/atender';
 import { erroTemporarioIa } from './agente/cliente-ia';
 import { carregarContexto } from './agente/contexto';
 import type { DepsAgente } from './agente/ferramentas';
@@ -154,6 +154,12 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
     return 'interno';
   }
   if (conversa.estado === 'humano') {
+    // Parte I3a (D26, revisão final): o Thiago fica calado, mas a tarefa fica sabendo que o contato respondeu ao pedido.
+    if (contato) {
+      const pedidos = await d.repos.pendenciasPedidasAoContato(contato.id)
+        .catch((e) => { console.error('[tarefa] pedidos ao contato não lidos', conversa.id, e); return null; });
+      await avisarRespostaAosPedidos(d.repos, conversa.id, contato.id, pedidos);
+    }
     await d.repos.marcarProcessadas(ids);
     return 'humano';
   }
@@ -174,6 +180,7 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
   const pausado = config.agentePausado || contato?.agentePausado === true || ctx.empresaEmFoco?.agentePausado === true
     || (empresas.length > 0 && empresas.every((e) => e.agentePausado));
   if (pausado) {
+    await avisarRespostaAosPedidos(d.repos, conversa.id, ctx.contato?.id, ctx.pedidosAoContato);
     // Pausado não manda nada ao cliente (decisão do dono, 2026-09-28): a equipe vê a mensagem e a triagem no painel.
     const motivo = contato?.agentePausado ? 'Agente desligado para este contato: atender manualmente' : 'Agente pausado: atender manualmente';
     await encaminharParaHumano(d, conversa, motivo, null);
@@ -186,6 +193,7 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
 
   const mes = mesReferencia(d.relogio());
   if ((await d.repos.custoIaDoMes(mes)) >= config.tetoIaUsd) {
+    await avisarRespostaAosPedidos(d.repos, conversa.id, ctx.contato?.id, ctx.pedidosAoContato);
     await encaminharParaHumano(d, conversa, 'Limite mensal de gasto com IA atingido', config.mensagens.ia_indisponivel ?? null);
     await marcarPassagem(d, conversa.id, MOTIVOS_PASSAGEM.teto);
     await d.repos.marcarProcessadas(ids);

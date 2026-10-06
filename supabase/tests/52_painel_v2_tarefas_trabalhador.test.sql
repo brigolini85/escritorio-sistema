@@ -3,7 +3,7 @@
 -- do envio); limites de volume conferidos também no envio.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(53);
+select plan(65);
 
 insert into public.clientes (id, razao_social, cnpj) values ('fa100000-0000-0000-0000-00000000000a', 'I3 Padaria Sol', '21448390000107');
 insert into public.chamados (id, cliente_id, setor_id, titulo) values
@@ -181,6 +181,50 @@ select 'fa300000-0000-0000-0000-00000000000a', n, 'cliente', 'Documento ' || n, 
   from generate_series(10, 39) n;
 set local role service_role;
 select is((select count(*)::int from public.reservar_envio_pendencia((select id from public.agente_pendencias where numero = 2))), 0, '31º envio do dia no escritório: não sai');
+-- (os 30 envios marcados como enviados: com a mensagem, a reserva não é solta pelo batimento)
+reset role;
+update public.agente_pendencias set mensagem_id = 'fa800000-0000-0000-0000-00000000000a' where numero between 10 and 39;
+set local role service_role;
+select ok((select id from public.agente_pendencias where numero = 2) not in (select public.pedidos_ao_cliente_parados(2)),
+  'limite do dia atingido: não volta para a fila à toa (espera o dia seguinte)');
+
+-- Revisão final, Important 2: conversa do contato com uma pessoa do escritório. O pedido espera (sem contar no limite) e sai quando
+-- a conversa voltar para o Thiago, dentro das 24 h. A tela sabe o motivo de cada pedido parado.
+reset role;
+delete from public.agente_pendencias where numero between 10 and 39;
+update public.conversas set estado = 'humano' where id = 'fa700000-0000-0000-0000-00000000000a';
+set local role service_role;
+select is((select count(*)::int from public.reservar_envio_pendencia((select id from public.agente_pendencias where numero = 2))), 0, 'conversa com uma pessoa: não sai');
+select ok((select pedido_enviado_em is null from public.agente_pendencias where numero = 2), 'conversa com uma pessoa: não conta no limite');
+select ok((select id from public.agente_pendencias where numero = 2) not in (select public.pedidos_ao_cliente_parados(2)), 'nem volta para a fila enquanto a pessoa atende');
+reset role;
+insert into auth.users (id, email) values ('fa000000-0000-0000-0000-00000000000c', 'admin@i3c.local');
+insert into public.usuarios (id, nome, email, papel, permissoes) values ('fa000000-0000-0000-0000-00000000000c', 'I3 Admin', 'admin@i3c.local', 'admin', '{}');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"fa000000-0000-0000-0000-00000000000c","role":"authenticated"}', true);
+select is((select motivo from public.pedidos_segurados_da_tarefa('fa300000-0000-0000-0000-00000000000a')), 'atendimento_humano', 'a tela sabe que espera a conversa voltar');
+reset role;
+update public.contato_cliente_setores set pode_ser_procurado = false where contato_id = 'fa500000-0000-0000-0000-00000000000a';
+update public.conversas set estado = 'agente' where id = 'fa700000-0000-0000-0000-00000000000a';
+set local role service_role;
+select ok((select id from public.agente_pendencias where numero = 2) not in (select public.pedidos_ao_cliente_parados(2)), 'contato que não pode ser procurado: não volta para a fila');
+set local role authenticated;
+select is((select motivo from public.pedidos_segurados_da_tarefa('fa300000-0000-0000-0000-00000000000a')), 'nao_procuravel', 'a tela diz que não pode ser enviado');
+reset role;
+update public.contato_cliente_setores set pode_ser_procurado = true where contato_id = 'fa500000-0000-0000-0000-00000000000a';
+set local role service_role;
+select ok((select id from public.agente_pendencias where numero = 2) in (select public.pedidos_ao_cliente_parados(2)), 'a conversa voltou para o Thiago: volta para a fila');
+select is((select count(*)::int from public.reservar_envio_pendencia((select id from public.agente_pendencias where numero = 2))), 1, 'e sai');
+-- Reserva não é envio (revisão final): sem a mensagem marcada, o Thiago ainda não fala do pedido nem o contato "respondeu".
+select is((select count(*)::int from public.pendencias_pedidas_ao_contato('fa500000-0000-0000-0000-00000000000a')), 0, 'reservado sem mensagem: o Thiago não fala do pedido');
+select is(public.contato_respondeu_pendencias('fa500000-0000-0000-0000-00000000000a'), 0, 'nem marca resposta');
+-- A mensagem que falhou antes de sair (sem id do provedor) não prende a reserva velha.
+reset role;
+insert into public.mensagens (id, conversa_id, direcao, autor, conteudo, status_envio) values
+  ('fa800000-0000-0000-0000-00000000000c', 'fa700000-0000-0000-0000-00000000000a', 'saida', 'agente', 'Pode mandar o extrato?', 'falhou');
+update public.agente_pendencias set pedido_enviado_em = now() - interval '15 minutes' where numero = 2;
+set local role service_role;
+select ok((select id from public.agente_pendencias where numero = 2) in (select public.pedidos_ao_cliente_parados(2)), 'mensagem que falhou: a reserva velha é solta');
 
 -- 52–53: só o trabalhador chama; search_path vazio
 reset role;

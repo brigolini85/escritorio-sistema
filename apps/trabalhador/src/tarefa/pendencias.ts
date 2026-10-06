@@ -42,6 +42,12 @@ export async function enviarPedidoDePendencia(d: { repos: Repos; envio: DepsEnvi
   });
   try {
     const conversa = await d.repos.obterOuCriarConversa(p.telefone, p.contatoId);
+    // Revisão final: a conversa está com uma pessoa do escritório (o Thiago fica calado nela, como em processar-conversa). O pedido
+    // espera: solta a reserva (não conta no limite) e o batimento põe na fila quando a conversa voltar para o Thiago, dentro das 24 h.
+    if (conversa.estado === 'humano') {
+      await d.repos.liberarEnvioPendencia(p.id);
+      return;
+    }
     await enviarDoSistema({ ...d.envio, repos, canal }, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: p.clienteId, autor: 'agente', texto: p.texto });
   } catch (e) {
     if (idProvedor === null) {

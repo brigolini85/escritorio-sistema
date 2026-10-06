@@ -1854,7 +1854,7 @@ isOneToOne: false
                            },
 "contatos_para_pendencia":
 { Args: { "p_id": string }; Returns: {
-              "contato_id": string,"nome": string
+              "contato_id": string,"em_atendimento": boolean,"nome": string
             }[]
                            },
 "contatos_procuraveis":
@@ -2167,6 +2167,11 @@ isOneToOne: false
                            },
 "pedidos_ao_cliente_parados":
 { Args: { "p_minutos": number }; Returns: string[]
+                           },
+"pedidos_segurados_da_tarefa":
+{ Args: { "p_tarefa": string }; Returns: {
+              "motivo": string,"pendencia_id": string
+            }[]
                            },
 "pedir_ajuste_tarefa":
 { Args: { "p_id": string,"p_texto": string }; Returns: boolean

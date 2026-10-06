@@ -202,22 +202,42 @@ language sql stable security definer set search_path = '' as $$
       or coalesce((select agente_pausado from public.contatos where id = p_contato), false)
 $$;
 revoke execute on function interno.pedido_pausado(uuid, uuid) from public, anon, authenticated, service_role;
+-- Revisão final: por que um pedido aprovado não pode sair agora (null = pode). A reserva, o batimento e a tela usam a mesma regra.
+--   pausado: as três pausas que o atendimento respeita (geral, empresa, contato); sai quando despausar.
+--   nao_procuravel (F22): o contato deixou de poder ser procurado pelo setor (pode ser procurado, não Básico, ativos); não sai mais.
+--   atendimento_humano: a conversa do contato está com uma pessoa (o Thiago fica calado nela); sai quando voltar para o Thiago.
+--   limite_dia (7E.8 / F21): 3 envios ao contato ou 30 no escritório nas últimas 24 h; sai quando o limite liberar.
+-- Em todos: não conta no limite e o batimento não põe de novo na fila; dentro das 24 h do pedido, sai quando o motivo acabar.
+create function interno.pedido_impedido(p_id uuid) returns text
+language plpgsql stable security definer set search_path = '' as $$
+declare p public.agente_pendencias%rowtype; t public.agente_tarefas%rowtype;
+begin
+  select * into p from public.agente_pendencias where id = p_id;
+  if not found then return 'nao_encontrado'; end if;
+  select * into t from public.agente_tarefas where id = p.tarefa_id;
+  if interno.pedido_pausado(t.cliente_id, p.contato_id) then return 'pausado'; end if;
+  if not exists (select 1 from public.contatos c where c.id = p.contato_id and c.ativo)
+     or not exists (select 1 from public.contatos_procuraveis(t.cliente_id, t.setor_id) cp where cp.contato_id = p.contato_id) then
+    return 'nao_procuravel';
+  end if;
+  if interno.contato_com_pessoa(p.contato_id) then return 'atendimento_humano'; end if;
+  if (select count(*) from public.agente_pendencias x
+       where x.contato_id = p.contato_id and x.id <> p_id and x.pedido_enviado_em > now() - interval '1 day') >= 3
+     or (select count(*) from public.agente_pendencias x where x.id <> p_id and x.pedido_enviado_em > now() - interval '1 day') >= 30 then
+    return 'limite_dia';
+  end if;
+  return null;
+end $$;
+revoke execute on function interno.pedido_impedido(uuid) from public, anon, authenticated, service_role;
 create function public.reservar_envio_pendencia(p_id uuid)
 returns table (id uuid, tarefa_id uuid, numero int, cliente_id uuid, contato_id uuid, contato_nome text, telefone text, texto text)
 language plpgsql security definer set search_path = '' as $$
 #variable_conflict use_column
-declare v_contato uuid;
 begin
-  select contato_id into v_contato from public.agente_pendencias where id = p_id;
   -- 7E.8 / F21: os envios contam na mesma trava da Task 3 (pedir_pendencia_ao_cliente), para o volume valer também aqui
   -- (um pedido parado que sai depois não passa de 3 envios ao contato nem de 30 no escritório nas últimas 24 h).
   perform pg_advisory_xact_lock(hashtextextended('pedido_cliente:escritorio', 0));
-  if (select count(*) from public.agente_pendencias
-       where contato_id = v_contato and id <> p_id and pedido_enviado_em > now() - interval '1 day') >= 3
-     or (select count(*) from public.agente_pendencias where id <> p_id and pedido_enviado_em > now() - interval '1 day') >= 30 then
-    return;
-  end if;
-  -- F22: contato e empresa ainda podem ser procurados pelo setor (pode ser procurado, não Básico, sem agente pausado, ativos).
+  if interno.pedido_impedido(p_id) is not null then return; end if;
   -- Pedido de mais de 24 h sem envio não sai mais: a pessoa já pode cobrar de novo e decide.
   return query
     update public.agente_pendencias p set pedido_enviado_em = now()
@@ -225,9 +245,6 @@ begin
      where p.id = p_id and t.id = p.tarefa_id and c.id = p.contato_id and c.ativo
        and p.estado = 'aberta' and p.pedido_em > now() - interval '24 hours' and p.pedido_enviado_em is null and p.mensagem_id is null
        and t.estado not in ('aprovada', 'descartada')
-       and exists (select 1 from public.contatos_procuraveis(t.cliente_id, t.setor_id) cp where cp.contato_id = p.contato_id)
-       -- As três pausas que o atendimento respeita (geral, empresa, contato): pausado não sai nem conta no limite; sai quando voltar.
-       and not interno.pedido_pausado(t.cliente_id, p.contato_id)
     returning p.id, p.tarefa_id, p.numero::int, t.cliente_id, p.contato_id, c.nome, c.telefone, p.pedido_texto;
 end $$;
 create function public.liberar_envio_pendencia(p_id uuid) returns void
@@ -240,7 +257,8 @@ create function public.pedidos_ao_cliente_parados(p_minutos int) returns setof u
 language plpgsql security definer set search_path = '' as $$
 begin
   -- Não solta a reserva cujo pedido já foi registrado para envio (mensagem do sistema com o mesmo texto na conversa do contato, depois do
-  -- pedido, em qualquer status): o trabalhador caiu ou falhou depois de registrar. Soltar poderia mandar de novo; na dúvida, a pessoa cobra.
+  -- pedido, pendente ou enviada, ou que a Z-API aceitou): o trabalhador caiu ou falhou depois de registrar. Soltar poderia mandar de novo;
+  -- na dúvida, a pessoa cobra. A mensagem que falhou sem sair (sem id do provedor) não prende (revisão final).
   update public.agente_pendencias p set pedido_enviado_em = null
    where p.estado = 'aberta' and p.mensagem_id is null and p.pedido_enviado_em < now() - interval '10 minutes'
      and not exists (select 1 from public.mensagens m
@@ -248,14 +266,15 @@ begin
                        join public.contatos ct on ct.id = p.contato_id
                       where (cv.contato_id = p.contato_id or cv.telefone = ct.telefone)
                         and m.direcao = 'saida' and m.conteudo = p.pedido_texto and m.criado_em >= p.pedido_em
-                        and m.status_envio is not null);
-  -- Pausado (geral, empresa ou contato) não volta para a fila enquanto durar; volta sozinho quando despausar (dentro das 24 h).
+                        and m.status_envio is not null and (m.status_envio <> 'falhou' or m.id_provedor is not null));
+  -- Pedido que não pode sair agora (pausado, sem poder ser procurado, conversa com uma pessoa, limite do dia) não volta para a fila
+  -- à toa; volta sozinho quando o motivo acabar (dentro das 24 h). A tela mostra o motivo (pedidos_segurados_da_tarefa).
   return query
     select p.id from public.agente_pendencias p
       join public.agente_tarefas t on t.id = p.tarefa_id and t.estado not in ('aprovada', 'descartada')
      where p.estado = 'aberta' and p.contato_id is not null and p.pedido_enviado_em is null and p.mensagem_id is null
        and p.pedido_em < now() - make_interval(mins => greatest(p_minutos, 1)) and p.pedido_em > now() - interval '24 hours'
-       and not interno.pedido_pausado(t.cliente_id, p.contato_id)
+       and interno.pedido_impedido(p.id) is null
      order by p.pedido_em limit 20;
 end $$;
 create function public.marcar_pendencia_enviada(p_id uuid, p_mensagem uuid) returns void
@@ -270,7 +289,20 @@ begin
   perform interno.evento_tarefa(p.tarefa_id, 'sistema', format('o Thiago mandou o pedido da pendência %s a %s', p.numero, coalesce(v_nome, 'o contato')));
 end $$;
 
--- D26: o que o escritório pediu a este contato e ainda não chegou (últimos 14 dias).
+-- Revisão final: por que cada pedido aprovado da tarefa ainda não saiu (a tela mostra; quem vê a tarefa).
+create function public.pedidos_segurados_da_tarefa(p_tarefa uuid) returns table (pendencia_id uuid, motivo text)
+language sql stable security definer set search_path = '' as $$
+  select x.id, x.motivo from (
+    select p.id, interno.pedido_impedido(p.id) as motivo from public.agente_pendencias p
+     where p.tarefa_id = p_tarefa and public.pode_ver_tarefa(p_tarefa) and p.estado = 'aberta' and p.contato_id is not null
+       and p.pedido_em is not null and p.pedido_enviado_em is null and p.mensagem_id is null) x
+   where x.motivo is not null
+$$;
+revoke execute on function public.pedidos_segurados_da_tarefa(uuid) from public, anon, service_role;
+grant execute on function public.pedidos_segurados_da_tarefa(uuid) to authenticated;
+
+-- D26: o que o escritório pediu a este contato e ainda não chegou (últimos 14 dias). Só o que saiu de fato (mensagem marcada):
+-- a reserva sozinha não é envio (revisão final).
 create function public.pendencias_pedidas_ao_contato(p_contato uuid)
 returns table (pendencia_id uuid, numero int, pergunta text, setor text, chamado_numero bigint, empresa text)
 language sql stable security definer set search_path = '' as $$
@@ -280,7 +312,7 @@ language sql stable security definer set search_path = '' as $$
     join public.chamados ch on ch.id = t.chamado_id
     left join public.setores s on s.id = t.setor_id
     left join public.clientes cl on cl.id = t.cliente_id
-   where p.contato_id = p_contato and p.estado = 'aberta' and p.pedido_enviado_em > now() - interval '14 days'
+   where p.contato_id = p_contato and p.estado = 'aberta' and p.mensagem_id is not null and p.pedido_enviado_em > now() - interval '14 days'
    order by p.pedido_enviado_em
 $$;
 create function public.contato_respondeu_pendencias(p_contato uuid) returns int
@@ -290,7 +322,7 @@ begin
   for r in update public.agente_pendencias p set respondeu_na_conversa_em = now()
              from public.agente_tarefas t
             where p.contato_id = p_contato and t.id = p.tarefa_id and t.estado not in ('aprovada', 'descartada')
-              and p.estado = 'aberta' and p.pedido_enviado_em > now() - interval '14 days'
+              and p.estado = 'aberta' and p.mensagem_id is not null and p.pedido_enviado_em > now() - interval '14 days'
               and (p.respondeu_na_conversa_em is null or p.respondeu_na_conversa_em < now() - interval '1 hour')
            returning p.tarefa_id, p.numero loop
     perform interno.evento_tarefa(r.tarefa_id, 'sistema', format('o contato respondeu na conversa (pendência %s): confira e marque Já recebi', r.numero));

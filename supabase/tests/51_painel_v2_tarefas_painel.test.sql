@@ -3,7 +3,7 @@
 -- F25 (ajuste em pausa por limite), pedido de nota sem "Pedidos de nota", envio ao Storage e leitura por quem não vê a demanda.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(60);
+select plan(63);
 
 insert into auth.users (id, email) values
   ('f9000000-0000-0000-0000-00000000000a', 'claudia@i3b.local'), ('f9000000-0000-0000-0000-00000000000b', 'paula@i3b.local'),
@@ -229,6 +229,28 @@ select set_config('request.jwt.claims', '{"sub":"f9000000-0000-0000-0000-0000000
 select throws_ok($$ select public.salvar_limites_tarefa('contabil', 3, 30) $$, 'P0001', 'Só o dono altera os limites das tarefas.', 'Cláudia não muda');
 select set_config('request.jwt.claims', '{"sub":"f9000000-0000-0000-0000-00000000000c","role":"authenticated"}', true);
 select lives_ok($$ select public.salvar_limites_tarefa('contabil', 3.5, 30) $$, 'o dono muda');
+
+-- 61–62: tarefa de demanda com pedido de nota: sem "Pedidos de nota", as ações não acham a tarefa (revisão final, Important 1)
+reset role;
+insert into public.agente_tarefas (id, agente_id, chamado_id, cliente_id, setor_id, pedido, limite_usd, limite_minutos) values
+  ('f9300000-0000-0000-0000-00000000000c', (select id from public.agentes where slug = 'contabil'), 'f9200000-0000-0000-0000-00000000000c',
+   'f9100000-0000-0000-0000-00000000000a', (select id from public.setores where nome = 'Contábil'), 'Conferir a nota', 2, 20);
+update public.usuario_permissoes set nivel = 'sem_acesso' where modulo = 'notas' and usuario_id = 'f9000000-0000-0000-0000-00000000000a';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"f9000000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+select throws_ok($$ select public.pausar_tarefa('f9300000-0000-0000-0000-00000000000c') $$, 'P0001', 'Tarefa não encontrada.',
+  'sem "Pedidos de nota": não pausa a tarefa da demanda com pedido');
+reset role;
+update public.usuario_permissoes set nivel = 'ver' where modulo = 'notas' and usuario_id = 'f9000000-0000-0000-0000-00000000000a';
+set local role authenticated;
+select lives_ok($$ select public.pausar_tarefa('f9300000-0000-0000-0000-00000000000c') $$, 'com "Pedidos de nota": pausa');
+
+-- 63: a janela "Pedir ao cliente" avisa quando a conversa do contato está com uma pessoa (revisão final, Important 2)
+reset role;
+update public.conversas set estado = 'humano' where id = 'f9700000-0000-0000-0000-00000000000a';
+set local role authenticated;
+select is((select em_atendimento from public.contatos_para_pendencia('f9600000-0000-0000-0000-00000000000c')
+            where contato_id = 'f9500000-0000-0000-0000-00000000000a'), true, 'contato em atendimento com uma pessoa: a janela sabe');
 
 select * from finish();
 rollback;

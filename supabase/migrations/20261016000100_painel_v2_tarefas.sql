@@ -120,16 +120,18 @@ alter table public.uso_ia add column tarefa_id uuid references public.agente_tar
 create index uso_ia_tarefa_idx on public.uso_ia (tarefa_id);
 
 -- ---------- Quem vê e quem mexe (D20) ----------
+-- Demanda com pedido de nota: a tarefa segue "Pedidos de nota", como as sugestões (P11/I2; revisão final). Vale para a tarefa,
+-- pendências, arquivos, linha do tempo, download e CSV (todos passam por pode_ver_tarefa ou pela política de agente_tarefas).
 create function public.pode_ver_tarefa(p_tarefa uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
-  select exists (select 1 from public.agente_tarefas t where t.id = p_tarefa and public.pode_ver_chamado(t.chamado_id))
+  select exists (select 1 from public.agente_tarefas t where t.id = p_tarefa and public.pode_ver_sugestoes_do_chamado(t.chamado_id))
 $$;
 -- Pessoa ativa do setor da tarefa (ou administrador), com a tarefa ainda ativa: as ações e o envio de arquivo.
 create function public.pode_mexer_na_tarefa(p_tarefa uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select public.eh_usuario_ativo() and exists (
     select 1 from public.agente_tarefas t
-     where t.id = p_tarefa and t.estado not in ('aprovada', 'descartada') and public.pode_ver_chamado(t.chamado_id)
+     where t.id = p_tarefa and t.estado not in ('aprovada', 'descartada') and public.pode_ver_sugestoes_do_chamado(t.chamado_id)
        and (public.eh_admin() or coalesce(t.setor_id in (select public.meus_setores()), false)))
 $$;
 -- "<tarefa>/<arquivo>" → a tarefa; qualquer outro formato → null (a regra do Storage recusa).
@@ -146,7 +148,7 @@ alter table public.agente_tarefas enable row level security;
 alter table public.agente_tarefa_arquivos enable row level security;
 alter table public.agente_pendencias enable row level security;
 alter table public.agente_tarefa_eventos enable row level security;
-create policy leitura on public.agente_tarefas for select to authenticated using (public.pode_ver_chamado(chamado_id));
+create policy leitura on public.agente_tarefas for select to authenticated using (public.pode_ver_sugestoes_do_chamado(chamado_id));
 create policy leitura on public.agente_tarefa_arquivos for select to authenticated using (public.pode_ver_tarefa(tarefa_id));
 create policy leitura on public.agente_pendencias for select to authenticated using (public.pode_ver_tarefa(tarefa_id));
 create policy leitura on public.agente_tarefa_eventos for select to authenticated using (public.pode_ver_tarefa(tarefa_id));
