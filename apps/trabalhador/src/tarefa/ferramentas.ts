@@ -6,6 +6,7 @@ import { FERRAMENTAS_SKILL, objeto } from '../agente/ferramentas';
 import { lerReferenciaDoPerfil, lerSkillDoPerfil, temSkillSobDemanda } from '../agente/skills';
 import type { ArmazenamentoMidia } from '../midia/armazenamento';
 import { lerArquivoDaTarefa, type ConteudoFerramenta } from './arquivos';
+import { FALHA_LEITURA_PASTA, ficaramDeFora, type LeituraDaPasta } from './pasta';
 
 /** Parte I3a (D19): automáticas para os agentes de Trabalho. Nenhuma envia nem grava fora da tarefa. */
 export const FERRAMENTAS_TAREFA: Anthropic.Tool[] = [
@@ -61,8 +62,17 @@ export const FERRAMENTAS_TAREFA: Anthropic.Tool[] = [
   },
 ];
 
-export function ferramentasDaTarefa(perfil: Pick<PerfilAgente, 'skills'>): Anthropic.Tool[] {
-  return temSkillSobDemanda(perfil.skills) ? [...FERRAMENTAS_TAREFA, ...FERRAMENTAS_SKILL] : FERRAMENTAS_TAREFA;
+/** Parte I3b (D5, D7): só com Drive configurado e o cliente com "Pasta no Drive". Nunca recebe link nem código de arquivo. */
+export const FERRAMENTA_PASTA: Anthropic.Tool = {
+  name: 'ler_pasta_do_cliente',
+  description: 'Traz para esta tarefa os arquivos novos da pasta do cliente no Google Drive (só leitura; só a pasta deste cliente). '
+    + 'Use quando alguém disser que pôs o documento na pasta. subpasta: o caminho dentro da pasta do cliente, ex.: "2026/10"; null = a pasta inteira.',
+  input_schema: objeto({ subpasta: { type: ['string', 'null'] } }, ['subpasta']),
+};
+
+export function ferramentasDaTarefa(perfil: Pick<PerfilAgente, 'skills'>, opcoes: { pasta?: boolean } = {}): Anthropic.Tool[] {
+  const base = opcoes.pasta ? [...FERRAMENTAS_TAREFA, FERRAMENTA_PASTA] : FERRAMENTAS_TAREFA;
+  return temSkillSobDemanda(perfil.skills) ? [...base, ...FERRAMENTAS_SKILL] : base;
 }
 
 export const AVISOS_TAREFA = {
@@ -75,9 +85,14 @@ export const AVISOS_TAREFA = {
   pendenciaCliente: 'Uma pessoa do setor confere a mensagem e manda ao cliente. Siga com o que der; marque como provisória a linha que depende disso.',
   pendenciaAnalista: 'O analista responde no painel. Siga com o que der; marque como provisória a linha que depende disso.',
   entregue: 'Rascunho guardado. Uma pessoa do setor aprova; nada vale antes disso.',
+  semPasta: 'Esta tarefa não tem pasta do Drive (Drive não configurado ou o cliente sem "Pasta no Drive"). Se faltar documento, abra uma pendência pedindo o arquivo.',
 };
 
-export type VezDaTarefa = { tarefa: TarefaParaTrabalho; perfil: PerfilAgente; entregou: boolean; abriuPendencia: boolean; lidosNaVez: number };
+export type VezDaTarefa = {
+  tarefa: TarefaParaTrabalho; perfil: PerfilAgente; entregou: boolean; abriuPendencia: boolean; lidosNaVez: number;
+  /** I3b (D7): presente só quando o Drive está configurado e o cliente tem pasta. */
+  lerPasta?: (subpasta: string | null) => Promise<LeituraDaPasta>;
+};
 export type DepsFerramentasTarefa = { repos: Repos; midia: Pick<ArmazenamentoMidia, 'ler'> };
 export type ResultadoFerramentaTarefa = { conteudo: ConteudoFerramenta; erro: boolean };
 const ok = (dados: object): ResultadoFerramentaTarefa => ({ conteudo: JSON.stringify(dados), erro: false });
@@ -169,6 +184,7 @@ const Entradas = {
     observacoes: z.string().trim().max(2000).nullish(),
   }),
   ler_skill: z.object({ nome: z.string() }),
+  ler_pasta_do_cliente: z.object({ subpasta: z.string().trim().max(200).nullish() }),
   ler_referencia: z.object({ skill: z.string(), arquivo: z.string(), parte: z.number().int().min(1).default(1) }),
 };
 
@@ -271,6 +287,24 @@ export async function executarFerramentaTarefa(
     case 'ler_skill': {
       const r = lerSkillDoPerfil(vez.perfil, e.nome);
       return r.ok ? ok(r.dados) : falha(r.erro);
+    }
+    case 'ler_pasta_do_cliente': {
+      if (!vez.lerPasta) return falha(AVISOS_TAREFA.semPasta);
+      let r: LeituraDaPasta;
+      try {
+        r = await vez.lerPasta(e.subpasta || null);
+      } catch (erro) {
+        // F4: o Drive nunca derruba a vez; a linha do tempo diz que a pasta não foi lida.
+        console.error('[drive] ler_pasta_do_cliente falhou', t.id, erro instanceof Error ? erro.message : erro);
+        await d.repos.eventoTarefa(t.id, `não leu a pasta do Drive: ${FALHA_LEITURA_PASTA}`).catch(() => {});
+        return falha(FALHA_LEITURA_PASTA);
+      }
+      if (r.situacao === 'erro') return falha(r.mensagem);
+      if (r.situacao !== 'lida') return falha(AVISOS_TAREFA.semPasta);
+      // A lista de arquivos da vez passa a ter os novos: o próximo ler_arquivo já acha.
+      const nova = await d.repos.tarefaParaTrabalho(t.id).catch(() => null);
+      if (nova) t.arquivos = nova.arquivos;
+      return ok({ novos: r.novos, ficaram_de_fora: ficaramDeFora(r.ignorados) });
     }
     default: {
       const r = await lerReferenciaDoPerfil(d.repos, vez.perfil, e.skill, e.arquivo, e.parte);

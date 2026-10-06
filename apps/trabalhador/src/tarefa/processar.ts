@@ -1,13 +1,15 @@
 import { etapasDoProcedimento, mesReferencia, type MotivoFimVez } from '@escritorio/core';
-import type { Repos } from '@escritorio/db';
+import { SemI3b, type Repos } from '@escritorio/db';
 import { erroTemporarioIa } from '../agente/cliente-ia';
 import { carregarPerfil } from '../agente/perfil';
 import { agendarTarefa } from '../fila';
 import { executarTarefa, type DepsTarefa } from './executar';
 import type { VezDaTarefa } from './ferramentas';
+import { lerPastaComAviso, type DepsPasta } from './pasta';
 import { montarSistemaTarefa } from './prompt';
 
 let avisouSemI3 = false;
+let avisouPasta = false;
 const segundosDesde = (inicio: Date, agora: Date) => Math.max(0, (agora.getTime() - inicio.getTime()) / 1000);
 
 /** D22: null em iniciarExecucaoTarefa também é "não pegou"; só a falta da tabela (a leitura falha) é banco sem a I3. */
@@ -60,6 +62,7 @@ async function umaVez(d: DepsTarefa, id: string, inicio: Date): Promise<MotivoFi
   const config = await d.repos.obterConfiguracoes();
   if ((await d.repos.custoIaDoMes(mesReferencia(inicio))) >= config.tetoIaUsd) return 'teto';
   const perfil = await carregarPerfil(d.repos, t.agenteSlug);
+  const primeiraVez = t.etapas.length === 0;
   if (!t.etapas.length) {
     // D5: as etapas do procedimento escolhido (ligado, do próprio agente); sem ele, as padrão.
     const corpo = t.skillNome ? perfil.skills.find((s) => s.nome === t.skillNome && s.tipo === 'procedimento')?.corpo ?? null : null;
@@ -69,7 +72,28 @@ async function umaVez(d: DepsTarefa, id: string, inicio: Date): Promise<MotivoFi
     t.etapaAtual = 1;
   }
   const [orientacoes, setores] = await Promise.all([d.repos.orientacoesAtivas(perfil.id), d.repos.setoresAtivos()]);
-  const vez: VezDaTarefa = { tarefa: t, perfil, entregou: false, abriuPendencia: false, lidosNaVez: 0 };
+  // I3b (D7): com Drive e pasta, a primeira vez lê a pasta sozinha; depois, só pela ferramenta ou por LER A PASTA DE NOVO.
+  let lerPasta: VezDaTarefa['lerPasta'];
+  if (d.drive && d.guardar && d.remover) {
+    const depsPasta: DepsPasta = { repos: d.repos, drive: d.drive, guardar: d.guardar, remover: d.remover, relogio: d.relogio };
+    const p = await d.repos.pastaDriveDaTarefa(t.id).catch((e) => {
+      // F4: banco sem a I3b é esperado (lerPastaDaTarefa avisa); qualquer outro erro aparece no log, uma vez.
+      if (!(e instanceof SemI3b) && !avisouPasta) {
+        avisouPasta = true;
+        console.error('[drive] não deu para saber a pasta da tarefa', id, e instanceof Error ? e.message : e);
+      }
+      return null;
+    });
+    if (p?.pasta) {
+      // F4: lerPastaComAviso nunca lança; o Drive nunca derruba a vez.
+      lerPasta = (sub) => lerPastaComAviso(depsPasta, t.id, sub);
+      if (primeiraVez) {
+        const r = await lerPasta(null);
+        if (r.situacao === 'lida' && r.novos.length) t.arquivos = (await d.repos.tarefaParaTrabalho(t.id).catch(() => null))?.arquivos ?? t.arquivos;
+      }
+    }
+  }
+  const vez: VezDaTarefa = { tarefa: t, perfil, entregou: false, abriuPendencia: false, lidosNaVez: 0, ...(lerPasta ? { lerPasta } : {}) };
   const motivo = await executarTarefa(d, vez, config, montarSistemaTarefa(t, perfil, orientacoes, setores), inicio);
   if (vez.lidosNaVez) await d.repos.eventoTarefa(t.id, `leu ${vez.lidosNaVez} arquivo${vez.lidosNaVez > 1 ? 's' : ''}`);
   return motivo;

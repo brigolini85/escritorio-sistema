@@ -3,12 +3,18 @@ import { LIMITES_TAREFA, calcularCustoUsd, usoDaResposta, type MotivoFimVez } fr
 import type { Configuracoes, Repos } from '@escritorio/db';
 import type { ClienteIa } from '../agente/cliente-ia';
 import { modeloDoPerfil } from '../agente/perfil';
+import type { DriveLeitor } from '../drive/leitor';
 import type { Fila } from '../fila';
 import type { ArmazenamentoMidia } from '../midia/armazenamento';
+import type { GuardarArquivo, RemoverArquivos } from './armazenamento';
 import { executarFerramentaTarefa, ferramentasDaTarefa, type VezDaTarefa } from './ferramentas';
 import { montarSituacaoTarefa } from './prompt';
 
-export type DepsTarefa = { repos: Repos; ia: ClienteIa; midia: Pick<ArmazenamentoMidia, 'ler'>; fila: Fila; relogio: () => Date };
+export type DepsTarefa = {
+  repos: Repos; ia: ClienteIa; midia: Pick<ArmazenamentoMidia, 'ler'>; fila: Fila; relogio: () => Date;
+  /** Parte I3b (D4, D7): o Drive só de leitura e o compartimento "tarefas"; sem eles a pasta do cliente não é lida. */
+  drive?: DriveLeitor | null; guardar?: GuardarArquivo; remover?: RemoverArquivos;
+};
 export const LEMBRETE_TAREFA =
   'Nada foi registrado: texto fora das ferramentas não chega a ninguém. Termine com entregar_resultado ou abra as pendências com abrir_pendencia (e anote onde parou).';
 /** F6: a fila desiste do job em 30 min (expireInSeconds 1800); depois de 20 min a vez não abre rodada nova e volta à fila. */
@@ -24,8 +30,8 @@ export async function executarTarefa(
   const t = vez.tarefa;
   const modelo = modeloDoPerfil(vez.perfil, config);
   const preco = config.precosModelos[modelo] ?? { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
-  const tools = ferramentasDaTarefa(vez.perfil);
-  const messages: Anthropic.MessageParam[] = [{ role: 'user', content: [{ type: 'text', text: montarSituacaoTarefa(t, inicio) }] }];
+  const tools = ferramentasDaTarefa(vez.perfil, { pasta: !!vez.lerPasta });
+  const messages: Anthropic.MessageParam[] = [{ role: 'user', content: [{ type: 'text', text: montarSituacaoTarefa(t, inicio, { pasta: !!vez.lerPasta }) }] }];
   let lembrado = false;
   for (let i = 0; i < LIMITES_TAREFA.rodadasPorVez; i++) {
     const s = await d.repos.situacaoTarefa(t.id);

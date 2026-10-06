@@ -20,6 +20,8 @@ export const FILAS = {
   agenteTrabalho: 'agente_trabalho',
   /** Parte I3a (D7): mandar ao cliente o pedido de uma pendência que a pessoa aprovou; { pendenciaId }. */
   pendenciaCliente: 'pendencia_cliente',
+  /** Parte I3b (D7): LER A PASTA DE NOVO; o painel enfileira { tarefaId } (singletonKey = tarefa). */
+  pastaDrive: 'pasta_drive',
 } as const;
 
 export interface Fila {
@@ -50,6 +52,8 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   await boss.createQueue(FILAS.agenteTrabalho, { name: FILAS.agenteTrabalho, policy: 'stately', retryLimit: 2, retryDelay: 30, retryBackoff: true, expireInSeconds: 1800 });
   // Mesma configuração em apps/painel/src/lib/fila.ts; singletonKey = pendência + vez do pedido.
   await boss.createQueue(FILAS.pendenciaCliente, { name: FILAS.pendenciaCliente, policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true });
+  // Mesma configuração em apps/painel/src/lib/fila.ts; singletonKey = tarefa (uma leitura da pasta por vez).
+  await boss.createQueue(FILAS.pastaDrive, { name: FILAS.pastaDrive, policy: 'stately', retryLimit: 1, retryDelay: 30 });
   await boss.createQueue(FILAS.enviarMensagem, { name: FILAS.enviarMensagem, retryLimit: 5, retryDelay: 10, retryBackoff: true });
   await boss.createQueue(FILAS.removerArquivos, { name: FILAS.removerArquivos, retryLimit: 10, retryDelay: 60, retryBackoff: true });
   for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao, FILAS.certificados]) {
@@ -88,6 +92,8 @@ export type JobTarefa = { tarefaId: string };
 export async function agendarTarefa(fila: Fila, tarefaId: string): Promise<void> {
   await fila.enviar(FILAS.agenteTrabalho, { tarefaId } satisfies JobTarefa, { singletonKey: tarefaId });
 }
+/** Job da fila `pasta_drive` (Parte I3b): a tarefa cuja pasta do cliente a pessoa mandou ler de novo. */
+export type JobPastaDrive = { tarefaId: string };
 /** Job da fila `pendencia_cliente`: a pendência cujo pedido a pessoa aprovou. */
 export type JobPendencia = { pendenciaId: string };
 /** vez: o número do pedido (o painel, a cada PEDIR AO CLIENTE / COBRAR DE NOVO) ou 'batimento' (pedido que não saiu, F5). A reserva no banco impede o envio duplo. */

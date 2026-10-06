@@ -54,8 +54,11 @@ function situacaoDaPendencia(p: TarefaParaTrabalho['pendencias'][number]): strin
   return p.pedidaAoCliente ? 'pedida ao cliente, aguardando' : 'aguardando a equipe pedir ao cliente';
 }
 
+/** Parte I3b (D7): só entra quando a tarefa tem a pasta do cliente; sem ela o texto fica igual ao da I3a. */
+const LINHA_PASTA = 'Pasta do cliente no Google Drive: ligada, só leitura. Os arquivos dela já estão na lista abaixo; se alguém disser que pôs um documento novo lá, use ler_pasta_do_cliente.';
+
 /** D6: tudo o que a vez sabe da tarefa, montado do banco. Texto de pessoas e do cliente vai neutralizado. */
-export function montarSituacaoTarefa(t: TarefaParaTrabalho, agora: Date): string {
+export function montarSituacaoTarefa(t: TarefaParaTrabalho, agora: Date, opcoes: { pasta?: boolean } = {}): string {
   const etapas = t.etapas.map((e, i) => {
     const marca = e.concluida ? 'feita' : i + 1 === t.etapaAtual ? 'agora' : ' ';
     const fim = i === t.etapas.length - 1 ? ' (da pessoa; não é sua)' : '';
@@ -87,7 +90,7 @@ Hoje: ${dia(agora)}
 Etapas:
 ${etapas.join('\n')}
 
-Arquivos (leia com ler_arquivo pelo nome; você nunca altera nem apaga arquivos):
+${opcoes.pasta ? `${LINHA_PASTA}\n` : ''}Arquivos (leia com ler_arquivo pelo nome; você nunca altera nem apaga arquivos):
 ${arquivos.join('\n')}
 
 Pendências:

@@ -10,7 +10,9 @@ import { anunciarSituacaoDrive } from './drive/situacao';
 import { criarEmail } from './email';
 import { LimitadorEnvio, enviarMensagemDoPainel, verificarEnviadaPorMim } from './envio';
 import { processarAssistente } from './assistente/processar';
-import { FILAS, criarBoss, filaDe, type JobAssistente, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa } from './fila';
+import {
+  FILAS, criarBoss, filaDe, type JobAssistente, type JobPastaDrive, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa,
+} from './fila';
 import { criarArmazenamento } from './midia/armazenamento';
 import { criarTranscritor } from './midia/transcritor';
 import { processarConversa } from './processar-conversa';
@@ -18,6 +20,8 @@ import { limparRetencao } from './retencao';
 import { canalDaSugestao } from './sugestao/ferramentas';
 import { processarSugestao } from './sugestao/processar';
 import { criarServidor } from './servidor';
+import { guardarNaTarefa, removerDaTarefa } from './tarefa/armazenamento';
+import { lerPastaComAviso, lerPastaDaTarefa } from './tarefa/pasta';
 import { enviarPedidoDePendencia } from './tarefa/pendencias';
 import { processarTarefa } from './tarefa/processar';
 import { alertasPeriodicos, batimento, demandasDeCertificado, resumoDiario } from './tarefas';
@@ -35,6 +39,9 @@ async function principal() {
   await anunciarSituacaoDrive(repos, drive);
   const canal = criarCanalZapi({ instancia: cfg.ZAPI_INSTANCIA, token: cfg.ZAPI_TOKEN, clientToken: cfg.ZAPI_CLIENT_TOKEN });
   const midia = criarArmazenamento(db);
+  // Parte I3b (D4): os arquivos da pasta do cliente vão para o compartimento "tarefas".
+  const guardar = guardarNaTarefa(db);
+  const remover = removerDaTarefa(db);
   const envio = { repos, canal, limitador: new LimitadorEnvio(20), midia };
   const email = criarEmail({ host: cfg.SMTP_HOST, porta: cfg.SMTP_PORTA, usuario: cfg.SMTP_USUARIO, senha: cfg.SMTP_SENHA, remetente: cfg.SMTP_REMETENTE });
   const alertas = criarAlertas({ repos, email, envio });
@@ -73,7 +80,15 @@ async function principal() {
   }
   // Parte I3a: tarefas de trabalho, uma de cada vez (máquina com pouca memória, D6). Nada envia ao cliente.
   await boss.work<JobTarefa>(FILAS.agenteTrabalho, { includeMetadata: true }, async ([job]) => {
-    await processarTarefa({ repos, ia: deps.ia, midia, fila: filaDe(boss), relogio }, job!.data.tarefaId, job!.retryCount >= job!.retryLimit);
+    await processarTarefa({ repos, ia: deps.ia, midia, fila: filaDe(boss), relogio, drive: drive.leitor, guardar, remover },
+      job!.data.tarefaId, job!.retryCount >= job!.retryLimit);
+  });
+  // Parte I3b (D7): LER A PASTA DE NOVO. Só leitura no Drive; copia para a tarefa o que for novo.
+  // A última tentativa não lança (F4): o erro fica na linha do tempo da tarefa.
+  await boss.work<JobPastaDrive>(FILAS.pastaDrive, { includeMetadata: true }, async ([job]) => {
+    const depsPasta = { repos, drive: drive.leitor, guardar, remover, relogio };
+    if (job!.retryCount >= job!.retryLimit) await lerPastaComAviso(depsPasta, job!.data.tarefaId, null);
+    else await lerPastaDaTarefa(depsPasta, job!.data.tarefaId);
   });
   // Parte I3a (D7): o pedido de pendência que uma pessoa aprovou, na voz do Thiago.
   await boss.work<JobPendencia>(FILAS.pendenciaCliente, async ([job]) => {
