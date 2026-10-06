@@ -91,7 +91,7 @@ type ModoTeste = 'por_tras' | 'mesma_voz' | 'passa_conversa';
  */
 export async function configurarAgenteTeste(slug: string, cfg: {
   estado?: 'desligado' | 'teste' | 'ligado'; modo?: ModoTeste | null; ferramentas?: string[]; contatos?: string[];
-  regras?: { assunto: string; exemplo?: string; modo: ModoTeste }[];
+  regras?: { assunto: string; exemplo?: string; modo: ModoTeste }[]; tipos?: string[];
 }): Promise<string> {
   const c = new pg.Client({ connectionString: urlLocal() });
   await c.connect();
@@ -113,6 +113,7 @@ export async function configurarAgenteTeste(slug: string, cfg: {
     if (cfg.estado !== undefined) await c.query('update public.agentes set estado = $2 where id = $1', [id, cfg.estado]);
     if (cfg.modo !== undefined) await c.query('update public.agentes set modo_contato = $2 where id = $1', [id, cfg.modo]);
     if (cfg.ferramentas !== undefined) await c.query('update public.agentes set ferramentas = $2 where id = $1', [id, cfg.ferramentas]);
+    if (cfg.tipos !== undefined) await c.query('update public.agentes set tipos = $2 where id = $1', [id, cfg.tipos]);
     await c.query('commit');
     return id;
   } catch (e) {
@@ -245,4 +246,22 @@ export async function definirPastaDriveTeste(clienteId: string, pasta: string | 
 export async function situacaoDriveTeste(email: string | null, erro: string | null = null): Promise<void> {
   await sqlTeste(`insert into public.drive_conta (id, email, erro) values (1, $1, $2)
     on conflict (id) do update set email = excluded.email, erro = excluded.erro, verificado_em = now()`, [email, erro]);
+}
+
+/** Parte I4: as opções do pedido numa tarefa criada por criarTarefaTeste. Só no banco local. */
+export async function opcoesPedidoTeste(tarefaId: string, o: {
+  prazo?: string | null; lerDrive?: boolean; subpasta?: string | null; avisarPainel?: boolean; avisarWhatsapp?: boolean;
+}): Promise<void> {
+  await sqlTeste(`update public.agente_tarefas set prazo_desejado = coalesce($2::timestamptz, prazo_desejado), ler_drive = coalesce($3, ler_drive),
+      drive_subpasta = coalesce($4, drive_subpasta), avisar_painel = coalesce($5, avisar_painel), avisar_whatsapp = coalesce($6, avisar_whatsapp) where id = $1`,
+  [tarefaId, o.prazo ?? null, o.lerDrive ?? null, o.subpasta ?? null, o.avisarPainel ?? null, o.avisarWhatsapp ?? null]);
+}
+/** O nível de um módulo para uma pessoa de teste (ex.: assistente = site_whatsapp). */
+export async function nivelTeste(usuarioId: string, modulo: string, nivel: string): Promise<void> {
+  await sqlTeste(`insert into public.usuario_permissoes (usuario_id, modulo, nivel) values ($1, $2, $3)
+    on conflict (usuario_id, modulo) do update set nivel = excluded.nivel`, [usuarioId, modulo, nivel]);
+}
+/** A pendência foi mandada ao WhatsApp de quem pediu (o Assistente passa a aceitar a resposta). */
+export async function repassarPendenciaTeste(tarefaId: string, numero: number): Promise<void> {
+  await sqlTeste('update public.agente_pendencias set repassada_em = now() where tarefa_id = $1 and numero = $2', [tarefaId, numero]);
 }

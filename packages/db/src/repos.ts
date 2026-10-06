@@ -1,4 +1,4 @@
-import { lerNiveis, FUNCIONALIDADES_IA, type FuncionalidadeGravavel, type ProvedorIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo, PERFIS, type AcessoContato, type CanalAviso, type Perfil, type TipoSkill, MODOS_CONTATO, ehPreAnaliseNota, type CompradorCadastrado, type ModoContato, type MudancaPreco, type PreAnaliseNota, type RegraDoAgente, ehResultadoTarefa, type EstadoTarefa, type EtapaTarefa, type MotivoFimVez, type ResultadoTarefa, type TipoPendencia } from '@escritorio/core';
+import { lerNiveis, FUNCIONALIDADES_IA, type FuncionalidadeGravavel, type ProvedorIa, pedidoVendaBling, variantesTelefone, type Niveis, type PedidoVendaBling, type ConfigExpediente, type PrecoModelo, type PedidoVendaSalvo, PERFIS, type AcessoContato, type CanalAviso, type Perfil, type TipoSkill, MODOS_CONTATO, ehPreAnaliseNota, type CompradorCadastrado, type ModoContato, type MudancaPreco, type PreAnaliseNota, type RegraDoAgente, ehResultadoTarefa, type EstadoTarefa, type EtapaTarefa, type MotivoFimVez, type ResultadoTarefa, type TipoPendencia, type MotivoPausa } from '@escritorio/core';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { Db } from './cliente';
 import type { Database, Json } from './tipos.gen';
@@ -135,6 +135,26 @@ const SEM_PARTE_I = new Set(['42P01', '42703', '42883', 'PGRST200', 'PGRST202', 
 export class SemI3b extends Error {
   constructor() { super('O banco ainda não tem a Parte I3b.'); }
 }
+/** Parte I4: o banco ainda não tem as migrações da I4 (a função ou a coluna não existe). */
+export class SemI4 extends Error {
+  constructor() { super('O banco ainda não tem a Parte I4.'); }
+}
+/** P0001 do banco: a frase vai para a pessoa como está. */
+export class RecusaDoBanco extends Error {}
+export type AgenteParaPedir = {
+  id: string; slug: string; nome: string; descricao: string; setorId: string; setor: string; estado: 'teste' | 'ligado';
+  destino: 'esta_demanda' | 'nova'; procedimentos: { nome: string; titulo: string; descricao: string }[];
+  custo: { n: number; min: number | null; max: number | null; limite: number };
+};
+export type PedidoCriado = { tarefaId: string; tarefaNumero: number; chamadoId: string; chamadoNumero: number; demandaNova: boolean };
+export type PendenciaRepassada = {
+  tarefaId: string; tarefaNumero: number; agente: string; empresa: string | null; numero: number; pergunta: string; detalhe: string | null; opcoes: string[];
+};
+export type OpcoesDoPedido = { prazoDesejado: string | null; lerDrive: boolean; subpasta: string | null; avisarPainel: boolean; avisarWhatsapp: boolean };
+export type AvisoReservado = {
+  id: string; tarefaId: string; tipo: 'pendencias' | 'pronta' | 'pausada'; pendencias: number[]; usuarioId: string; nome: string; telefone: string;
+  responsavel: string | null; pedeNoSetor: boolean; motivoPausa: MotivoPausa | null;
+};
 export type PastaDaTarefa = {
   estado: EstadoTarefa; clienteId: string | null; pasta: string | null; outras: string[];
   importados: { driveId: string; modificadoEm: string | null }[]; total: number;
@@ -1188,6 +1208,87 @@ export function criarRepos(db: Db) {
         concluidosHoje: concluidos.length,
         semResponsavel: abertos.filter((c) => c.responsavel_id === null).length,
       };
+    },
+
+    // ---------- Parte I4: pedir ao agente, opções da tarefa e avisos ----------
+    async agentesParaPedir(usuarioId: string, chamadoId: string | null = null): Promise<AgenteParaPedir[] | null> {
+      const r = await db.rpc('agentes_para_pedir_de', { p_usuario: usuarioId, p_chamado: chamadoId ?? undefined });
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return null;
+      return (checar(r, 'agentesParaPedir') ?? []).map((a) => ({
+        id: a.id, slug: a.slug, nome: a.nome, descricao: a.descricao ?? '', setorId: a.setor_id, setor: a.setor, estado: a.estado as 'teste' | 'ligado',
+        destino: a.destino as 'esta_demanda' | 'nova',
+        procedimentos: Array.isArray(a.procedimentos) ? (a.procedimentos as AgenteParaPedir['procedimentos']) : [],
+        custo: {
+          n: Number(a.custo_n ?? 0), min: a.custo_min === null ? null : Number(a.custo_min), max: a.custo_max === null ? null : Number(a.custo_max),
+          limite: Number(a.limite_usd),
+        },
+      }));
+    },
+
+    async pedirAoAgenteDe(p: { usuarioId: string; origem: 'assistente' | 'whatsapp'; agenteId: string; pedido: string; clienteId: string | null;
+      chamadoNumero: number | null; prazo: string | null }): Promise<PedidoCriado> {
+      const r = await db.rpc('pedir_ao_agente_de', { p_usuario: p.usuarioId, p_origem: p.origem, p_agente: p.agenteId, p_pedido: p.pedido,
+        p_cliente: p.clienteId ?? undefined, p_chamado_numero: p.chamadoNumero ?? undefined, p_prazo: p.prazo ?? undefined });
+      if (r.error?.code === 'P0001') throw new RecusaDoBanco(r.error.message);
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) throw new SemI4();
+      const j = checar(r, 'pedirAoAgenteDe') as { tarefa_id: string; tarefa_numero: number; chamado_id: string; chamado_numero: number; demanda_nova: boolean };
+      return { tarefaId: j.tarefa_id, tarefaNumero: Number(j.tarefa_numero), chamadoId: j.chamado_id, chamadoNumero: Number(j.chamado_numero), demandaNova: j.demanda_nova === true };
+    },
+
+    async pendenciasRepassadas(usuarioId: string): Promise<PendenciaRepassada[] | null> {
+      const r = await db.rpc('pendencias_repassadas_de', { p_usuario: usuarioId });
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return null;
+      return (checar(r, 'pendenciasRepassadas') ?? []).map((x) => ({
+        tarefaId: x.tarefa_id, tarefaNumero: Number(x.tarefa_numero), agente: x.agente, empresa: x.empresa ?? null, numero: Number(x.numero),
+        pergunta: x.pergunta, detalhe: x.detalhe ?? null, opcoes: x.opcoes ?? [],
+      }));
+    },
+
+    async responderPendenciaDe(p: { usuarioId: string; tarefaNumero: number; pendencia: number; resposta: string }): Promise<{ tarefaId: string; retomou: boolean }> {
+      const r = await db.rpc('responder_pendencia_de', { p_usuario: p.usuarioId, p_tarefa_numero: p.tarefaNumero, p_pendencia: p.pendencia, p_resposta: p.resposta });
+      if (r.error?.code === 'P0001') throw new RecusaDoBanco(r.error.message);
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) throw new SemI4();
+      const j = checar(r, 'responderPendenciaDe') as { tarefa_id: string; retomou: boolean };
+      return { tarefaId: j.tarefa_id, retomou: j.retomou === true };
+    },
+
+    async opcoesDoPedido(tarefaId: string): Promise<OpcoesDoPedido | null> {
+      const r = await db.from('agente_tarefas').select('prazo_desejado, ler_drive, drive_subpasta, avisar_painel, avisar_whatsapp').eq('id', tarefaId).maybeSingle();
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return null;
+      const t = checar(r, 'opcoesDoPedido');
+      if (!t) return null;
+      return {
+        prazoDesejado: t.prazo_desejado ? new Date(t.prazo_desejado).toISOString() : null, lerDrive: t.ler_drive, subpasta: t.drive_subpasta,
+        avisarPainel: t.avisar_painel, avisarWhatsapp: t.avisar_whatsapp,
+      };
+    },
+
+    async registrarAvisosDaTarefa(tarefaId: string): Promise<string[] | null> {
+      const r = await db.rpc('registrar_avisos_da_tarefa', { p_tarefa: tarefaId });
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return null;
+      return (checar(r, 'registrarAvisosDaTarefa') ?? []).map(String);
+    },
+
+    async reservarAvisoTarefa(id: string): Promise<AvisoReservado | null> {
+      const j = checar(await db.rpc('reservar_aviso_tarefa', { p_id: id }), 'reservarAvisoTarefa') as null | {
+        id: string; tarefa_id: string; tipo: AvisoReservado['tipo']; pendencias: number[] | null; usuario_id: string; nome: string; telefone: string;
+        responsavel: string | null; pede_no_setor: boolean; motivo_pausa: MotivoPausa | null;
+      };
+      if (!j) return null;
+      return {
+        id: j.id, tarefaId: j.tarefa_id, tipo: j.tipo, pendencias: (j.pendencias ?? []).map(Number), usuarioId: j.usuario_id, nome: j.nome,
+        telefone: j.telefone, responsavel: j.responsavel, pedeNoSetor: j.pede_no_setor === true, motivoPausa: j.motivo_pausa ?? null,
+      };
+    },
+
+    async marcarAvisoTarefa(id: string, ok: boolean): Promise<void> {
+      checar(await db.rpc('marcar_aviso_tarefa', { p_id: id, p_ok: ok }), 'marcarAvisoTarefa');
+    },
+
+    async avisosTarefaParados(): Promise<string[]> {
+      const r = await db.rpc('avisos_tarefa_parados');
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return [];
+      return (checar(r, 'avisosTarefaParados') ?? []).map(String);
     },
   };
 }
