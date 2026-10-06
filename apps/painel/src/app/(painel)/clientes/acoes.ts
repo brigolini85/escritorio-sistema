@@ -1,12 +1,14 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { registrarAuditoria } from '@/lib/auditoria';
 import { comAvisoNaUrl } from '@/lib/avisos';
 import { cadastrarContatoPeloTelefone, lerManter } from '@/lib/cadastro-contato';
 import { enfileirarRemocaoArquivos } from '@/lib/fila';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { temNivel } from '@/lib/permissoes';
 import { exigirAdmin, obterUsuario } from '@/lib/sessao';
+import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ClienteForm, ContatoForm } from './esquemas';
 
@@ -87,15 +89,45 @@ export async function salvarResponsaveis(clienteId: string, formData: FormData) 
   revalidatePath(`/clientes/${clienteId}`);
 }
 
-export async function anonimizarContato(clienteId: string, contatoId: string, formData: FormData) {
-  await exigirAdmin();
+export async function anonimizarContato(clienteId: string, contatoId: string, formData: FormData): Promise<{ aviso: string } | undefined> {
+  const u = await exigirAdmin();
   if (formData.get('confirmo') !== 'on') throw new Error('Marque a confirmação para apagar os dados.');
   const sb = await supabaseServidor();
   const { data: paths, error } = await sb.rpc('anonimizar_contato', { p_contato: contatoId });
   if (error) throw new Error(error.message);
-  // A remoção dos arquivos vai para a fila do trabalhador, com novas tentativas, para não deixar arquivo órfão.
-  await enfileirarRemocaoArquivos(paths ?? []);
   revalidatePath(`/clientes/${clienteId}`);
+  const caminhos = paths ?? [];
+  // A remoção dos arquivos vai para a fila do trabalhador, com novas tentativas, para não deixar arquivo órfão.
+  try {
+    await enfileirarRemocaoArquivos(caminhos);
+    return undefined;
+  } catch (e) {
+    // Revisão geral (painel I6): o banco já apagou; repetir a ação não traz os caminhos de volta. Tenta remover agora e,
+    // o que sobrar, fica registrado (auditoria "remocao_pendente", com os caminhos) e a pessoa é avisada.
+    console.error('[lgpd] fila de remoção fora; removendo na hora', e);
+    const restantes = await removerArquivosAgora(caminhos);
+    if (!restantes.length) return undefined;
+    console.error('[lgpd] arquivos ainda não removidos', { contatoId, paths: restantes });
+    await registrarAuditoria(u.id, 'remocao_pendente', 'arquivos_lgpd', contatoId, { paths: restantes });
+    return { aviso: `Os dados foram apagados, mas ${restantes.length} arquivo(s) ainda não saíram do armazenamento. Ficou registrado para remover; avise o suporte.` };
+  }
+}
+
+/** Mesma divisão do trabalhador (midia/remocao.ts): "conversas/..." é do compartimento "anexos"; o resto, de "tarefas". Devolve o que não saiu. */
+async function removerArquivosAgora(paths: string[]): Promise<string[]> {
+  const grupos = [
+    { bucket: 'anexos', paths: paths.filter((p) => p.startsWith('conversas/')) },
+    { bucket: 'tarefas', paths: paths.filter((p) => !p.startsWith('conversas/')) },
+  ].filter((g) => g.paths.length);
+  const sobras = await Promise.all(grupos.map(async (g) => {
+    try {
+      const { error } = await supabaseServico().storage.from(g.bucket).remove(g.paths);
+      return error ? g.paths : [];
+    } catch {
+      return g.paths;
+    }
+  }));
+  return sobras.flat();
 }
 
 /** Liga à empresa um contato que já existe (cadastrado pela aba Contatos ou pela conversa). */
