@@ -10,6 +10,7 @@ import { comoTestar } from '@/lib/testar-setor';
 import { valorParam, type ParamsBusca } from '@/lib/tabela-url';
 import { AVISO_EMPRESAS_INCOMPLETAS, opcaoEmpresa } from '../../../treinar-agente/esquemas';
 import { Simulador } from '../../../treinar-agente/simulador';
+import { Hidratado } from '../../../treinar-agente/hidratado';
 import { SemPermissao } from '../../../treinar-agente/tela-orientacoes';
 import { TEXTO_TESTE_SEM_I3B, TEXTO_TESTE_SETOR, TEXTO_TESTE_TRABALHO } from '../textos';
 import { TestarSkill } from './testar-skill';
@@ -31,6 +32,7 @@ export default async function Testar({ params, searchParams }: { params: Promise
     .order('razao_social').order('id').range(de, ate));
   return (
     <div className="flex flex-col overflow-hidden rounded-md border border-border lg:altura-trabalho lg:flex-row">
+      <Hidratado />
       <section aria-label="Sobre o teste" className="flex flex-col gap-3 bg-surface p-4 lg:flex-1">
         <p className="text-sm">{como === 'setor' ? TEXTO_TESTE_SETOR : 'Escreva como cliente e veja a resposta e o que o agente faria. Nada é enviado nem gravado; o custo conta em Gastos com IA como "Testar o agente".'}</p>
         {dono && skills.length > 0 && <TestarSkill slug={agente.slug} skills={skills} atual={skill?.id ?? null} />}

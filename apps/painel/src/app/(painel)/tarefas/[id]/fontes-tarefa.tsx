@@ -27,7 +27,7 @@ export function FontesTarefa({ t, podeMexer }: { t: TarefaTela; podeMexer: boole
           {!drive.pasta && (
             <p className="text-muted">
               Sem pasta no Drive: preencha na ficha do cliente, em Arquivos.
-              {t.empresa && <> <Link href={`/clientes/${t.empresa.id}#bloco-arquivos`} className="text-brand underline-offset-4 hover:underline">Abrir a ficha</Link></>}
+              {t.empresa && <> <Link href={`/clientes/${t.empresa.id}#bloco-arquivos`} className="text-brand underline underline-offset-4">Abrir a ficha</Link></>}
             </p>
           )}
         </div>
