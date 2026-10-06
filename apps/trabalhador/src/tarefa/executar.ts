@@ -35,7 +35,9 @@ export async function executarTarefa(
   let lembrado = false;
   for (let i = 0; i < LIMITES_TAREFA.rodadasPorVez; i++) {
     const s = await d.repos.situacaoTarefa(t.id);
-    if (!s || s.estado !== 'trabalhando') return 'fim';
+    // I3b (D15a, revisão final da I3a): CONTINUAR entre o "viu pausada" e o finalizar viraria "sem resultado"; com continuar o banco
+    // mantém a pausa, ou devolve "trabalhando" e a tarefa volta à fila.
+    if (!s || s.estado !== 'trabalhando') return 'continuar';
     if (s.custoUsd >= s.limiteUsd) return 'limite_custo';
     const segundosNaVez = (d.relogio().getTime() - inicio.getTime()) / 1000;
     if (s.segundosTrabalhando + segundosNaVez >= s.limiteMinutos * 60) return 'limite_tempo';

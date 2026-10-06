@@ -21,6 +21,7 @@ import { canalDaSugestao } from './sugestao/ferramentas';
 import { processarSugestao } from './sugestao/processar';
 import { criarServidor } from './servidor';
 import { guardarNaTarefa, removerDaTarefa } from './tarefa/armazenamento';
+import { limparArquivosDasTarefas } from './tarefa/guarda';
 import { lerPastaComAviso, lerPastaDaTarefa } from './tarefa/pasta';
 import { enviarPedidoDePendencia } from './tarefa/pendencias';
 import { processarTarefa } from './tarefa/processar';
@@ -107,7 +108,13 @@ async function principal() {
   await boss.schedule(FILAS.batimento, '* * * * *');
   await boss.schedule(FILAS.alertaFila, '*/5 * * * *');
   await boss.schedule(FILAS.resumoDiario, '0 18 * * 1-6', {}, FUSO);
-  await boss.work(FILAS.limpezaRetencao, async () => { await limparRetencao(db, midia); });
+  await boss.work(FILAS.limpezaRetencao, async () => {
+    await limparRetencao(db, midia);
+    // Parte I3b (D14): a guarda dos arquivos das tarefas; uma falha aqui não desfaz a limpeza das conversas.
+    await limparArquivosDasTarefas(repos, remover)
+      .then((n) => { if (n > 0) console.log(`[guarda] ${n} arquivo(s) das tarefas apagado(s)`); })
+      .catch((e) => console.error('[guarda] arquivos das tarefas', e));
+  });
   await boss.schedule(FILAS.limpezaRetencao, '0 3 * * *', {}, FUSO);
   // Todo dia às 07:00: certificado digital perto de vencer vira demanda no Fiscal (Parte H1).
   await boss.work(FILAS.certificados, async () => { await demandasDeCertificado(depsTarefas); });
