@@ -138,12 +138,15 @@ ${listaRespostas}${secaoSkills(skills)}${secaoOrientacoes(orientacoes, temLimite
 const hora = (iso: string) =>
   new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 
+/** Revisão geral I5: texto que veio do cliente (ou do celular) não abre nem fecha as marcas do pedido (<historico> etc.). */
+const neutro = (t: string) => t.replace(/</g, '‹').replace(/>/g, '›');
+
 function textoDaMensagem(m: Mensagem): string {
   const partes: string[] = [];
-  if (m.tipo === 'audio') partes.push(`[áudio transcrito] ${m.transcricao ?? '(sem transcrição)'}`);
+  if (m.tipo === 'audio') partes.push(`[áudio transcrito] ${m.transcricao ? neutro(m.transcricao) : '(sem transcrição)'}`);
   if (m.tipo === 'imagem') partes.push('[imagem anexada]');
-  if (m.tipo === 'documento') partes.push(`[documento: ${m.arquivo_nome ?? 'arquivo'}]`);
-  if (m.conteudo) partes.push(m.conteudo);
+  if (m.tipo === 'documento') partes.push(`[documento: ${m.arquivo_nome ? neutro(m.arquivo_nome) : 'arquivo'}]`);
+  if (m.conteudo) partes.push(neutro(m.conteudo));
   return partes.join(' ');
 }
 
@@ -165,7 +168,8 @@ export function montarConteudoUsuario(
     `Hoje: ${new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(ctx.agora)}`,
     `Expediente do escritório agora: ${ctx.noExpediente ? 'aberto' : 'fechado'}`,
   ].join('\n');
-  const hist = historico.map((m) => `[${hora(m.criado_em)}] ${quem(m)}: ${textoDaMensagem(m)}`).join('\n');
+  // I5: a linha seguinte de uma mensagem fica recuada; o cliente não forja "[dd/mm, hh:mm] Escritório: ..." numa linha nova.
+  const hist = historico.map((m) => `[${hora(m.criado_em)}] ${quem(m)}: ${textoDaMensagem(m).replace(/\r\n?|[\u2028\u2029]/g, '\n').replace(/\n/g, '\n  ')}`).join('\n');
   const novasTexto = novas.map(textoDaMensagem).join('\n');
 
   const blocos: Anthropic.ContentBlockParam[] = [{
