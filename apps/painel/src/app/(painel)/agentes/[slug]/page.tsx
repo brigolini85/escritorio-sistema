@@ -6,10 +6,13 @@ import { lerAgente, lerLimitesTarefa, lerMudancas, lerRegras, lerSkills, souDono
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { LimitesTarefa } from './limites-tarefa';
 import { OrdemPrioridade, ResumoFerramentas, UltimasMudancas } from './coluna-lateral';
+import { TelaRadar } from './radar/tela-radar';
 
 /** Visão geral: skills por tipo, como fala com o cliente, ferramentas, prioridade e últimas mudanças. */
-export default async function VisaoGeral({ params }: { params: Promise<{ slug: string }> }) {
+export default async function VisaoGeral({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { slug } = await params;
+  // I5 (D18): o Radar troca só a Visão geral.
+  if (slug === 'radar') return <TelaRadar searchParams={searchParams} />;
   const sb = await supabaseServidor();
   const { agente, semMigracao } = await lerAgente(sb, slug);
   if (!agente) notFound();
