@@ -13,6 +13,7 @@ describe('trilha da barra do topo (ícone › Seção › Tela)', () => {
     ['/contatos', [{ rotulo: 'Cadastros' }, { rotulo: 'Contatos' }]],
     ['/assistente', [{ rotulo: 'Assistente' }]],
     ['/treinar-agente', [{ rotulo: 'Treinar o agente' }]],
+    ['/tarefas/abc', [{ rotulo: 'Gestão das demandas', href: '/demandas' }, { rotulo: 'Tarefa do agente' }]],
     ['/configuracoes', [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Expediente' }]],
     ['/gastos-ia', [{ rotulo: 'Administração' }, { rotulo: 'Gastos com IA' }]],
     ['/usuarios', [{ rotulo: 'Configurações', href: '/configuracoes' }, { rotulo: 'Usuários e permissões' }]],

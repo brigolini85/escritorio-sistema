@@ -9,7 +9,7 @@ export type PendenciaTela = {
 export type ArquivoTela = { id: string; nome: string; tamanho: number; origem: 'enviado' | 'conversa'; lido: boolean; detalhe: string | null };
 export type EventoTarefaTela = { quem: 'agente' | 'pessoa' | 'sistema'; nome: string; texto: string; criadoEm: string };
 export type TarefaTela = {
-  id: string; numero: number; estado: EstadoTarefa; motivoPausa: MotivoPausa | null; agente: string; setorId: string | null; setor: string | null;
+  id: string; numero: number; estado: EstadoTarefa; motivoPausa: MotivoPausa | null; agente: string; setorId: string | null; setor: string | null; /** F19: false só quando o setor está desativado. */ setorAtivo?: boolean;
   demanda: { id: string; numero: number; titulo: string }; empresa: { id: string; nome: string; cnpj: string } | null;
   pedido: string; pedidaPor: string | null; canal: 'painel' | 'whatsapp' | 'automatico'; criadoEm: string;
   etapas: EtapaTarefa[]; etapaAtual: number; resultado: ResultadoTarefa | null; ajustePendente: boolean;
@@ -52,3 +52,8 @@ export function rotuloQuem(e: EventoTarefaTela, agente: string): string {
   return e.nome || 'Alguém da equipe';
 }
 export const nomeDoCsv = (t: Pick<TarefaTela, 'numero' | 'estado'>): string => `tarefa-${t.numero}-${t.estado === 'aprovada' ? 'aprovada' : 'rascunho'}.csv`;
+/** Task 4: pedido aprovado que o Thiago não mandou em 24 h aparece como "não enviado" (e pode ser cobrado de novo). */
+export function situacaoPedidoNaTela(p: PendenciaTela, agora: Date): ReturnType<typeof situacaoPedido> | 'nao_enviado' {
+  const s = situacaoPedido(p);
+  return s === 'enviando' && p.pedidoEm && agora.getTime() - new Date(p.pedidoEm).getTime() >= DIA_MS ? 'nao_enviado' : s;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { custoPorEtapa, nomeDoCsv, pendenciasAbertas, podeAprovar, podeCobrarDeNovo, rotuloQuem, situacaoPedido, textoDoEstado, type PendenciaTela, type TarefaTela } from './tarefas-tela';
+import { custoPorEtapa, nomeDoCsv, pendenciasAbertas, podeAprovar, podeCobrarDeNovo, rotuloQuem, situacaoPedido, situacaoPedidoNaTela, textoDoEstado, type PendenciaTela, type TarefaTela } from './tarefas-tela';
 
 const AGORA = new Date('2026-10-02T12:00:00Z');
 const pend = (p: Partial<PendenciaTela>): PendenciaTela => ({
@@ -41,5 +41,14 @@ describe('tela da tarefa (D7, D11, D12)', () => {
     expect(rotuloQuem({ quem: 'pessoa', nome: 'Cláudia', texto: '', criadoEm: '' }, 'x')).toBe('Cláudia');
     expect(nomeDoCsv(tarefa({}))).toBe('tarefa-3-rascunho.csv');
     expect(nomeDoCsv(tarefa({ estado: 'aprovada' }))).toBe('tarefa-3-aprovada.csv');
+  });
+});
+
+describe('situação do pedido na tela (Task 4: pedido sem envio há mais de 24 h)', () => {
+  it('"enviando" vira "não enviado" depois de 24 h; antes disso segue enviando', () => {
+    expect(situacaoPedidoNaTela(pend({ pedidoEm: '2026-10-02T11:00:00Z' }), AGORA)).toBe('enviando');
+    expect(situacaoPedidoNaTela(pend({ pedidoEm: '2026-10-01T11:00:00Z' }), AGORA)).toBe('nao_enviado');
+    expect(situacaoPedidoNaTela(pend({ pedidoEm: '2026-10-01T11:00:00Z', pedidoEnviadoEm: '2026-10-01T11:01:00Z' }), AGORA)).toBe('aguardando');
+    expect(situacaoPedidoNaTela(pend({}), AGORA)).toBe('a_pedir');
   });
 });

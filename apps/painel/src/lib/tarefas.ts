@@ -7,13 +7,13 @@ import type { AgenteDeTrabalho, ResumoTarefaDemanda, TarefaTela } from './tarefa
 
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;
 const COLUNAS = `id, numero, estado, motivo_pausa, setor_id, chamado_id, pedido, canal, criado_em, etapas, etapa_atual, resultado, ajuste_pendente,
-  custo_usd, custo_etapas, limite_usd, limite_minutos, segundos_trabalhando, decidida_em, agentes(nome), setores(nome), chamados(numero, titulo),
+  custo_usd, custo_etapas, limite_usd, limite_minutos, segundos_trabalhando, decidida_em, agentes(nome), setores(nome, ativo), chamados(numero, titulo),
   clientes(id, razao_social, nome_fantasia, cnpj), pedidor:usuarios!agente_tarefas_pedida_por_fkey(nome), decisor:usuarios!agente_tarefas_decidida_por_fkey(nome)`;
 type Linha = {
   id: string; numero: number; estado: EstadoTarefa; motivo_pausa: MotivoPausa | null; setor_id: string | null; chamado_id: string; pedido: string;
   canal: TarefaTela['canal']; criado_em: string; etapas: EtapaTarefa[]; etapa_atual: number; resultado: unknown; ajuste_pendente: boolean;
   custo_usd: number; custo_etapas: Record<string, number>; limite_usd: number; limite_minutos: number; segundos_trabalhando: number; decidida_em: string | null;
-  agentes: { nome: string } | null; setores: { nome: string } | null; chamados: { numero: number; titulo: string } | null;
+  agentes: { nome: string } | null; setores: { nome: string; ativo?: boolean } | null; chamados: { numero: number; titulo: string } | null;
   clientes: { id: string; razao_social: string; nome_fantasia: string | null; cnpj: string } | null; pedidor: { nome: string } | null; decisor: { nome: string } | null;
 };
 
@@ -34,7 +34,7 @@ export async function lerTarefa(sb: Sb, id: string): Promise<{ tarefa: TarefaTel
   return {
     semI3: false,
     tarefa: {
-      id: t.id, numero: Number(t.numero), estado: t.estado, motivoPausa: t.motivo_pausa, setorId: t.setor_id, setor: t.setores?.nome ?? null,
+      id: t.id, numero: Number(t.numero), estado: t.estado, motivoPausa: t.motivo_pausa, setorId: t.setor_id, setor: t.setores?.nome ?? null, ...(t.setores?.ativo === false ? { setorAtivo: false } : {}),
       // A RLS de agentes esconde o nome de quem não é dono/administrador: o rótulo vem do setor (como na I2).
       agente: t.agentes?.nome ?? rotuloDoAgente(t.setores?.nome),
       demanda: { id: t.chamado_id, numero: Number(t.chamados?.numero ?? 0), titulo: t.chamados?.titulo ?? '' },
