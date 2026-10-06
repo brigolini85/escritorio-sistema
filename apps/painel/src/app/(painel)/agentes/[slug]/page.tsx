@@ -48,7 +48,8 @@ export default async function VisaoGeral({ params }: { params: Promise<{ slug: s
         <ResumoFerramentas agente={agente} />
       </div>
       <div className="flex flex-col gap-4">
-        {agente.tipos.includes('trabalho') && limites && <LimitesTarefa slug={slug} limites={limites} dono={dono} />}
+        {agente.tipos.includes('trabalho') && limites === 'erro' && <Card className="p-4 text-sm text-muted">Não consegui ler os limites.</Card>}
+        {agente.tipos.includes('trabalho') && limites && limites !== 'erro' && <LimitesTarefa slug={slug} limites={limites} dono={dono} />}
         <OrdemPrioridade />
         <UltimasMudancas mudancas={mudancas} />
       </div>

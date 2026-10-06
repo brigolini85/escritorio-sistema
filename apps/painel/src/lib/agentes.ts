@@ -226,10 +226,12 @@ export function parteI3Aplicada(sb: Sb): Promise<boolean> {
   const memo = i3DaRequisicao();
   return (memo.p ??= Promise.resolve(sb.from('agente_tarefas').select('id').limit(1).then(({ error }) => !semMigracaoI1(error))));
 }
-/** D13: limites das tarefas do agente; null = banco sem a I3. */
-export async function lerLimitesTarefa(sb: Sb, slug: string): Promise<{ usd: number; minutos: number } | null> {
+/** D13: limites das tarefas do agente; null = banco sem a I3; 'erro' = falha real de leitura (já registrada no log). */
+export async function lerLimitesTarefa(sb: Sb, slug: string): Promise<{ usd: number; minutos: number } | null | 'erro'> {
   const { data, error } = await sb.from('agentes').select('tarefa_limite_usd, tarefa_limite_minutos').eq('slug', slug).maybeSingle();
-  if (semMigracaoI1(error) || !data) return null;
+  if (semMigracaoI1(error)) return null;
+  if (error) { console.error('[agentes] limites da tarefa', error); return 'erro'; }
+  if (!data) return null;
   return { usd: Number(data.tarefa_limite_usd), minutos: data.tarefa_limite_minutos };
 }
 

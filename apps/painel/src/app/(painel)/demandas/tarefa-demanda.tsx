@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { variantesBotao } from '@/components/ui/button';
 import { formatarUSD } from '@/lib/formatos';
-import { TEXTO_SETOR_INATIVO, textoDoEstado, type AgenteDeTrabalho, type ResumoTarefaDemanda } from '@/lib/tarefas-tela';
+import { TEXTO_SETOR_INATIVO, algumPodePedir, textoDoEstado, type AgenteDeTrabalho, type ResumoTarefaDemanda } from '@/lib/tarefas-tela';
 import { NovaTarefa } from './nova-tarefa';
 
 /** D21: o bloco "Tarefa do agente <setor>" no painel lateral da demanda. D3: uma tarefa ativa por demanda; F10: setor desativado não cria. */
@@ -23,7 +23,7 @@ export function TarefaNaDemanda({ chamadoId, resumo, agentes, podePedir, setorIn
         </div>
       )}
       {setorInativo && !ativa && <p className="text-xs text-warning">{TEXTO_SETOR_INATIVO}</p>}
-      {!ativa && !setorInativo && podePedir && agentes.length > 0 && <NovaTarefa chamadoId={chamadoId} agentes={agentes} />}
+      {!ativa && !setorInativo && podePedir && algumPodePedir(agentes) && <NovaTarefa chamadoId={chamadoId} agentes={agentes} />}
     </div>
   );
 }

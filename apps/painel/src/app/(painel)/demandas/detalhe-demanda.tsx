@@ -14,7 +14,7 @@ import { variantesBotao } from '@/components/ui/button';
 import { SheetBody, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { Prioridade } from '@/lib/demandas';
 import type { TrabalhoDoAgente } from '@/lib/agente-demanda';
-import type { AgenteDeTrabalho, ResumoTarefaDemanda } from '@/lib/tarefas-tela';
+import { algumPodePedir, type AgenteDeTrabalho, type ResumoTarefaDemanda } from '@/lib/tarefas-tela';
 import { pendenciasCsvBling } from '@/lib/resumo-pedido';
 import { BotaoAssumir, BotoesDemanda, CamposDemanda, EditarDescricao, EditarTitulo, type PessoaSetor } from './acoes-demanda';
 import { abertaPor } from './colunas-demandas';
@@ -102,7 +102,7 @@ export function DetalheDemanda({ demanda: d, comprador, podeConversa, podeCsv, v
             <TrabalhoAgente trabalho={trabalho} podeDecidir={podeDecidirSugestao === true} />
           </Secao>
         ) : null}
-        {tarefa && (tarefa.resumo || tarefa.setorInativo || (tarefa.podePedir && tarefa.agentes.length > 0 && d.status !== 'concluido')) ? (
+        {tarefa && (tarefa.resumo || tarefa.setorInativo || (tarefa.podePedir && algumPodePedir(tarefa.agentes) && d.status !== 'concluido')) ? (
           <Secao titulo={`Tarefa do agente ${d.setor ?? ''}`.trim()}>
             <TarefaNaDemanda chamadoId={d.id} resumo={tarefa.resumo} agentes={d.status === 'concluido' ? [] : tarefa.agentes} podePedir={tarefa.podePedir}
               setorInativo={tarefa.setorInativo === true} />

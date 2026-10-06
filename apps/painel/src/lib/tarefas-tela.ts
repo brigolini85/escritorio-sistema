@@ -23,6 +23,8 @@ export type ResumoTarefaDemanda = {
 };
 export type AgenteDeTrabalho = { id: string; nome: string; estado: 'teste' | 'ligado'; podePedir: boolean; procedimentos: { nome: string; titulo: string; descricao: string }[] };
 
+/** D3: o botão só aparece quando algum agente do setor aceita o pedido desta pessoa (em Teste, só o dono e o administrador). */
+export const algumPodePedir = (agentes: Pick<AgenteDeTrabalho, 'podePedir'>[]): boolean => agentes.some((a) => a.podePedir);
 export const pendenciasAbertas = (t: Pick<TarefaTela, 'pendencias'>): number => t.pendencias.filter((p) => p.estado === 'aberta').length;
 export const podeAprovar = (t: Pick<TarefaTela, 'estado' | 'pendencias'>): boolean => podeAprovarTarefa(t.estado, pendenciasAbertas(t));
 export function textoDoEstado(t: Pick<TarefaTela, 'estado' | 'motivoPausa'>): string {
