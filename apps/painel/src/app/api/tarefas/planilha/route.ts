@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { registrarAuditoria } from '@/lib/auditoria';
 import { planilhaDaTarefa } from '@/lib/planilha-tarefa';
+import { tarefaDoPedidoEscondida } from '@/lib/pedido-nota';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { lerTarefa } from '@/lib/tarefas';
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id') ?? '';
   if (!z.string().uuid().safeParse(id).success) return new NextResponse('Resultado não encontrado ou sem acesso.', { status: 404 });
   const { tarefa } = await lerTarefa(await supabaseServidor(), id);
-  const bytes = tarefa ? planilhaDaTarefa(tarefa) : null;
+  const bytes = tarefa && !tarefaDoPedidoEscondida(u, tarefa) ? planilhaDaTarefa(tarefa) : null;
   if (!tarefa || !bytes) return new NextResponse('Resultado não encontrado ou sem acesso.', { status: 404 });
   await registrarAuditoria(u.id, 'download', 'planilha_tarefa', id);
   return new NextResponse(Buffer.from(bytes), {

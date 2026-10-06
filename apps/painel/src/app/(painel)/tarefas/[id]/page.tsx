@@ -2,6 +2,7 @@ import { SearchX } from 'lucide-react';
 import { PageHeader } from '@/components/patterns/page-header';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { Card } from '@/components/ui/card';
+import { tarefaDoPedidoEscondida } from '@/lib/pedido-nota';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { lerPedidoDaTarefa, lerTarefa } from '@/lib/tarefas';
@@ -22,7 +23,7 @@ export default async function PaginaTarefa({ params }: { params: Promise<{ id: s
   if (semI3) {
     return <p className="rounded-md border border-warning bg-warning-soft px-4 py-3 text-sm text-warning">As tarefas aparecem quando a atualização do banco da Parte I3 for aplicada.</p>;
   }
-  if (!t) return <EmptyState icone={SearchX} titulo="Não encontrei esta tarefa." descricao="Ela pode ser de um setor que você não atende." />;
+  if (!t || tarefaDoPedidoEscondida(u, t)) return <EmptyState icone={SearchX} titulo="Não encontrei esta tarefa." descricao="Ela pode ser de um setor que você não atende." />;
   const setorInativo = t.setorAtivo === false;
   const podeMexer = !setorInativo && (u.papel === 'admin' || (t.setorId !== null && u.setores.includes(t.setorId)));
   return (

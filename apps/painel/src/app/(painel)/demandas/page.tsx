@@ -261,7 +261,8 @@ async function lerDemanda(sb: Sb, id: string, verPedidos: boolean): Promise<{ de
     },
     comprador: (comprador as CompradorCadastrado | null) ?? null,
     trabalho,
-    tarefa: daTarefa.semI3 ? null : { resumo: daTarefa.tarefa, pedir, empresas, drive: { pasta: !!pasta?.pasta, configurado: !!situacao.situacao?.email, erro: !!situacao.situacao?.erro || situacao.erro } },
+    // Revisão geral (painel I2): sem acesso a pedidos, nem o bloco da tarefa nem o "Pedir ao agente" de um pedido de nota.
+    tarefa: daTarefa.semI3 || semPedido ? null : { resumo: daTarefa.tarefa, pedir, empresas, drive: { pasta: !!pasta?.pasta, configurado: !!situacao.situacao?.email, erro: !!situacao.situacao?.erro || situacao.erro } },
     contatos: (vinculos ?? []).map((v) => ({ id: v.contatos.id, nome: v.contatos.nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
   };
 }

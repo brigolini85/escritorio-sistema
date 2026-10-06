@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { semMigracaoI1 } from '@/lib/agentes';
 import { registrarAuditoria } from '@/lib/auditoria';
+import { ehPedidoDeNota } from '@/lib/pedido-nota';
+import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -25,6 +27,12 @@ export async function GET(req: NextRequest) {
   if (!a) return new NextResponse(NAO_ACHEI, { status: 404 });
   const { data: veTarefa } = await sb.rpc('pode_ver_tarefa', { p_tarefa: a.tarefa_id });
   if (veTarefa !== true) return new NextResponse(NAO_ACHEI, { status: 404 });
+  // Revisão geral (painel I2): demanda "NF de ..." (ou com pedido salvo) só para quem vê pedidos de nota, como no resto do painel.
+  if (!temNivel(u, 'notas', 'ver')) {
+    const { data: t } = await sb.from('agente_tarefas').select('chamados(titulo, pedido_venda)').eq('id', a.tarefa_id).maybeSingle();
+    const c = (t as { chamados: { titulo: string | null; pedido_venda: unknown } | null } | null)?.chamados;
+    if (!c || ehPedidoDeNota(c)) return new NextResponse(NAO_ACHEI, { status: 404 });
+  }
   if (a.removido_em != null) return new NextResponse('O arquivo foi apagado pela guarda dos arquivos das tarefas.', { status: 410 });
   if (a.origem === 'conversa') {
     // O anexo da conversa só sai para quem vê aquela conversa (a RLS das mensagens decide); sem a mensagem, ninguém baixa.

@@ -3,18 +3,19 @@ import { ehResultadoTarefa, tarefaAtiva, type EstadoTarefa, type EtapaTarefa, ty
 import { rotuloDoAgente } from '@/lib/agente-demanda';
 import { semMigracaoI1 } from '@/lib/agentes';
 import { lerDriveDaTarefa } from '@/lib/drive';
+import { ehPedidoDeNota } from '@/lib/pedido-nota';
 import type { supabaseServidor } from '@/lib/supabase/servidor';
 import { ehMotivoSegurado, type AgenteDeTrabalho, type MotivoSegurado, type PedidoDaTarefa, type ResumoTarefaDemanda, type TarefaTela } from './tarefas-tela';
 
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;
 const COLUNAS = `id, numero, estado, motivo_pausa, setor_id, chamado_id, pedido, canal, criado_em, etapas, etapa_atual, resultado, ajuste_pendente,
-  custo_usd, custo_etapas, limite_usd, limite_minutos, segundos_trabalhando, decidida_em, agentes(nome), setores(nome, ativo), chamados(numero, titulo),
+  custo_usd, custo_etapas, limite_usd, limite_minutos, segundos_trabalhando, decidida_em, agentes(nome), setores(nome, ativo), chamados(numero, titulo, pedido_venda),
   clientes(id, razao_social, nome_fantasia, cnpj), pedidor:usuarios!agente_tarefas_pedida_por_fkey(nome), decisor:usuarios!agente_tarefas_decidida_por_fkey(nome)`;
 type Linha = {
   id: string; numero: number; estado: EstadoTarefa; motivo_pausa: MotivoPausa | null; setor_id: string | null; chamado_id: string; pedido: string;
   canal: TarefaTela['canal']; criado_em: string; etapas: EtapaTarefa[]; etapa_atual: number; resultado: unknown; ajuste_pendente: boolean;
   custo_usd: number; custo_etapas: Record<string, number>; limite_usd: number; limite_minutos: number; segundos_trabalhando: number; decidida_em: string | null;
-  agentes: { nome: string } | null; setores: { nome: string; ativo?: boolean } | null; chamados: { numero: number; titulo: string } | null;
+  agentes: { nome: string } | null; setores: { nome: string; ativo?: boolean } | null; chamados: { numero: number; titulo: string; pedido_venda?: unknown } | null;
   clientes: { id: string; razao_social: string; nome_fantasia: string | null; cnpj: string } | null; pedidor: { nome: string } | null; decisor: { nome: string } | null;
 };
 
@@ -50,7 +51,7 @@ export async function lerTarefa(sb: Sb, id: string): Promise<{ tarefa: TarefaTel
       id: t.id, numero: Number(t.numero), estado: t.estado, motivoPausa: t.motivo_pausa, setorId: t.setor_id, setor: t.setores?.nome ?? null, ...(t.setores?.ativo === false ? { setorAtivo: false } : {}),
       // A RLS de agentes esconde o nome de quem não é dono/administrador: o rótulo vem do setor (como na I2).
       agente: t.agentes?.nome ?? rotuloDoAgente(t.setores?.nome),
-      demanda: { id: t.chamado_id, numero: Number(t.chamados?.numero ?? 0), titulo: t.chamados?.titulo ?? '' },
+      demanda: { id: t.chamado_id, numero: Number(t.chamados?.numero ?? 0), titulo: t.chamados?.titulo ?? '', pedidoDeNota: ehPedidoDeNota({ titulo: t.chamados?.titulo ?? null, pedido_venda: t.chamados?.pedido_venda }) },
       empresa: t.clientes ? { id: t.clientes.id, nome: t.clientes.nome_fantasia ?? t.clientes.razao_social, cnpj: t.clientes.cnpj } : null,
       pedido: t.pedido, pedidaPor: t.pedidor?.nome ?? null, canal: t.canal, criadoEm: t.criado_em, etapas: t.etapas ?? [], etapaAtual: t.etapa_atual,
       resultado: ehResultadoTarefa(t.resultado) ? t.resultado : null, ajustePendente: t.ajuste_pendente, custoUsd: Number(t.custo_usd),
