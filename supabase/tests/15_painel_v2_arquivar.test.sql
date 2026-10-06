@@ -1,7 +1,7 @@
 -- supabase/tests/15_painel_v2_arquivar.test.sql
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(60);
+select plan(61);
 
 -- Pessoas: admin, Bia (editar_clientes), Ana (sem permissão), Inativa (tinha editar_clientes), Zeca (responsável por demanda aberta), Novo (nunca usou).
 insert into auth.users (id, email) values
@@ -108,8 +108,11 @@ select lives_ok($$ select public.arquivar_cadastro('cliente', '15000000-0000-000
 -- 20b. Arquivar de novo o que já está arquivado (dois cliques, duas abas) não muda nada.
 select lives_ok($$ select public.arquivar_cadastro('cliente', '15000000-0000-0000-0000-000000000001') $$,
   'arquivar o que já está arquivado não quebra');
-select lives_ok($$ update public.produtos set ativo = false where id = '15300000-0000-0000-0000-000000000003' $$,
-  'desativar pelo ativo (caminho antigo) continua valendo');
+-- Revisão geral I3 (20261027000300): o caminho antigo (ativo direto pela tabela) passou a ser recusado; arquiva pela função.
+select throws_ok($$ update public.produtos set ativo = false where id = '15300000-0000-0000-0000-000000000003' $$,
+  'P0001', 'Arquive ou restaure pelo botão Arquivar/Restaurar.', 'desativar pelo ativo (caminho antigo) é recusado');
+select lives_ok($$ select public.arquivar_cadastro('produto', '15300000-0000-0000-0000-000000000003') $$,
+  'arquivar o produto pela função');
 
 reset role;
 -- 22 a 24.
