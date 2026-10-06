@@ -34,7 +34,7 @@ export function BlocoArquivos({ clienteId, pasta, situacao, podeEditar, semI3b, 
     toast.success(r.pasta ? 'Pasta no Drive salva.' : 'Pasta no Drive removida.');
   });
   return (
-    <section id="bloco-arquivos" aria-labelledby="titulo-arquivos" className="scroll-mt-4 rounded-lg border border-border bg-surface p-5">
+    <section id="bloco-arquivos" data-bloco="arquivos" aria-labelledby="titulo-arquivos" className="scroll-mt-4 rounded-lg border border-border bg-surface p-5">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 id="titulo-arquivos" tabIndex={-1} className="text-sm font-extrabold uppercase tracking-wide text-brand">Arquivos</h2>
         <Badge variant="neutral"><LockKeyhole aria-hidden size={12} />só leitura</Badge>

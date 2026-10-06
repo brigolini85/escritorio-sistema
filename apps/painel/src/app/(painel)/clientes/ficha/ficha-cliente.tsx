@@ -11,7 +11,7 @@ import { buscarCep, buscarCnpj, salvarFicha } from './acoes';
 import { BlocoCertificado, BlocoContrato, BlocoResponsaveis } from './blocos-contrato';
 import { BlocoContato, BlocoEndereco, BlocoIdentificacao, type Busca } from './blocos-empresa';
 import {
-  estadoDosBlocos, mensagemBusca, textoPreenchido, valoresDe, valoresDoCliente, type ClienteFicha, type EstadoFicha, type ValoresFicha,
+  estadoDosBlocos, mensagemBusca, textoPreenchido, valoresDe, valoresDoCliente, type ClienteFicha, type EstadoFicha, type EstadoBloco, type ValoresFicha,
 } from './ficha';
 import { IndiceFicha } from './indice-ficha';
 import { BlocoFiscal } from './inscricoes-st';
@@ -31,6 +31,8 @@ export type PropsFicha = {
   acessos: ReactNode;
   /** Bloco Arquivos (Parte I3b): salva sozinho, como os acessos. */
   arquivos?: ReactNode;
+  /** Estado do bloco Arquivos no índice (pasta do Drive ligada ou não). */
+  estadoArquivos?: EstadoBloco;
   ultimaAlteracao: string | null;
   /** "Agora" do servidor: as pendências saem iguais no servidor e no navegador. */
   agora: string;
@@ -46,7 +48,7 @@ export function FichaCliente(props: PropsFicha) {
   return <Formulario key={versao} {...props} aoCancelar={() => setVersao((v) => v + 1)} />;
 }
 
-function Formulario({ cliente, servicos, contratados, setores, pessoas, responsaveis, inscricoesSt, pode, admin, acessos, arquivos, ultimaAlteracao, agora, aoCancelar }:
+function Formulario({ cliente, servicos, contratados, setores, pessoas, responsaveis, inscricoesSt, pode, admin, acessos, arquivos, estadoArquivos, ultimaAlteracao, agora, aoCancelar }:
   PropsFicha & { aoCancelar: () => void }) {
   const router = useRouter();
   const caixa = useRef<HTMLDivElement>(null);
@@ -57,7 +59,8 @@ function Formulario({ cliente, servicos, contratados, setores, pessoas, responsa
   const [enviando, iniciar] = useTransition();
   const [valores, setValores] = useState<ValoresFicha>(() => valoresDoCliente(cliente, inscricoesSt, Object.keys(responsaveis).length));
   const quando = useMemo(() => new Date(agora), [agora]);
-  const estados = estadoDosBlocos(valores, quando);
+  const estadosBase = estadoDosBlocos(valores, quando);
+  const estados = { ...estadosBase, arquivos: estadoArquivos ?? estadosBase.arquivos };
   const erros = estado && !estado.ok ? estado.erros : {};
   const [cnpj, setCnpj] = useState<Status>(PARADO);
   const [cep, setCep] = useState<Status>(PARADO);
@@ -184,7 +187,7 @@ function Formulario({ cliente, servicos, contratados, setores, pessoas, responsa
           </p>
         )}
         <div className="flex items-start gap-5">
-          <IndiceFicha estados={estados} />
+          <IndiceFicha estados={estados} ocultar={arquivos ? [] : ['arquivos']} />
           {/* Container: os pares de blocos só ficam lado a lado quando a coluna tem largura para os campos (não cabem a 1366). */}
           <div className="@container flex min-w-0 flex-1 flex-col gap-4">
             <BlocoIdentificacao c={cliente} erros={erros} pode={pode} admin={admin} busca={buscaCnpj} />

@@ -220,11 +220,12 @@ export function lerFicha(f: FormData, opcoes: { admin: boolean }): LeituraFicha 
 
 // ---------- Índice (D28) ----------
 
-export type Bloco = 'identificacao' | 'endereco' | 'contato' | 'fiscal' | 'contrato' | 'responsaveis' | 'certificado' | 'acessos';
+export type Bloco = 'identificacao' | 'endereco' | 'contato' | 'fiscal' | 'contrato' | 'responsaveis' | 'certificado' | 'acessos' | 'arquivos';
 export const BLOCOS: { id: Bloco; rotulo: string }[] = [
   { id: 'identificacao', rotulo: 'Identificação' }, { id: 'endereco', rotulo: 'Endereço' }, { id: 'contato', rotulo: 'Contato' },
   { id: 'fiscal', rotulo: 'Fiscal' }, { id: 'contrato', rotulo: 'Contrato e honorários' }, { id: 'responsaveis', rotulo: 'Responsáveis' },
   { id: 'certificado', rotulo: 'Certificado digital' }, { id: 'acessos', rotulo: 'Acessos de portais' },
+  { id: 'arquivos', rotulo: 'Arquivos' },
 ];
 export type EstadoBloco =
   | { tipo: 'completo' } | { tipo: 'pendente'; n: number } | { tipo: 'vence'; dias: number }
@@ -281,6 +282,9 @@ export function estadoCertificado(tipo: string | undefined, vencimento: string |
   return { tipo: 'completo' };
 }
 
+/** Arquivos (I3b): pasta do Drive ligada = completo; sem pasta, nada a dizer. */
+export const estadoArquivos = (pasta: string | null): EstadoBloco => (pasta ? { tipo: 'completo' } : { tipo: 'neutro' });
+
 export function estadoDosBlocos(v: ValoresFicha, agora: Date): Record<Bloco, EstadoBloco> {
   const faltam = (ks: readonly string[]) => ks.filter((k) => !v.campos[k]).length;
   const pend = (n: number): EstadoBloco => (n ? { tipo: 'pendente', n } : { tipo: 'completo' });
@@ -294,6 +298,7 @@ export function estadoDosBlocos(v: ValoresFicha, agora: Date): Record<Bloco, Est
     responsaveis: v.responsaveis ? { tipo: 'completo' } : { tipo: 'neutro' },
     certificado: estadoCertificado(v.campos.certificado_tipo, v.campos.certificado_vencimento, Number(v.campos.certificado_avisar_dias) || 30, agora),
     acessos: { tipo: 'protegido' },
+    arquivos: { tipo: 'neutro' },
   };
 }
 

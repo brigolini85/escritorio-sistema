@@ -6,7 +6,7 @@ import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { BlocoArquivos } from './bloco-arquivos';
 import { AcessosPortais, type AcessoLinha } from './acessos-portais';
-import { textoUltimaAlteracao, type ClienteFicha } from './ficha';
+import { estadoArquivos, textoUltimaAlteracao, type ClienteFicha } from './ficha';
 import { FichaCliente } from './ficha-cliente';
 
 /**
@@ -80,6 +80,7 @@ export async function DadosFicha({ c, u }: { c: ClienteFicha | null; u: UsuarioP
       ultimaAlteracao={textoUltimaAlteracao(ultima)}
       // key: o elemento vem do servidor e entra ao lado do bloco Certificado no Formulario; sem ela o React avisa "unique key".
       acessos={<AcessosPortais key="acessos" clienteId={c?.id ?? null} acessos={acessos} podeVer={verAcessos} podeEditar={pode && verAcessos} cofreOk={cofreConfigurado()} />}
+      estadoArquivos={estadoArquivos(pastaDrive.pasta)}
       arquivos={<BlocoArquivos key="arquivos" clienteId={c?.id ?? null} pasta={pastaDrive.pasta} situacao={drive.situacao}
         podeEditar={pode} semI3b={pastaDrive.semI3b || drive.semI3b} erroLeitura={pastaDrive.erro} erroSituacao={drive.erro} />}
     />
