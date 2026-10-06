@@ -2,12 +2,13 @@ import { randomUUID } from 'node:crypto';
 import type Anthropic from '@anthropic-ai/sdk';
 import { calcularCustoUsd, usoDaResposta, type ModoContato } from '@escritorio/core';
 import type { AgenteSetor } from '@escritorio/db';
+import { enviarDoSistema } from '../envio';
 import { FERRAMENTA_CHAMAR_AGENTE } from './agentes-setor';
 import type { ParametrosIa } from './cliente-ia';
 import type { ContextoAgente } from './contexto';
 import { ferramentasDoAgenteSetor, montarBlocosEspecialista } from './especialista';
 import {
-  NOMES_FERRAMENTAS, executarFerramenta, falha, type DepsAgente, type Devolucao, type EstadoExecucao, type ExecutorFerramentas, type Resultado,
+  NOMES_FERRAMENTAS, executarFerramenta, falha, ok, type DepsAgente, type Devolucao, type EstadoExecucao, type ExecutorFerramentas, type Resultado,
 } from './ferramentas';
 import { LIMITE_ORIENTACOES } from './orientacoes';
 import { ferramentasDoPerfil, modeloDoPerfil, perfilDoContexto } from './perfil';
@@ -78,6 +79,23 @@ async function registrarCortes(d: DepsAgente, ctx: ContextoAgente, cortadas: str
   });
 }
 
+/**
+ * Sobra da I2 (D24e): com a trava ligada (o agente do setor já respondeu), o Thiago não pode mandar o aviso de fora do expediente que
+ * abrir_chamado devolve; o sistema manda o texto da configuração, uma vez, e o resultado diz ao Thiago que já foi.
+ */
+async function avisoForaPeloSistema(d: DepsAgente, estado: EstadoExecucao, r: Resultado): Promise<Resultado> {
+  if (r.erro || estado.agenteSetor || !estado.agenteRespondeu || estado.avisoForaEnviado) return r;
+  const dados = JSON.parse(r.resultado) as Record<string, unknown>;
+  const aviso = typeof dados.aviso_para_o_cliente === 'string' ? dados.aviso_para_o_cliente.trim() : '';
+  if (!aviso) return r;
+  await enviarDoSistema(d.envio, {
+    conversaId: estado.ctx.conversa.id, telefone: estado.ctx.conversa.telefone, clienteId: estado.ctx.empresaEmFoco?.id ?? null,
+    autor: 'agente', texto: aviso, turnoAgente: estado.turno ?? null,
+  });
+  estado.avisoForaEnviado = true;
+  return ok({ ...dados, aviso_para_o_cliente: null, aviso_ja_enviado: true });
+}
+
 /** Uma ferramenta pedida pelo modelo: chamar_agente, as do modo, as duas travas do por trás, o perfil e o acesso ao setor (D7). */
 async function despachar(
   d: DepsAgente, estado: EstadoExecucao, u: Anthropic.ToolUseBlock, liberadas: Set<string>, executor: ExecutorFerramentas, rodar: RodarEspecialista,
@@ -86,14 +104,15 @@ async function despachar(
   if (estado.agenteSetor && NOMES_MODO.has(u.name) && liberadas.has(u.name)) return ferramentaDoModo(d, estado, u.name, u.input);
   if (estado.modo === 'por_tras' && ENVIAM.has(u.name)) return falha(AVISOS_AGENTE.porTrasNaoEnvia);
   // O agente do setor já falou com o cliente e devolveu: o Thiago não manda outra mensagem nesta vez (abrir_chamado segue livre).
-  if (!estado.agenteSetor && estado.agenteRespondeu && ENVIAM.has(u.name)) return falha(AVISOS_AGENTE.jaRespondeuDevolveu);
+  if (!estado.agenteSetor && estado.agenteRespondeu && ENVIAM.has(u.name)) return falha(estado.avisoTrava ?? AVISOS_AGENTE.jaRespondeuDevolveu);
   // Ferramenta conhecida fora do perfil não roda (D15 da I1); nome desconhecido segue o caminho de sempre (o executor recusa).
   if (NOMES_FERRAMENTAS.has(u.name) && !liberadas.has(u.name)) return falha(`Ferramenta não liberada para este agente: ${u.name}.`);
   if (estado.agenteSetor && !SEM_CONFERIR_ACESSO.has(u.name)) {
     const recusa = await conferirAcessoDoSetor(d, estado);
     if (recusa) return recusa;
   }
-  return executor(d, estado, u.name, u.input);
+  const r = await executor(d, estado, u.name, u.input);
+  return u.name === 'abrir_chamado' ? avisoForaPeloSistema(d, estado, r) : r;
 }
 
 /** `executor`: a simulação troca as ferramentas que gravam ou enviam. `opcoes.papel`: o agente do setor (Parte I2); sem ele, o Thiago. */

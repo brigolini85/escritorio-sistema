@@ -26,6 +26,8 @@ export type EstadoExecucao = {
   /** O que o cliente mandou nesta vez: vai junto para o agente do setor que o Thiago chamar (D1). */ conteudo?: Anthropic.ContentBlockParam[];
   /** Uma chamada de agente por vez (D16). */ chamouAgente?: boolean;
   /** O agente chamado já respondeu ao cliente e devolveu (ou não conseguiu): o Thiago não envia mais nada nesta vez. */ agenteRespondeu?: boolean;
+  /** O aviso que a trava devolve ao Thiago (D24d); sem ele, AVISOS_AGENTE.jaRespondeuDevolveu. */ avisoTrava?: string;
+  /** O aviso de fora do expediente já saiu pelo sistema nesta vez (D24e). */ avisoForaEnviado?: boolean;
   /** Fim da parte do agente do setor: a resposta para o Thiago (por trás) ou a devolução (D4, D6). */ devolucao?: Devolucao; devolvido?: string;
   /** O acesso do contato ao setor do agente já foi conferido nesta execução (D7). */ acessoSetorConferido?: boolean;
 };
@@ -382,6 +384,17 @@ async function exigirFluxoNota(d: DepsAgente, estado: EstadoExecucao, clienteId:
   return podeFluxoNota(acesso, fiscal) ? null : ok({ instrucao: AVISOS.semFluxoNota });
 }
 
+/** Sobra da I2 (D24b): a demanda do setor que o próprio contato vê (demandas_para_contato); na simulação, as abertas da empresa. */
+async function demandaQueOContatoVe(d: DepsAgente, estado: EstadoExecucao, clienteId: string, setorId: string, numero: number) {
+  const dem = await d.repos.demandaDoSetor(clienteId, setorId, numero);
+  if (!dem) return null;
+  const { ctx } = estado;
+  const visiveis: { numero: number | string }[] = ctx.acessoFixo
+    ? await d.repos.chamadosAbertosDoCliente(clienteId)
+    : await d.repos.demandasParaContato(ctx.contato!.id, clienteId, ctx.conversa.id);
+  return visiveis.some((c) => Number(c.numero) === dem.numero) ? dem : null;
+}
+
 export function avisoForaDoHorario(ctx: ContextoAgente): string | null {
   return ctx.noExpediente ? null : formatarMensagem(ctx.config.mensagens.fora_do_horario ?? '', ctx.config.expediente as never);
 }
@@ -721,7 +734,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       // Comprador (CNPJ, endereço) e preços são do fluxo de nota, como em consultar_cadastro e consultar_preco: só a instrução, nada ao cliente.
       const semNota = await exigirFluxoNota(d, estado, e.clienteId);
       if (semNota) return semNota;
-      const dem = await d.repos.demandaDoSetor(e.clienteId, a.setorId, entrada.numero);
+      const dem = await demandaQueOContatoVe(d, estado, e.clienteId, a.setorId, entrada.numero);
       if (!dem) return falha(AVISOS_SETOR.demandaNaoEncontrada);
       if (!dem.temPedido) return falha(AVISOS_SETOR.semPedido);
       const analise = (await d.repos.preAnaliseDaDemanda(dem.id)) ?? (await calcularPreAnalise(d, dem.id, ctx.agora));
@@ -736,8 +749,14 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
       if ((await acessoAoSetor(d, estado, e.clienteId, a.setorId)).situacao !== 'ok') return falha(AVISOS_AGENTE.semAcesso);
-      const dem = await d.repos.demandaDoSetor(e.clienteId, a.setorId, entrada.numero);
+      const dem = await demandaQueOContatoVe(d, estado, e.clienteId, a.setorId, entrada.numero);
       if (!dem) return falha(AVISOS_SETOR.demandaNaoEncontrada);
+      // Sobra da I2 (D24c): demanda com pedido de nota segue o fluxo de nota do contato, como conferir_pedido_nota.
+      if (dem.temPedido) {
+        const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+        if (semNota) return semNota;
+      }
+      // Só defensivo depois da D24b: demandas_para_contato e chamadosAbertosDoCliente já deixam a concluída de fora.
       if (dem.status === 'concluido') return falha(AVISOS_SETOR.concluida);
       const conteudo = nome === 'nota_interna'
         ? { texto: entrada.texto }

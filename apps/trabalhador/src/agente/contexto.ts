@@ -24,6 +24,8 @@ export type ContextoAgente = {
   agentesSetor?: AgenteSetor[];
   /** Parte I2 (D6): o agente que está conduzindo esta conversa ("Passa a conversa"), se ainda vale. */
   conducao?: AgenteSetor | null;
+  /** Sobra da I2 (D24f): o agente que acabou de devolver a condução (sai da lista do Thiago, mas a pré-análise ainda o acha). */
+  agenteDevolvido?: AgenteSetor | null;
   /** Parte I3a (D26): pedidos de pendência já enviados a este contato e ainda abertos. Ausente quando não há (o Thiago de antes). */
   pedidosAoContato?: PedidoAoContato[];
 };

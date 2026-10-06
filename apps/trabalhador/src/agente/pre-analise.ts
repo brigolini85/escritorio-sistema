@@ -13,7 +13,8 @@ export async function calcularPreAnalise(d: Pick<DepsAgente, 'repos'>, chamadoId
  * liberada, grava a pré-análise na demanda (D9). Nunca derruba o pedido: ele já foi para o setor e a pessoa confere como sempre.
  */
 export async function preAnaliseNaAbertura(d: DepsAgente, estado: EstadoExecucao, chamadoId: string, setorId: string): Promise<void> {
-  const agente = (estado.ctx.agentesSetor ?? []).find((a) => a.setorId === setorId && a.ferramentas.includes('conferir_pedido_nota'));
+  const candidatos = [...(estado.ctx.agentesSetor ?? []), ...(estado.ctx.agenteDevolvido ? [estado.ctx.agenteDevolvido] : [])];
+  const agente = candidatos.find((a) => a.setorId === setorId && a.ferramentas.includes('conferir_pedido_nota'));
   if (!agente) return;
   try {
     // Dentro do try: até a conferência pode lançar (data inválida no diaMes do core) e o pedido já está aberto.

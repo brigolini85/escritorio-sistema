@@ -1,4 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
+import type { AgenteSetor } from '@escritorio/db';
 import type { ContextoAgente } from './contexto';
 import { executarAgente, type ResultadoAgente } from './executar';
 import type { DepsAgente } from './ferramentas';
@@ -21,7 +22,7 @@ export async function atenderComAgentes(d: DepsAgente, ctx: ContextoAgente, cont
     // Sem conseguir encerrar, o Thiago atende mesmo assim (F9/F10); a próxima mensagem confere e tenta de novo.
     await d.repos.encerrarConducao(ctx.conversa.id, 'o contato não trata deste setor')
       .catch((e) => console.error('[agente] condução não encerrada; o Thiago atende', ctx.conversa.id, e));
-    return executarAgente(d, semAgente(ctx, a.id), conteudo);
+    return executarAgente(d, semAgente(ctx, a), conteudo);
   }
   let r: ResultadoAgente;
   try {
@@ -34,15 +35,20 @@ export async function atenderComAgentes(d: DepsAgente, ctx: ContextoAgente, cont
   }
   if (r.status === 'ok') return { status: 'ok' };
   if (r.status === 'escalar') {
-    await d.repos.encerrarConducao(ctx.conversa.id, 'passou para a equipe');
+    await d.repos.encerrarConducao(ctx.conversa.id, 'passou para a equipe')
+      .catch((e) => console.error('[agente] condução não encerrada; segue', ctx.conversa.id, e));
     return r;
   }
-  await d.repos.encerrarConducao(ctx.conversa.id, r.motivo);
+  await d.repos.encerrarConducao(ctx.conversa.id, r.motivo)
+    .catch((e) => console.error('[agente] condução não encerrada; o Thiago atende', ctx.conversa.id, e));
   // Já respondeu ao cliente nesta vez e devolveu ("assunto acabou"): o Thiago não responde de novo à mesma mensagem.
   if (r.respondeu) return { status: 'ok' };
-  return executarAgente(d, semAgente(ctx, a.id), conteudo);
+  return executarAgente(d, semAgente(ctx, a), conteudo);
 }
 
-/** O mesmo contexto sem o agente que acabou de devolver (D16); o objeto é novo, mas a conversa e a empresa são as mesmas. */
-const semAgente = (ctx: ContextoAgente, id: string): ContextoAgente =>
-  ({ ...ctx, conducao: null, agentesSetor: (ctx.agentesSetor ?? []).filter((x) => x.id !== id) });
+/**
+ * O mesmo contexto sem o agente que acabou de devolver (D16); o objeto é novo, mas a conversa e a empresa são as mesmas.
+ * Sobra da I2 (D24f): ele fica lembrado em `agenteDevolvido`, para a pré-análise da demanda que o Thiago abrir ainda o achar.
+ */
+const semAgente = (ctx: ContextoAgente, a: AgenteSetor): ContextoAgente =>
+  ({ ...ctx, conducao: null, agentesSetor: (ctx.agentesSetor ?? []).filter((x) => x.id !== a.id), agenteDevolvido: a });

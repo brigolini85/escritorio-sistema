@@ -23,6 +23,8 @@ export const AVISOS_AGENTE = {
   /** Revisão da Task 9: o agente já falou com o cliente e depois devolveu ou não conseguiu; o Thiago não manda outra mensagem (trava em despachar). */
   jaRespondeuDevolveu: 'O agente do setor já respondeu ao cliente e devolveu o assunto. Não mande mensagem ao cliente nesta vez; '
     + 'se ele indicou algo para a equipe, só abra a demanda no setor dele (abrir_chamado), sem responder.',
+  /** Sobra da I2 (D24d): Passa a conversa deu certo; o agente já falou e segue com o cliente. */
+  conduzindo: 'A conversa passou para o agente do setor, que já respondeu ao cliente. Não mande mensagem ao cliente nesta vez.',
 };
 
 export const NOMES_MODO: ReadonlySet<string> = new Set(['devolver_resposta', 'devolver_ao_thiago']);
@@ -108,8 +110,11 @@ export async function chamarAgente(d: DepsAgente, estado: EstadoExecucao, entrad
           await d.repos.encerrarConducao(ctx.conversa.id, r.status === 'devolvido' ? r.motivo : NAO_CONSEGUIU_SEGUIR);
         }
         if (r.respondeu) estado.respondeu = true;
-        // Só quando devolveu ou não conseguiu: no `ok` de Mesma voz o Thiago ainda pode tratar outro assunto da mensagem (AVISOS_AGENTE.mesmaVoz).
-        if (r.respondeu && r.status !== 'ok') estado.agenteRespondeu = true;
+        // Devolveu, não conseguiu, ou passou a conversa: o Thiago não manda outra mensagem nesta vez (no ok de Mesma voz ele ainda trata outro assunto).
+        if (r.respondeu && (r.status !== 'ok' || modo === 'passa_conversa')) {
+          estado.agenteRespondeu = true;
+          if (r.status === 'ok') estado.avisoTrava = AVISOS_AGENTE.conduzindo;
+        }
         saida = ok(resultadoParaThiago(agente, modo, r));
       }
     }
