@@ -84,16 +84,17 @@ select lives_ok($$ select public.reabrir_demanda('19300000-0000-0000-0000-000000
 select results_eq($$ select status::text, concluido_em, prazo_em from public.chamados where id = '19300000-0000-0000-0000-000000000001' $$,
   $$ values ('aberto', null::timestamptz, public.calcular_prazo('urgente', now())) $$, 'reabrir: Nova, sem concluido_em, prazo novo');
 
--- 19-20: cada ação gerou o seu evento.
+-- 19-20: cada ação gerou o seu evento (a transferência Bia -> Ana também grava responsavel_alterado: revisão geral I2).
 select results_eq(
   $$ select tipo, count(*)::int from public.chamado_eventos where chamado_id = '19300000-0000-0000-0000-000000000001' group by tipo order by tipo $$,
   $$ values ('assumido', 1), ('conclusao', 1), ('criacao', 1), ('editado', 1), ('nota_interna', 1), ('prazo_alterado', 4),
-            ('prioridade_alterada', 2), ('reaberto', 1), ('responsavel_alterado', 1), ('status_alterado', 1), ('transferencia', 1) $$,
+            ('prioridade_alterada', 2), ('reaberto', 1), ('responsavel_alterado', 2), ('status_alterado', 1), ('transferencia', 1) $$,
   'um evento para cada ação (prazo: sugerido, recalculado, à mão e ao reabrir)');
 select results_eq(
   $$ select tipo, texto from public.chamado_eventos where chamado_id = '19300000-0000-0000-0000-000000000001'
-       and tipo in ('editado', 'responsavel_alterado', 'status_alterado') order by tipo $$,
-  $$ values ('editado', 'título, descrição, contato'), ('responsavel_alterado', 'Bia'), ('status_alterado', 'aguardando_cliente') $$,
+       and tipo in ('editado', 'responsavel_alterado', 'status_alterado') order by tipo, texto $$,
+  $$ values ('editado', 'título, descrição, contato'), ('responsavel_alterado', 'Ana'), ('responsavel_alterado', 'Bia'),
+            ('status_alterado', 'aguardando_cliente') $$,
   'textos dos eventos');
 
 -- 21-22: contato arquivado depois: editar só o título salva; trocar por contato de fora é recusado.
