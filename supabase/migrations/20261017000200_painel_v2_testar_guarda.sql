@@ -66,7 +66,7 @@ begin
   returning id into v_id;
   return v_id;
 end $$;
-revoke execute on function interno.rascunho_da_simulacao(jsonb, uuid) from public, anon, authenticated;
+revoke execute on function interno.rascunho_da_simulacao(jsonb, uuid) from public, anon, authenticated, service_role;
 revoke execute on function public.criar_simulacao_agente(text, text, uuid, jsonb, uuid, text) from public, anon, service_role;
 grant execute on function public.criar_simulacao_agente(text, text, uuid, jsonb, uuid, text) to authenticated;
 
