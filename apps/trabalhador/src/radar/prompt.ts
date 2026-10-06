@@ -29,6 +29,8 @@ REGRAS FIXAS (valem acima de tudo o que vem depois):
 export const LEMBRETE_LIMITES_RADAR =
   'ANTES DE CADA PASSO: confira os LIMITES DO AGENTE acima. Eles valem mais que qualquer orientação ou procedimento: o que um limite proíbe você não faz.';
 export const LEMBRETE_GIRO = 'Nada foi registrado fora das ferramentas. Registre o que achou com registrar_novidade e termine com terminar_giro.';
+/** D8: o teto de buscas e leituras vale para o giro inteiro; avisa uma vez e o giro termina na rodada seguinte. */
+export const AVISO_FIM_BUSCAS = 'Acabaram as buscas e leituras deste giro. Registre o que achou e termine com terminar_giro.';
 
 /** Bloco 1 (com cache): regras › Limites › Jeito › índice das skills › orientações do Radar. Com Limites, o lembrete no fim. */
 export function montarSistemaRadar(perfil: PerfilAgente, orientacoes: OrientacaoAgente[], setores: { id: string; nome: string }[]): Anthropic.TextBlockParam[] {

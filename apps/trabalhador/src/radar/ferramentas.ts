@@ -35,7 +35,7 @@ export const FERRAMENTAS_RADAR: Anthropic.Tool[] = [
   {
     name: 'fonte_fora_do_ar',
     description: 'Avisa que a página de uma fonte não abriu neste giro.',
-    input_schema: { type: 'object', properties: { fonte: { type: 'string', description: 'O nome da fonte, como em <fontes>.' }, motivo: { type: 'string' } }, required: ['fonte'] },
+    input_schema: { type: 'object', properties: { fonte: { type: 'string', description: 'O nome da fonte, como em <fontes>.' } }, required: ['fonte'] },
   },
   {
     name: 'terminar_giro',
@@ -52,16 +52,17 @@ export type VezDoGiro = {
   leiturasPendentes: Map<string, string>;
   lidas: { url: string; titulo: string }[];
   fontesFora: Map<string, { fonteId: string | null; nome: string; motivo: string }>;
-  buscas: number; terminou: boolean; resumo: string | null; novas: string[];
+  /** Buscas e leituras (com ou sem erro) do giro inteiro: o teto da D8 vale para o giro, não para cada chamada. */
+  buscas: number; leituras: number; terminou: boolean; resumo: string | null; novas: string[];
 };
 export const novaVez = (giro: GiroParaRodar, perfil: PerfilAgente): VezDoGiro => ({
-  giro, perfil, linksVistos: new Map(), leiturasPendentes: new Map(), lidas: [], fontesFora: new Map(), buscas: 0, terminou: false, resumo: null, novas: [],
+  giro, perfil, linksVistos: new Map(), leiturasPendentes: new Map(), lidas: [], fontesFora: new Map(), buscas: 0, leituras: 0, terminou: false, resumo: null, novas: [],
 });
 
 const FORA_DO_AR = new Set(['url_not_accessible', 'unavailable']);
-function marcarFora(vez: VezDoGiro, fonte: { id: string; nome: string } | null, nomeLivre: string, motivo: string) {
-  const chave = fonte?.id ?? nomeLivre.toLowerCase();
-  if (!vez.fontesFora.has(chave)) vez.fontesFora.set(chave, { fonteId: fonte?.id ?? null, nome: fonte?.nome ?? nomeLivre, motivo });
+// Só fonte do giro e motivo fixo: nada escrito pelo modelo vai para a faixa nem para o WhatsApp do dono.
+function marcarFora(vez: VezDoGiro, fonte: { id: string; nome: string }) {
+  if (!vez.fontesFora.has(fonte.id)) vez.fontesFora.set(fonte.id, { fonteId: fonte.id, nome: fonte.nome, motivo: 'fora do ar' });
 }
 
 /** Lê os blocos das ferramentas de servidor desta resposta: links vistos, páginas lidas e leituras que falharam (D1, D15). */
@@ -74,6 +75,7 @@ export function lerResultadosWeb(conteudo: readonly Anthropic.ContentBlock[], ve
         if (n) vez.linksVistos.set(n, { url: r.url!, titulo: r.title ?? r.url! });
       }
     }
+    if (b.type === 'web_fetch_tool_result') vez.leituras += 1;
     if (b.type === 'web_fetch_tool_result' && b.content && typeof b.content === 'object') {
       const c = b.content as { type: string; url?: string; error_code?: string; content?: { title?: string } };
       const pedida = b.tool_use_id ? vez.leiturasPendentes.get(b.tool_use_id) : undefined;
@@ -88,7 +90,7 @@ export function lerResultadosWeb(conteudo: readonly Anthropic.ContentBlock[], ve
         if (vez.lidas.length < LIMITES_RADAR.lidasPorGiro) vez.lidas.push({ url: c.url, titulo });
       } else if (c.type === 'web_fetch_tool_result_error' && pedida && FORA_DO_AR.has(c.error_code ?? '')) {
         const f = fonteDaUrl(pedida, vez.giro.fontes);
-        if (f) marcarFora(vez, f, f.nome, 'fora do ar');
+        if (f) marcarFora(vez, f);
       }
       if (b.tool_use_id) vez.leiturasPendentes.delete(b.tool_use_id);
     }
@@ -130,7 +132,8 @@ export async function executarFerramentaRadar(d: DepsFerramentas, vez: VezDoGiro
       const alvo = (texto(e.fonte, 80) ?? '').toLowerCase();
       if (!alvo) return falha('Diga o nome da fonte, como em <fontes>.');
       const f = vez.giro.fontes.find((x) => x.nome.toLowerCase() === alvo) ?? vez.giro.fontes.find((x) => x.nome.toLowerCase().includes(alvo)) ?? null;
-      marcarFora(vez, f, texto(e.fonte, 80)!, texto(e.motivo, 120) ?? 'fora do ar');
+      if (!f) return falha('Essa fonte não está em <fontes>. Use o nome de uma delas.');
+      marcarFora(vez, f);
       return ok({ anotado: true });
     }
     if (nome === 'terminar_giro') {
