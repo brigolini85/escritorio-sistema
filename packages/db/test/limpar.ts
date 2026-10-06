@@ -26,6 +26,11 @@ export async function limparBanco(): Promise<void> {
     if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'agentes' and column_name = 'tarefa_limite_usd') then
       update public.agentes set tarefa_limite_usd = 2, tarefa_limite_minutos = 20;
     end if; end $$`);
+  // Parte I3b: a situação do Drive some e a guarda volta a "nunca apagar" (tabelas de uma linha, fora do truncate).
+  await c.query(`do $$ begin
+    if to_regclass('public.drive_conta') is not null then delete from public.drive_conta; end if;
+    if to_regclass('public.tarefas_guarda') is not null then update public.tarefas_guarda set dias = null, atualizado_por = null; end if;
+    end $$`);
   await c.query("delete from auth.users where email like '%.local'");
   await c.query(`update public.configuracoes set agente_pausado = false, alerta_ia_80_mes = null, teto_ia_usd = 50, telefone_dono = null,
     espera_verde_min = 5, espera_ambar_min = 15`);
@@ -230,4 +235,14 @@ export async function comoPessoa<T = Record<string, unknown>>(usuarioId: string,
   } finally {
     await c.end();
   }
+}
+
+/** Parte I3b: "Pasta no Drive" de um cliente direto no banco local (o painel usa salvar_pasta_drive). */
+export async function definirPastaDriveTeste(clienteId: string, pasta: string | null): Promise<void> {
+  await sqlTeste('update public.clientes set drive_pasta_id = $2 where id = $1', [clienteId, pasta]);
+}
+/** Parte I3b: a situação do Drive como o trabalhador gravaria (só no banco local). */
+export async function situacaoDriveTeste(email: string | null, erro: string | null = null): Promise<void> {
+  await sqlTeste(`insert into public.drive_conta (id, email, erro) values (1, $1, $2)
+    on conflict (id) do update set email = excluded.email, erro = excluded.erro, verificado_em = now()`, [email, erro]);
 }

@@ -131,6 +131,14 @@ const paraSkill = (k: LinhaSkill): SkillCarregada => ({
 });
 /** Banco sem as migrações da Parte I (homologação, D23): tabela, coluna ou função que não existem. */
 const SEM_PARTE_I = new Set(['42P01', '42703', '42883', 'PGRST200', 'PGRST202', 'PGRST204', 'PGRST205']);
+/** Parte I3b (D17): o banco ainda não tem as migrações da I3b (a função ou a tabela não existe). */
+export class SemI3b extends Error {
+  constructor() { super('O banco ainda não tem a Parte I3b.'); }
+}
+export type PastaDaTarefa = {
+  estado: EstadoTarefa; clienteId: string | null; pasta: string | null; outras: string[];
+  importados: { driveId: string; modificadoEm: string | null }[]; total: number;
+};
 /** Orientação ainda não salva incluída num teste (formato conferido por criar_simulacao). `id`: a orientação salva que ela edita (substitui essa no teste). */
 export type RascunhoOrientacao = { id?: string | null; titulo: string; texto: string; tipo: TipoOrientacao; cliente_id: string | null; setor_id: string | null };
 export type SimulacaoAgente = Omit<Linha<'simulacoes_agente'>, 'rascunho' | 'status'> & {
@@ -897,6 +905,76 @@ export function criarRepos(db: Db) {
         });
       }
       return agentes;
+    },
+
+    /** D5: a pasta do cliente da tarefa, as pastas dos outros clientes e o que já foi copiado. Lança SemI3b sem a migração. */
+    async pastaDriveDaTarefa(tarefaId: string): Promise<PastaDaTarefa | null> {
+      const r = await db.rpc('pasta_drive_da_tarefa', { p_tarefa: tarefaId });
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) throw new SemI3b();
+      const j = checar(r, 'pastaDriveDaTarefa') as null | {
+        estado: EstadoTarefa; cliente_id: string | null; pasta: string | null; outras: string[]; total: number;
+        importados: { drive_id: string; modificado_em: string | null }[];
+      };
+      if (!j) return null;
+      return {
+        estado: j.estado, clienteId: j.cliente_id, pasta: j.pasta, outras: j.outras ?? [], total: Number(j.total),
+        // F20: o PostgREST devolve "+00:00"; o repositório promete ISO com "Z" (a mesma forma que o Drive manda).
+        importados: (j.importados ?? []).map((x) => ({
+          driveId: x.drive_id, modificadoEm: x.modificado_em ? new Date(x.modificado_em).toISOString() : null,
+        })),
+      };
+    },
+
+    async registrarArquivoDrive(a: { tarefaId: string; caminho: string; nome: string; mime: string; tamanho: number; driveId: string; modificadoEm: string }):
+      Promise<{ id: string; nome: string }> {
+      const j = checar(await db.rpc('registrar_arquivo_drive', {
+        p_tarefa: a.tarefaId, p_caminho: a.caminho, p_nome: a.nome, p_mime: a.mime, p_tamanho: a.tamanho, p_drive_id: a.driveId, p_modificado: a.modificadoEm,
+      }), 'registrarArquivoDrive') as { id: string; nome: string };
+      return { id: j.id, nome: j.nome };
+    },
+
+    /**
+     * D9, F1: só erro de CONTA (token/401) entra em `erro`; `erro: null` limpa (leitura bem-sucedida); `email: null` mantém o que já estava.
+     * false = banco sem a I3b (o trabalhador avisa uma vez no log e segue).
+     */
+    async registrarSituacaoDrive(s: { email: string | null; erro: string | null }): Promise<boolean> {
+      const r = await db.rpc('registrar_situacao_drive', { p_email: s.email as string, p_erro: s.erro as string });
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return false;
+      checar(r, 'registrarSituacaoDrive');
+      return true;
+    },
+
+    /** D11: o agente do setor para o Testar (com a skill em teste, mesmo desligada). null: não existe, é o Thiago, sem setor ou sem Conversa. */
+    async agenteSetorParaTeste(agenteId: string, skillEmTeste: string | null): Promise<AgenteSetor | null> {
+      const a = checar(await db.from('agentes').select('id, slug, nome, modelo, ferramentas, tipos, estado, modo_contato, porta_de_entrada, setor_id, setores(nome)')
+        .eq('id', agenteId).maybeSingle(), 'agenteSetorParaTeste') as null | {
+        id: string; slug: string; nome: string; modelo: string | null; ferramentas: string[] | null; tipos: string[]; estado: string; modo_contato: unknown;
+        porta_de_entrada: boolean; setor_id: string | null; setores: { nome: string } | null;
+      };
+      if (!a || a.porta_de_entrada || !a.setor_id || !a.tipos.includes('conversa') || !ehModo(a.modo_contato)) return null;
+      const skills = checar(await db.rpc('skills_do_agente', { p_agente: a.id, ...(skillEmTeste ? { p_incluir: skillEmTeste } : {}) }), 'agenteSetorParaTeste.skills');
+      const regras = checar(await db.from('agente_regras_assunto').select('id, assunto, exemplo, modo').eq('agente_id', a.id).order('criado_em'),
+        'agenteSetorParaTeste.regras') as { id: string; assunto: string; exemplo: string | null; modo: unknown }[];
+      return {
+        id: a.id, slug: a.slug, nome: a.nome, modelo: a.modelo, ferramentas: a.ferramentas ?? [], skillEmTeste,
+        skills: (skills as LinhaSkill[]).map(paraSkill), setorId: a.setor_id, setor: a.setores?.nome ?? '',
+        // No teste o estado não importa (o dono testa antes de ligar); o tipo pede 'ligado' | 'teste'.
+        estado: a.estado === 'teste' ? 'teste' : 'ligado', modo: a.modo_contato,
+        regras: regras.flatMap((x) => (ehModo(x.modo) ? [{ id: x.id, assunto: x.assunto, exemplo: x.exemplo ?? '', modo: x.modo }] : [])),
+        orientacoes: await this.orientacoesAtivas(a.id),
+      };
+    },
+
+    /** D14: null = banco sem a I3b. */
+    async arquivosVencidosDasTarefas(limite: number): Promise<{ id: string; caminho: string }[] | null> {
+      const r = await db.rpc('arquivos_vencidos_das_tarefas', { p_limite: limite });
+      if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return null;
+      return (checar(r, 'arquivosVencidosDasTarefas') ?? []).map((x: { id: string; caminho: string }) => ({ id: x.id, caminho: x.caminho }));
+    },
+
+    async marcarArquivosRemovidos(ids: string[]): Promise<number> {
+      if (ids.length === 0) return 0;
+      return Number(checar(await db.rpc('marcar_arquivos_removidos', { p_ids: ids }), 'marcarArquivosRemovidos') ?? 0);
     },
 
     async iniciarConducao(conversaId: string, agenteId: string): Promise<boolean> {
