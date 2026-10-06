@@ -89,6 +89,18 @@ export async function opcoesDaPendenciaCliente(pendenciaId: string): Promise<{ c
 }
 
 /** D14: o arquivo vai ao compartimento "tarefas" com a sessão da pessoa (a regra do Storage confere o setor) e é registrado pela função. */
+/** Só recusa de permissão vira a frase do setor; duplicado e tipo recusado têm frase própria; o resto é a falha comum (já registrada no log). */
+function erroDoUpload(e: { message?: string; statusCode?: string | number; status?: string | number }): string {
+  const codigo = String(e.statusCode ?? e.status ?? '');
+  const m = (e.message ?? '').toLowerCase();
+  if (codigo === '409' || /already exists|duplicate/.test(m)) return 'Já existe um arquivo com esse nome nesta tarefa.';
+  if (codigo === '415' || /mime type|not supported|invalid_mime/.test(m)) return 'Esse tipo de arquivo não é aceito.';
+  if (codigo === '401' || codigo === '403' || /row-level security|unauthorized|not authorized|violates/.test(m)) {
+    return 'Só quem é do setor da demanda envia arquivo para uma tarefa em andamento.';
+  }
+  return FALHA;
+}
+
 export async function enviarArquivoTarefa(tarefaId: string, dados: FormData): Promise<{ ok: true; arquivoId: string } | { ok: false; erro: string }> {
   if (!Uuid.safeParse(tarefaId).success) return NAO_ACHEI;
   const arquivo = dados.get('arquivo');
@@ -100,7 +112,10 @@ export async function enviarArquivoTarefa(tarefaId: string, dados: FormData): Pr
     const sb = await supabaseServidor();
     const caminho = `${tarefaId}/${Date.now()}-${arquivo.name.normalize('NFD').replace(/\p{M}/gu, '').replace(/[^\w.-]+/g, '_').slice(-80)}`;
     const up = await sb.storage.from('tarefas').upload(caminho, arquivo, { contentType: mimeDoArquivo(arquivo.name) });
-    if (up.error) return { ok: false, erro: 'Só quem é do setor da demanda envia arquivo para uma tarefa em andamento.' };
+    if (up.error) {
+      console.error('[tarefas] upload no Storage', tarefaId, up.error);
+      return { ok: false, erro: erroDoUpload(up.error) };
+    }
     const r = await chamar<string>('registrar_arquivo_tarefa', { p_tarefa: tarefaId, p_caminho: caminho, p_nome: arquivo.name, p_mime: mimeDoArquivo(arquivo.name), p_tamanho: arquivo.size });
     if (!r.ok) {
       // A regra do Storage não deixa a pessoa apagar: quem limpa o envio recusado é o serviço (a função já recusou).

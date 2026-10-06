@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const falso = vi.hoisted(() => ({
   erro: null as { code: string; message: string } | null, dados: true as unknown, chamadas: [] as [string, unknown][], revalidados: [] as string[],
-  enfileiradas: [] as unknown[][],
+  enfileiradas: [] as unknown[][], upErro: null as { message: string; statusCode?: string } | null,
 }));
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath: (p: string) => { falso.revalidados.push(p); } }));
@@ -12,14 +12,14 @@ vi.mock('@/lib/fila', () => ({
   enfileirarPedidoPendencia: async (...a: unknown[]) => { falso.enfileiradas.push(['pedido', ...a]); },
 }));
 vi.mock('@/lib/supabase/servidor', () => ({
-  supabaseServidor: async () => ({ rpc: async (nome: string, args: unknown) => { falso.chamadas.push([nome, args]); return { data: falso.dados, error: falso.erro }; } }),
+  supabaseServidor: async () => ({ storage: { from: () => ({ upload: async () => ({ error: falso.upErro }) }) }, rpc: async (nome: string, args: unknown) => { falso.chamadas.push([nome, args]); return { data: falso.dados, error: falso.erro }; } }),
 }));
-vi.mock('@/lib/supabase/servico', () => ({ supabaseServico: () => ({}) }));
+vi.mock('@/lib/supabase/servico', () => ({ supabaseServico: () => ({ storage: { from: () => ({ remove: async () => ({}) }) } }) }));
 const acoes = await import('./tarefas-acoes');
 const T = '11111111-1111-4111-8111-111111111111';
 const P = '22222222-2222-4222-8222-222222222222';
 
-beforeEach(() => { Object.assign(falso, { erro: null, dados: true, chamadas: [], revalidados: [], enfileiradas: [] }); });
+beforeEach(() => { Object.assign(falso, { erro: null, dados: true, chamadas: [], revalidados: [], enfileiradas: [], upErro: null }); });
 
 describe('ações da tarefa (D3, D7, D8, D11)', () => {
   it('criar enfileira a tarefa nova', async () => {
@@ -49,5 +49,23 @@ describe('ações da tarefa (D3, D7, D8, D11)', () => {
   it('id estranho não chega ao banco', async () => {
     expect(await acoes.pausarTarefa('x')).toEqual({ ok: false, erro: 'Tarefa não encontrada.' });
     expect(falso.chamadas).toEqual([]);
+  });
+
+  it('envio de arquivo: cada erro do Storage tem a sua frase e vai para o log', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const envio = () => { const d = new FormData(); d.set('arquivo', new File(['x'], 'extrato.pdf')); return acoes.enviarArquivoTarefa(T, d); };
+    const casos: [{ message: string; statusCode?: string }, string][] = [
+      [{ message: 'new row violates row-level security policy', statusCode: '403' }, 'Só quem é do setor da demanda envia arquivo para uma tarefa em andamento.'],
+      [{ message: 'The resource already exists', statusCode: '409' }, 'Já existe um arquivo com esse nome nesta tarefa.'],
+      [{ message: 'mime type application/x is not supported', statusCode: '415' }, 'Esse tipo de arquivo não é aceito.'],
+      [{ message: 'fetch failed' }, 'Não foi possível salvar agora. Tente de novo.'],
+    ];
+    for (const [erro, frase] of casos) {
+      falso.upErro = erro;
+      expect(await envio()).toEqual({ ok: false, erro: frase });
+    }
+    expect(log).toHaveBeenCalledTimes(4);
+    expect(falso.chamadas).toEqual([]);
+    log.mockRestore();
   });
 });
