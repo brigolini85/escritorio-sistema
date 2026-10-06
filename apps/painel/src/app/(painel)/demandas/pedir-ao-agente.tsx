@@ -40,6 +40,7 @@ export function PedirAoAgente({ chamado, dados, empresas = [], drive }: {
   const empresaFixa = chamado?.empresa ?? null;
   const [empresaEscolhida, setEmpresaEscolhida] = useState('');
   const precisaEmpresa = agente?.destino === 'nova' && !empresaFixa;
+  const escolheEmpresa = !empresaFixa && (precisaEmpresa || !chamado);
   const recusas = arquivosRecusados(arquivos);
   const comDrive = dados.i4 && drive?.configurado && drive.pasta;
 
@@ -49,13 +50,14 @@ export function PedirAoAgente({ chamado, dados, empresas = [], drive }: {
       skill: skill || null, prazo, avisarPainel: painel, avisarWhatsapp: whatsapp, lerDrive: usarDrive, subpasta: mostrarSub ? subpasta : '', i4: dados.i4 });
     if (!r.ok) { toast.error(r.erro); return; }
     // D8: os arquivos sobem antes de o agente começar; o que falhar a pessoa manda na tela da tarefa.
+    // Com a tarefa já criada, uma exceção aqui não pode deixar a janela aberta (outro Enviar criaria outra tarefa).
     for (const f of arquivos) {
       const fd = new FormData();
       fd.set('arquivo', f);
-      const up = await enviarArquivoTarefa(r.tarefaId, fd);
+      const up = await enviarArquivoTarefa(r.tarefaId, fd).catch(() => ({ ok: false as const, erro: 'falha na conexão.' }));
       if (!up.ok) toast.error(`Não enviei ${f.name}: ${up.erro} Envie na tela da tarefa.`);
     }
-    if (dados.i4) await iniciarTarefaPedida(r.tarefaId);
+    if (dados.i4) await iniciarTarefaPedida(r.tarefaId).catch(() => toast.error('O agente começa pelo batimento em alguns minutos.'));
     toast(r.rotulo ? `Tarefa ${r.rotulo} pedida${r.demanda ? ` na demanda #${r.demanda}${r.demandaNova ? ' (nova)' : ''}` : ''}.` : 'Tarefa pedida: o agente começa em instantes.');
     setAberta(false);
     router.push(`/tarefas/${r.tarefaId}`);
@@ -91,12 +93,14 @@ export function PedirAoAgente({ chamado, dados, empresas = [], drive }: {
           </section>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
-              <span id={`${id}-empresa`} className={rotulo}>Empresa</span>
+              {/* Combobox não tira o nome do conteúdo: com a escolha, o rótulo é um <label> ligado ao botão (axe aria-input-field-name). */}
+              {escolheEmpresa ? <Label htmlFor={`${id}-empresa-escolha`} className={rotulo}>Empresa</Label>
+                : <span id={`${id}-empresa`} className={rotulo}>Empresa</span>}
               {empresaFixa ? (
                 <p className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm" aria-labelledby={`${id}-empresa`}>
                   <span className="flex items-center gap-2 font-bold"><Building2 aria-hidden size={16} /> {empresaFixa.nome}</span><span className="text-xs text-muted">da demanda</span>
                 </p>
-              ) : precisaEmpresa || !chamado ? (
+              ) : escolheEmpresa ? (
                 <EscolherEmpresa id={`${id}-empresa-escolha`} name="empresa" empresas={empresas} aoMudar={setEmpresaEscolhida} />
               ) : <p className="text-sm text-muted">Sem empresa nesta demanda.</p>}
             </div>

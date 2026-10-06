@@ -107,8 +107,10 @@ test('Assistente: Cláudia pede ao agente escolhendo a empresa; a demanda nova �
   await expect(page.locator('[data-assistente-hidratado]')).toHaveCount(1, { timeout: 60_000 });
   await page.getByRole('button', { name: 'Pedir ao agente' }).click();
   const janela = page.getByRole('dialog', { name: /Pedir ao agente/ });
-  // O combobox da empresa não tem nome acessível (o rótulo é um span solto): sobra para a revisão final.
-  await janela.getByRole('combobox').click();
+  // Sem empresa fixa: o combobox da Empresa tem nome acessível (revisão final, Important 2) e a janela passa no axe.
+  await expect(janela.getByRole('combobox', { name: 'Empresa' })).toBeVisible();
+  expect(await axeGraves(page)).toEqual([]);
+  await janela.getByRole('combobox', { name: 'Empresa' }).click();
   await page.getByRole('combobox', { name: 'Buscar empresa' }).fill('I4 Padaria Sol');
   await page.getByRole('option', { name: /I4 Padaria Sol/ }).click();
   await janela.getByLabel('O que você quer?').fill('Fazer o fechamento de outubro');

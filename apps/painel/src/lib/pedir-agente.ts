@@ -10,7 +10,7 @@ type Linha = { id: string; nome: string; descricao: string | null; setor: string
 
 /** I4: os agentes que a pessoa pode pedir (D5, D15), o destino (D6), o custo (D13) e se o WhatsApp dela recebe avisos (D9). Sem a I4, a lista da I3a (D17). */
 export async function lerDadosPedir(sb: Sb, chamadoId: string | null): Promise<DadosPedir> {
-  const [r, w] = await Promise.all([sb.rpc('agentes_para_pedir', { p_chamado: chamadoId as string }), sb.rpc('meu_whatsapp_para_avisos')]);
+  const [r, w, adm] = await Promise.all([sb.rpc('agentes_para_pedir', { p_chamado: chamadoId as string }), sb.rpc('meu_whatsapp_para_avisos'), sb.rpc('eh_admin')]);
   if (semMigracaoI1(r.error)) {
     const antigos = chamadoId ? await lerAgentesDeTrabalho(sb, chamadoId) : null;
     return { i4: false, whatsapp: null, donoVeTodos: false, agentes: (antigos ?? []).filter((a) => a.podePedir).map((a): AgenteParaPedirTela => ({
@@ -23,5 +23,6 @@ export async function lerDadosPedir(sb: Sb, chamadoId: string | null): Promise<D
     custo: { n: Number(a.custo_n ?? 0), min: a.custo_min === null ? null : Number(a.custo_min), max: a.custo_max === null ? null : Number(a.custo_max), limite: Number(a.limite_usd) },
   }));
   return { i4: true, agentes, whatsapp: w.error ? 'Não consegui conferir seu WhatsApp agora.' : ((w.data as string | null) ?? null),
-    donoVeTodos: new Set(agentes.map((a) => a.setor)).size > 1 };
+    // "todos os setores" só para o administrador (D15); quem está em dois setores vê os dois, mas não todos.
+    donoVeTodos: adm.data === true };
 }
