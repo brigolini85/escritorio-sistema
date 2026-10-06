@@ -27,8 +27,10 @@ function Numero({ rotulo, valor }: { rotulo: string; valor: string }) {
 }
 
 /** Cartão da tela Agentes (spec 7E.2, imagem 00-agentes-lista): estado em destaque, contagens, números do mês e o modo de falar. */
-export function CartaoAgente({ agente: a, contagens: c, numeros: n, mostrarNumeros, contatosTeste }: {
+export function CartaoAgente({ agente: a, contagens: c, numeros: n, mostrarNumeros, contatosTeste, prontas = null }: {
   agente: Agente; contagens: Contagens; numeros: NumerosAgente | undefined; mostrarNumeros: boolean; contatosTeste: number;
+  /** D16: tarefas aguardando aprovação que a pessoa vê; maisAntiga é o id da que o REVISAR abre. */
+  prontas?: { n: number; maisAntiga: string } | null;
 }) {
   const Icone = ICONE_AGENTE[a.slug] ?? Bot;
   const fala = falaComOCliente(a);
@@ -68,6 +70,13 @@ export function CartaoAgente({ agente: a, contagens: c, numeros: n, mostrarNumer
       {!configurado && (
         <p className="flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted">
           <Settings aria-hidden size={14} />Ainda não configurado
+        </p>
+      )}
+      {prontas && prontas.n > 0 && (
+        <p className="flex items-center gap-2 text-sm text-warning">
+          <ListChecks aria-hidden size={16} />
+          <span>{prontas.n === 1 ? '1 tarefa aguardando aprovação' : `${prontas.n} tarefas aguardando aprovação`}</span>
+          <Link href={`/tarefas/${prontas.maisAntiga}`} className="font-bold uppercase text-brand hover:underline">Revisar</Link>
         </p>
       )}
       {/* Marcadores rotulados do que vem depois (D26): nada clicável. */}

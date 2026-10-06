@@ -14,7 +14,8 @@ import { cn } from '@/lib/cn';
 import { formatarData, formatarUSD } from '@/lib/formatos';
 import { ICONE_AGENTE } from '../cartao-agente';
 import { HistoricoAgente } from './historico-agente';
-import { TEXTO_TESTE_AGENTE_SETOR } from './textos';
+import { comoTestar } from '@/lib/testar-setor';
+import { TEXTO_TESTE_TRABALHO } from './textos';
 
 const caixa = 'flex flex-col gap-0.5 rounded-md border border-border px-3 py-2';
 const rotuloCaixa = 'text-xs font-bold uppercase tracking-wide text-muted';
@@ -114,9 +115,9 @@ export function CabecalhoAgente({ agente: a, dono, numeros, mostrarNumeros, cont
         </div>
         <div className="flex gap-2">
           <HistoricoAgente nome={a.nome} mudancas={mudancas} />
-          {a.portaDeEntrada
+          {a.portaDeEntrada || comoTestar(a, true) === 'setor'
             ? <Link href={`/agentes/${a.slug}/testar`} className={variantesBotao()}><Play aria-hidden size={16} />Testar agora</Link>
-            : <Button disabled title={TEXTO_TESTE_AGENTE_SETOR}><Play aria-hidden size={16} />Testar agora</Button>}
+            : <Button disabled title={TEXTO_TESTE_TRABALHO}><Play aria-hidden size={16} />Testar agora</Button>}
         </div>
       </div>
       {!a.portaDeEntrada && (a.estado === 'teste' || escolhendo) && (

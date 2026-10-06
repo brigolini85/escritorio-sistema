@@ -1,6 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect, unstable_rethrow } from 'next/navigation';
+import { SLUG_ATENDIMENTO } from '@escritorio/core';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { enfileirarSimulacao } from '@/lib/fila';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
@@ -168,9 +169,13 @@ export async function testarAgente(entrada: PedidoTeste): Promise<RespostaTeste>
     const { u, sb } = await sessaoTreinar();
     const pedido = PedidoTeste.safeParse(entrada);
     if (!pedido.success) return { erro: pedido.error.issues[0]?.message ?? 'Pedido de teste inválido.' };
-    const { mensagem, clienteId, rascunho, skillId } = pedido.data;
+    const { mensagem, clienteId, rascunho, skillId, agente, modo } = pedido.data;
+    // I3b (D11, D12): agente de setor tem a função própria; o Thiago segue com as de sempre.
     // Teste com uma skill (aba Testar, D21): só o dono; o banco confere. Sem ela, o teste de sempre.
-    const { data: id, error } = skillId
+    const { data: id, error } = agente && agente !== SLUG_ATENDIMENTO
+      ? await sb.rpc('criar_simulacao_agente', { p_slug: agente, p_mensagem: mensagem, p_cliente_id: clienteId ?? undefined,
+        p_rascunho: rascunho ?? undefined, p_skill: skillId ?? undefined, p_modo: modo ?? undefined })
+      : skillId
       ? await sb.rpc('criar_simulacao_skill', { p_skill: skillId, p_mensagem: mensagem, p_cliente_id: clienteId ?? undefined })
       : await sb.rpc('criar_simulacao', { p_mensagem: mensagem, p_cliente_id: clienteId ?? undefined, p_rascunho: rascunho ?? undefined });
     let aviso: string | null = null;

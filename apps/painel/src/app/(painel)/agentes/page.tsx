@@ -3,7 +3,7 @@ import { Bot, CircleDollarSign, LockKeyhole } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { variantesBotao } from '@/components/ui/button';
-import { acessoAosAgentes, lerAgentes, lerContagens, lerNumeros, souDono } from '@/lib/agentes';
+import { acessoAosAgentes, lerAgentes, lerContagens, lerNumeros, lerTarefasProntas, souDono } from '@/lib/agentes';
 import { lerPeriodo } from '@/lib/gastos';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -24,9 +24,10 @@ export default async function Agentes({ searchParams }: { searchParams: Promise<
   const [{ agentes, semMigracao, erro }, { data: setores }, { data: emTeste }] = await Promise.all([
     lerAgentes(sb), sb.from('setores').select('id, nome').eq('ativo', true).order('nome'), sb.from('agente_contatos_teste').select('agente_id'),
   ]);
-  const [contagens, numeros] = await Promise.all([
+  const [contagens, numeros, prontas] = await Promise.all([
     semMigracao ? Promise.resolve(new Map()) : lerContagens(sb, agentes),
     acesso.numeros && !semMigracao ? lerNumeros(sb, mes.de, mes.ate) : Promise.resolve(null),
+    semMigracao ? Promise.resolve(null) : lerTarefasProntas(sb),
   ]);
   const f = lerFiltrosAgentes(params);
   const visiveis = filtrarAgentes(agentes, f);
@@ -55,7 +56,7 @@ export default async function Agentes({ searchParams }: { searchParams: Promise<
           {visiveis.map((a) => (
             <li key={a.id} className="flex">
               <CartaoAgente agente={a} contagens={contagens.get(a.id) ?? { skills: 0, ferramentas: a.ferramentas.length, orientacoes: 0 }}
-                numeros={numeros?.get(a.id)} mostrarNumeros={acesso.numeros} contatosTeste={(emTeste ?? []).filter((t) => t.agente_id === a.id).length} />
+                numeros={numeros?.get(a.id)} mostrarNumeros={acesso.numeros} contatosTeste={(emTeste ?? []).filter((t) => t.agente_id === a.id).length} prontas={prontas?.get(a.id) ?? null} />
             </li>
           ))}
         </ul>

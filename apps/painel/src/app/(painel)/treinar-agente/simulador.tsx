@@ -12,6 +12,7 @@ import { formularioAlterado } from '@/components/patterns/formulario-alteravel';
 import { MessageBubble } from '@/components/patterns/message-bubble';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { INFO_MODO, MODOS_CONTATO, type ModoContato } from '@escritorio/core';
 import { formatarHora } from '@/lib/formatos';
 import { testarAgente, type RespostaTeste } from './acoes';
 import { EVENTO_RASCUNHO, ID_FORM_ORIENTACAO } from './rascunho-ao-vivo';
@@ -224,7 +225,7 @@ function SemORascunho({ comparacao, ocupado, erro, comparar, aoMudarFase }: {
  * Com uma orientação aberta, o teste leva o formulário do meio como está (rascunho, sem salvar); sem orientação, só as
  * ligadas (D10). Nada é enviado nem gravado além do próprio teste (criar_simulacao + trabalhador, regras de hoje).
  */
-export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas, skillId = null }: {
+export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas, skillId = null, agente = null }: {
   aberta: 'nova' | 'salva' | null;
   idOrientacao: string | null;
   salva: ConteudoSalvo | null;
@@ -233,6 +234,8 @@ export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas
   avisoEmpresas: string | null;
   /** Aba Testar do agente (D21): testa com esta skill, mesmo desligada. */
   skillId?: string | null;
+  /** I3b (D11): agente de setor; o teste roda ele, no modo escolhido (começa no padrão dele). Sem a prop, nada muda. */
+  agente?: { slug: string; modoPadrao: ModoContato } | null;
 }) {
   const id = useId();
   const ativas = useMemo(() => new Set(empresas.map((e) => e.id)), [empresas]);
@@ -255,6 +258,7 @@ export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas
   }, [aberta]);
 
   const [mensagem, setMensagem] = useState('');
+  const [modo, setModo] = useState<ModoContato>(agente?.modoPadrao ?? 'por_tras');
   const [teste, setTeste] = useState<{ id: string; aviso: string | null; vez: number; pedido: PedidoTeste; podeComparar: boolean } | null>(null);
   const [fase, setFase] = useState<Fase | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -322,7 +326,7 @@ export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas
       }
       rascunho = r.rascunho;
     }
-    enviar({ mensagem, clienteId: empresa, rascunho, skillId });
+    enviar(agente ? { mensagem, clienteId: empresa, rascunho, skillId, agente: agente.slug, modo } : { mensagem, clienteId: empresa, rascunho, skillId });
   };
 
   // Um teste por pessoa: repetir também espera o que está em andamento.
@@ -354,6 +358,14 @@ export function Simulador({ aberta, idOrientacao, salva, empresas, avisoEmpresas
             aoMudar={(v) => setEscolha({ manual: true, id: v || null })}
           />
         </FormField>
+        {agente && (
+          <FormField id={`${id}-modo`} rotulo="Modo de falar com o cliente">
+            <select id={`${id}-modo`} value={modo} disabled={ocupado} onChange={(e) => setModo(e.target.value as ModoContato)}
+              className="h-9 w-full rounded-md border border-input bg-surface px-2 text-sm">
+              {MODOS_CONTATO.map((m) => <option key={m} value={m}>{INFO_MODO[m].rotulo}{m === agente.modoPadrao ? ' (padrão)' : ''}</option>)}
+            </select>
+          </FormField>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-1.5 text-xs text-muted">
             <ShieldCheck aria-hidden size={14} strokeWidth={1.75} className="shrink-0" />

@@ -2,9 +2,10 @@ import { notFound } from 'next/navigation';
 import { LockKeyhole, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { lerAgente, lerMudancas, lerSkills, lerUsoSkills, souDono } from '@/lib/agentes';
+import { lerAgente, lerMudancas, lerSkills, lerUsoSkills, parteI3bAplicada, souDono } from '@/lib/agentes';
 import { lerPeriodo } from '@/lib/gastos';
 import { supabaseServidor } from '@/lib/supabase/servidor';
+import { comoTestar } from '@/lib/testar-setor';
 import { OrdemPrioridade, ResumoFerramentas, UltimasMudancas } from '../coluna-lateral';
 import { ListaSkills } from './lista-skills';
 import { SubirSkill } from './subir-skill';
@@ -17,7 +18,8 @@ export default async function Skills({ params }: { params: Promise<{ slug: strin
   if (!agente) notFound();
   if (semMigracao) return null;
   const mes = lerPeriodo({}, new Date());
-  const [skills, uso, mudancas] = await Promise.all([lerSkills(sb, agente.id), lerUsoSkills(sb, slug, mes.de, mes.ate), lerMudancas(sb, agente.id, 5)]);
+  const [skills, uso, mudancas, i3b] = await Promise.all([lerSkills(sb, agente.id), lerUsoSkills(sb, slug, mes.de, mes.ate), lerMudancas(sb, agente.id, 5), parteI3bAplicada(sb)]);
+  const como = comoTestar(agente, i3b);
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <Card className="flex flex-col gap-4 p-4 lg:col-span-2">
@@ -27,7 +29,7 @@ export default async function Skills({ params }: { params: Promise<{ slug: strin
           {dono && <a href="#subir" className="inline-flex items-center gap-1 rounded-md bg-brand px-3 py-1.5 text-sm font-bold uppercase text-brand-foreground"><Upload aria-hidden size={14} />Subir skill</a>}
         </div>
         <p className="rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-muted">Organizadas por <b>tipo</b>. O tipo diz <b>quando</b> o agente lê: umas sempre, outras só quando a tarefa ou o assunto aparece.</p>
-        <ListaSkills slug={agente.slug} porta={agente.portaDeEntrada} skills={skills} uso={Object.fromEntries(uso)} dono={dono} />
+        <ListaSkills slug={agente.slug} testavel={como === 'thiago' || como === 'setor'} skills={skills} uso={Object.fromEntries(uso)} dono={dono} />
         {dono && <SubirSkill slug={agente.slug} />}
       </Card>
       <div className="flex flex-col gap-4">

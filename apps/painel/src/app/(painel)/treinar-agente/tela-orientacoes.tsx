@@ -12,7 +12,8 @@ import { medirOrientacoes, type TipoOrientacao } from '@/lib/orientacoes';
 import { lerEmPaginas } from '@/lib/paginas';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { hrefComParams, valorParam, type ParamsBusca } from '@/lib/tabela-url';
-import { TEXTO_TESTE_AGENTE_SETOR } from '../agentes/[slug]/textos';
+import type { ModoContato } from '@escritorio/core';
+import { TEXTO_TESTE_SEM_I3B, TEXTO_TESTE_TRABALHO } from '../agentes/[slug]/textos';
 import { restaurarVersao, salvarOrientacao } from './acoes';
 import { CabecalhoEditor, RegrasFixas } from './cabecalho-editor';
 import { EditorOrientacao, type SetorOpcao } from './editor-orientacao';
@@ -50,7 +51,11 @@ export function SemPermissao({ descricao = 'Quem libera é o administrador: na t
  * filtram (?tipo= e ?vale= continuam valendo); ?aba=historico é aceito (o histórico está sempre à vista).
  * Gravações pelas funções do banco (salvar/alternar/restaurar_orientacao); testes por criar_simulacao — regras de hoje.
  */
-export async function TelaOrientacoes({ params, base, agenteId, comSimulador }: { params: ParamsBusca; base: string; agenteId: string | null; comSimulador: boolean }) {
+export async function TelaOrientacoes({ params, base, agenteId, comSimulador, agenteSetor = null, semI3b = false }: {
+  params: ParamsBusca; base: string; agenteId: string | null; comSimulador: boolean;
+  /** I3b (D11): agente de setor com Conversa: o simulador roda ele. semI3b: o banco ainda não tem a I3b. */
+  agenteSetor?: { slug: string; modoPadrao: ModoContato } | null; semI3b?: boolean;
+}) {
   const erro = valorParam(params, 'erro');
   const f = lerFiltrosOrientacoes(params);
   const pedido = valorParam(params, 'orientacao');
@@ -267,10 +272,11 @@ export async function TelaOrientacoes({ params, base, agenteId, comSimulador }: 
           salva={atual ? { titulo: atual.titulo, texto: atual.texto, tipo: atual.tipo, clienteId: atual.clienteId, setorId: atual.setorId, ativo: atual.ativo } : null}
           empresas={clientes.map(opcaoEmpresa)}
           avisoEmpresas={avisoEmpresas}
+          agente={agenteSetor}
         />
       ) : (
         <section aria-label="Teste do agente" className="flex flex-col gap-2 bg-background p-6 lg:w-simulador-treinar lg:shrink-0 lg:border-l lg:border-border">
-          <p className="text-sm text-muted">{TEXTO_TESTE_AGENTE_SETOR}</p>
+          <p className="text-sm text-muted">{semI3b ? TEXTO_TESTE_SEM_I3B : TEXTO_TESTE_TRABALHO}</p>
         </section>
       )}
     </div>

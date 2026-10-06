@@ -1,5 +1,7 @@
-/** D13: Testar no painel para os agentes dos setores chega com as tarefas (I3). */
-export const TEXTO_TESTE_AGENTE_SETOR = 'O teste deste agente no painel chega com as tarefas de trabalho. Para testar agora, ponha o agente em Teste com o seu contato.';
+/** I3b (D11, D17): Testar no painel para os agentes dos setores. */
+export const TEXTO_TESTE_TRABALHO = 'Agente de trabalho: para testar, deixe-o em Teste e peça uma tarefa numa demanda de teste (em Teste, só o dono e o administrador pedem).';
+export const TEXTO_TESTE_SEM_I3B = 'O teste deste agente no painel aparece quando a atualização do banco da Parte I3b for aplicada.';
+export const TEXTO_TESTE_SETOR = 'Escreva como cliente e veja o que o agente responderia no modo escolhido. Nada é enviado nem gravado; o custo conta em Gastos com IA como "Testar o agente", neste agente.';
 
 /** D19: entram sozinhas no tipo Trabalho (a lista do trabalhador em src/tarefa/ferramentas.ts). Nenhuma envia ao cliente. */
 export const FERRAMENTAS_DAS_TAREFAS = [

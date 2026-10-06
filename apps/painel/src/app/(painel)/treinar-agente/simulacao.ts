@@ -1,3 +1,4 @@
+import { MODOS_CONTATO } from '@escritorio/core';
 import { z } from 'zod';
 import { TIPOS, type TipoOrientacao } from '../../../lib/orientacoes';
 import { ehUuid, type DadosOrientacao } from './esquemas';
@@ -41,6 +42,9 @@ export const PedidoTeste = z.object({
   clienteId: z.string().nullable().refine((v) => v === null || ehUuid(v), 'Empresa não encontrada.'),
   rascunho: RascunhoTeste.nullable(),
   skillId: z.string().nullish().refine((v) => !v || ehUuid(v), 'Skill não encontrada.'),
+  /** I3b (D11): endereço do agente do setor e o modo de falar com o cliente. */
+  agente: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/, 'Agente não encontrado.').nullish(),
+  modo: z.enum(MODOS_CONTATO).nullish(),
 });
 export type PedidoTeste = z.input<typeof PedidoTeste>;
 

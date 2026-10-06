@@ -226,6 +226,24 @@ export function parteI3Aplicada(sb: Sb): Promise<boolean> {
   const memo = i3DaRequisicao();
   return (memo.p ??= Promise.resolve(sb.from('agente_tarefas').select('id').limit(1).then(({ error }) => !semMigracaoI1(error))));
 }
+/** Parte I3b (D17): o banco já tem a I3b? Só a tabela ausente diz "não". Cache por requisição, como a I3a. */
+const i3bDaRequisicao = cache(() => ({ p: null as Promise<boolean> | null }));
+export function parteI3bAplicada(sb: Sb): Promise<boolean> {
+  const memo = i3bDaRequisicao();
+  return (memo.p ??= Promise.resolve(sb.from('tarefas_guarda').select('id').limit(1).then(({ error }) => !semMigracaoI1(error))));
+}
+/** D16 (7E.2): tarefas prontas para aprovar que a pessoa vê (RLS), por agente; a mais antiga para o REVISAR. null = sem a I3a. */
+export async function lerTarefasProntas(sb: Sb): Promise<Map<string, { n: number; maisAntiga: string }> | null> {
+  const { data, error } = await sb.from('agente_tarefas').select('id, agente_id, criado_em').eq('estado', 'pronta').order('criado_em').limit(500);
+  if (semMigracaoI1(error)) return null;
+  if (error) { console.error('[agentes] tarefas prontas', error); return null; }
+  const m = new Map<string, { n: number; maisAntiga: string }>();
+  for (const t of data ?? []) {
+    const x = m.get(t.agente_id);
+    m.set(t.agente_id, x ? { n: x.n + 1, maisAntiga: x.maisAntiga } : { n: 1, maisAntiga: t.id });
+  }
+  return m;
+}
 /** D13: limites das tarefas do agente; null = banco sem a I3; 'erro' = falha real de leitura (já registrada no log). */
 export async function lerLimitesTarefa(sb: Sb, slug: string): Promise<{ usd: number; minutos: number } | null | 'erro'> {
   const { data, error } = await sb.from('agentes').select('tarefa_limite_usd, tarefa_limite_minutos').eq('slug', slug).maybeSingle();

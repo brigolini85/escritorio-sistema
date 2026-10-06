@@ -17,7 +17,7 @@ import { gruposDeSkills, textoDeUso } from './uso';
 import { VersoesSkill } from './versoes-skill';
 
 /** Skills por tipo (spec 7E.3, imagem 00-agente-ficha): cada grupo diz quando o agente lê. */
-export function ListaSkills({ slug, porta, skills, uso, dono }: { slug: string; porta: boolean; skills: SkillTela[]; uso: Record<string, number>; dono: boolean }) {
+export function ListaSkills({ slug, testavel, skills, uso, dono }: { slug: string; testavel: boolean; skills: SkillTela[]; uso: Record<string, number>; dono: boolean }) {
   const router = useRouter();
   const [arquivando, setArquivando] = useState<SkillTela | null>(null);
   const [enviando, iniciar] = useTransition();
@@ -62,7 +62,7 @@ export function ListaSkills({ slug, porta, skills, uso, dono }: { slug: string; 
                     <span className="text-xs text-muted">{textoDeUso(s, mapaUso)}</span>
                     <Switch checked={s.ativo} disabled={!dono || enviando} onCheckedChange={(v) => alternar(s, v)} aria-label={`Ligar ${s.titulo}`} />
                     <VersoesSkill skill={s} dono={dono} />
-                    {porta && dono && (
+                    {testavel && dono && (
                       <Link href={`/agentes/${slug}/testar?skill=${s.id}`} aria-label={`Testar ${s.titulo}`} className="inline-flex size-8 items-center justify-center rounded-md hover:bg-surface-muted"><Play aria-hidden size={16} /></Link>
                     )}
                     {dono && <Button size="sm" variant="ghost" aria-label={`Arquivar ${s.titulo}`} onClick={() => setArquivando(s)}><Archive aria-hidden size={16} /></Button>}

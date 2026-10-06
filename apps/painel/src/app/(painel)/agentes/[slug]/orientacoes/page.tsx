@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation';
-import { lerAgente, podeTreinarAgente } from '@/lib/agentes';
+import { lerAgente, parteI3bAplicada, podeTreinarAgente } from '@/lib/agentes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import type { ParamsBusca } from '@/lib/tabela-url';
+import { comoTestar } from '@/lib/testar-setor';
 import { SemPermissao, TelaOrientacoes } from '../../../treinar-agente/tela-orientacoes';
 
 /** Aba Orientações (spec 7E.1, 7C.5, D21): a tela do Treinar o agente, só com as orientações deste agente. */
@@ -15,5 +16,8 @@ export default async function OrientacoesDoAgente({ params, searchParams }: { pa
     return <SemPermissao descricao={agente.portaDeEntrada ? undefined
       : `Só quem tem "Treinar o agente" e é do setor ${agente.setor ?? 'do agente'} muda estas orientações.`} />;
   }
-  return <TelaOrientacoes params={busca} base={`/agentes/${agente.slug}/orientacoes`} agenteId={semMigracao ? null : agente.id} comSimulador={agente.portaDeEntrada} />;
+  const como = comoTestar(agente, await parteI3bAplicada(sb));
+  return <TelaOrientacoes params={busca} base={`/agentes/${agente.slug}/orientacoes`} agenteId={semMigracao ? null : agente.id}
+    comSimulador={como === 'thiago' || como === 'setor'} semI3b={como === 'sem_i3b'}
+    agenteSetor={como === 'setor' ? { slug: agente.slug, modoPadrao: agente.modoContato ?? 'por_tras' } : null} />;
 }
