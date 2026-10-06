@@ -73,18 +73,17 @@ export async function removerContato(clienteId: string, contatoId: string) {
 export async function salvarServicos(clienteId: string, formData: FormData) {
   const sb = await exigirEdicao();
   const ids = formData.getAll('servico').map(String);
-  checar(await sb.from('cliente_servicos').delete().eq('cliente_id', clienteId));
-  if (ids.length) checar(await sb.from('cliente_servicos').insert(ids.map((servico_id) => ({ cliente_id: clienteId, servico_id }))));
+  // Uma chamada só (uma transação): se falhar, os serviços de antes ficam (revisão geral, painel I7).
+  checar(await sb.rpc('salvar_servicos_cliente', { p_cliente: clienteId, p_servicos: ids }));
   revalidatePath(`/clientes/${clienteId}`);
 }
 
 export async function salvarResponsaveis(clienteId: string, formData: FormData) {
   const sb = await exigirEdicao();
-  checar(await sb.from('cliente_responsaveis').delete().eq('cliente_id', clienteId));
-  const linhas = [...formData.entries()]
+  const responsaveis = Object.fromEntries([...formData.entries()]
     .filter(([k, v]) => k.startsWith('setor:') && v)
-    .map(([k, v]) => ({ cliente_id: clienteId, setor_id: k.slice(6), usuario_id: String(v) }));
-  if (linhas.length) checar(await sb.from('cliente_responsaveis').insert(linhas));
+    .map(([k, v]) => [k.slice(6), String(v)]));
+  checar(await sb.rpc('salvar_responsaveis_cliente', { p_cliente: clienteId, p_responsaveis: responsaveis }));
   revalidatePath(`/clientes/${clienteId}`);
 }
 

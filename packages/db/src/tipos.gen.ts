@@ -2709,6 +2709,12 @@ isOneToOne: false
 "salvar_regra_assunto":
 { Args: { "p_assunto": string,"p_exemplo": string,"p_id": string,"p_modo": string,"p_slug": string }; Returns: string
                            },
+"salvar_responsaveis_cliente":
+{ Args: { "p_cliente": string,"p_responsaveis": Json }; Returns: undefined
+                           },
+"salvar_servicos_cliente":
+{ Args: { "p_cliente": string,"p_servicos": (string)[] }; Returns: undefined
+                           },
 "salvar_usuario":
 { Args: { "p_dados": Json,"p_id": string }; Returns: undefined
                            },
