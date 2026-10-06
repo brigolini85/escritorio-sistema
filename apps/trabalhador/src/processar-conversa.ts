@@ -12,11 +12,13 @@ import type { ArmazenamentoMidia } from './midia/armazenamento';
 import type { Transcricao, Transcritor } from './midia/transcritor';
 
 export type DepsProcessamento = DepsAgente & { transcritor: Transcritor; midia: ArmazenamentoMidia; alertas: Alertas; relogio: () => Date; fila: Fila };
-export type DesfechoProcessamento = 'sem-mensagens' | 'assistente' | 'interno' | 'humano' | 'pausado' | 'teto' | 'agente' | 'escalado';
+export type DesfechoProcessamento = 'sem-mensagens' | 'assistente' | 'interno' | 'humano' | 'pausado' | 'teto' | 'agente' | 'escalado' | 'volume';
 
 const TAMANHO_HISTORICO = 20;
 /** Revisão geral I2: a vez do agente para de abrir rodadas depois disto (bem abaixo do prazo do job, EXPIRA_CONVERSA_SEGUNDOS). */
 export const PRAZO_VEZ_CONVERSA_MS = 7 * 60_000;
+/** Revisão geral I4: mais que isto de mensagens do agente na conversa nos últimos minutos = laço com resposta automática. */
+export const LIMITE_VOLUME = { saidas: 15, minutos: 10 } as const;
 const MAX_BYTES_ANEXO = 5 * 1024 * 1024;
 const IMAGENS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
@@ -252,6 +254,21 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
     await marcarPassagem(d, conversa.id, MOTIVOS_PASSAGEM.teto);
     await d.repos.marcarProcessadas(ids);
     return 'teto';
+  }
+
+  // Revisão geral I4: resposta automática do outro lado e o agente respondendo um ao outro sem fim. Para e passa à equipe.
+  const desdeVolume = new Date(Date.now() - LIMITE_VOLUME.minutos * 60_000).toISOString();
+  if ((await d.repos.contarSaidasDoAgenteDesde(conversaId, desdeVolume)) >= LIMITE_VOLUME.saidas) {
+    await avisarRespostaAosPedidos(d.repos, conversa.id, ctx.contato?.id, ctx.pedidosAoContato);
+    await encaminharParaHumano(d, conversa, 'Muitas mensagens seguidas: possível resposta automática do cliente', null);
+    await marcarPassagem(d, conversa.id, MOTIVOS_PASSAGEM.volume);
+    await d.repos.marcarProcessadas(ids);
+    // Sem resposta do agente, a resposta automática do outro lado para; o alerta sai uma vez por hora por conversa.
+    const alerta = `O agente parou de responder ${conversa.telefone}: muitas mensagens seguidas (possível resposta automática). A conversa está na Triagem.`;
+    if (!(await d.repos.alertaRecente(alerta, 60).catch(() => false))) {
+      await d.alertas.alertar({ nivel: 'aviso', mensagem: alerta }).catch((e) => console.error('[volume] alerta não registrado', conversaId, e));
+    }
+    return 'volume';
   }
 
   const historico = (await d.repos.historico(conversaId, TAMANHO_HISTORICO + novas.length)).filter((m) => !ids.includes(m.id)).slice(-TAMANHO_HISTORICO);

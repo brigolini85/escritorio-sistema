@@ -417,6 +417,14 @@ export function criarRepos(db: Db) {
       return checar(r, 'temSaidaPendenteRecente').length > 0;
     },
 
+    /** Revisão geral I4: mensagens do agente nesta conversa desde `desdeIso` (a trava de volume). */
+    async contarSaidasDoAgenteDesde(conversaId: string, desdeIso: string): Promise<number> {
+      const r = await db.from('mensagens').select('id', { count: 'exact', head: true }).eq('conversa_id', conversaId)
+        .eq('direcao', 'saida').eq('autor', 'agente').gte('criado_em', desdeIso);
+      if (r.error) throw new Error(`contarSaidasDoAgenteDesde: ${r.error.message}`);
+      return r.count ?? 0;
+    },
+
     async abrirChamado(c: NovoChamado): Promise<{ id: string; numero: number }> {
       const novo = checar(await db.from('chamados').insert({
         cliente_id: c.clienteId, conversa_id: c.conversaId, setor_id: c.setorId, responsavel_id: c.responsavelId,
