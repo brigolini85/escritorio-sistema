@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useId, useState, useTransition } from 'react';
-import { ListChecks, Lock, MessageSquareText, Pencil, Send } from 'lucide-react';
+import { ListChecks, Lock, MessageSquareText, Pencil, Send, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import type { NovidadeTela } from '@/lib/radar';
 import { aprovarEnvioRadar, lerContatosParaEnvio, salvarMensagemRadar, type ClienteParaEnvio } from '@/lib/radar-acoes';
-import { contatosDaEscolha, NOTA_LIMITE_ENVIO, podeAprovar, podeDecidir, resumoEscolha, textoAprovado } from './janelas';
+import { capacidadeEnvio, contatosDaEscolha, NOTA_LIMITE_ENVIO, podeAprovar, podeDecidir, resumoEscolha, textoAprovacao, textoContatosProcurados, tituloRascunho } from './janelas';
 
 function JanelaAprovar({ novidadeId, setorId, setorNome, texto, aberta, aoMudar, comLista }: {
   novidadeId: string; setorId: string; setorNome: string; texto: string; aberta: boolean; aoMudar: (a: boolean) => void; comLista: boolean;
@@ -35,12 +35,15 @@ function JanelaAprovar({ novidadeId, setorId, setorNome, texto, aberta, aoMudar,
   const disponiveis = (linhas ?? []).filter((c) => c.contatos > 0);
   const contatos = contatosDaEscolha(linhas ?? [], marcados);
   const motivo = linhas ? podeAprovar({ texto, clientes: marcados.size, contatos }) : 'Lendo os clientes…';
-  const alternar = (id: string, v: boolean) => setMarcados((m) => { const x = new Set(m); if (v) x.add(id); else x.delete(id); return x; });
+  // Mudou a escolha: o erro da tentativa anterior já não vale.
+  const escolher = (m: Set<string>) => { setMarcados(m); setErro(null); };
+  const alternar = (id: string, v: boolean) => { setErro(null); setMarcados((m) => { const x = new Set(m); if (v) x.add(id); else x.delete(id); return x; }); };
+  const capacidade = capacidadeEnvio(contatos);
   const todosMarcados = disponiveis.length > 0 && marcados.size === disponiveis.length;
 
   const aprovar = () => iniciar(async () => {
     const r = await aprovarEnvioRadar(novidadeId, setorId, [...marcados], texto);
-    if (r.ok) { toast(textoAprovado(r.contatos)); aoMudar(false); } else setErro(r.erro);
+    if (r.ok) { toast(textoAprovacao(r.contatos)); aoMudar(false); } else setErro(r.erro);
   });
 
   return (
@@ -59,7 +62,7 @@ function JanelaAprovar({ novidadeId, setorId, setorNome, texto, aberta, aoMudar,
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" aria-expanded={lista} onClick={() => setLista(!lista)}><ListChecks aria-hidden size={14} />Escolher clientes</Button>
               {lista && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => setMarcados(todosMarcados ? new Set() : new Set(disponiveis.map((c) => c.id)))}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => escolher(todosMarcados ? new Set() : new Set(disponiveis.map((c) => c.id)))}>
                   {todosMarcados ? 'Desmarcar todos' : 'Marcar todos'}
                 </Button>
               )}
@@ -74,7 +77,7 @@ function JanelaAprovar({ novidadeId, setorId, setorNome, texto, aberta, aoMudar,
                         <Checkbox className="mt-0.5" disabled={!livre} checked={livre && marcados.has(c.id)} onCheckedChange={(v) => alternar(c.id, v === true)} />
                         <span className="flex flex-col">
                           <span className="font-medium">{c.nome}</span>
-                          <span className="text-xs text-muted">{livre ? `${c.contatos} ${c.contatos === 1 ? 'contato pode' : 'contatos podem'} ser procurados` : `nenhum contato pode ser procurado pelo ${setorNome}`}</span>
+                          <span className="text-xs text-muted">{livre ? textoContatosProcurados(c.contatos) : `nenhum contato pode ser procurado pelo ${setorNome}`}</span>
                         </span>
                       </label>
                     </li>
@@ -84,6 +87,8 @@ function JanelaAprovar({ novidadeId, setorId, setorNome, texto, aberta, aoMudar,
             )}
           </div>
         )}
+        {capacidade.linha && <p className="text-sm tabular">{capacidade.linha}</p>}
+        {capacidade.aviso && <p role="status" className="flex items-start gap-2 text-sm font-bold text-warning"><TriangleAlert aria-hidden size={14} className="mt-0.5 shrink-0" />{capacidade.aviso}</p>}
         <p className="text-xs text-muted">{NOTA_LIMITE_ENVIO}</p>
         <DialogFooter className="items-center">
           {motivo && <p className="text-xs text-muted sm:mr-auto" aria-live="polite">{motivo}</p>}
@@ -114,7 +119,6 @@ export function MandarClientes({ n, dono, admin, meusSetores }: { n: NovidadeTel
     return <Button type="button" variant="outline" size="sm" onClick={() => setAberto(true)}><MessageSquareText aria-hidden size={14} />Mandar para clientes afetados</Button>;
   }
   const autorizado = !!setor && podeDecidir({ dono, admin, meusSetores, setorId: setor.id });
-  const jaTemEnvio = n.envios.enviado + n.envios.aguardando + n.envios.naoEnviado > 0;
   const salvar = () => {
     const t = texto.trim();
     if (t.length < 3 || t.length > 1000) { setErro('A mensagem tem de 3 a 1.000 letras.'); return; }
@@ -129,7 +133,7 @@ export function MandarClientes({ n, dono, admin, meusSetores }: { n: NovidadeTel
     <div data-testid="radar-mandar" className="order-first flex w-full flex-col gap-3 rounded-md border border-dashed border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-brand">
-          <Pencil aria-hidden size={12} />{jaTemEnvio ? `Mensagem aprovada para os ${n.clientesAfetados} clientes` : `Rascunho para os ${n.clientesAfetados} clientes · não enviado`}
+          <Pencil aria-hidden size={12} />{tituloRascunho(n)}
         </p>
         <span className="inline-flex items-center gap-1 rounded-sm bg-surface-muted px-1.5 py-0.5 text-xs text-muted"><Lock aria-hidden size={12} />só sai com aprovação</span>
       </div>

@@ -84,3 +84,36 @@ export const validarEtiqueta = (e: string): string | null => (/^[A-Za-z]{2,4}$/.
 export const NOTA_LIMITE_ENVIO = 'As mensagens saem aos poucos: no máximo 3 por contato e 30 no escritório por dia; o que não couber espera até 3 dias.';
 export const textoAprovado = (contatos: number): string =>
   `Aprovado: ${contatos} ${contatos === 1 ? 'contato recebe' : 'contatos recebem'} pelo WhatsApp do escritório, na voz do Thiago.`;
+
+/** Toast da aprovação: 0 novos quer dizer que todos os escolhidos já tinham a aprovação desta novidade. */
+export const textoAprovacao = (contatos: number): string =>
+  (contatos === 0 ? 'Esses contatos já tinham recebido a aprovação.' : textoAprovado(contatos));
+
+export const textoContatosProcurados = (n: number): string => (n === 1 ? '1 contato pode ser procurado' : `${n} contatos podem ser procurados`);
+
+/** Vagas do escritório por dia (D14): 30 mensagens ativas, somando os pedidos de pendência. */
+const VAGAS_DIA = 30;
+/**
+ * Estimativa pela quantidade escolhida: cada contato recebe uma vez por novidade, então quem limita é o escritório (30 por dia).
+ * Os pedidos de pendência usam as mesmas vagas: por isso "cerca de".
+ */
+export function capacidadeEnvio(contatos: number): { linha: string | null; aviso: string | null } {
+  if (contatos <= 0) return { linha: null, aviso: null };
+  const hoje = Math.min(contatos, VAGAS_DIA);
+  const tresDias = Math.min(contatos, VAGAS_DIA * LIMITES_RADAR.diasEnvio);
+  const linha = `Cabem hoje cerca de ${hoje} de ${contatos} · em 3 dias, cerca de ${tresDias} de ${contatos}.`;
+  const aviso = contatos > tresDias
+    ? `Só cerca de ${tresDias} saem nos próximos 3 dias; o resto fica como não enviado. Os envios usam as mesmas vagas diárias dos pedidos de pendência.`
+    : null;
+  return { linha, aviso };
+}
+
+/** Faixa do rascunho: o número que aparece é o de contatos aprovados de verdade (as linhas de envio). */
+export function tituloRascunho(d: { clientesAfetados: number; envios: { enviado: number; aguardando: number; naoEnviado: number } }): string {
+  const aprovados = d.envios.enviado + d.envios.aguardando + d.envios.naoEnviado;
+  if (aprovados > 0) return `Mensagem aprovada para ${aprovados} ${aprovados === 1 ? 'contato' : 'contatos'}`;
+  return `Rascunho para os ${d.clientesAfetados} clientes · não enviado`;
+}
+
+/** "Ver o que leu": só link de verdade vira href (o endereço vem da internet). */
+export const linkSeguro = (url: string): string | null => (/^https?:\/\//i.test(url.trim()) ? url.trim() : null);

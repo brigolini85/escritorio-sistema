@@ -1,5 +1,5 @@
 'use client';
-import { useId, useState, useTransition } from 'react';
+import { useEffect, useId, useState, useTransition } from 'react';
 import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,8 @@ function JanelaAssuntos({ aberta, aoMudar, assuntos }: { aberta: boolean; aoMuda
   const [lista, setLista] = useState<string[]>(assuntos);
   const [erro, setErro] = useState<string | null>(null);
 
-  const mudar = (a: boolean) => { if (a) { setLista(assuntos); setErro(null); } aoMudar(a); };
+  // A janela abre pelo botão (aberta muda sem onOpenChange): cada abertura volta ao que está salvo, sem o erro da vez anterior.
+  useEffect(() => { if (aberta) { setLista(assuntos); setErro(null); } }, [aberta, assuntos]);
   const salvar = () => {
     const limpa = limparAssuntos(lista);
     const e = validarAssuntos(limpa);
@@ -29,7 +30,7 @@ function JanelaAssuntos({ aberta, aoMudar, assuntos }: { aberta: boolean; aoMuda
   };
 
   return (
-    <Dialog open={aberta} onOpenChange={mudar}>
+    <Dialog open={aberta} onOpenChange={aoMudar}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Assuntos vigiados</DialogTitle>

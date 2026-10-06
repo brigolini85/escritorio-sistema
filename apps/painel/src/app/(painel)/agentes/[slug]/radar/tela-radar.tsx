@@ -68,7 +68,7 @@ export async function TelaRadar({ searchParams, lateral, botaoAgenda, botaoGiros
             <Novidades novidades={tela.novidades} estado={filtro.estado} total={tela.contagem[filtro.estado]} nomes={nomes} agoraIso={agoraIso} dono={dono} admin={admin} slots={slots ?? padrao} />
           </section>
         </div>
-        <div className="flex min-w-0 flex-col gap-4">{lateral ?? <ColunaRadar tela={tela} dono={dono} nomes={nomes} agoraIso={agoraIso} />}</div>
+        <div className="flex min-w-0 flex-col gap-4">{lateral ?? <ColunaRadar tela={tela} dono={dono} admin={admin} nomes={nomes} agoraIso={agoraIso} />}</div>
       </div>
     </div>
   );

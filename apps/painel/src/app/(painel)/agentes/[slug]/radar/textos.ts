@@ -63,3 +63,6 @@ export function setoresDaDemanda(n: { setores: { id: string; nome: string }[]; c
   const dele = n.setores.find((s) => s.id === n.chamado?.setorId);
   return dele ? dele.nome : n.setores.map((s) => s.nome).join(', ');
 }
+
+/** Onde fica o telefone do dono (seção "Teto e modelos de IA" de Configurações, só do administrador). */
+export const CAMINHO_TELEFONE_DONO = 'Configurações › Teto e modelos de IA';

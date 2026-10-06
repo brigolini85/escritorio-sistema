@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useId, useState, useTransition } from 'react';
+import { useEffect, useId, useState, useTransition } from 'react';
 import { Bell, MessageCircle, Pencil, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { textoHora } from '@escritorio/core';
@@ -9,12 +9,14 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { hrefSecao } from '@/lib/configuracoes';
 import { formatarUSD } from '@/lib/formatos';
 import type { ConfigTela } from '@/lib/radar';
 import { salvarConfigRadar, type DadosConfigRadar } from '@/lib/radar-acoes';
 import { SoDono } from './cabecalho-radar';
 import { Campo, ligar } from './fontes-radar';
 import { validarLimite } from './janelas';
+import { CAMINHO_TELEFONE_DONO } from './textos';
 
 type Chave = 'resumo_whatsapp' | 'aviso_alto' | 'avisar_painel';
 
@@ -41,7 +43,8 @@ function JanelaLimite({ aberta, aoMudar, atual }: { aberta: boolean; aoMudar: (a
   const [ocupado, iniciar] = useTransition();
   const [texto, setTexto] = useState(String(atual).replace('.', ','));
   const [erro, setErro] = useState<string | undefined>();
-  const mudar = (a: boolean) => { if (a) { setTexto(atual.toFixed(2).replace('.', ',')); setErro(undefined); } aoMudar(a); };
+  // Cada abertura volta ao valor salvo, sem o erro da vez anterior.
+  useEffect(() => { if (aberta) { setTexto(atual.toFixed(2).replace('.', ',')); setErro(undefined); } }, [aberta, atual]);
   const salvar = () => {
     const v = validarLimite(texto);
     if (!v.ok) { setErro(v.erro); return; }
@@ -51,7 +54,7 @@ function JanelaLimite({ aberta, aoMudar, atual }: { aberta: boolean; aoMudar: (a
     });
   };
   return (
-    <Dialog open={aberta} onOpenChange={mudar}>
+    <Dialog open={aberta} onOpenChange={aoMudar}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Limite por giro</DialogTitle>
@@ -72,7 +75,7 @@ function JanelaLimite({ aberta, aoMudar, atual }: { aberta: boolean; aoMudar: (a
 }
 
 /** Avisos do Radar: três chaves (só o dono muda) e o limite de custo por giro. */
-export function AvisosRadar({ config, dono, telefoneDono }: { config: ConfigTela; dono: boolean; telefoneDono: boolean }) {
+export function AvisosRadar({ config, dono, admin, telefoneDono }: { config: ConfigTela; dono: boolean; admin: boolean; telefoneDono: boolean }) {
   const [ocupado, iniciar] = useTransition();
   const [valores, setValores] = useState<Record<Chave, boolean>>({ resumo_whatsapp: config.resumoWhatsapp, aviso_alto: config.avisoAlto, avisar_painel: config.avisarPainel });
   const [limite, setLimite] = useState(false);
@@ -102,7 +105,10 @@ export function AvisosRadar({ config, dono, telefoneDono }: { config: ConfigTela
           ligado={valores.avisar_painel} desabilitado={trava} aoMudar={mudar('avisar_painel')} />
       </ul>
       {!telefoneDono && (
-        <p className="text-xs text-muted">Sem telefone do dono em <Link href="/configuracoes?secao=ia" className="font-bold text-brand underline-offset-4 hover:underline">Configurações › Escritório</Link>.</p>
+        // Configurações é só do administrador: para os outros, o caminho em texto.
+        <p className="text-xs text-muted">Sem telefone do dono em {admin
+          ? <Link href={hrefSecao('ia')} className="font-bold text-brand underline-offset-4 hover:underline">{CAMINHO_TELEFONE_DONO}</Link>
+          : <b>{CAMINHO_TELEFONE_DONO}</b>}.</p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-sm">
         <span>Limite por giro: <b className="tabular">{formatarUSD(config.limiteUsdGiro)}</b></span>

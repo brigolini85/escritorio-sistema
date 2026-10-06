@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  linhaFonte, MOTIVO_ENVIO, rotuloSelo, setoresDaDemanda, textoCustoMes, textoDescartada, textoEnvios, textoProximoGiro, textoVigencia, textoVirouDemanda,
+  CAMINHO_TELEFONE_DONO, linhaFonte, MOTIVO_ENVIO, rotuloSelo, setoresDaDemanda, textoCustoMes, textoDescartada, textoEnvios, textoProximoGiro, textoVigencia, textoVirouDemanda,
 } from './textos';
 
 const sp = (s: string) => s.replaceAll(String.fromCharCode(0xa0), ' ');
@@ -67,5 +67,11 @@ describe('setor da demanda', () => {
     expect(setoresDaDemanda({ setores, chamado: { setorId: null } })).toBe('Legalização, Fiscal');
     expect(setoresDaDemanda({ setores, chamado: { setorId: 'x' } })).toBe('Legalização, Fiscal');
     expect(setoresDaDemanda({ setores, chamado: null })).toBe('Legalização, Fiscal');
+  });
+});
+
+describe('telefone do dono', () => {
+  it('aponta para a seção certa de Configurações', () => {
+    expect(`Sem telefone do dono em ${CAMINHO_TELEFONE_DONO}.`).toBe('Sem telefone do dono em Configurações › Teto e modelos de IA.');
   });
 });

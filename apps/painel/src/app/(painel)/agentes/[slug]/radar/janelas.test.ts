@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { lerEnderecoFonte } from '@escritorio/core';
 import {
-  contatosDaEscolha, diasMarcados, NOTA_LIMITE_ENVIO, textoAprovado, diasDosAtalhos, limparAssuntos, podeAprovar, podeDecidir, resumoEscolha, validarAssuntos, validarEtiqueta, validarFonte, validarLimite, validarPaginas,
+  capacidadeEnvio, contatosDaEscolha, diasMarcados, linkSeguro, NOTA_LIMITE_ENVIO, textoAprovacao, textoAprovado, textoContatosProcurados, tituloRascunho, diasDosAtalhos, limparAssuntos, podeAprovar, podeDecidir, resumoEscolha, validarAssuntos, validarEtiqueta, validarFonte, validarLimite, validarPaginas,
 } from './janelas';
 
 describe('validarFonte', () => {
@@ -100,5 +100,37 @@ describe('envio aprovado', () => {
     expect(textoAprovado(12)).toBe('Aprovado: 12 contatos recebem pelo WhatsApp do escritório, na voz do Thiago.');
     expect(textoAprovado(1)).toBe('Aprovado: 1 contato recebe pelo WhatsApp do escritório, na voz do Thiago.');
     expect(NOTA_LIMITE_ENVIO).toContain('no máximo 3 por contato e 30 no escritório por dia');
+  });
+});
+
+describe('revisão final', () => {
+  it('aprovação que devolve 0: os contatos já tinham a aprovação', () => {
+    expect(textoAprovacao(0)).toBe('Esses contatos já tinham recebido a aprovação.');
+    expect(textoAprovacao(3)).toBe(textoAprovado(3));
+  });
+  it('plural de contatos que podem ser procurados', () => {
+    expect(textoContatosProcurados(1)).toBe('1 contato pode ser procurado');
+    expect(textoContatosProcurados(2)).toBe('2 contatos podem ser procurados');
+  });
+  it('quantos cabem hoje e em 3 dias (30 por dia no escritório)', () => {
+    expect(capacidadeEnvio(0)).toEqual({ linha: null, aviso: null });
+    expect(capacidadeEnvio(12)).toEqual({ linha: 'Cabem hoje cerca de 12 de 12 · em 3 dias, cerca de 12 de 12.', aviso: null });
+    expect(capacidadeEnvio(50).linha).toBe('Cabem hoje cerca de 30 de 50 · em 3 dias, cerca de 50 de 50.');
+    expect(capacidadeEnvio(90).aviso).toBeNull();
+    expect(capacidadeEnvio(120)).toEqual({
+      linha: 'Cabem hoje cerca de 30 de 120 · em 3 dias, cerca de 90 de 120.',
+      aviso: 'Só cerca de 90 saem nos próximos 3 dias; o resto fica como não enviado. Os envios usam as mesmas vagas diárias dos pedidos de pendência.',
+    });
+  });
+  it('faixa do rascunho: o número aprovado de verdade', () => {
+    const envios = (enviado: number, aguardando: number, naoEnviado: number) => ({ enviado, aguardando, naoEnviado });
+    expect(tituloRascunho({ clientesAfetados: 38, envios: envios(0, 0, 0) })).toBe('Rascunho para os 38 clientes · não enviado');
+    expect(tituloRascunho({ clientesAfetados: 38, envios: envios(2, 3, 1) })).toBe('Mensagem aprovada para 6 contatos');
+    expect(tituloRascunho({ clientesAfetados: 38, envios: envios(0, 1, 0) })).toBe('Mensagem aprovada para 1 contato');
+  });
+  it('só http(s) vira link em "Ver o que leu"', () => {
+    expect(linkSeguro('https://www.gov.br/esocial/x')).toBe('https://www.gov.br/esocial/x');
+    expect(linkSeguro('HTTP://cfc.org.br')).toBe('HTTP://cfc.org.br');
+    for (const u of ['javascript:alert(1)', ' JavaScript:alert(1)', 'data:text/html,x', '//golpe.net', 'ftp://cfc.org.br']) expect(linkSeguro(u), u).toBeNull();
   });
 });
