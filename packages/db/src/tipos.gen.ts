@@ -1393,6 +1393,37 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"radar_avisos": {
+                  Row: {
+                    "criado_em": string,"enviado_em": string | null,"giro_id": string | null,"id": string,"mensagem_id": string | null,"novidade_id": string | null,"tipo": string
+                  }
+                  Insert: {
+                    "criado_em"?: string,"enviado_em"?: string | null,"giro_id"?: string | null,"id"?: string,"mensagem_id"?: string | null,"novidade_id"?: string | null,"tipo": string
+                  }
+                  Update: {
+                    "criado_em"?: string,"enviado_em"?: string | null,"giro_id"?: string | null,"id"?: string,"mensagem_id"?: string | null,"novidade_id"?: string | null,"tipo"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "radar_avisos_giro_id_fkey"
+      columns: ["giro_id"]
+isOneToOne: false
+      referencedRelation: "radar_giros"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_avisos_mensagem_id_fkey"
+      columns: ["mensagem_id"]
+isOneToOne: false
+      referencedRelation: "mensagens"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_avisos_novidade_id_fkey"
+      columns: ["novidade_id"]
+isOneToOne: false
+      referencedRelation: "radar_novidades"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"radar_config": {
                   Row: {
                     "assuntos": (string)[],"atualizado_em": string,"atualizado_por": string | null,"avisar_painel": boolean,"aviso_alto": boolean,"dias": (number)[],"hora": string,"id": number,"limite_usd_giro": number,"resumo_whatsapp": boolean
@@ -1409,6 +1440,61 @@ isOneToOne: false
       columns: ["atualizado_por"]
 isOneToOne: false
       referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"radar_envios": {
+                  Row: {
+                    "aprovado_em": string,"aprovado_por": string | null,"cliente_id": string,"contato_id": string,"enviado_em": string | null,"estado": string,"id": string,"mensagem_id": string | null,"motivo": string | null,"novidade_id": string,"reservado_em": string | null,"setor_id": string,"texto": string
+                  }
+                  Insert: {
+                    "aprovado_em"?: string,"aprovado_por"?: string | null,"cliente_id": string,"contato_id": string,"enviado_em"?: string | null,"estado"?: string,"id"?: string,"mensagem_id"?: string | null,"motivo"?: string | null,"novidade_id": string,"reservado_em"?: string | null,"setor_id": string,"texto": string
+                  }
+                  Update: {
+                    "aprovado_em"?: string,"aprovado_por"?: string | null,"cliente_id"?: string,"contato_id"?: string,"enviado_em"?: string | null,"estado"?: string,"id"?: string,"mensagem_id"?: string | null,"motivo"?: string | null,"novidade_id"?: string,"reservado_em"?: string | null,"setor_id"?: string,"texto"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "radar_envios_aprovado_por_fkey"
+      columns: ["aprovado_por"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_envios_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_envios_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_envios_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_envios_mensagem_id_fkey"
+      columns: ["mensagem_id"]
+isOneToOne: false
+      referencedRelation: "mensagens"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_envios_novidade_id_fkey"
+      columns: ["novidade_id"]
+isOneToOne: false
+      referencedRelation: "radar_novidades"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "radar_envios_setor_id_fkey"
+      columns: ["setor_id"]
+isOneToOne: false
+      referencedRelation: "setores"
       referencedColumns: ["id"]
     }
                   ]
@@ -1923,6 +2009,9 @@ isOneToOne: false
 "aplicar_prazo_abertas":
 { Args: { "p_dias": number,"p_prioridade": Database["public"]['Enums']["prioridade_demanda"] }; Returns: number
                            },
+"aprovar_envio_radar":
+{ Args: { "p_clientes": (string)[],"p_novidade": string,"p_setor": string,"p_texto": string }; Returns: number
+                           },
 "aprovar_tarefa":
 { Args: { "p_id": string }; Returns: undefined
                            },
@@ -1953,6 +2042,12 @@ isOneToOne: false
               "atendimentos": number,"custo_testes_usd": number,"custo_usd": number,"dia": string,"resolvidos": number
             }[]
                            },
+"avisar_equipe_radar":
+{ Args: { "p_novidade": string }; Returns: number
+                           },
+"avisar_novidade_nova":
+{ Args: { "p_novidade": string }; Returns: Json
+                           },
 "aviso_login":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
@@ -1970,6 +2065,11 @@ isOneToOne: false
                            },
 "cargos_validos":
 { Args: { "p": (string)[] }; Returns: boolean
+                           },
+"clientes_afetados_radar":
+{ Args: { "p_novidade": string }; Returns: {
+              "cidade": string,"cliente_id": string,"nome": string,"regime": string,"uf": string
+            }[]
                            },
 "concluir_chamado":
 { Args: { "p_chamado": string }; Returns: undefined
@@ -1995,6 +2095,11 @@ isOneToOne: false
 "contato_whatsapp_resumo":
 { Args: { "p_contato": string }; Returns: Json
                            },
+"contatos_para_envio_radar":
+{ Args: { "p_novidade": string,"p_setor": string }; Returns: {
+              "cliente_id": string,"contatos": number,"nome": string
+            }[]
+                           },
 "contatos_para_pendencia":
 { Args: { "p_id": string }; Returns: {
               "contato_id": string,"em_atendimento": boolean,"nome": string
@@ -2018,6 +2123,9 @@ isOneToOne: false
 { Args: { "p_cliente": string,"p_contato"?: string,"p_descricao": string,"p_prazo"?: string,"p_prioridade"?: Database["public"]['Enums']["prioridade_demanda"],"p_responsavel"?: string,"p_setor": string,"p_titulo": string }; Returns: Json
                            } |
 { Args: { "p_cliente": string,"p_contato": string,"p_conversa": string,"p_descricao": string,"p_prazo": string,"p_prioridade": Database["public"]['Enums']["prioridade_demanda"],"p_responsavel": string,"p_setor": string,"p_titulo": string }; Returns: Json
+                           },
+"criar_demanda_radar":
+{ Args: { "p_novidade": string,"p_setor": string }; Returns: Json
                            },
 "criar_simulacao":
 { Args: { "p_cliente_id"?: string,"p_mensagem": string,"p_rascunho"?: Json }; Returns: string
@@ -2108,6 +2216,9 @@ isOneToOne: false
               "abertas": number,"no_prazo": number,"sem_responsavel": number,"setor": string,"setor_id": string,"urgentes": number,"vencem_hoje": number,"vencidas": number
             }[]
                            },
+"descartar_novidade_radar":
+{ Args: { "p_novidade": string }; Returns: undefined
+                           },
 "descartar_tarefa":
 { Args: { "p_id": string }; Returns: undefined
                            },
@@ -2154,6 +2265,14 @@ isOneToOne: false
                            },
 "entregar_resultado_tarefa":
 { Args: { "p_id": string,"p_resultado": Json }; Returns: undefined
+                           },
+"envios_da_novidade":
+{ Args: { "p_novidade": string }; Returns: {
+              "estado": string,"motivo": string,"total": number
+            }[]
+                           },
+"envios_radar_para_enviar":
+{ Args: { "p_limite": number }; Returns: string[]
                            },
 "estado_sistema_resumo":
 { Args: Record<PropertyKey, never>; Returns: Json
@@ -2257,6 +2376,9 @@ isOneToOne: false
 "liberar_envio_pendencia":
 { Args: { "p_id": string }; Returns: undefined
                            },
+"liberar_envio_radar":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
 "limites_espera":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
@@ -2272,11 +2394,17 @@ isOneToOne: false
 "marcar_arquivos_removidos":
 { Args: { "p_ids": (string)[] }; Returns: number
                            },
+"marcar_aviso_radar":
+{ Args: { "p_aviso": string,"p_mensagem": string }; Returns: undefined
+                           },
 "marcar_conversa_lida":
 { Args: { "p_ate": string,"p_conversa": string }; Returns: boolean
                            },
 "marcar_dono_inicial":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"marcar_envio_radar":
+{ Args: { "p_id": string,"p_mensagem": string }; Returns: undefined
                            },
 "marcar_pendencia_enviada":
 { Args: { "p_id": string,"p_mensagem": string }; Returns: undefined
@@ -2437,6 +2565,14 @@ isOneToOne: false
               "cliente_id": string,"contato_id": string,"contato_nome": string,"id": string,"numero": number,"tarefa_id": string,"telefone": string,"texto": string
             }[]
                            },
+"reservar_envio_radar":
+{ Args: { "p_id": string }; Returns: {
+              "cliente_id": string,"contato_id": string,"id": string,"novidade_id": string,"telefone": string,"texto": string
+            }[]
+                           },
+"reservar_resumo_radar":
+{ Args: { "p_giro": string }; Returns: Json
+                           },
 "responder_pendencia":
 { Args: { "p_id": string,"p_resposta": string }; Returns: boolean
                            },
@@ -2490,6 +2626,9 @@ isOneToOne: false
                            },
 "salvar_limites_tarefa":
 { Args: { "p_minutos": number,"p_slug": string,"p_usd": number }; Returns: undefined
+                           },
+"salvar_mensagem_radar":
+{ Args: { "p_novidade": string,"p_texto": string }; Returns: undefined
                            },
 "salvar_orientacao":
 { Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
