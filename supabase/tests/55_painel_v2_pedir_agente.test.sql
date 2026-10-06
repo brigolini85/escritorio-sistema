@@ -1,7 +1,7 @@
 -- Parte I4, Task 3 (spec 7E.5; D4–D7, D13, D15): pedir ao agente pelo painel e pelo trabalhador (a mesma função).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(38);
 
 insert into auth.users (id, email) values
   ('fc000000-0000-0000-0000-00000000000a', 'claudia@i4.local'), ('fc000000-0000-0000-0000-00000000000b', 'paula@i4.local'),
@@ -128,6 +128,22 @@ select throws_ok($$ select public.pedir_ao_agente_de('fc000000-0000-0000-0000-00
   'Fechar o mês', 'fc100000-0000-0000-0000-00000000000a') $$, 'P0001', 'Acesso desativado.', 'WhatsApp exige "Assistente: site e WhatsApp"');
 select throws_ok($$ select public.pedir_ao_agente_de('fc000000-0000-0000-0000-00000000000b', 'assistente', current_setting('teste.pessoal')::uuid,
   'Folha de novembro', 'fc100000-0000-0000-0000-00000000000a') $$, 'P0001', 'Acesso desativado.', 'Assistente do painel exige o nível "site"');
+-- 35–38 (revisão final, Important 1): a mesma chave (a mensagem que o Assistente está respondendo) devolve a tarefa já criada,
+-- então a nova tentativa do job não cria outra tarefa nem outra demanda.
+select set_config('teste.n_chamados', (select count(*)::text from public.chamados), true);
+select set_config('teste.t35', public.pedir_ao_agente_de('fc000000-0000-0000-0000-00000000000a', 'whatsapp', current_setting('teste.contabil')::uuid,
+                    'Fechar novembro', 'fc100000-0000-0000-0000-00000000000a', null, null, 'msg-35:contabil') ->> 'tarefa_id', true);
+select is(public.pedir_ao_agente_de('fc000000-0000-0000-0000-00000000000a', 'whatsapp', current_setting('teste.contabil')::uuid,
+            'Fechar novembro', 'fc100000-0000-0000-0000-00000000000a', null, null, 'msg-35:contabil'),
+          (select jsonb_build_object('tarefa_id', t.id, 'tarefa_numero', t.numero, 'chamado_id', t.chamado_id, 'chamado_numero', c.numero,
+                                     'demanda_nova', false, 'ja_criada', true)
+             from public.agente_tarefas t join public.chamados c on c.id = t.chamado_id where t.id = current_setting('teste.t35')::uuid),
+          'mesma chave: a mesma tarefa, marcada como já criada');
+select is((select count(*)::int from public.chamados), current_setting('teste.n_chamados')::int + 1, 'mesma chave: uma demanda nova só');
+select is((select count(*)::int from public.agente_tarefas where pedido = 'Fechar novembro'), 1, 'mesma chave: uma tarefa só');
+select isnt(public.pedir_ao_agente_de('fc000000-0000-0000-0000-00000000000a', 'whatsapp', current_setting('teste.contabil')::uuid,
+              'Fechar novembro', 'fc100000-0000-0000-0000-00000000000a', null, null, 'msg-36:contabil') ->> 'tarefa_id',
+            current_setting('teste.t35'), 'chave de outra mensagem: tarefa nova');
 
 select * from finish();
 rollback;

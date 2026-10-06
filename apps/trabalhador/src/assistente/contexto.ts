@@ -13,6 +13,8 @@ export type ContextoAssistente = {
   setores: { id: string; nome: string }[]; conversa: ConversaDoContexto | null;
   /** Quando chegou a pergunta pendente mais nova desta execução: o "sim" que confirma uma prévia tem de ser posterior a ela. */
   perguntaMaisRecenteEm?: Date | null;
+  /** A pergunta pendente mais antiga desta execução: a mesma em toda nova tentativa do job (chave do pedido ao agente, I4). */
+  turno?: string | null;
 };
 
 /** Onde a conversa com o assistente acontece: canal e atendimento (a prévia só vale na mesma conversa em que foi mostrada). */

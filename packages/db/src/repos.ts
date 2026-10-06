@@ -146,7 +146,9 @@ export type AgenteParaPedir = {
   destino: 'esta_demanda' | 'nova'; procedimentos: { nome: string; titulo: string; descricao: string }[];
   custo: { n: number; min: number | null; max: number | null; limite: number };
 };
-export type PedidoCriado = { tarefaId: string; tarefaNumero: number; chamadoId: string; chamadoNumero: number; demandaNova: boolean };
+export type PedidoCriado = { tarefaId: string; tarefaNumero: number; chamadoId: string; chamadoNumero: number; demandaNova: boolean;
+  /** A mesma chave já tinha criado esta tarefa (nova tentativa do job do Assistente). */
+  jaCriada?: boolean };
 export type PendenciaRepassada = {
   tarefaId: string; tarefaNumero: number; agente: string; empresa: string | null; numero: number; pergunta: string; detalhe: string | null; opcoes: string[];
 };
@@ -1226,13 +1228,15 @@ export function criarRepos(db: Db) {
     },
 
     async pedirAoAgenteDe(p: { usuarioId: string; origem: 'assistente' | 'whatsapp'; agenteId: string; pedido: string; clienteId: string | null;
-      chamadoNumero: number | null; prazo: string | null }): Promise<PedidoCriado> {
+      chamadoNumero: number | null; prazo: string | null; chave?: string | null }): Promise<PedidoCriado> {
       const r = await db.rpc('pedir_ao_agente_de', { p_usuario: p.usuarioId, p_origem: p.origem, p_agente: p.agenteId, p_pedido: p.pedido,
-        p_cliente: p.clienteId ?? undefined, p_chamado_numero: p.chamadoNumero ?? undefined, p_prazo: p.prazo ?? undefined });
+        p_cliente: p.clienteId ?? undefined, p_chamado_numero: p.chamadoNumero ?? undefined, p_prazo: p.prazo ?? undefined, p_chave: p.chave ?? undefined });
       if (r.error?.code === 'P0001') throw new RecusaDoBanco(r.error.message);
       if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) throw new SemI4();
-      const j = checar(r, 'pedirAoAgenteDe') as { tarefa_id: string; tarefa_numero: number; chamado_id: string; chamado_numero: number; demanda_nova: boolean };
-      return { tarefaId: j.tarefa_id, tarefaNumero: Number(j.tarefa_numero), chamadoId: j.chamado_id, chamadoNumero: Number(j.chamado_numero), demandaNova: j.demanda_nova === true };
+      const j = checar(r, 'pedirAoAgenteDe') as { tarefa_id: string; tarefa_numero: number; chamado_id: string; chamado_numero: number; demanda_nova: boolean;
+        ja_criada?: boolean };
+      return { tarefaId: j.tarefa_id, tarefaNumero: Number(j.tarefa_numero), chamadoId: j.chamado_id, chamadoNumero: Number(j.chamado_numero),
+        demandaNova: j.demanda_nova === true, jaCriada: j.ja_criada === true };
     },
 
     async pendenciasRepassadas(usuarioId: string): Promise<PendenciaRepassada[] | null> {

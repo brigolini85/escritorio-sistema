@@ -48,7 +48,7 @@ function textoParaGatilho(historico: MensagemAssistente[]): string {
 function secao(ctx: ContextoAssistente, agentes: AgenteParaPedir[], pendencias: PendenciaRepassada[]): string {
   const partes: string[] = [];
   if (agentes.length) {
-    const lista = agentes.map((a) => `• ${a.nome} (${a.setor})${a.estado === 'teste' ? ' [em teste]' : ''}: ${a.descricao || 'sem descrição'}`).join('\n');
+    const lista = agentes.map((a) => `• ${neutro(a.nome)} (${neutro(a.setor)})${a.estado === 'teste' ? ' [em teste]' : ''}: ${neutro(a.descricao || 'sem descrição')}`).join('\n');
     partes.push(`Pedir trabalho a um agente de setor (ferramenta pedir_ao_agente). Agentes que ${ctx.usuario.nome} pode pedir:\n${lista}
 - Use só quando a pessoa pedir que um agente FAÇA algo (ex.: "pede pro contábil fazer o fechamento de outubro da Padaria Sol"). Pergunta sobre o que existe não é pedido.
 - Ache a empresa com buscar_empresas antes. Se a pessoa citar o número de uma demanda, passe demanda_numero; senão o sistema abre uma demanda nova no setor do agente.
@@ -111,11 +111,15 @@ async function executar(d: DepsAssistente, estado: EstadoAssistente, nome: strin
         prazo = p.iso;
       }
       if (!e.data.demanda_numero && !e.data.empresa_id) return falha('Diga a empresa (use buscar_empresas) ou o número da demanda.');
+      // Revisão final (Important 1): a nova tentativa do job responde a mesma mensagem (turno) e recebe a tarefa já criada, sem duplicar.
+      const chave = estado.ctx.turno
+        ? `${estado.ctx.turno}:${a.agente.id}:${e.data.demanda_numero ? `d${e.data.demanda_numero}` : `e${e.data.empresa_id}`}` : null;
       const r = await d.repos.pedirAoAgenteDe({ usuarioId: u.id, origem: estado.ctx.canal === 'whatsapp' ? 'whatsapp' : 'assistente', agenteId: a.agente.id,
-        pedido: e.data.pedido, clienteId: e.data.empresa_id ?? null, chamadoNumero: e.data.demanda_numero ?? null, prazo });
-      if (d.fila) await agendarTarefa(d.fila, r.tarefaId).catch((err) => console.error('[assistente] tarefa não enfileirada; o batimento começa', r.tarefaId, err));
+        pedido: e.data.pedido, clienteId: e.data.empresa_id ?? null, chamadoNumero: e.data.demanda_numero ?? null, prazo, chave });
+      if (d.fila && !r.jaCriada) await agendarTarefa(d.fila, r.tarefaId).catch((err) => console.error('[assistente] tarefa não enfileirada; o batimento começa', r.tarefaId, err));
       estado.acoes.push(`tarefa ${rotuloTarefa(r.tarefaNumero)} pedida ao ${a.agente.nome} na demanda #${r.chamadoNumero}`);
       const saida = { tarefa: rotuloTarefa(r.tarefaNumero), demanda: r.chamadoNumero, demanda_nova: r.demandaNova, agente: a.agente.nome,
+        ...(r.jaCriada ? { ja_criada: `Esta tarefa já foi criada (${rotuloTarefa(r.tarefaNumero)}) para esta mensagem: não peça de novo.` } : {}),
         aviso: estado.ctx.canal === 'whatsapp' ? 'Aviso aqui no WhatsApp quando terminar ou se o agente tiver pergunta.'
           : 'Aviso no painel (Início › Avisos) quando terminar ou se o agente tiver pergunta.' };
       await registrar(saida);

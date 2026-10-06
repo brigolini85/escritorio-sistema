@@ -70,6 +70,24 @@ describe('pedir ao agente pelo Assistente (banco local)', () => {
     expect(await sqlTeste("select count(*)::int as n from public.decisoes_agente where etapa = 'assistente:pedir_ao_agente'")).toEqual([{ n: 1 }]);
   });
 
+  it('nova tentativa do job (IA falha depois da ferramenta): a mesma tarefa volta como já criada, sem 2ª tarefa nem 2ª demanda', async () => {
+    await pergunta('pede pro contábil fazer o fechamento de outubro da Padaria Sol');
+    const job = { usuarioId: claudia, canal: 'whatsapp' as const, conversaId: null, telefone: '5531911110001' };
+    const pedir = () => usarFerramentas({ nome: 'pedir_ao_agente', entrada: { agente: 'contábil', empresa_id: empresa, pedido: 'Fazer o fechamento de outubro' } });
+    const ia1 = new IaRoteirizada([pedir(), new Error('529 overloaded')]);
+    await expect(processarAssistente({ repos, ia: ia1, canal: new CanalFalso(), fila: new FilaFalsa() }, job, false)).rejects.toThrow('529');
+    const [t] = await sqlTeste<{ numero: number }>('select numero from public.agente_tarefas');
+    const ia2 = new IaRoteirizada([pedir(), usarFerramentas({ nome: 'responder', entrada: { texto: 'Já estava pedido.' } }), fim()]);
+    const fila2 = new FilaFalsa();
+    await processarAssistente({ repos, ia: ia2, canal: new CanalFalso(), fila: fila2 }, job, true);
+    expect(await sqlTeste('select count(*)::int as n from public.agente_tarefas')).toEqual([{ n: 1 }]);
+    expect(await sqlTeste("select count(*)::int as n from public.chamados where titulo like 'Agente Contábil:%'")).toEqual([{ n: 1 }]);
+    const r = resultadoDaFerramenta(ia2);
+    expect(r.is_error).toBe(false);
+    expect(JSON.parse(r.content)).toMatchObject({ tarefa: `T-${String(t!.numero).padStart(4, '0')}`, ja_criada: expect.stringContaining('já foi criada') });
+    expect(fila2.enviados.map((e) => e.nome)).not.toContain('agente_trabalho');
+  });
+
   it('agente fora da lista: a ferramenta devolve a frase e nada é criado', async () => {
     await pergunta('pede pro fiscal conferir as notas da Padaria Sol');
     const ia = new IaRoteirizada([

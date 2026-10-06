@@ -9,7 +9,11 @@ alter table public.agente_tarefas
   add column avisar_painel boolean not null default true,
   add column avisar_whatsapp boolean not null default false,
   add column ler_drive boolean not null default true,
-  add column drive_subpasta text check (drive_subpasta is null or char_length(drive_subpasta) between 1 and 310);
+  add column drive_subpasta text check (drive_subpasta is null or char_length(drive_subpasta) between 1 and 310),
+  -- Revisão final (Important 1): a chave do pedido pelo Assistente (a mensagem que ele está respondendo + agente + empresa/demanda).
+  -- A nova tentativa do job manda a mesma chave e recebe a tarefa já criada, sem outra tarefa nem outra demanda.
+  add column chave_pedido text check (chave_pedido is null or char_length(chave_pedido) between 1 and 200);
+create unique index agente_tarefas_chave_pedido on public.agente_tarefas (pedida_por, chave_pedido) where chave_pedido is not null;
 
 -- ---------- Ajudantes com a pessoa (o trabalhador passa quem é; o painel passa auth.uid()) ----------
 create function interno.rotulo_tarefa(p_numero bigint) returns text
@@ -199,21 +203,35 @@ end $$;
 
 -- O trabalhador: Assistente do painel (avisa no painel) ou WhatsApp (avisa no WhatsApp e, se não der, no painel).
 create function public.pedir_ao_agente_de(p_usuario uuid, p_origem text, p_agente uuid, p_pedido text, p_cliente uuid default null,
-  p_chamado_numero bigint default null, p_prazo timestamptz default null) returns jsonb
+  p_chamado_numero bigint default null, p_prazo timestamptz default null, p_chave text default null) returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare v_chamado uuid;
+declare v_chamado uuid; v_chave text := nullif(btrim(coalesce(p_chave, '')), ''); v_r jsonb;
 begin
   if p_origem is null or p_origem not in ('assistente', 'whatsapp') then raise exception 'Origem inválida.'; end if;
   -- F8: o banco também confere o nível do Assistente da origem (o trabalhador já confere; aqui é a segunda trava).
   if not public.tem_nivel_de(p_usuario, 'assistente', case p_origem when 'whatsapp' then 'site_whatsapp' else 'site' end) then
     raise exception 'Acesso desativado.';
   end if;
+  -- Revisão final (Important 1): a mesma chave devolve a tarefa já criada (a nova tentativa do job não duplica).
+  if v_chave is not null then
+    perform pg_advisory_xact_lock(hashtext('pedir_ao_agente_de:' || p_usuario::text || ':' || v_chave));
+    select jsonb_build_object('tarefa_id', t.id, 'tarefa_numero', t.numero, 'chamado_id', t.chamado_id, 'chamado_numero', c.numero,
+                              'demanda_nova', false, 'ja_criada', true)
+      into v_r
+      from public.agente_tarefas t join public.chamados c on c.id = t.chamado_id
+     where t.pedida_por = p_usuario and t.chave_pedido = v_chave;
+    if v_r is not null then return v_r; end if;
+  end if;
   if p_chamado_numero is not null then
     select id into v_chamado from public.chamados where numero = p_chamado_numero;
     if not found then raise exception 'Demanda não encontrada.'; end if;
   end if;
-  return interno.pedir_ao_agente(p_usuario, p_origem, p_chamado_numero is not null, p_agente, v_chamado, p_cliente, p_pedido, null, p_prazo,
+  v_r := interno.pedir_ao_agente(p_usuario, p_origem, p_chamado_numero is not null, p_agente, v_chamado, p_cliente, p_pedido, null, p_prazo,
                                  true, p_origem = 'whatsapp', true, null);
+  if v_chave is not null then
+    update public.agente_tarefas set chave_pedido = left(v_chave, 200) where id = (v_r ->> 'tarefa_id')::uuid;
+  end if;
+  return v_r;
 end $$;
 
 revoke execute on function interno.rotulo_tarefa(bigint), interno.pessoa_pede_no_setor(uuid, uuid), interno.tem_permissao_de(uuid, text, text),
@@ -225,7 +243,7 @@ revoke execute on function public.agentes_para_pedir(uuid), public.meu_whatsapp_
   public.pedir_ao_agente(uuid, text, uuid, uuid, text, timestamptz, boolean, boolean, boolean, text) from public, anon, service_role;
 grant execute on function public.agentes_para_pedir(uuid), public.meu_whatsapp_para_avisos(),
   public.pedir_ao_agente(uuid, text, uuid, uuid, text, timestamptz, boolean, boolean, boolean, text) to authenticated;
-revoke execute on function public.agentes_para_pedir_de(uuid, uuid), public.pedir_ao_agente_de(uuid, text, uuid, text, uuid, bigint, timestamptz)
+revoke execute on function public.agentes_para_pedir_de(uuid, uuid), public.pedir_ao_agente_de(uuid, text, uuid, text, uuid, bigint, timestamptz, text)
   from public, anon, authenticated;
-grant execute on function public.agentes_para_pedir_de(uuid, uuid), public.pedir_ao_agente_de(uuid, text, uuid, text, uuid, bigint, timestamptz)
+grant execute on function public.agentes_para_pedir_de(uuid, uuid), public.pedir_ao_agente_de(uuid, text, uuid, text, uuid, bigint, timestamptz, text)
   to service_role;
