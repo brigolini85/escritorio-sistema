@@ -1,9 +1,10 @@
 import { EXPORTAR_DO_DRIVE, LIMITES_TAREFA, MIME_PASTA_DRIVE, type ItemDrive } from '@escritorio/core';
-import { ErroDrive, type DriveLeitor } from './leitor';
+import { ErroDrive, textoPastaNaoEncontrada, type DriveLeitor } from './leitor';
 
 /**
- * Um item do Drive falso. `lixeira`: some da lista e do item(), como no Google; `semAcesso`: a conta do escritório
- * não pode ler (403, sem_acesso). Atalhos, pastas de unidades compartilhadas e arquivos com dois pais são itens comuns
+ * Um item do Drive falso. `lixeira`: some da lista e do item(), como no Google; `semAcesso`: não foi compartilhado
+ * com a conta do escritório; como no Google, isso é um 404 (item → null; listar/baixar/exportar → nao_encontrado).
+ * Atalhos, pastas de unidades compartilhadas e arquivos com dois pais são itens comuns
  * (mime do atalho, `pais` com mais de uma pasta), como o Google devolve.
  */
 export type ArquivoFalso = ItemDrive & { conteudo?: string | Uint8Array; exportado?: string | Uint8Array; lixeira?: boolean; semAcesso?: boolean };
@@ -17,8 +18,7 @@ export function criarDriveFalso(itens: ArquivoFalso[], email = 'drive-teste@escr
   const listados: string[] = [];
   const achar = (id: string) => {
     const i = porId.get(id);
-    if (!i) throw new ErroDrive('nao_encontrado', 'Não encontrado no Drive.');
-    if (i.semAcesso) throw new ErroDrive('sem_acesso', 'A conta do Drive do escritório não tem acesso.');
+    if (!i || i.semAcesso) throw new ErroDrive('nao_encontrado', 'Não encontrado no Drive.');
     return i;
   };
   const limitado = (b: Uint8Array) => {
@@ -30,13 +30,14 @@ export function criarDriveFalso(itens: ArquivoFalso[], email = 'drive-teste@escr
     async verificar() {},
     async item(id) {
       const i = porId.get(id);
-      if (i?.semAcesso) throw new ErroDrive('sem_acesso', 'A conta do Drive do escritório não tem acesso.');
-      return i && !i.lixeira ? semConteudo(i) : null;
+      return i && !i.lixeira && !i.semAcesso ? semConteudo(i) : null;
     },
+    // Como o cliente REST: pasta que não existe, não foi compartilhada, está na lixeira ou não é pasta → nao_encontrado.
     async listar(pastaId) {
       listados.push(pastaId);
-      if (achar(pastaId).mime !== MIME_PASTA_DRIVE) throw new ErroDrive('nao_encontrado', 'Não é pasta.');
-      return itens.filter((i) => !i.lixeira && i.pais.includes(pastaId)).map(semConteudo);
+      const p = porId.get(pastaId);
+      if (!p || p.semAcesso || p.lixeira || p.mime !== MIME_PASTA_DRIVE) throw new ErroDrive('nao_encontrado', textoPastaNaoEncontrada(email));
+      return itens.filter((i) => !i.lixeira && !i.semAcesso && i.pais.includes(pastaId)).map(semConteudo);
     },
     async baixar(id) {
       baixados.push(id);

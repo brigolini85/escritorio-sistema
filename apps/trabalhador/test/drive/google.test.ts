@@ -19,6 +19,7 @@ function fetchFalso(respostas: (p: Pedido) => Response) {
   return { buscar, pedidos };
 }
 const json = (x: unknown, status = 200) => new Response(JSON.stringify(x), { status, headers: { 'content-type': 'application/json' } });
+const UM_ARQUIVO = { files: [{ id: 'a', name: 'a.csv', mimeType: 'text/csv', modifiedTime: '2026-10-01T00:00:00Z', parents: ['P'] }] };
 const TOKEN = (p: Pedido) => (p.url.startsWith('https://oauth2.googleapis.com/token') ? json({ access_token: 'tk', expires_in: 3600 }) : null);
 
 describe('conta de serviço (D3)', () => {
@@ -109,10 +110,10 @@ describe('criarDriveGoogle: rulings do pré-voo e a chave', () => {
     const recusado = fetchFalso((p) => (p.url.includes('oauth2') ? json({ error: 'invalid_grant' }, 400) : json({})));
     await expect(criarDriveGoogle(lerContaServico(JSON_CHAVE), recusado.buscar).listar('P')).rejects.toMatchObject({ codigo: 'conta' });
     let n401 = 0;
-    const f = fetchFalso((p) => TOKEN(p) ?? (n401++ === 0 ? json({}, 401) : json({ files: [] })));
+    const f = fetchFalso((p) => TOKEN(p) ?? (n401++ === 0 ? json({}, 401) : json(UM_ARQUIVO)));
     const d = criarDriveGoogle(lerContaServico(JSON_CHAVE), f.buscar);
     await expect(d.listar('P')).rejects.toMatchObject({ codigo: 'conta' });
-    expect(await d.listar('P')).toEqual([]);
+    expect((await d.listar('P')).map((i) => i.id)).toEqual(['a']);
     expect(f.pedidos.filter((p) => p.url.includes('oauth2')).length).toBe(2);
   });
   it('F1: token com o Google fora do ar (5xx) é "falha", não "conta"', async () => {
@@ -132,7 +133,7 @@ describe('criarDriveGoogle: rulings do pré-voo e a chave', () => {
     const sinais: { url: string; signal: AbortSignal | null | undefined }[] = [];
     const buscar = (async (u: string | URL, init?: RequestInit) => {
       sinais.push({ url: String(u), signal: init?.signal });
-      return String(u).includes('oauth2') ? json({ access_token: 'tk', expires_in: 3600 }) : String(u).includes('alt=media') ? new Response('x') : json({ files: [] });
+      return String(u).includes('oauth2') ? json({ access_token: 'tk', expires_in: 3600 }) : String(u).includes('alt=media') ? new Response('x') : json(UM_ARQUIVO);
     }) as typeof fetch;
     const espiao = vi.spyOn(AbortSignal, 'timeout');
     try {
@@ -164,7 +165,7 @@ describe('criarDriveGoogle: rulings do pré-voo e a chave', () => {
     try {
       const outra = JSON.stringify({ ...JSON.parse(JSON_CHAVE), token_uri: 'https://atacante.example/token' });
       let agora = 1_760_000_000_000;
-      const f = fetchFalso((p) => (p.url.includes('oauth2') ? json({ access_token: 'tk' }) : json({ files: [] })));
+      const f = fetchFalso((p) => (p.url.includes('oauth2') ? json({ access_token: 'tk' }) : json(UM_ARQUIVO)));
       const d = criarDriveGoogle(lerContaServico(outra), f.buscar, () => agora);
       await d.listar('P');
       agora += 3_000_000; // 50 minutos: ainda vale
@@ -182,7 +183,7 @@ describe('criarDriveGoogle: rulings do pré-voo e a chave', () => {
     }
   });
   it('F12: a lista pede corpora=allDrives; o /about não leva os parâmetros das unidades compartilhadas', async () => {
-    const f = fetchFalso((p) => TOKEN(p) ?? json({ files: [], user: { emailAddress: 'x' } }));
+    const f = fetchFalso((p) => TOKEN(p) ?? json({ ...UM_ARQUIVO, ...UM_ARQUIVO.files[0], user: { emailAddress: 'x' } }));
     const d = criarDriveGoogle(lerContaServico(JSON_CHAVE), f.buscar);
     await d.verificar();
     await d.listar('P');
@@ -220,5 +221,44 @@ describe('criarDriveGoogle: rulings do pré-voo e a chave', () => {
     } finally {
       espioes.forEach((s) => s.mockRestore());
     }
+  });
+});
+
+// Revisão da Task 7: a busca do Google devolve lista vazia (sem 403/404) para a pasta que a conta não enxerga.
+describe('listar: a pasta que não está lá não vira "pasta vazia"', () => {
+  const PASTA = 'application/vnd.google-apps.folder';
+  const NAO_ACHOU = 'A pasta não foi encontrada no Drive ou não foi compartilhada com drive@escritorio.iam.gserviceaccount.com (como Leitor).';
+  const montar = (pasta: Response | (() => Response)) => fetchFalso((p) => TOKEN(p)
+    ?? (new URL(p.url).pathname === '/drive/v3/files' ? json({ files: [] }) : typeof pasta === 'function' ? pasta() : pasta));
+  it.each([
+    ['não compartilhada ou apagada de vez (404)', () => json({ error: { errors: [{ reason: 'notFound' }] } }, 404)],
+    ['403 da própria pasta', () => json({ error: { errors: [{ reason: 'forbidden' }] } }, 403)],
+    ['na lixeira', () => json({ id: 'P', mimeType: PASTA, trashed: true })],
+    ['não é pasta', () => json({ id: 'P', mimeType: 'application/pdf', trashed: false })],
+  ])('%s → nao_encontrado com o e-mail da conta', async (_n, pasta) => {
+    const f = montar(pasta);
+    await expect(criarDriveGoogle(lerContaServico(JSON_CHAVE), f.buscar).listar('P')).rejects.toMatchObject({ codigo: 'nao_encontrado', message: NAO_ACHOU });
+    const conferida = f.pedidos.map((p) => new URL(p.url)).find((u) => u.pathname === '/drive/v3/files/P')!;
+    expect(conferida.searchParams.get('fields')).toBe('id,mimeType,trashed');
+    expect(conferida.searchParams.get('supportsAllDrives')).toBe('true');
+  });
+  it('pasta de verdade e vazia → lista vazia; 401 na conferência continua "conta"', async () => {
+    const f = montar(json({ id: 'P', mimeType: PASTA, trashed: false }));
+    expect(await criarDriveGoogle(lerContaServico(JSON_CHAVE), f.buscar).listar('P')).toEqual([]);
+    await expect(criarDriveGoogle(lerContaServico(JSON_CHAVE), montar(() => json({}, 401)).buscar).listar('P')).rejects.toMatchObject({ codigo: 'conta' });
+  });
+  it('lista com arquivos não confere a pasta de novo (uma chamada a menos por pasta)', async () => {
+    const f = fetchFalso((p) => TOKEN(p) ?? json(UM_ARQUIVO));
+    await criarDriveGoogle(lerContaServico(JSON_CHAVE), f.buscar).listar('P');
+    expect(f.pedidos.filter((p) => p.url.includes('/drive/v3/')).map((p) => new URL(p.url).pathname)).toEqual(['/drive/v3/files']);
+  });
+  it('resposta fora do formato: files que não é lista vira "falha"; entrada torta é descartada; páginas têm teto', async () => {
+    const torto = fetchFalso((p) => TOKEN(p) ?? json({ files: 'x' }));
+    await expect(criarDriveGoogle(lerContaServico(JSON_CHAVE), torto.buscar).listar('P')).rejects.toMatchObject({ codigo: 'falha' });
+    const meio = fetchFalso((p) => TOKEN(p) ?? json({ files: [{ id: 'z' }, ...UM_ARQUIVO.files] }));
+    expect((await criarDriveGoogle(lerContaServico(JSON_CHAVE), meio.buscar).listar('P')).map((i) => i.id)).toEqual(['a']);
+    const semFim = fetchFalso((p) => TOKEN(p) ?? json({ nextPageToken: 'de-novo', files: [...UM_ARQUIVO.files] }));
+    await criarDriveGoogle(lerContaServico(JSON_CHAVE), semFim.buscar).listar('P');
+    expect(semFim.pedidos.filter((p) => p.url.includes('/drive/v3/files')).length).toBe(10);
   });
 });

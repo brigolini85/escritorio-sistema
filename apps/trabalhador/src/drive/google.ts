@@ -1,6 +1,6 @@
 import { createPrivateKey, createSign, type KeyObject } from 'node:crypto';
-import { LIMITES_TAREFA, type ItemDrive } from '@escritorio/core';
-import { ErroDrive, type DriveLeitor } from './leitor';
+import { LIMITES_TAREFA, MIME_PASTA_DRIVE, type ItemDrive } from '@escritorio/core';
+import { ErroDrive, textoPastaNaoEncontrada, type DriveLeitor } from './leitor';
 
 /** D3: só leitura. É o único escopo pedido; o Google recusa qualquer gravação com ele. */
 export const ESCOPO_DRIVE = 'https://www.googleapis.com/auth/drive.readonly';
@@ -13,6 +13,8 @@ const ID_DRIVE = /^[A-Za-z0-9_-]{1,200}$/;
 /** F2: tempo-limite de cada chamada (token, metadados e lista; download e exportação). */
 const TEMPOS = { curto: 30_000, longo: 120_000 };
 const LISTADOS_NO_MAXIMO = 1000;
+/** Teto de páginas: um nextPageToken que se repete com a lista vazia não prende o laço. */
+const PAGINAS_NO_MAXIMO = 10;
 
 /** A chave fica num KeyObject: nem JSON.stringify nem console.log mostram o conteúdo dela. */
 export type ContaServico = { email: string; chave: KeyObject };
@@ -63,6 +65,11 @@ export function assinarJwt(c: ContaServico, agoraMs: number): string {
 }
 
 type ArquivoApi = { id: string; name: string; mimeType: string; size?: string; modifiedTime: string; parents?: string[]; trashed?: boolean };
+/** Entrada da lista sem id, nome ou tipo em texto é descartada (o Drive não manda isso; se mandar, não vira ItemDrive torto). */
+const arquivoValido = (f: unknown): f is ArquivoApi => {
+  const o = f as Record<string, unknown> | null;
+  return !!o && typeof o.id === 'string' && typeof o.name === 'string' && typeof o.mimeType === 'string';
+};
 const paraItem = (f: ArquivoApi): ItemDrive => {
   const tamanho = f.size === undefined ? null : Number(f.size);
   return { id: f.id, nome: f.name, mime: f.mimeType, tamanho: tamanho !== null && Number.isFinite(tamanho) ? tamanho : null, modificadoEm: f.modifiedTime, pais: f.parents ?? [] };
@@ -194,6 +201,19 @@ export function criarDriveGoogle(
   const exigirId = (id: string) => {
     if (!ID_DRIVE.test(id)) throw new ErroDrive('nao_encontrado', 'Não encontrado no Drive.');
   };
+  /** A pasta existe, a conta enxerga, não está na lixeira e é pasta; senão 'nao_encontrado' (o Google dá 404 ao não compartilhado). */
+  async function conferirPasta(id: string): Promise<void> {
+    let f: { mimeType?: unknown; trashed?: unknown };
+    try {
+      f = await lerJson(await get(arquivos(id), { supportsAllDrives: 'true', fields: 'id,mimeType,trashed' }, tempos.curto));
+    } catch (e) {
+      if (e instanceof ErroDrive && (e.codigo === 'nao_encontrado' || e.codigo === 'sem_acesso')) {
+        throw new ErroDrive('nao_encontrado', textoPastaNaoEncontrada(c.email));
+      }
+      throw e;
+    }
+    if (f.trashed === true || f.mimeType !== MIME_PASTA_DRIVE) throw new ErroDrive('nao_encontrado', textoPastaNaoEncontrada(c.email));
+  }
 
   return {
     email: c.email,
@@ -214,14 +234,19 @@ export function criarDriveGoogle(
       exigirId(pastaId);
       const itens: ItemDrive[] = [];
       let pagina: string | undefined;
+      let paginas = 0;
       do {
-        const j = await lerJson<{ nextPageToken?: string; files?: ArquivoApi[] }>(await get('/files', {
+        const j = await lerJson<{ nextPageToken?: unknown; files?: unknown }>(await get('/files', {
           q: `'${pastaId}' in parents and trashed = false`, fields: `nextPageToken,files(${CAMPOS})`, pageSize: '200',
           corpora: 'allDrives', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true', ...(pagina ? { pageToken: pagina } : {}),
         }, tempos.curto));
-        itens.push(...(j.files ?? []).filter((f) => !f.trashed).map(paraItem));
-        pagina = j.nextPageToken;
-      } while (pagina && itens.length < LISTADOS_NO_MAXIMO);
+        if (j.files !== undefined && !Array.isArray(j.files)) throw new ErroDrive('falha', 'O Drive respondeu fora do formato.');
+        itens.push(...((j.files ?? []) as ArquivoApi[]).filter(arquivoValido).filter((f) => !f.trashed).map(paraItem));
+        pagina = typeof j.nextPageToken === 'string' && j.nextPageToken ? j.nextPageToken : undefined;
+      } while (pagina && itens.length < LISTADOS_NO_MAXIMO && ++paginas < PAGINAS_NO_MAXIMO);
+      // A busca do Google devolve lista vazia (e não 403/404) para a pasta que não existe, não foi compartilhada,
+      // está na lixeira ou não é pasta. Só aí conferimos a própria pasta (uma chamada a mais só no caso vazio).
+      if (itens.length === 0) await conferirPasta(pastaId);
       return itens;
     },
     async baixar(id) {

@@ -42,9 +42,17 @@ describe('Drive falso: o que os testes das tarefas precisam', () => {
     await expect(d.baixar('big')).rejects.toMatchObject({ codigo: 'grande' });
     await expect(d.listar('dois')).rejects.toBeInstanceOf(ErroDrive);
   });
-  it('sem acesso: a pasta não compartilhada lança sem_acesso', async () => {
-    const s = criarDriveFalso([{ ...pasta('X'), semAcesso: true }]);
-    await expect(s.listar('X')).rejects.toMatchObject({ codigo: 'sem_acesso' });
+  it('como o Google (404): pasta não compartilhada, na lixeira, inexistente ou que não é pasta → nao_encontrado com o e-mail', async () => {
+    const s = criarDriveFalso([
+      { ...pasta('X'), semAcesso: true }, { ...pasta('L'), lixeira: true }, pasta('V'),
+      { id: 'f', nome: 'f.csv', mime: 'text/csv', tamanho: 1, modificadoEm: '2026-10-01T00:00:00Z', pais: ['V'], conteudo: 'x', semAcesso: true },
+    ], 'conta@x.iam.gserviceaccount.com');
+    const texto = 'A pasta não foi encontrada no Drive ou não foi compartilhada com conta@x.iam.gserviceaccount.com (como Leitor).';
+    for (const id of ['X', 'L', 'nada', 'f']) await expect(s.listar(id)).rejects.toMatchObject({ codigo: 'nao_encontrado', message: texto });
+    expect(await s.item('X')).toBeNull();
+    expect(await s.item('f')).toBeNull();
+    await expect(s.baixar('f')).rejects.toMatchObject({ codigo: 'nao_encontrado' });
+    expect(await s.listar('V')).toEqual([]);
   });
 });
 

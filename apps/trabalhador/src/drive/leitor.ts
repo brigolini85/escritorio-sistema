@@ -18,6 +18,10 @@ export interface DriveLeitor {
  * F1: 'conta' é a conta do escritório que não autentica (token recusado, 401, API desligada): só ela vai para
  * drive_conta.erro. Os outros são da pasta ou do arquivo e ficam na linha do tempo da tarefa.
  */
+/** F6: o Google responde 404 também para a pasta que não foi compartilhada com a conta; o texto diz as duas coisas. */
+export const textoPastaNaoEncontrada = (email: string): string =>
+  `A pasta não foi encontrada no Drive ou não foi compartilhada com ${email} (como Leitor).`;
+
 export type CodigoErroDrive = 'conta' | 'sem_acesso' | 'nao_encontrado' | 'grande' | 'falha';
 export class ErroDrive extends Error {
   constructor(readonly codigo: CodigoErroDrive, mensagem: string) {
