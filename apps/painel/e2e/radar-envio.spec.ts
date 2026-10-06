@@ -54,12 +54,20 @@ test('Ana (Fiscal) edita, aprova e a lista fica aguardando o trabalhador, sem me
   await bloco.getByLabel('Mensagem para os clientes').fill(novo);
   await bloco.getByRole('button', { name: 'Salvar' }).click();
   await expect(page.getByText('Mensagem salva.')).toBeVisible();
-  await bloco.getByRole('button', { name: 'Aprovar e enviar' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Aprovar e enviar' }).click();
-  await expect(page.getByText(/Aprovado: 3 contatos recebem/)).toBeVisible();
-  const envios = await sqlTeste<{ estado: string; texto: string }>('select estado, texto from public.radar_envios');
-  expect(envios).toHaveLength(3);
-  for (const e of envios) expect(e).toEqual({ estado: 'aguardando', texto: novo });
+  expect(await sqlTeste('select 1 from public.radar_envios')).toHaveLength(0);
+  await bloco.getByRole('button', { name: 'Escolher clientes' }).click();
+  const j = page.getByRole('dialog');
+  await expect(j.getByText('Todos os 2 clientes')).toBeVisible();
+  await j.getByRole('checkbox', { name: /Mercado Lua/ }).click();
+  await expect(j.getByText('1 de 2 clientes · 2 contatos')).toBeVisible();
+  await j.getByRole('button', { name: 'Aprovar e enviar' }).click();
+  await expect(page.getByText(/Aprovado: 2 contatos recebem/)).toBeVisible();
+  const envios = await sqlTeste<{ estado: string; texto: string; telefone: string }>(
+    'select e.estado, e.texto, c.telefone from public.radar_envios e join public.contatos c on c.id = e.contato_id order by c.telefone');
+  expect(envios).toEqual([
+    { estado: 'aguardando', texto: novo, telefone: '5531988880001' },
+    { estado: 'aguardando', texto: novo, telefone: '5531988880005' },
+  ]);
   expect(await sqlTeste('select 1 from public.mensagens')).toHaveLength(0);
 });
 

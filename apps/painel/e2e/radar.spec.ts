@@ -97,6 +97,7 @@ test('descartar pede confirmação e leva a novidade para Descartadas', async ({
   await expect(page.getByTestId('novidade')).toHaveCount(2);
   await aba(page, /Descartadas\s*1/).click();
   await expect(page.getByTestId('novidade').first()).toContainText(/Descartada por Thiago Dono/);
+  expect(await sqlTeste<{ estado: string }>('select estado from public.radar_novidades where titulo = $1', [TITULO_BAIXA])).toEqual([{ estado: 'descartada' }]);
 });
 
 test('procurar agora pede um giro (só um por vez); quem não treina não vê o Radar', async ({ page }) => {
