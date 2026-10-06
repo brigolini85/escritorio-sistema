@@ -28,7 +28,7 @@ export type GiroTela = {
   resumo: string | null; erro: string | null; custoUsd: number; novaTentativaEm: string | null; pedidoPor: string | null;
 };
 export type TelaRadar = {
-  semI5: boolean; config: ConfigTela; fontes: FonteRadar[]; giros: GiroTela[]; novidades: NovidadeTela[]; contagem: Record<EstadoNovidade, number>;
+  semI5: boolean; erro: boolean; config: ConfigTela; fontes: FonteRadar[]; giros: GiroTela[]; novidades: NovidadeTela[]; contagem: Record<EstadoNovidade, number>;
   mes: { custoUsd: number; novidades: number; demandas: number }; setores: { id: string; nome: string }[]; telefoneDono: boolean;
 };
 
@@ -39,7 +39,7 @@ const CONFIG_PADRAO: ConfigTela = {
   estado: 'desligado', proximoGiro: null,
 };
 const VAZIA = (): TelaRadar => ({
-  semI5: false, config: CONFIG_PADRAO, fontes: [], giros: [], novidades: [], contagem: { para_decidir: 0, demanda: 0, descartada: 0 },
+  semI5: false, erro: false, config: CONFIG_PADRAO, fontes: [], giros: [], novidades: [], contagem: { para_decidir: 0, demanda: 0, descartada: 0 },
   mes: { custoUsd: 0, novidades: 0, demandas: 0 }, setores: [], telefoneDono: false,
 });
 
@@ -96,7 +96,7 @@ function ou<T>(r: { data: T | null; error: { code?: string } | null }, nome: str
 export async function lerTelaRadar(sb: Sb, filtro: FiltroRadar, agora: Date): Promise<TelaRadar> {
   const mes = inicioDoMes(agora);
   const contar = (estado: EstadoNovidade) => sb.from('radar_novidades').select('id', { count: 'exact', head: true }).eq('estado', estado);
-  const [config, fontes, giros, girosMes, novidades, c1, c2, c3, novMes, demMes, setores, agente, conf] = await Promise.all([
+  const [config, fontes, giros, girosMes, novidades, c1, c2, c3, novMes, demMes, setores, agente, conf, agendadoHoje] = await Promise.all([
     sb.from('radar_config').select('*').eq('id', 1).maybeSingle(),
     sb.from('radar_fontes').select('*').order('ordem'),
     sb.from('radar_giros').select('*').order('criado_em', { ascending: false }).limit(20),
@@ -108,33 +108,43 @@ export async function lerTelaRadar(sb: Sb, filtro: FiltroRadar, agora: Date): Pr
     sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
     sb.from('agentes').select('estado').eq('slug', 'radar').maybeSingle(),
     sb.from('configuracoes').select('telefone_dono').limit(1).maybeSingle(),
+    sb.from('radar_giros').select('id').eq('origem', 'agenda').eq('dia', diaSP(agora)).limit(1),
   ]);
   if (semMigracaoI1(config.error)) return { ...VAZIA(), semI5: true };
-  if (config.error) console.error('[radar] config', config.error);
+  let erro = false;
+  const ler = <T,>(r: { data: T | null; error: unknown }, nome: string, vazio: T): T => {
+    if (r.error) erro = true;
+    return ou(r as never, nome, vazio);
+  };
+  if (config.error) { erro = true; console.error('[radar] config', config.error); }
+  if (agente.error) { erro = true; console.error('[radar] agente', agente.error); }
+  for (const c of [c1, c2, c3, novMes, demMes]) if (c.error) { erro = true; console.error('[radar] contagem', c.error); }
 
-  const todosSetores = ou(setores as never as { data: Linha[] | null; error: null }, 'setores', []).map((s) => ({ id: texto(s.id), nome: texto(s.nome) }));
+  const todosSetores = ler(setores as never as { data: Linha[] | null; error: unknown }, 'setores', []).map((s) => ({ id: texto(s.id), nome: texto(s.nome) }));
   const nomeDoSetor = new Map(todosSetores.map((s) => [s.id, s.nome]));
-  const linhasNov = ou(novidades as never as { data: Linha[] | null; error: null }, 'novidades', []);
+  const linhasNov = ler(novidades as never as { data: Linha[] | null; error: unknown }, 'novidades', []);
   const ids = linhasNov.map((n) => texto(n.id));
   const chamadoIds = linhasNov.map((n) => textoOuNulo(n.chamado_id)).filter((x): x is string => !!x);
-  const [envios, chamados] = await Promise.all([
-    ids.length ? sb.from('radar_envios').select('novidade_id, estado, motivo').in('novidade_id', ids) : Promise.resolve({ data: [], error: null }),
+  const [enviosRpc, chamados] = await Promise.all([
+    Promise.all(ids.map((id) => sb.rpc('envios_da_novidade' as never, { p_novidade: id } as never))),
     chamadoIds.length ? sb.from('chamados').select('id, numero').in('id', chamadoIds) : Promise.resolve({ data: [], error: null }),
   ]);
   const enviosPor = new Map<string, NovidadeTela['envios']>();
-  for (const e of ou(envios as never as { data: Linha[] | null; error: null }, 'envios', [])) {
-    const k = texto(e.novidade_id);
-    const acc = enviosPor.get(k) ?? { enviado: 0, aguardando: 0, naoEnviado: 0, motivos: [] };
-    if (e.estado === 'enviado') acc.enviado++;
-    else if (e.estado === 'aguardando') acc.aguardando++;
-    else if (e.estado === 'nao_enviado') {
-      acc.naoEnviado++;
-      const m = textoOuNulo(e.motivo);
-      if (m && !acc.motivos.includes(m)) acc.motivos.push(m);
+  enviosRpc.forEach((r, i) => {
+    const acc: NovidadeTela['envios'] = { enviado: 0, aguardando: 0, naoEnviado: 0, motivos: [] };
+    for (const e of ler(r as never as { data: Linha[] | null; error: unknown }, 'envios', [])) {
+      const n = numero(e.total);
+      if (e.estado === 'enviado') acc.enviado += n;
+      else if (e.estado === 'aguardando') acc.aguardando += n;
+      else if (e.estado === 'nao_enviado') {
+        acc.naoEnviado += n;
+        const m = textoOuNulo(e.motivo);
+        if (m && !acc.motivos.includes(m)) acc.motivos.push(m);
+      }
     }
-    enviosPor.set(k, acc);
-  }
-  const numeroDoChamado = new Map(ou(chamados as never as { data: Linha[] | null; error: null }, 'chamados', []).map((c) => [texto(c.id), numero(c.numero)]));
+    enviosPor.set(ids[i]!, acc);
+  });
+  const numeroDoChamado = new Map(ler(chamados as never as { data: Linha[] | null; error: unknown }, 'chamados', []).map((c) => [texto(c.id), numero(c.numero)]));
 
   const q = semAcento(filtro.q);
   const lidas: NovidadeTela[] = linhasNov
@@ -158,15 +168,14 @@ export async function lerTelaRadar(sb: Sb, filtro: FiltroRadar, agora: Date): Pr
     .sort((a, b) => PESO[a.impacto] - PESO[b.impacto] || b.achadoEm.localeCompare(a.achadoEm));
 
   const cfg = (config.data ?? {}) as Linha;
-  const girosTela = ou(giros as never as { data: Linha[] | null; error: null }, 'giros', []).map(lerGiro);
+  const girosTela = ler(giros as never as { data: Linha[] | null; error: unknown }, 'giros', []).map(lerGiro);
   const hora = texto(cfg.hora).slice(0, 5) || CONFIG_PADRAO.hora;
   const dias = lista(cfg.dias).map(Number).filter((d) => Number.isInteger(d));
   const diasOk = dias.length ? dias : CONFIG_PADRAO.dias;
-  const hoje = diaSP(agora);
-  const jaRodouHoje = ou(giros as never as { data: Linha[] | null; error: null }, 'giros', []).some((g) => g.origem === 'agenda' && g.dia === hoje);
+  const jaRodouHoje = ler(agendadoHoje as never as { data: Linha[] | null; error: unknown }, 'giro de hoje', []).length > 0;
   const estadoAgente = texto((agente.data as Linha | null)?.estado);
   return {
-    semI5: false,
+    semI5: false, erro,
     config: {
       hora, dias: diasOk, assuntos: lista(cfg.assuntos).filter((a): a is string => typeof a === 'string'),
       resumoWhatsapp: cfg.resumo_whatsapp !== false, avisoAlto: cfg.aviso_alto !== false, avisarPainel: cfg.avisar_painel === true,
@@ -174,12 +183,12 @@ export async function lerTelaRadar(sb: Sb, filtro: FiltroRadar, agora: Date): Pr
       estado: estadoAgente === 'ligado' || estadoAgente === 'teste' ? estadoAgente : 'desligado',
       proximoGiro: proximoGiro({ hora, dias: diasOk }, agora, jaRodouHoje)?.toISOString() ?? null,
     },
-    fontes: ou(fontes as never as { data: Linha[] | null; error: null }, 'fontes', []).map(lerFonte),
+    fontes: ler(fontes as never as { data: Linha[] | null; error: unknown }, 'fontes', []).map(lerFonte),
     giros: girosTela,
     novidades: lidas,
     contagem: { para_decidir: c1.count ?? 0, demanda: c2.count ?? 0, descartada: c3.count ?? 0 },
     mes: {
-      custoUsd: ou(girosMes as never as { data: Linha[] | null; error: null }, 'custo do mês', []).reduce((s, g) => s + numero(g.custo_usd), 0),
+      custoUsd: ler(girosMes as never as { data: Linha[] | null; error: unknown }, 'custo do mês', []).reduce((s, g) => s + numero(g.custo_usd), 0),
       novidades: novMes.count ?? 0, demandas: demMes.count ?? 0,
     },
     setores: todosSetores,

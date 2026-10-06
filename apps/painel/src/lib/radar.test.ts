@@ -11,8 +11,9 @@ type Linha = Record<string, unknown>;
 type Erros = Record<string, { code: string; message: string }>;
 
 /** Supabase falso: devolve as linhas por tabela e honra eq, in, gte e head+count. */
-function falso(tabelas: Record<string, Linha[]>, erros: Erros = {}) {
+function falso(tabelas: Record<string, Linha[]>, erros: Erros = {}, rpcs: Record<string, Linha[]> = {}) {
   return {
+    rpc: async (_nome: string, a: { p_novidade: string }) => ({ data: rpcs[a.p_novidade] ?? [], error: null }),
     from: (t: string) => {
       let linhas = tabelas[t] ?? [];
       let head = false;
@@ -86,18 +87,27 @@ describe('tela do Radar', () => {
     expect(t.setores).toEqual([{ id: S1, nome: 'Fiscal' }, { id: S2, nome: 'Pessoal' }]);
   });
 
-  it('agrega os envios por novidade', async () => {
-    const sb = falso(base({
-      radar_novidades: [nov('n1', { estado: 'demanda' })],
-      radar_envios: [
-        { novidade_id: 'n1', estado: 'enviado', motivo: null }, { novidade_id: 'n1', estado: 'enviado', motivo: null },
-        { novidade_id: 'n1', estado: 'aguardando', motivo: null },
-        { novidade_id: 'n1', estado: 'nao_enviado', motivo: 'pausado' }, { novidade_id: 'n1', estado: 'nao_enviado', motivo: 'limite_dia' },
-        { novidade_id: 'n1', estado: 'nao_enviado', motivo: 'pausado' },
-      ],
-    }));
+  it('agrega os envios por novidade com a função envios_da_novidade', async () => {
+    const sb = falso(base({ radar_novidades: [nov('n1', { estado: 'demanda' })] }), {}, { n1: [
+      { estado: 'aguardando', motivo: null, total: 1 }, { estado: 'enviado', motivo: null, total: 2 },
+      { estado: 'nao_enviado', motivo: 'limite_dia', total: 1 }, { estado: 'nao_enviado', motivo: 'pausado', total: 2 },
+    ] });
     const t = await lerTelaRadar(sb as never, { ...filtro, estado: 'demanda' }, AGORA);
-    expect(t.novidades[0]!.envios).toEqual({ enviado: 2, aguardando: 1, naoEnviado: 3, motivos: ['pausado', 'limite_dia'] });
+    expect(t.novidades[0]!.envios).toEqual({ enviado: 2, aguardando: 1, naoEnviado: 3, motivos: ['limite_dia', 'pausado'] });
+  });
+
+  it('erro de leitura (não de migração) acende erro, sem semI5', async () => {
+    const t = await lerTelaRadar(falso(base(), { radar_novidades: { code: '57014', message: 'timeout' } }) as never, filtro, AGORA);
+    expect(t).toMatchObject({ semI5: false, erro: true, novidades: [] });
+    expect((await lerTelaRadar(falso(base()) as never, filtro, AGORA)).erro).toBe(false);
+  });
+
+  it('próximo giro: já rodou hoje (agenda de hoje em São Paulo) pula para o próximo dia', async () => {
+    const sem = await lerTelaRadar(falso(base({ radar_giros: [] })) as never, filtro, AGORA);
+    const com = await lerTelaRadar(falso(base({ radar_giros: [{ id: 'g', origem: 'agenda', dia: '2026-10-15', criado_em: '2026-10-15T10:00:00Z', custo_usd: 0 }] })) as never, filtro, AGORA);
+    // 15/10/2026 é quinta, 12h em SP e depois das 7h: sem giro hoje = agora; com giro = sexta 07h SP
+    expect(sem.config.proximoGiro).toBe(AGORA.toISOString());
+    expect(com.config.proximoGiro).toBe('2026-10-16T10:00:00.000Z');
   });
 
   it('mês: custo dos giros, novidades e demandas desde o início do mês em São Paulo', async () => {
