@@ -6,7 +6,17 @@ export type PendenciaTela = {
   id: string; numero: number; tipo: TipoPendencia; pergunta: string; detalhe: string | null; opcoes: string[]; mensagem: string | null;
   estado: 'aberta' | 'respondida'; resposta: string | null; respondidaPor: string | null; respondidaEm: string | null;
   contato: string | null; pedidoTexto: string | null; pedidoEm: string | null; pedidoEnviadoEm: string | null; pedidos: number;
+  /** Revisão final: por que o pedido aprovado ainda não saiu (pedidos_segurados_da_tarefa). */
+  segurado?: MotivoSegurado | null;
 };
+export type MotivoSegurado = 'atendimento_humano' | 'pausado' | 'limite_dia' | 'nao_procuravel';
+const TEXTO_SEGURADO: Record<MotivoSegurado, string> = {
+  atendimento_humano: 'Aguardando a conversa voltar para o Thiago',
+  pausado: 'Aguardando o atendimento automático voltar (está pausado)',
+  limite_dia: 'Aguardando: o limite de pedidos do dia foi atingido',
+  nao_procuravel: 'Não pode ser enviado: o contato não pode mais ser procurado por este setor',
+};
+export const ehMotivoSegurado = (m: unknown): m is MotivoSegurado => typeof m === 'string' && m in TEXTO_SEGURADO;
 export type ArquivoTela = { id: string; nome: string; tamanho: number; origem: 'enviado' | 'conversa'; lido: boolean; detalhe: string | null };
 export type EventoTarefaTela = { quem: 'agente' | 'pessoa' | 'sistema'; nome: string; texto: string; criadoEm: string };
 export type TarefaTela = {
@@ -64,7 +74,7 @@ export function situacaoPedidoNaTela(p: PendenciaTela, agora: Date): ReturnType<
 export function textoDoPedido(p: PendenciaTela, agora: Date): string | null {
   const s = situacaoPedidoNaTela(p, agora);
   if (s === 'nao_enviado') return 'Não enviado';
-  if (s === 'enviando') return 'Aprovado, aguardando envio';
+  if (s === 'enviando') return p.segurado ? TEXTO_SEGURADO[p.segurado] : 'Aprovado, aguardando envio';
   if (p.pedidoEnviadoEm) return `Pedido pelo Thiago${p.contato ? ` ao contato ${p.contato}` : ''} em ${formatarDataHora(p.pedidoEnviadoEm)}`;
   return null;
 }

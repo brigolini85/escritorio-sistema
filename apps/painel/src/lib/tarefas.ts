@@ -3,7 +3,7 @@ import { ehResultadoTarefa, tarefaAtiva, type EstadoTarefa, type EtapaTarefa, ty
 import { rotuloDoAgente } from '@/lib/agente-demanda';
 import { semMigracaoI1 } from '@/lib/agentes';
 import type { supabaseServidor } from '@/lib/supabase/servidor';
-import type { AgenteDeTrabalho, ResumoTarefaDemanda, TarefaTela } from './tarefas-tela';
+import { ehMotivoSegurado, type AgenteDeTrabalho, type MotivoSegurado, type ResumoTarefaDemanda, type TarefaTela } from './tarefas-tela';
 
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;
 const COLUNAS = `id, numero, estado, motivo_pausa, setor_id, chamado_id, pedido, canal, criado_em, etapas, etapa_atual, resultado, ajuste_pendente,
@@ -24,13 +24,17 @@ export async function lerTarefa(sb: Sb, id: string): Promise<{ tarefa: TarefaTel
   if (error) console.error('[tarefas] leitura', error);
   if (!data) return { tarefa: null, semI3: false };
   const t = data as unknown as Linha;
-  const [pend, arq, ev] = await Promise.all([
+  const [pend, arq, ev, seg] = await Promise.all([
     sb.from('agente_pendencias').select(`id, numero, tipo, pergunta, detalhe, opcoes, mensagem, estado, resposta, respondida_em, pedido_texto, pedido_em,
-      pedido_enviado_em, pedidos, respondedor:usuarios!agente_pendencias_respondida_por_fkey(nome), contatos(nome)`).eq('tarefa_id', id).order('numero'),
+      pedido_enviado_em, mensagem_id, pedidos, respondedor:usuarios!agente_pendencias_respondida_por_fkey(nome), contatos(nome)`).eq('tarefa_id', id).order('numero'),
     sb.from('agente_tarefa_arquivos').select('id, nome, tamanho, origem, lido_em, detalhe').eq('tarefa_id', id).order('criado_em'),
     sb.from('agente_tarefa_eventos').select('quem, texto, criado_em, usuarios(nome)').eq('tarefa_id', id).order('criado_em'),
+    // Revisão final: por que um pedido aprovado ainda não saiu (conversa com uma pessoa, pausa, limite do dia, contato sem procura).
+    sb.rpc('pedidos_segurados_da_tarefa', { p_tarefa: id }),
   ]);
-  for (const e of [pend.error, arq.error, ev.error]) if (e) console.error('[tarefas] leitura', e);
+  for (const e of [pend.error, arq.error, ev.error, seg.error]) if (e) console.error('[tarefas] leitura', e);
+  const segurados = new Map<string, MotivoSegurado>();
+  for (const x of (seg.data ?? []) as { pendencia_id: string; motivo: string }[]) if (ehMotivoSegurado(x.motivo)) segurados.set(x.pendencia_id, x.motivo);
   return {
     semI3: false,
     tarefa: {
@@ -46,11 +50,13 @@ export async function lerTarefa(sb: Sb, id: string): Promise<{ tarefa: TarefaTel
       pendencias: ((pend.data ?? []) as unknown as {
         id: string; numero: number; tipo: TipoPendencia; pergunta: string; detalhe: string | null; opcoes: string[] | null; mensagem: string | null;
         estado: 'aberta' | 'respondida'; resposta: string | null; respondida_em: string | null; pedido_texto: string | null; pedido_em: string | null;
-        pedido_enviado_em: string | null; pedidos: number; respondedor: { nome: string } | null; contatos: { nome: string } | null;
+        pedido_enviado_em: string | null; mensagem_id: string | null; pedidos: number; respondedor: { nome: string } | null; contatos: { nome: string } | null;
       }[]).map((p) => ({
         id: p.id, numero: p.numero, tipo: p.tipo, pergunta: p.pergunta, detalhe: p.detalhe, opcoes: p.opcoes ?? [], mensagem: p.mensagem, estado: p.estado,
         resposta: p.resposta, respondidaPor: p.respondedor?.nome ?? null, respondidaEm: p.respondida_em, contato: p.contatos?.nome ?? null,
-        pedidoTexto: p.pedido_texto, pedidoEm: p.pedido_em, pedidoEnviadoEm: p.pedido_enviado_em, pedidos: p.pedidos,
+        // Enviado = com a mensagem marcada; a reserva do trabalhador sozinha não é envio (revisão final).
+        pedidoTexto: p.pedido_texto, pedidoEm: p.pedido_em, pedidoEnviadoEm: p.mensagem_id ? p.pedido_enviado_em : null, pedidos: p.pedidos,
+        segurado: segurados.get(p.id) ?? null,
       })),
       arquivos: ((arq.data ?? []) as { id: string; nome: string; tamanho: number; origem: 'enviado' | 'conversa'; lido_em: string | null; detalhe: string | null }[])
         .map((a) => ({ id: a.id, nome: a.nome, tamanho: a.tamanho, origem: a.origem, lido: a.lido_em !== null, detalhe: a.detalhe })),
@@ -91,10 +97,11 @@ export async function lerAgentesDeTrabalho(sb: Sb, chamadoId: string): Promise<A
   }));
 }
 
-export async function lerContatosParaPendencia(sb: Sb, pendenciaId: string): Promise<{ id: string; nome: string }[]> {
+export async function lerContatosParaPendencia(sb: Sb, pendenciaId: string): Promise<{ id: string; nome: string; emAtendimento: boolean }[]> {
   const { data, error } = await sb.rpc('contatos_para_pendencia', { p_id: pendenciaId });
   if (error) console.error('[tarefas] contatos da pendência', error);
-  return ((data ?? []) as { contato_id: string; nome: string }[]).map((c) => ({ id: c.contato_id, nome: c.nome }));
+  return ((data ?? []) as { contato_id: string; nome: string; em_atendimento?: boolean }[])
+    .map((c) => ({ id: c.contato_id, nome: c.nome, emAtendimento: c.em_atendimento === true }));
 }
 
 export async function lerArquivosDaConversa(sb: Sb, pendenciaId: string): Promise<{ mensagemId: string; nome: string; criadoEm: string }[]> {

@@ -80,7 +80,7 @@ export async function pedirAoCliente(tarefaId: string, pendenciaId: string, cont
   return { ok: true };
 }
 /** Contatos que podem ser procurados e arquivos que o cliente mandou: para as janelas de PEDIR AO CLIENTE e JÁ RECEBI. */
-export async function opcoesDaPendenciaCliente(pendenciaId: string): Promise<{ contatos: { id: string; nome: string }[]; arquivos: { mensagemId: string; nome: string; criadoEm: string }[] }> {
+export async function opcoesDaPendenciaCliente(pendenciaId: string): Promise<{ contatos: { id: string; nome: string; emAtendimento: boolean }[]; arquivos: { mensagemId: string; nome: string; criadoEm: string }[] }> {
   if (!Uuid.safeParse(pendenciaId).success) return { contatos: [], arquivos: [] };
   await obterUsuario();
   const sb = await supabaseServidor();

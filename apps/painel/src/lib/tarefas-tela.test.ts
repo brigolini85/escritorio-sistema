@@ -60,6 +60,16 @@ describe('texto do pedido (nunca diz que foi enviado sem pedidoEnviadoEm) e bot�
     expect(textoDoPedido(pend({ contato: 'Roberto', pedidoEm: '2026-10-01T11:00:00Z' }), AGORA)).toBe('Não enviado');
     expect(textoDoPedido(pend({ contato: 'Roberto', pedidoEm: '2026-10-01T11:00:00Z', pedidoEnviadoEm: '2026-10-01T11:05:00Z' }), AGORA)).toMatch(/^Pedido pelo Thiago ao contato Roberto em /);
   });
+  it('pedido segurado (revisão final): a tela diz por que ainda não saiu', () => {
+    const aprovado = { contato: 'Roberto', pedidoEm: '2026-10-02T11:00:00Z' };
+    expect(textoDoPedido(pend({ ...aprovado, segurado: 'atendimento_humano' }), AGORA)).toBe('Aguardando a conversa voltar para o Thiago');
+    expect(textoDoPedido(pend({ ...aprovado, segurado: 'pausado' }), AGORA)).toBe('Aguardando o atendimento automático voltar (está pausado)');
+    expect(textoDoPedido(pend({ ...aprovado, segurado: 'limite_dia' }), AGORA)).toBe('Aguardando: o limite de pedidos do dia foi atingido');
+    expect(textoDoPedido(pend({ ...aprovado, segurado: 'nao_procuravel' }), AGORA))
+      .toBe('Não pode ser enviado: o contato não pode mais ser procurado por este setor');
+    // Passadas as 24 h, vale o "não enviado" de sempre.
+    expect(textoDoPedido(pend({ contato: 'Roberto', pedidoEm: '2026-10-01T11:00:00Z', segurado: 'atendimento_humano' }), AGORA)).toBe('Não enviado');
+  });
   it('Mandar pelo Thiago fica desabilitado sem contato escolhido', () => {
     expect(podeMandarPedido('', 'Pode mandar o extrato?')).toBe(false);
     expect(podeMandarPedido('c1', 'ok')).toBe(false);

@@ -44,7 +44,7 @@ export function PendenciaCliente({ tarefaId, p, setor, podeMexer }: { tarefaId: 
       <p className="font-bold">{p.pergunta}</p>
       {textoDoPedido(p, agora) && <p className="text-muted">{textoDoPedido(p, agora)} {p.contato && p.pedidoEnviadoEm && <Badge variant="success">{setor ?? 'setor'} permitido</Badge>}</p>}
       {(p.pedidoTexto ?? p.mensagem) && <blockquote className="rounded-md bg-surface-muted px-3 py-2 italic">“{p.pedidoTexto ?? p.mensagem}”</blockquote>}
-      <p className="text-xs text-warning">{SITUACAO[situacao]}{p.estado === 'respondida' && p.resposta ? `: ${p.resposta}` : ''}</p>
+      <p className="text-xs text-warning">{situacao === 'enviando' && p.segurado === 'nao_procuravel' ? 'não pode ser enviado' : SITUACAO[situacao]}{p.estado === 'respondida' && p.resposta ? `: ${p.resposta}` : ''}</p>
       {podeMexer && p.estado === 'aberta' && (
         <div className="flex flex-wrap gap-2">
           {situacao === 'a_pedir' && <Button size="sm" disabled={enviando} onClick={() => abrir('pedir')}>Pedir ao cliente</Button>}
@@ -63,8 +63,11 @@ export function PendenciaCliente({ tarefaId, p, setor, podeMexer }: { tarefaId: 
               <Label htmlFor={`contato-${p.id}`}>Contato</Label>
               <select id={`contato-${p.id}`} className="h-9 rounded-md border border-input bg-surface px-2 text-sm" value={contato} onChange={(e) => setContato(e.target.value)}>
                 <option value="">Escolha o contato</option>
-                {opcoes.contatos.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                {opcoes.contatos.map((c) => <option key={c.id} value={c.id}>{c.nome}{c.emAtendimento ? ' (conversa com uma pessoa)' : ''}</option>)}
               </select>
+              {opcoes.contatos.find((c) => c.id === contato)?.emAtendimento && (
+                <p className="text-xs text-warning">A conversa deste contato está com uma pessoa do escritório: o pedido espera ela voltar para o Thiago (até 24 h).</p>
+              )}
               <Label htmlFor={`msg-${p.id}`}>Mensagem</Label>
               <Textarea id={`msg-${p.id}`} value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={1000} rows={4} />
             </div>
