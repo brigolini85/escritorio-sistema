@@ -158,3 +158,6 @@ export function csvDoResultado(r: ResultadoTarefa): string {
 
 /** D11: APROVAR E CONCLUIR só com o rascunho pronto e nenhuma pendência aberta (o banco confere de novo). */
 export const podeAprovarTarefa = (estado: EstadoTarefa, pendenciasAbertas: number): boolean => estado === 'pronta' && pendenciasAbertas === 0;
+
+/** I3b (D15b): a Aprovação avisa quando o rascunho ainda tem linha provisória. */
+export const contarProvisorias = (r: ResultadoTarefa | null): number => (r ? r.linhas.filter((l) => l.provisoria).length : 0);
