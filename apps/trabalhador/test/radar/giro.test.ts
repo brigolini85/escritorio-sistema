@@ -194,12 +194,21 @@ describe('rodarGiro (rodada de correção 1)', () => {
       const { radar, run } = montar([resposta([...vista, novidade(v)], 'tool_use', 1), termina()]);
       await run();
       const chamadas = radar.registrarNovidadeRadar.mock.calls as unknown as [string, { url: string; urlNormalizada: string }][];
-      if (chamadas.length) expect(chamadas[0]![1]).toMatchObject({ url: 'https://gov.br/esocial/a', urlNormalizada: 'gov.br/esocial/a' });
+      expect(chamadas, v).toHaveLength(1);
+      expect(chamadas[0]![1]).toMatchObject({ url: 'https://gov.br/esocial/a', urlNormalizada: 'gov.br/esocial/a' });
     }
     const { radar, run } = montar([resposta([...vista, novidade(variantes[0]!)], 'tool_use', 1), termina()]);
     await run();
     expect(radar.registrarNovidadeRadar).toHaveBeenCalledTimes(1);
     expect((radar.registrarNovidadeRadar.mock.calls[0] as unknown as [string, { url: string }])[1].url).toBe('https://gov.br/esocial/a');
+  });
+  it('redirecionamento: pediu A, o resultado voltou com B; registrar A grava B', async () => {
+    const pedido = { type: 'server_tool_use', id: 'l1', name: 'web_fetch', input: { url: 'https://gov.br/esocial/a' } };
+    const [, resultado] = leitura('l1', 'https://gov.br/esocial/b');
+    const { radar, run } = montar([resposta([pedido, resultado, novidade('https://gov.br/esocial/a')], 'tool_use'), termina()]);
+    await run();
+    expect(radar.registrarNovidadeRadar).toHaveBeenCalledTimes(1);
+    expect((radar.registrarNovidadeRadar.mock.calls[0] as unknown as [string, { url: string }])[1].url).toBe('https://gov.br/esocial/b');
   });
   it('giro confirmar: as ferramentas web levam só as fontes oficiais', async () => {
     const fontes = [...FONTES, { id: 'f-n', nome: 'Notícias', dominio: 'contabeis.com.br', caminho: null, etiqueta: 'FED', oficial: false, ativa: true, paginas: [] }];
