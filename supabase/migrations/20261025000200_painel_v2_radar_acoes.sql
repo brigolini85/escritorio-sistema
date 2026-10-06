@@ -299,7 +299,8 @@ begin
   perform pg_advisory_xact_lock(hashtextextended('pedido_cliente:escritorio', 0));
   v := interno.envio_radar_impedido(p_id);
   if v is not null then
-    update public.radar_envios set motivo = v where id = p_id;
+    -- Só o envio que ainda espera: o já enviado (ou reservado) não ganha motivo.
+    update public.radar_envios set motivo = v where id = p_id and estado = 'aguardando' and mensagem_id is null;
     return;
   end if;
   return query

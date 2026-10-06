@@ -102,6 +102,8 @@ export function normalizarUrl(url: string): string | null {
 export function fonteDaUrl(url: string, fontes: readonly FonteRadar[]): FonteRadar | null {
   const u = lerUrl(url);
   if (!u || u.username) return null;
+  // O mesmo que o banco: caminho com "." ou ".." (também %2e) não casa nenhuma fonte (o navegador resolveria para outra pasta).
+  if (/(^|\/)\.\.?(\/|$)|%2e/i.test(url.trim().match(/^https?:\/\/[^/?#]+(\/[^?#]*)/i)?.[1] ?? '')) return null;
   const host = u.hostname.toLowerCase().replace(/^www\./, '');
   const caminho = u.pathname.toLowerCase();
   const casa = (x: FonteRadar) => x.ativa && (host === x.dominio || host.endsWith(`.${x.dominio}`))

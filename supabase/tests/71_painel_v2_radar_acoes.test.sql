@@ -2,7 +2,7 @@
 -- possivelmente afetados, o envio aos clientes (aprovação de uma pessoa do setor, as pausas e o limite do dia compartilhado) e os avisos.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(118);
+select plan(127);
 
 update public.usuarios set dono = false where dono;   -- outro teste ou e2e pode ter deixado um dono
 insert into auth.users (id, email) values
@@ -363,6 +363,54 @@ select results_eq($$ select estado, motivo from public.radar_envios where id = '
   $$ values ('nao_enviado'::text, 'pausado'::text) $$, 'Duda: aprovado há mais de 3 dias e ainda impedido vira nao_enviado com o motivo');
 select results_eq($$ select estado, motivo from public.radar_envios where id = 'fd900000-0000-0000-0000-00000000000d' $$,
   $$ values ('aguardando'::text, 'nao_procuravel'::text) $$, 'Caio: espera, com o motivo anotado');
+
+-- 12b (revisão final): a reserva do Radar ainda não enviada conta no limite do dia; liberar a reserva devolve a vaga
+insert into public.contatos (id, nome, telefone, agente_pausado) values ('fd500000-0000-0000-0000-000000000017', 'I5A Kai', '5531999990517', false);
+insert into public.contato_clientes (contato_id, cliente_id, perfil) values ('fd500000-0000-0000-0000-000000000017', 'fd100000-0000-0000-0000-00000000000c', 'personalizado');
+insert into public.contato_cliente_setores (contato_id, cliente_id, setor_id, pode_ser_procurado)
+  values ('fd500000-0000-0000-0000-000000000017', 'fd100000-0000-0000-0000-00000000000c', (select id from public.setores where nome = 'Fiscal'), true);
+insert into public.conversas (id, telefone, contato_id) values ('fd700000-0000-0000-0000-000000000017', '5531999990517', 'fd500000-0000-0000-0000-000000000017');
+-- Kai: 2 envios do Radar enviados + 1 reservado e não enviado; o 4º espera
+insert into public.radar_envios (id, novidade_id, setor_id, cliente_id, contato_id, texto, estado, enviado_em, reservado_em) values
+  ('fd900000-0000-0000-0000-000000000171', 'fd500000-0000-0000-0000-000000000012', (select id from public.setores where nome = 'Fiscal'),
+   'fd100000-0000-0000-0000-00000000000c', 'fd500000-0000-0000-0000-000000000017', 'Texto 1 do Radar a Kai.', 'enviado', now(), null),
+  ('fd900000-0000-0000-0000-000000000172', 'fd500000-0000-0000-0000-000000000013', (select id from public.setores where nome = 'Fiscal'),
+   'fd100000-0000-0000-0000-00000000000c', 'fd500000-0000-0000-0000-000000000017', 'Texto 2 do Radar a Kai.', 'enviado', now(), null),
+  ('fd900000-0000-0000-0000-000000000173', 'fd500000-0000-0000-0000-000000000001', (select id from public.setores where nome = 'Fiscal'),
+   'fd100000-0000-0000-0000-00000000000c', 'fd500000-0000-0000-0000-000000000017', 'Texto 3 do Radar a Kai.', 'aguardando', null, now()),
+  ('fd900000-0000-0000-0000-000000000174', 'fd500000-0000-0000-0000-000000000002', (select id from public.setores where nome = 'Fiscal'),
+   'fd100000-0000-0000-0000-00000000000c', 'fd500000-0000-0000-0000-000000000017', 'Texto 4 do Radar a Kai.', 'aguardando', null, null);
+insert into public.agente_pendencias (tarefa_id, numero, tipo, pergunta, contato_id, pedido_texto, pedido_em)
+values ('fd300000-0000-0000-0000-00000000000a', 20, 'cliente', 'Extrato de Kai', 'fd500000-0000-0000-0000-000000000017', 'Pode mandar o extrato de Kai?', now());
+select is(interno.envio_radar_impedido('fd900000-0000-0000-0000-000000000174'), 'limite_dia', '2 enviados + 1 reservado a Kai: o próximo envio do Radar fica em limite_dia');
+select is(interno.pedido_impedido((select id from public.agente_pendencias where numero = 20)), 'limite_dia', '2 enviados + 1 reservado a Kai: o pedido de pendência também');
+set local role service_role;
+select lives_ok($$ select public.liberar_envio_radar('fd900000-0000-0000-0000-000000000173') $$, 'libera a reserva do 3º envio a Kai');
+reset role;
+select is(interno.envio_radar_impedido('fd900000-0000-0000-0000-000000000174'), null::text, 'reserva liberada: o envio do Radar a Kai pode sair');
+select is(interno.pedido_impedido((select id from public.agente_pendencias where numero = 20)), null::text, 'reserva liberada: o pedido de pendência a Kai pode sair');
+-- reservar um envio que já saiu, com o agente pausado: nada muda (o motivo só vai para o envio que espera)
+select set_config('request.jwt.claims', '', true);
+update public.configuracoes set agente_pausado = true where id = 1;
+set local role service_role;
+select is((select count(*)::int from public.reservar_envio_radar('fd900000-0000-0000-0000-000000000171')), 0, 'envio já enviado não reserva');
+reset role;
+select results_eq($$ select estado, motivo from public.radar_envios where id = 'fd900000-0000-0000-0000-000000000171' $$,
+  $$ values ('enviado'::text, null::text) $$, 'o envio já enviado não ganha motivo');
+update public.configuracoes set agente_pausado = false where id = 1;
+-- reserva velha cuja mensagem de saída já foi gravada (mesmo texto): não é solta
+update public.radar_envios set reservado_em = now() - interval '11 minutes' where id = 'fd900000-0000-0000-0000-000000000173';
+insert into public.mensagens (id, conversa_id, direcao, autor, conteudo, status_envio) values
+  ('fd800000-0000-0000-0000-000000000017', 'fd700000-0000-0000-0000-000000000017', 'saida', 'agente', 'Texto 3 do Radar a Kai.', 'enviada');
+set local role service_role;
+select ok(not exists (select 1 from public.envios_radar_para_enviar(20) x where x = 'fd900000-0000-0000-0000-000000000173'),
+  'reserva velha com a mensagem já gravada não volta para enviar');
+reset role;
+select ok((select reservado_em is not null from public.radar_envios where id = 'fd900000-0000-0000-0000-000000000173'), 'a reserva velha com mensagem continua');
+-- devolve o banco ao estado dos testes seguintes
+delete from public.mensagens where id = 'fd800000-0000-0000-0000-000000000017';
+delete from public.radar_envios where contato_id = 'fd500000-0000-0000-0000-000000000017';
+delete from public.agente_pendencias where numero = 20;
 
 -- 13: envios_da_novidade
 set local role authenticated;

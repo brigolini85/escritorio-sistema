@@ -62,6 +62,14 @@ describe('URL, fonte e selo (D2, D9; Foco 1)', () => {
       expect(seloDaUrl(u, FONTES), u).toBe('confirmar');
     }
   });
+  it('caminho com "." ou ".." (também %2e) não casa nenhuma fonte, como no banco', () => {
+    for (const u of ['https://www.gov.br/receitafederal/../esocial', 'https://gov.br/esocial/./x', 'https://gov.br/receitafederal/%2E%2E/esocial',
+      'https://gov.br/receitafederal/%2e./x', 'https://gov.br/esocial/..']) {
+      expect(fonteDaUrl(u, FONTES), u).toBeNull();
+    }
+    expect(fonteDaUrl('https://gov.br/esocial/x?volta=../y', FONTES)?.id).toBe('es');
+    expect(fonteDaUrl('https://gov.br/esocial/arquivo.pdf', FONTES)?.id).toBe('es');
+  });
 });
 
 describe('clientes possivelmente afetados (D10)', () => {

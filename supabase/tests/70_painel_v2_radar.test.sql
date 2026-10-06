@@ -2,7 +2,7 @@
 -- Só o dono muda fontes e agenda; lê quem vê os Agentes; o trabalhador abre, pega e fecha os giros e registra as novidades.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(145);
+select plan(154);
 
 update public.usuarios set dono = false where dono;   -- outro teste ou e2e pode ter deixado um dono
 insert into auth.users (id, email) values
@@ -94,6 +94,16 @@ select is(interno.fonte_da_url('ftp://cfc.org.br'), null::uuid, 'só http e http
 select is(interno.fonte_da_url('https://evil.com\.gov.br/receitafederal/x'), null::uuid, 'barra invertida no endereço não vale (o navegador abre evil.com)');
 select is(interno.fonte_da_url('https://gov%2Ebr/receitafederal/x'), null::uuid, 'endereço com % não vale');
 select is(interno.fonte_da_url('https://gov.br /receitafederal/x'), null::uuid, 'endereço com espaço não vale');
+-- revisão final: "." / ".." / %2e no caminho não casam; o "_" do caminho não é curinga
+select is(interno.fonte_da_url('https://www.gov.br/receitafederal/../esocial'), null::uuid, '/../ no caminho não casa nenhuma fonte');
+select is(interno.fonte_da_url('https://gov.br/esocial/./x'), null::uuid, '/./ no caminho não casa nenhuma fonte');
+select is(interno.fonte_da_url('https://gov.br/receitafederal/%2E%2E/esocial/x'), null::uuid, '%2E no caminho (maiúsculo) não casa nenhuma fonte');
+select is(interno.fonte_da_url('https://gov.br/esocial/..'), null::uuid, '.. no fim do caminho não casa nenhuma fonte');
+select is(interno.fonte_da_url('https://gov.br/esocial/arquivo.pdf'), (select id from public.radar_fontes where nome = 'eSocial'), 'ponto no nome do arquivo continua valendo');
+insert into public.radar_fontes (id, nome, dominio, caminho, etiqueta, ordem) values ('fc600000-0000-0000-0000-00000000000f', 'I5R Curinga', 'exemplo-i5r.gov.br', '/a_b', 'FED', 99);
+select is(interno.fonte_da_url('https://exemplo-i5r.gov.br/axb/c'), null::uuid, 'o "_" do caminho da fonte não vira curinga');
+select is(interno.fonte_da_url('https://exemplo-i5r.gov.br/a_b/c'), 'fc600000-0000-0000-0000-00000000000f'::uuid, 'caminho com "_" casa ele mesmo');
+delete from public.radar_fontes where id = 'fc600000-0000-0000-0000-00000000000f';
 
 -- 33–43: salvar_fonte_radar só do dono
 set local role authenticated;
@@ -378,6 +388,18 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"fc000000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
 select throws_ok($$ select public.procurar_fonte_oficial_radar((current_setting('i5r.res2')::jsonb ->> 'id')::uuid) $$,
   'P0001', 'Esta novidade já é de fonte oficial.', 'novidade já oficial');
+-- revisão final: giro confirmar sem fonte oficial ligada é recusado
+reset role;
+select set_config('request.jwt.claims', '', true);
+update public.radar_fontes set oficial = false;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"fc000000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+select throws_ok($$ select public.procurar_fonte_oficial_radar((current_setting('i5r.res3')::jsonb ->> 'id')::uuid) $$,
+  'P0001', 'Ligue ao menos uma fonte oficial.', 'sem fonte oficial ligada: não abre giro confirmar');
+reset role;
+select set_config('request.jwt.claims', '', true);
+select is((select count(*)::int from public.radar_giros where estado in ('pendente', 'rodando')), 0, 'nenhum giro ficou aberto');
+update public.radar_fontes set oficial = true;
 
 -- concluir_giro_radar (D15)
 reset role;

@@ -143,8 +143,11 @@ create function interno.fonte_da_url(p_url text) returns uuid
 language sql stable security definer set search_path = '' as $$
   select f.id from public.radar_fontes f, (select interno.host_da_url(p_url) as h, interno.caminho_da_url(p_url) as c) u
    where f.ativa and u.h is not null and lower(btrim(p_url)) ~ '^https?://'
-     and (u.h = f.dominio or u.h like '%.' || f.dominio)
-     and (f.caminho is null or u.c = f.caminho or u.c like f.caminho || '/%')
+     -- Caminho com "." ou ".." (também %2e) levaria a outra pasta: não casa nenhuma fonte.
+     and u.c !~* '(^|/)\.\.?(/|$)|%2e'
+     -- starts_with: o "_" do domínio ou do caminho não vira curinga do like.
+     and (u.h = f.dominio or right(u.h, char_length(f.dominio) + 1) = '.' || f.dominio)
+     and (f.caminho is null or u.c = f.caminho or starts_with(u.c, f.caminho || '/'))
    order by char_length(f.dominio) + coalesce(char_length(f.caminho), 0) desc
    limit 1
 $$;
@@ -232,8 +235,10 @@ begin
   if cardinality(f.paginas) > 5 then raise exception 'Até 5 páginas por fonte.'; end if;
   foreach v_pag in array f.paginas loop
     if interno.host_da_url(v_pag) is null
-       or not (interno.host_da_url(v_pag) = f.dominio or interno.host_da_url(v_pag) like '%.' || f.dominio)
-       or (f.caminho is not null and not (interno.caminho_da_url(v_pag) = f.caminho or interno.caminho_da_url(v_pag) like f.caminho || '/%')) then
+       or not (interno.host_da_url(v_pag) = f.dominio or right(interno.host_da_url(v_pag), char_length(f.dominio) + 1) = '.' || f.dominio)
+       -- A mesma regra de fonte_da_url: sem "." / ".." / %2e no caminho e sem curinga do like.
+       or interno.caminho_da_url(v_pag) ~* '(^|/)\.\.?(/|$)|%2e'
+       or (f.caminho is not null and not (interno.caminho_da_url(v_pag) = f.caminho or starts_with(interno.caminho_da_url(v_pag), f.caminho || '/'))) then
       raise exception 'A página % não é desta fonte.', v_pag;
     end if;
   end loop;
@@ -361,6 +366,8 @@ begin
   if not found then raise exception 'Novidade não encontrada.'; end if;
   if n.selo = 'oficial' then raise exception 'Esta novidade já é de fonte oficial.'; end if;
   if n.estado = 'descartada' then raise exception 'Esta novidade foi descartada.'; end if;
+  -- D7: o giro confirmar só procura nas fontes oficiais; sem nenhuma ligada não teria onde procurar.
+  if not exists (select 1 from public.radar_fontes where ativa and oficial) then raise exception 'Ligue ao menos uma fonte oficial.'; end if;
   insert into public.radar_giros (origem, estado, dia, pedido_por, novidade_id) values ('confirmar', 'pendente', interno.dia_sp(now()), auth.uid(), n.id)
   returning id into v_id;
   return v_id;
