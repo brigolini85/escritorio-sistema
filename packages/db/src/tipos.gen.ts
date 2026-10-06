@@ -285,13 +285,13 @@ isOneToOne: false
                   ]
                 },"agente_tarefa_arquivos": {
                   Row: {
-                    "bucket": string,"caminho": string,"criado_em": string,"detalhe": string | null,"enviado_por": string | null,"id": string,"lido_em": string | null,"mensagem_id": string | null,"mime": string,"nome": string,"origem": string,"tamanho": number,"tarefa_id": string
+                    "bucket": string,"caminho": string,"criado_em": string,"detalhe": string | null,"drive_id": string | null,"drive_modificado_em": string | null,"enviado_por": string | null,"id": string,"lido_em": string | null,"mensagem_id": string | null,"mime": string,"nome": string,"origem": string,"tamanho": number,"tarefa_id": string
                   }
                   Insert: {
-                    "bucket": string,"caminho": string,"criado_em"?: string,"detalhe"?: string | null,"enviado_por"?: string | null,"id"?: string,"lido_em"?: string | null,"mensagem_id"?: string | null,"mime": string,"nome": string,"origem": string,"tamanho": number,"tarefa_id": string
+                    "bucket": string,"caminho": string,"criado_em"?: string,"detalhe"?: string | null,"drive_id"?: string | null,"drive_modificado_em"?: string | null,"enviado_por"?: string | null,"id"?: string,"lido_em"?: string | null,"mensagem_id"?: string | null,"mime": string,"nome": string,"origem": string,"tamanho": number,"tarefa_id": string
                   }
                   Update: {
-                    "bucket"?: string,"caminho"?: string,"criado_em"?: string,"detalhe"?: string | null,"enviado_por"?: string | null,"id"?: string,"lido_em"?: string | null,"mensagem_id"?: string | null,"mime"?: string,"nome"?: string,"origem"?: string,"tamanho"?: number,"tarefa_id"?: string
+                    "bucket"?: string,"caminho"?: string,"criado_em"?: string,"detalhe"?: string | null,"drive_id"?: string | null,"drive_modificado_em"?: string | null,"enviado_por"?: string | null,"id"?: string,"lido_em"?: string | null,"mensagem_id"?: string | null,"mime"?: string,"nome"?: string,"origem"?: string,"tamanho"?: number,"tarefa_id"?: string
                   }
                   Relationships: [
                     {
@@ -725,13 +725,13 @@ isOneToOne: false
                   ]
                 },"clientes": {
                   Row: {
-                    "agente_pausado": boolean,"arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"bairro": string | null,"celular": string | null,"cep": string | null,"certificado_avisar_dias": number,"certificado_tipo": string | null,"certificado_vencimento": string | null,"cidade": string | null,"cnae_principal": string | null,"cnpj": string,"complemento": string | null,"contrato_fim": string | null,"contrato_inicio": string | null,"criado_em": string,"decimo_terceiro": boolean | null,"dia_vencimento": number | null,"email": string | null,"email_cobranca": string | null,"endereco": string | null,"faturamento_ultimo_ano": number | null,"funcionarios": number | null,"honorario_mensal": number | null,"id": string,"inscricao_estadual": string | null,"inscricao_municipal": string | null,"inscricao_suframa": string | null,"isento_ie": boolean,"logradouro": string | null,"nome_fantasia": string | null,"numero": string | null,"porte": string | null,"razao_social": string,"reajuste": string | null,"reajuste_mes": number | null,"regime": string | null,"segmentos": (string)[],"site": string | null,"telefone": string | null,"tipo_pessoa": string,"uf": string | null
+                    "agente_pausado": boolean,"arquivado_em": string | null,"arquivado_por": string | null,"ativo": boolean,"bairro": string | null,"celular": string | null,"cep": string | null,"certificado_avisar_dias": number,"certificado_tipo": string | null,"certificado_vencimento": string | null,"cidade": string | null,"cnae_principal": string | null,"cnpj": string,"complemento": string | null,"contrato_fim": string | null,"contrato_inicio": string | null,"criado_em": string,"decimo_terceiro": boolean | null,"dia_vencimento": number | null,"drive_pasta_id": string | null,"email": string | null,"email_cobranca": string | null,"endereco": string | null,"faturamento_ultimo_ano": number | null,"funcionarios": number | null,"honorario_mensal": number | null,"id": string,"inscricao_estadual": string | null,"inscricao_municipal": string | null,"inscricao_suframa": string | null,"isento_ie": boolean,"logradouro": string | null,"nome_fantasia": string | null,"numero": string | null,"porte": string | null,"razao_social": string,"reajuste": string | null,"reajuste_mes": number | null,"regime": string | null,"segmentos": (string)[],"site": string | null,"telefone": string | null,"tipo_pessoa": string,"uf": string | null
                   }
                   Insert: {
-                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"bairro"?: string | null,"celular"?: string | null,"cep"?: string | null,"certificado_avisar_dias"?: number,"certificado_tipo"?: string | null,"certificado_vencimento"?: string | null,"cidade"?: string | null,"cnae_principal"?: string | null,"cnpj": string,"complemento"?: string | null,"contrato_fim"?: string | null,"contrato_inicio"?: string | null,"criado_em"?: string,"decimo_terceiro"?: boolean | null,"dia_vencimento"?: number | null,"email"?: string | null,"email_cobranca"?: string | null,"endereco"?: string | null,"faturamento_ultimo_ano"?: number | null,"funcionarios"?: number | null,"honorario_mensal"?: number | null,"id"?: string,"inscricao_estadual"?: string | null,"inscricao_municipal"?: string | null,"inscricao_suframa"?: string | null,"isento_ie"?: boolean,"logradouro"?: string | null,"nome_fantasia"?: string | null,"numero"?: string | null,"porte"?: string | null,"razao_social": string,"reajuste"?: string | null,"reajuste_mes"?: number | null,"regime"?: string | null,"segmentos"?: (string)[],"site"?: string | null,"telefone"?: string | null,"tipo_pessoa"?: string,"uf"?: string | null
+                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"bairro"?: string | null,"celular"?: string | null,"cep"?: string | null,"certificado_avisar_dias"?: number,"certificado_tipo"?: string | null,"certificado_vencimento"?: string | null,"cidade"?: string | null,"cnae_principal"?: string | null,"cnpj": string,"complemento"?: string | null,"contrato_fim"?: string | null,"contrato_inicio"?: string | null,"criado_em"?: string,"decimo_terceiro"?: boolean | null,"dia_vencimento"?: number | null,"drive_pasta_id"?: string | null,"email"?: string | null,"email_cobranca"?: string | null,"endereco"?: string | null,"faturamento_ultimo_ano"?: number | null,"funcionarios"?: number | null,"honorario_mensal"?: number | null,"id"?: string,"inscricao_estadual"?: string | null,"inscricao_municipal"?: string | null,"inscricao_suframa"?: string | null,"isento_ie"?: boolean,"logradouro"?: string | null,"nome_fantasia"?: string | null,"numero"?: string | null,"porte"?: string | null,"razao_social": string,"reajuste"?: string | null,"reajuste_mes"?: number | null,"regime"?: string | null,"segmentos"?: (string)[],"site"?: string | null,"telefone"?: string | null,"tipo_pessoa"?: string,"uf"?: string | null
                   }
                   Update: {
-                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"bairro"?: string | null,"celular"?: string | null,"cep"?: string | null,"certificado_avisar_dias"?: number,"certificado_tipo"?: string | null,"certificado_vencimento"?: string | null,"cidade"?: string | null,"cnae_principal"?: string | null,"cnpj"?: string,"complemento"?: string | null,"contrato_fim"?: string | null,"contrato_inicio"?: string | null,"criado_em"?: string,"decimo_terceiro"?: boolean | null,"dia_vencimento"?: number | null,"email"?: string | null,"email_cobranca"?: string | null,"endereco"?: string | null,"faturamento_ultimo_ano"?: number | null,"funcionarios"?: number | null,"honorario_mensal"?: number | null,"id"?: string,"inscricao_estadual"?: string | null,"inscricao_municipal"?: string | null,"inscricao_suframa"?: string | null,"isento_ie"?: boolean,"logradouro"?: string | null,"nome_fantasia"?: string | null,"numero"?: string | null,"porte"?: string | null,"razao_social"?: string,"reajuste"?: string | null,"reajuste_mes"?: number | null,"regime"?: string | null,"segmentos"?: (string)[],"site"?: string | null,"telefone"?: string | null,"tipo_pessoa"?: string,"uf"?: string | null
+                    "agente_pausado"?: boolean,"arquivado_em"?: string | null,"arquivado_por"?: string | null,"ativo"?: boolean,"bairro"?: string | null,"celular"?: string | null,"cep"?: string | null,"certificado_avisar_dias"?: number,"certificado_tipo"?: string | null,"certificado_vencimento"?: string | null,"cidade"?: string | null,"cnae_principal"?: string | null,"cnpj"?: string,"complemento"?: string | null,"contrato_fim"?: string | null,"contrato_inicio"?: string | null,"criado_em"?: string,"decimo_terceiro"?: boolean | null,"dia_vencimento"?: number | null,"drive_pasta_id"?: string | null,"email"?: string | null,"email_cobranca"?: string | null,"endereco"?: string | null,"faturamento_ultimo_ano"?: number | null,"funcionarios"?: number | null,"honorario_mensal"?: number | null,"id"?: string,"inscricao_estadual"?: string | null,"inscricao_municipal"?: string | null,"inscricao_suframa"?: string | null,"isento_ie"?: boolean,"logradouro"?: string | null,"nome_fantasia"?: string | null,"numero"?: string | null,"porte"?: string | null,"razao_social"?: string,"reajuste"?: string | null,"reajuste_mes"?: number | null,"regime"?: string | null,"segmentos"?: (string)[],"site"?: string | null,"telefone"?: string | null,"tipo_pessoa"?: string,"uf"?: string | null
                   }
                   Relationships: [
                     {
@@ -1020,6 +1020,19 @@ isOneToOne: false
       referencedRelation: "setores"
       referencedColumns: ["id"]
     }
+                  ]
+                },"drive_conta": {
+                  Row: {
+                    "email": string | null,"erro": string | null,"id": number,"verificado_em": string
+                  }
+                  Insert: {
+                    "email"?: string | null,"erro"?: string | null,"id"?: number,"verificado_em"?: string
+                  }
+                  Update: {
+                    "email"?: string | null,"erro"?: string | null,"id"?: number,"verificado_em"?: string
+                  }
+                  Relationships: [
+                    
                   ]
                 },"feriados": {
                   Row: {
@@ -2162,6 +2175,9 @@ isOneToOne: false
 "nota_interna":
 { Args: { "p_chamado": string,"p_texto": string }; Returns: undefined
                            },
+"pasta_drive_da_tarefa":
+{ Args: { "p_tarefa": string }; Returns: Json
+                           },
 "pausar_tarefa":
 { Args: { "p_id": string }; Returns: undefined
                            },
@@ -2175,6 +2191,9 @@ isOneToOne: false
                            },
 "pedir_ajuste_tarefa":
 { Args: { "p_id": string,"p_texto": string }; Returns: boolean
+                           },
+"pedir_leitura_da_pasta":
+{ Args: { "p_tarefa": string }; Returns: boolean
                            },
 "pedir_pendencia_ao_cliente":
 { Args: { "p_contato": string,"p_id": string,"p_texto": string }; Returns: number
@@ -2244,6 +2263,9 @@ isOneToOne: false
 "referencia_da_skill":
 { Args: { "p_agente": string,"p_caminho": string,"p_incluir"?: string,"p_nome": string }; Returns: string
                            },
+"registrar_arquivo_drive":
+{ Args: { "p_caminho": string,"p_drive_id": string,"p_mime": string,"p_modificado": string,"p_nome": string,"p_tamanho": number,"p_tarefa": string }; Returns: Json
+                           },
 "registrar_arquivo_tarefa":
 { Args: { "p_caminho": string,"p_mime": string,"p_nome": string,"p_tamanho": number,"p_tarefa": string }; Returns: string
                            },
@@ -2252,6 +2274,9 @@ isOneToOne: false
                            },
 "registrar_resposta":
 { Args: { "p_arquivo_mime": string,"p_arquivo_nome": string,"p_arquivo_path": string,"p_conversa": string,"p_texto": string }; Returns: string
+                           },
+"registrar_situacao_drive":
+{ Args: { "p_email": string,"p_erro": string }; Returns: undefined
                            },
 "remover_acesso":
 { Args: { "p_id": string }; Returns: undefined
@@ -2308,6 +2333,9 @@ isOneToOne: false
                            },
 "salvar_orientacao_agente":
 { Args: { "p_ativo"?: boolean,"p_cliente_id"?: string,"p_id": string,"p_setor_id"?: string,"p_slug": string,"p_texto": string,"p_tipo": string,"p_titulo": string }; Returns: string
+                           },
+"salvar_pasta_drive":
+{ Args: { "p_cliente": string,"p_pasta": string }; Returns: string
                            },
 "salvar_pre_analise":
 { Args: { "p_agente": string,"p_chamado": string,"p_resultado": Json }; Returns: undefined
