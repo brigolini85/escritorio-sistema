@@ -36,10 +36,11 @@ export function FontesTarefa({ t, podeMexer }: { t: TarefaTela; podeMexer: boole
         <ul className="flex flex-col gap-2 rounded-md border border-border p-3 text-sm" aria-label="Arquivos da tarefa">
           {t.arquivos.length === 0 && <li className="text-muted">Nenhum arquivo ainda.</li>}
           {t.arquivos.map((a) => (
-            <li key={a.id} className="flex items-center justify-between gap-2">
+            // O nome nunca some atrás do selo do Drive: sem espaço na linha, o selo e o detalhe descem (Entrega I3b, 1366).
+            <li key={a.id} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
               {a.removido
-                ? <span className="truncate text-muted">{a.nome}</span>
-                : <a href={`/api/tarefas/arquivo?id=${a.id}`} className="truncate text-brand underline-offset-4 hover:underline">{a.nome}</a>}
+                ? <span className="min-w-0 flex-1 basis-40 break-words text-muted">{a.nome}</span>
+                : <a href={`/api/tarefas/arquivo?id=${a.id}`} className="min-w-0 flex-1 basis-40 break-words text-brand underline-offset-4 hover:underline">{a.nome}</a>}
               <span className="flex shrink-0 items-center gap-1 text-xs text-muted">
                 {a.origem === 'drive'
                   ? <Badge variant="neutral"><LockKeyhole aria-hidden size={12} />{ROTULO_ORIGEM.drive}</Badge>
