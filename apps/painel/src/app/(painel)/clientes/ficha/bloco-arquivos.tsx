@@ -8,15 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toaster';
-import { TEXTO_DRIVE_SEM_I3B, avisoDoDrive, type SituacaoDrive } from '@/lib/drive-tela';
+import { TEXTO_DRIVE_SEM_I3B, TEXTO_PASTA_ERRO_LEITURA, avisoDoDrive, type SituacaoDrive } from '@/lib/drive-tela';
 import { salvarPastaDrive } from './drive-acoes';
 
 /**
  * D8: "Pasta no Drive" salva sozinha, como Acessos de portais. O campo fica fora do formulário da ficha (form= de um formulário que não existe):
  * não entra no envio da ficha nem conta como "não salvo".
  */
-export function BlocoArquivos({ clienteId, pasta, situacao, podeEditar, semI3b }: {
-  clienteId: string | null; pasta: string | null; situacao: SituacaoDrive | null; podeEditar: boolean; semI3b: boolean;
+export function BlocoArquivos({ clienteId, pasta, situacao, podeEditar, semI3b, erroLeitura = false }: {
+  clienteId: string | null; pasta: string | null; situacao: SituacaoDrive | null; podeEditar: boolean; semI3b: boolean; erroLeitura?: boolean;
 }) {
   const [valor, setValor] = useState(pasta ? linkDaPasta(pasta) : '');
   const [salva, setSalva] = useState(pasta);
@@ -38,7 +38,9 @@ export function BlocoArquivos({ clienteId, pasta, situacao, podeEditar, semI3b }
         <h2 id="titulo-arquivos" tabIndex={-1} className="text-sm font-extrabold uppercase tracking-wide text-brand">Arquivos</h2>
         <Badge variant="neutral"><LockKeyhole aria-hidden size={12} />só leitura</Badge>
       </div>
-      {semI3b || !clienteId ? (
+      {erroLeitura ? (
+        <p role="alert" className="text-sm text-warning">{TEXTO_PASTA_ERRO_LEITURA}</p>
+      ) : semI3b || !clienteId ? (
         <p className="text-sm text-muted">{semI3b ? TEXTO_DRIVE_SEM_I3B : 'A pasta no Drive pode ser preenchida depois de salvar o cliente.'}</p>
       ) : (
         <div className="flex flex-col gap-3">

@@ -38,8 +38,8 @@ export async function DadosFicha({ c, u }: { c: ClienteFicha | null; u: UsuarioP
   let inscricoesSt: { uf: string; inscricao: string | null }[] = [];
   let acessos: AcessoLinha[] = [];
   let ultima: { pessoa: string; quando: string } | null = null;
-  let pastaDrive: { semI3b: boolean; pasta: string | null } = { semI3b: false, pasta: null };
-  let drive: { semI3b: boolean; situacao: SituacaoDrive | null } = { semI3b: false, situacao: null };
+  let pastaDrive: { semI3b: boolean; erro: boolean; pasta: string | null } = { semI3b: false, erro: false, pasta: null };
+  let drive: { semI3b: boolean; erro: boolean; situacao: SituacaoDrive | null } = { semI3b: false, erro: false, situacao: null };
   if (c) {
     const [cs, rs, st, ac, ua, pd, dr] = await Promise.all([
       sb.from('cliente_servicos').select('servico_id').eq('cliente_id', c.id),
@@ -81,7 +81,7 @@ export async function DadosFicha({ c, u }: { c: ClienteFicha | null; u: UsuarioP
       // key: o elemento vem do servidor e entra ao lado do bloco Certificado no Formulario; sem ela o React avisa "unique key".
       acessos={<AcessosPortais key="acessos" clienteId={c?.id ?? null} acessos={acessos} podeVer={verAcessos} podeEditar={pode && verAcessos} cofreOk={cofreConfigurado()} />}
       arquivos={<BlocoArquivos key="arquivos" clienteId={c?.id ?? null} pasta={pastaDrive.pasta} situacao={drive.situacao}
-        podeEditar={pode} semI3b={pastaDrive.semI3b || drive.semI3b} />}
+        podeEditar={pode} semI3b={pastaDrive.semI3b || drive.semI3b} erroLeitura={pastaDrive.erro} />}
     />
   );
 }

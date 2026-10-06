@@ -38,7 +38,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
   // Parte I3b: Drive e guarda só para o administrador; sem a atualização do banco vira aviso.
   const [drive, guarda, dono] = admin
     ? await Promise.all([lerSituacaoDrive(sb), lerGuarda(sb), souDono(sb)])
-    : [{ semI3b: false, situacao: null }, { semI3b: false, dias: null }, false] as const;
+    : [{ semI3b: false, erro: false, situacao: null }, { semI3b: false, erro: false, dias: null }, false] as const;
   const [{ data: cfg }, { data: setores }, { data: servicos }, { data: respostas }, { data: feriados }, { data: sinais }, gasto] = await Promise.all([
     sb.from('configuracoes').select('*').eq('id', 1).single(),
     sb.from('setores').select('*').order('nome'),

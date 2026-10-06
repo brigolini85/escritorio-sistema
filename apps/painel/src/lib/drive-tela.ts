@@ -2,6 +2,9 @@
 export type SituacaoDrive = { email: string | null; erro: string | null; verificadoEm: string | null };
 export const TEXTO_DRIVE_SEM_I3B = 'A pasta no Drive aparece quando a atualização do banco da Parte I3b for aplicada.';
 export const TEXTO_GUARDA_SEM_I3B = 'A guarda dos arquivos das tarefas aparece quando a atualização do banco da Parte I3b for aplicada.';
+export const TEXTO_PASTA_ERRO_LEITURA = 'Não consegui ler a pasta agora. Recarregue a página.';
+export const TEXTO_DRIVE_ERRO_LEITURA = 'Não consegui ler a situação do Drive.';
+export const TEXTO_GUARDA_ERRO_LEITURA = 'Não consegui ler a guarda dos arquivos agora. Recarregue a página.';
 export const TEXTO_DRIVE_NAO_CONFIGURADO = 'Drive não configurado: o agente lê só os arquivos enviados.';
 
 export function avisoDoDrive(s: SituacaoDrive | null): { tom: 'success' | 'warning'; texto: string } {
