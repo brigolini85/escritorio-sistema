@@ -285,13 +285,13 @@ isOneToOne: false
                   ]
                 },"agente_tarefa_arquivos": {
                   Row: {
-                    "bucket": string,"caminho": string,"criado_em": string,"detalhe": string | null,"drive_id": string | null,"drive_modificado_em": string | null,"enviado_por": string | null,"id": string,"lido_em": string | null,"mensagem_id": string | null,"mime": string,"nome": string,"origem": string,"tamanho": number,"tarefa_id": string
+                    "bucket": string,"caminho": string,"criado_em": string,"detalhe": string | null,"drive_id": string | null,"drive_modificado_em": string | null,"enviado_por": string | null,"id": string,"lido_em": string | null,"mensagem_id": string | null,"mime": string,"nome": string,"origem": string,"removido_em": string | null,"tamanho": number,"tarefa_id": string
                   }
                   Insert: {
-                    "bucket": string,"caminho": string,"criado_em"?: string,"detalhe"?: string | null,"drive_id"?: string | null,"drive_modificado_em"?: string | null,"enviado_por"?: string | null,"id"?: string,"lido_em"?: string | null,"mensagem_id"?: string | null,"mime": string,"nome": string,"origem": string,"tamanho": number,"tarefa_id": string
+                    "bucket": string,"caminho": string,"criado_em"?: string,"detalhe"?: string | null,"drive_id"?: string | null,"drive_modificado_em"?: string | null,"enviado_por"?: string | null,"id"?: string,"lido_em"?: string | null,"mensagem_id"?: string | null,"mime": string,"nome": string,"origem": string,"removido_em"?: string | null,"tamanho": number,"tarefa_id": string
                   }
                   Update: {
-                    "bucket"?: string,"caminho"?: string,"criado_em"?: string,"detalhe"?: string | null,"drive_id"?: string | null,"drive_modificado_em"?: string | null,"enviado_por"?: string | null,"id"?: string,"lido_em"?: string | null,"mensagem_id"?: string | null,"mime"?: string,"nome"?: string,"origem"?: string,"tamanho"?: number,"tarefa_id"?: string
+                    "bucket"?: string,"caminho"?: string,"criado_em"?: string,"detalhe"?: string | null,"drive_id"?: string | null,"drive_modificado_em"?: string | null,"enviado_por"?: string | null,"id"?: string,"lido_em"?: string | null,"mensagem_id"?: string | null,"mime"?: string,"nome"?: string,"origem"?: string,"removido_em"?: string | null,"tamanho"?: number,"tarefa_id"?: string
                   }
                   Relationships: [
                     {
@@ -1440,13 +1440,13 @@ isOneToOne: false
                   ]
                 },"simulacoes_agente": {
                   Row: {
-                    "agente_id": string,"cliente_id": string | null,"criado_em": string,"erro": string | null,"id": string,"mensagem": string,"rascunho": Json | null,"respostas": Json | null,"skill_id": string | null,"status": string,"usuario_id": string
+                    "agente_id": string,"cliente_id": string | null,"criado_em": string,"erro": string | null,"id": string,"mensagem": string,"modo": string | null,"rascunho": Json | null,"respostas": Json | null,"skill_id": string | null,"status": string,"usuario_id": string
                   }
                   Insert: {
-                    "agente_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem": string,"rascunho"?: Json | null,"respostas"?: Json | null,"skill_id"?: string | null,"status"?: string,"usuario_id": string
+                    "agente_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem": string,"modo"?: string | null,"rascunho"?: Json | null,"respostas"?: Json | null,"skill_id"?: string | null,"status"?: string,"usuario_id": string
                   }
                   Update: {
-                    "agente_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem"?: string,"rascunho"?: Json | null,"respostas"?: Json | null,"skill_id"?: string | null,"status"?: string,"usuario_id"?: string
+                    "agente_id"?: string,"cliente_id"?: string | null,"criado_em"?: string,"erro"?: string | null,"id"?: string,"mensagem"?: string,"modo"?: string | null,"rascunho"?: Json | null,"respostas"?: Json | null,"skill_id"?: string | null,"status"?: string,"usuario_id"?: string
                   }
                   Relationships: [
                     {
@@ -1520,6 +1520,25 @@ isOneToOne: false
     },{
       foreignKeyName: "sugestoes_resposta_usuario_id_fkey"
       columns: ["usuario_id"]
+isOneToOne: false
+      referencedRelation: "usuarios"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"tarefas_guarda": {
+                  Row: {
+                    "atualizado_em": string,"atualizado_por": string | null,"dias": number | null,"id": number
+                  }
+                  Insert: {
+                    "atualizado_em"?: string,"atualizado_por"?: string | null,"dias"?: number | null,"id"?: number
+                  }
+                  Update: {
+                    "atualizado_em"?: string,"atualizado_por"?: string | null,"dias"?: number | null,"id"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "tarefas_guarda_atualizado_por_fkey"
+      columns: ["atualizado_por"]
 isOneToOne: false
       referencedRelation: "usuarios"
       referencedColumns: ["id"]
@@ -1815,6 +1834,11 @@ isOneToOne: false
               "criado_em": string,"mensagem_id": string,"mime": string,"nome": string
             }[]
                            },
+"arquivos_vencidos_das_tarefas":
+{ Args: { "p_limite": number }; Returns: {
+              "caminho": string,"id": string
+            }[]
+                           },
 "assumir_conversa":
 { Args: { "p_conversa": string }; Returns: undefined
                            },
@@ -1891,6 +1915,9 @@ isOneToOne: false
                            },
 "criar_simulacao":
 { Args: { "p_cliente_id"?: string,"p_mensagem": string,"p_rascunho"?: Json }; Returns: string
+                           },
+"criar_simulacao_agente":
+{ Args: { "p_cliente_id"?: string,"p_mensagem": string,"p_modo"?: string,"p_rascunho"?: Json,"p_skill"?: string,"p_slug": string }; Returns: string
                            },
 "criar_simulacao_skill":
 { Args: { "p_cliente_id"?: string,"p_mensagem": string,"p_skill": string }; Returns: string
@@ -2136,6 +2163,9 @@ isOneToOne: false
 "marcar_arquivo_lido":
 { Args: { "p_arquivo": string,"p_detalhe": string }; Returns: undefined
                            },
+"marcar_arquivos_removidos":
+{ Args: { "p_ids": (string)[] }; Returns: number
+                           },
 "marcar_conversa_lida":
 { Args: { "p_ate": string,"p_conversa": string }; Returns: boolean
                            },
@@ -2324,6 +2354,9 @@ isOneToOne: false
                            },
 "salvar_ficha_cliente":
 { Args: { "p_dados": Json,"p_id": string }; Returns: string
+                           },
+"salvar_guarda_tarefas":
+{ Args: { "p_dias": number }; Returns: undefined
                            },
 "salvar_limites_tarefa":
 { Args: { "p_minutos": number,"p_slug": string,"p_usd": number }; Returns: undefined
