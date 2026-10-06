@@ -22,6 +22,8 @@ export const FILAS = {
   pendenciaCliente: 'pendencia_cliente',
   /** Parte I3b (D7): LER A PASTA DE NOVO; o painel enfileira { tarefaId } (singletonKey = tarefa). */
   pastaDrive: 'pasta_drive',
+  /** Parte I4 (D9): um aviso de tarefa ao WhatsApp de quem pediu; { avisoId }. */
+  avisoTarefa: 'aviso_tarefa',
 } as const;
 
 export interface Fila {
@@ -54,6 +56,8 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   await boss.createQueue(FILAS.pendenciaCliente, { name: FILAS.pendenciaCliente, policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true });
   // Mesma configuração em apps/painel/src/lib/fila.ts; singletonKey = tarefa (uma leitura da pasta por vez).
   await boss.createQueue(FILAS.pastaDrive, { name: FILAS.pastaDrive, policy: 'stately', retryLimit: 1, retryDelay: 30 });
+  // Parte I4 (D9): singletonKey = aviso; a reserva no banco impede o envio duplo.
+  await boss.createQueue(FILAS.avisoTarefa, { name: FILAS.avisoTarefa, retryLimit: 2, retryDelay: 30, retryBackoff: true });
   await boss.createQueue(FILAS.enviarMensagem, { name: FILAS.enviarMensagem, retryLimit: 5, retryDelay: 10, retryBackoff: true });
   await boss.createQueue(FILAS.removerArquivos, { name: FILAS.removerArquivos, retryLimit: 10, retryDelay: 60, retryBackoff: true });
   for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao, FILAS.certificados]) {
@@ -99,4 +103,9 @@ export type JobPendencia = { pendenciaId: string };
 /** vez: o número do pedido (o painel, a cada PEDIR AO CLIENTE / COBRAR DE NOVO) ou 'batimento' (pedido que não saiu, F5). A reserva no banco impede o envio duplo. */
 export async function agendarPedidoPendencia(fila: Fila, pendenciaId: string, vez: number | 'batimento'): Promise<void> {
   await fila.enviar(FILAS.pendenciaCliente, { pendenciaId } satisfies JobPendencia, { singletonKey: `${pendenciaId}:${vez}` });
+}
+/** Job da fila `aviso_tarefa` (Parte I4): o aviso a mandar ao WhatsApp de quem pediu a tarefa. */
+export type JobAviso = { avisoId: string };
+export async function agendarAviso(fila: Fila, avisoId: string): Promise<void> {
+  await fila.enviar(FILAS.avisoTarefa, { avisoId } satisfies JobAviso, { singletonKey: avisoId });
 }

@@ -11,7 +11,7 @@ import { criarEmail } from './email';
 import { LimitadorEnvio, enviarMensagemDoPainel, verificarEnviadaPorMim } from './envio';
 import { processarAssistente } from './assistente/processar';
 import {
-  FILAS, criarBoss, filaDe, type JobAssistente, type JobPastaDrive, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa,
+  FILAS, criarBoss, filaDe, type JobAssistente, type JobAviso, type JobPastaDrive, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa,
 } from './fila';
 import { criarArmazenamento } from './midia/armazenamento';
 import { criarTranscritor } from './midia/transcritor';
@@ -21,6 +21,7 @@ import { canalDaSugestao } from './sugestao/ferramentas';
 import { processarSugestao } from './sugestao/processar';
 import { criarServidor } from './servidor';
 import { guardarNaTarefa, removerDaTarefa } from './tarefa/armazenamento';
+import { enviarAvisoTarefa } from './tarefa/avisos';
 import { limparArquivosDasTarefas } from './tarefa/guarda';
 import { lerPastaPedida } from './tarefa/pasta';
 import { enviarPedidoDePendencia } from './tarefa/pendencias';
@@ -93,6 +94,10 @@ async function principal() {
   // Parte I3a (D7): o pedido de pendência que uma pessoa aprovou, na voz do Thiago.
   await boss.work<JobPendencia>(FILAS.pendenciaCliente, async ([job]) => {
     await enviarPedidoDePendencia({ repos, envio }, job!.data.pendenciaId);
+  });
+  // Parte I4 (D9): aviso de pendência, pronto ou pausa ao WhatsApp de quem pediu (só a equipe; a reserva no banco impede o envio duplo).
+  await boss.work<JobAviso>(FILAS.avisoTarefa, async ([job]) => {
+    await enviarAvisoTarefa({ repos, canal }, job!.data.avisoId);
   });
   await boss.work<{ mensagemId: string }>(FILAS.enviarMensagem, { includeMetadata: true }, async ([job]) => {
     await enviarMensagemDoPainel(envio, job!.data.mensagemId, job!.retryCount >= job!.retryLimit);

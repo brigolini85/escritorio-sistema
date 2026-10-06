@@ -3,6 +3,7 @@ import { SemI3b, type OpcoesDoPedido, type Repos } from '@escritorio/db';
 import { erroTemporarioIa } from '../agente/cliente-ia';
 import { carregarPerfil } from '../agente/perfil';
 import { agendarTarefa } from '../fila';
+import { registrarAvisos } from './avisos';
 import { executarTarefa, type DepsTarefa } from './executar';
 import type { VezDaTarefa } from './ferramentas';
 import { lerPastaComAviso, type DepsPasta } from './pasta';
@@ -61,6 +62,8 @@ export async function processarTarefa(d: DepsTarefa, tarefaId: string, ultimaTen
   }
   const estado = await d.repos.finalizarVezTarefa(tarefaId, segundosDesde(inicio, d.relogio()), motivo, desde);
   if (estado === 'trabalhando') await agendarTarefa(d.fila, tarefaId);
+  // Parte I4 (D9): pendência, pronto ou pausa avisam quem pediu (o banco decide e não repete).
+  else await registrarAvisos(d, tarefaId);
 }
 
 async function umaVez(d: DepsTarefa, id: string, inicio: Date): Promise<MotivoFimVez> {
