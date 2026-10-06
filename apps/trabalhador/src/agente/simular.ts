@@ -1,4 +1,4 @@
-import { SLUG_ATENDIMENTO, estaNoExpediente, mesReferencia } from '@escritorio/core';
+import { AGENTE_ATENDIMENTO_ID, MODOS_CONTATO, SLUG_ATENDIMENTO, estaNoExpediente, mesReferencia, type ModoContato } from '@escritorio/core';
 import type { Conversa, EmpresaDoContato, Mensagem, OrientacaoAgente, RascunhoOrientacao, Repos, SimulacaoAgente, UsuarioAssistente } from '@escritorio/db';
 import { podeVerChamado } from '../assistente/visibilidade';
 import type { CanalWhatsApp } from '../canal/tipos';
@@ -38,6 +38,7 @@ export const MENSAGEM_TETO_SIMULACAO = 'O limite mensal de gasto com IA foi atin
 export const MENSAGEM_FALHA_SIMULACAO = 'Não consegui fazer o teste agora. Tente de novo em alguns minutos.';
 export const MENSAGEM_PRAZO_SIMULACAO = 'O teste demorou demais e foi interrompido. Tente de novo com uma mensagem mais curta.';
 export const MENSAGEM_EMPRESA_SIMULACAO = 'A empresa escolhida para o teste não foi encontrada ou está inativa. Escolha outra empresa e teste de novo.';
+export const MENSAGEM_AGENTE_SIMULACAO = 'Este agente não pode ser testado agora: confira se ele tem o tipo Conversa e um setor.';
 /**
  * Prazo total do teste, contado de quando ele foi pedido (`criado_em`), somando as novas tentativas da fila: fica abaixo dos
  * 5 minutos em que `criar_simulacao` considera um teste pendente abandonado.
@@ -48,13 +49,17 @@ const TELEFONE_FICTICIO = '5500000000000';
 const NOME_FICTICIO = 'Contato de teste';
 
 /** Ferramentas que só leem: rodam de verdade, sempre dentro da empresa em foco (as mesmas travas do atendimento). */
-const LEITURAS = new Set<NomeFerramenta>(['buscar_parceiros', 'buscar_produtos', 'consultar_cadastro', 'consultar_preco', 'consultar_chamados', 'listar_documentos', 'ler_skill', 'ler_referencia']);
+const LEITURAS = new Set<NomeFerramenta>(['buscar_parceiros', 'buscar_produtos', 'consultar_cadastro', 'consultar_preco', 'consultar_chamados', 'listar_documentos', 'ler_skill', 'ler_referencia',
+  // I3b (D11): a lista sai de chamadosAbertosDoCliente, já filtrada pelo que a pessoa do teste vê. conferir_pedido_nota é simulado (F11).
+  'ler_demandas_setor']);
 
 /** Leituras do banco liberadas na simulação. Qualquer outro método do repositório falha (nada grava por engano). */
 const LEITURAS_REPOS = [
   'obterConfiguracoes', 'custoIaDoMes', 'setoresAtivos', 'respostasProntas', 'orientacoesAtivas', 'servicosDoCliente',
   'unidadesDaEmpresa', 'produtosDaEmpresa', 'precosVigentes', 'documentosDaEmpresa', 'dadosDaEmpresa', 'setorPorNome', 'responsaveisDoCliente',
   'perfilDoAgente', 'referenciaDaSkill',
+  // I3b (D11). F11: sem demandaDoSetor e sem as leituras da pré-análise (quem testa pode não ver pedidos de nota).
+  'agenteSetorParaTeste',
 ] as const satisfies readonly (keyof Repos)[];
 
 class BloqueadoNaSimulacao extends Error {
@@ -63,6 +68,8 @@ class BloqueadoNaSimulacao extends Error {
   }
 }
 class PrazoEsgotado extends Error {}
+/** I3b (D11): o agente pedido não é o Thiago nem um agente de setor com Conversa (ex.: só de Trabalho). */
+class AgenteNaoTestavel extends Error {}
 
 /**
  * Repositório da simulação: só as leituras liberadas; o uso da IA é gravado sem conversa; decisões não são gravadas;
@@ -284,6 +291,20 @@ async function simularGravacao(d: DepsAgente, estado: EstadoExecucao, nome: Nome
       return ok({ instrucao: AVISOS.instrucaoPessoaChamada });
     }
 
+    // I3b (D11), agentes dos setores: as sugestões ficam só no teste (no atendimento, uma pessoa do setor aprova no painel).
+    case 'nota_interna':
+      acao(r, nome, `Sugeriria uma nota interna na demanda ${entrada.numero}: ${entrada.texto}`);
+      return ok({ sugerida: true, instrucao: 'Uma pessoa do setor aprova no painel.' });
+
+    case 'sugerir_correcao':
+      acao(r, nome, `Sugeriria corrigir na demanda ${entrada.numero} o campo ${entrada.campo} para "${entrada.para}" (${entrada.motivo})`);
+      return ok({ sugerida: true, instrucao: 'Uma pessoa do setor aprova no painel.' });
+
+    case 'conferir_pedido_nota':
+      // F11: sem ler a pré-análise de verdade (CNPJ e preços do pedido), que quem testa pode não ter acesso para ver.
+      acao(r, nome, `Conferiria o pedido de nota da demanda ${entrada.numero}`);
+      return ok({ conferido: 'no teste, só a descrição' });
+
     default:
       // Leituras não chegam aqui; uma ferramenta nova sem versão simulada não pode gravar de verdade.
       return falha(`Ferramenta indisponível no teste: ${nome}`);
@@ -348,6 +369,7 @@ export async function processarSimulacao(d: DepsSimulacao, simulacaoId: string, 
     const gravou = await d.repos.concluirSimulacao(sim.id, { status: 'pronta', respostas: r });
     return gravou ? 'pronta' : 'ja-concluida';
   } catch (e) {
+    if (e instanceof AgenteNaoTestavel) return concluirErro(MENSAGEM_AGENTE_SIMULACAO);
     if (erroTemporarioIa(e) && !ultimaTentativa) throw e;
     if (!(e instanceof PrazoEsgotado)) console.error('[simulação] falha', simulacaoId, e);
     return concluirErro(e instanceof PrazoEsgotado ? MENSAGEM_PRAZO_SIMULACAO : MENSAGEM_FALHA_SIMULACAO);
@@ -373,14 +395,19 @@ async function simular(
   };
 
   const setores = await repos.setoresAtivos();
-  const agente = await carregarPerfil(repos, SLUG_ATENDIMENTO, sim.skill_id ?? null);
+  // I3b (D11): agente de setor roda ele mesmo (papel especialista), com o modo escolhido; o Thiago, como sempre.
+  const setor = sim.agente_id && sim.agente_id !== AGENTE_ATENDIMENTO_ID ? await repos.agenteSetorParaTeste(sim.agente_id, sim.skill_id ?? null) : null;
+  if (sim.agente_id && sim.agente_id !== AGENTE_ATENDIMENTO_ID && !setor) throw new AgenteNaoTestavel();
+  const agenteSetor = setor ? { ...setor, orientacoes: orientacoesDoTeste(setor.orientacoes, sim.rascunho, setores, agora) } : null;
+  const modo: ModoContato = (MODOS_CONTATO as readonly string[]).includes(sim.modo ?? '') ? (sim.modo as ModoContato) : (setor?.modo ?? 'por_tras');
+  const agente = agenteSetor ?? (await carregarPerfil(repos, SLUG_ATENDIMENTO, sim.skill_id ?? null));
   const ctx: ContextoAgente = {
     conversa,
     contato: empresa ? { id: `simulacao-${sim.id}`, nome: NOME_FICTICIO, agentePausado: false, empresas: [empresa] } : null,
     empresaEmFoco: empresa,
     setores,
     respostasProntas: await repos.respostasProntas(),
-    orientacoes: orientacoesDoTeste(await repos.orientacoesAtivas(agente.id), sim.rascunho, setores, agora),
+    orientacoes: agenteSetor ? agenteSetor.orientacoes : orientacoesDoTeste(await repos.orientacoesAtivas(agente.id), sim.rascunho, setores, agora),
     servicosContratados: empresa ? await repos.servicosDoCliente(empresa.id) : [],
     noExpediente: estaNoExpediente(agora, config.expediente),
     config,
@@ -394,7 +421,18 @@ async function simular(
     id: `simulacao-${sim.id}`, conversa_id: sim.id, cliente_id: empresa?.id ?? null, direcao: 'entrada', autor: 'cliente', tipo: 'texto',
     conteudo: sim.mensagem, criado_em: agoraIso,
   } as unknown as Mensagem;
-  const resultado = await executarAgente(deps, ctx, montarConteudoUsuario(ctx, [], [mensagem], []), criarExecutorSimulado(registro));
+  const conteudo = montarConteudoUsuario(ctx, [], [mensagem], []);
+  const resultado = agenteSetor
+    ? await executarAgente(deps, ctx, conteudo, criarExecutorSimulado(registro), { papel: { tipo: 'especialista', agente: agenteSetor, modo }, acessoConferido: true })
+    : await executarAgente(deps, ctx, conteudo, criarExecutorSimulado(registro));
+  if (agenteSetor) {
+    // O que o agente do setor devolveria ao Thiago (por trás) ou o assunto que devolveria (mesma voz / passa a conversa).
+    if (resultado.status === 'ok' && resultado.devolucao) {
+      registro.acoes.push({ ferramenta: 'devolver_resposta', resumo: `Devolveria ao Thiago para repassar: "${resultado.devolucao.respostaAoCliente}"` });
+      if (resultado.devolucao.paraAEquipe) registro.acoes.push({ ferramenta: 'devolver_resposta', resumo: `Pediria à equipe: ${resultado.devolucao.paraAEquipe}` });
+    }
+    if (resultado.status === 'devolvido') registro.acoes.push({ ferramenta: 'devolver_ao_thiago', resumo: `Devolveria o assunto ao Thiago: ${resultado.motivo}` });
+  }
 
   observar(registro, sim, ctx, resultado);
   const { mensagens, acoes, observacoes } = registro;
