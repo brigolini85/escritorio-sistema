@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { consultaCaixa, FILTROS_MAIS, FILTROS_RAPIDOS, filtroPadrao, lerFiltroCaixa, ordenarCaixa, passaNoFiltro, rotuloFiltroCaixa, type LinhaCaixa } from './caixa';
+import { COLUNAS_CAIXA, consultaCaixa, lerPaginasCaixa, MAX_PAGINAS_CAIXA, FILTROS_MAIS, FILTROS_RAPIDOS, filtroPadrao, lerFiltroCaixa, ordenarCaixa, passaNoFiltro, rotuloFiltroCaixa, type LinhaCaixa } from './caixa';
 
 const u = { id: 'ana', setores: ['fiscal'] };
 const linha = (p: Partial<LinhaCaixa>): LinhaCaixa => ({ id: 'c', atendente_id: null, setores_abertos: [], sem_responsavel: false, aguardando_cliente: false, ...p });
@@ -75,5 +75,26 @@ describe('consultaCaixa', () => {
     expect(consultaCaixa({ filtro: 'minhas', q: ' Maria ' })).toBe('?filtro=minhas&q=Maria');
     expect(consultaCaixa({ filtro: null, q: '  ' })).toBe('');
     expect(consultaCaixa({ q: 'a&b' })).toBe('?q=a%26b');
+  });
+});
+
+// Revisão geral (painel I5): a lista do Atendimento carrega de 200 em 200 ("Carregar mais"), sem select *.
+describe('páginas da lista do Atendimento', () => {
+  it('lerPaginasCaixa: 1 a 10, o resto vira 1', () => {
+    expect(lerPaginasCaixa(undefined)).toBe(1);
+    expect(lerPaginasCaixa('3')).toBe(3);
+    expect(lerPaginasCaixa('0')).toBe(1);
+    expect(lerPaginasCaixa('abc')).toBe(1);
+    expect(lerPaginasCaixa('99')).toBe(MAX_PAGINAS_CAIXA);
+  });
+  it('consultaCaixa leva "mais" só a partir da segunda página', () => {
+    expect(consultaCaixa({ filtro: 'todas', mais: 1 })).toBe('?filtro=todas');
+    expect(consultaCaixa({ filtro: 'todas', q: 'ana', mais: 2 })).toBe('?filtro=todas&q=ana&mais=2');
+  });
+  it('as colunas pedidas à caixa_entrada são as que a lista usa (sem *)', () => {
+    expect(COLUNAS_CAIXA).not.toContain('*');
+    for (const c of ['id', 'nome_contato', 'ultima_em', 'espera_desde', 'setores_abertos', 'sem_responsavel', 'aguardando_cliente', 'esperando_voce', 'cliente_apos_concluir']) {
+      expect(COLUNAS_CAIXA.split(', ')).toContain(c);
+    }
   });
 });

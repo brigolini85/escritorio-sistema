@@ -67,10 +67,26 @@ export function ordenarCaixa<T extends { sem_responsavel: boolean | null }>(linh
 }
 
 /** "?filtro=…&q=…" para os links da caixa (só o que tiver valor; nada → ""). */
-export function consultaCaixa(p: { filtro?: string | null; q?: string | null }): string {
+export function consultaCaixa(p: { filtro?: string | null; q?: string | null; mais?: number }): string {
   const sp = new URLSearchParams();
   if (p.filtro) sp.set('filtro', p.filtro);
   if (p.q?.trim()) sp.set('q', p.q.trim());
+  if (p.mais && p.mais > 1) sp.set('mais', String(p.mais));
   const s = sp.toString();
   return s ? `?${s}` : '';
+}
+
+/**
+ * Revisão geral (painel I5): a lista do Atendimento lê de 200 em 200 ("Carregar mais", até 10 páginas) e só as colunas
+ * que usa da caixa_entrada (as de LinhaAtendimento mais as do filtro).
+ */
+export const LINHAS_POR_PAGINA_CAIXA = 200;
+export const MAX_PAGINAS_CAIXA = 10;
+export const COLUNAS_CAIXA = 'id, telefone, nome_contato, empresa, estado, atendente_id, ultima_mensagem, ultima_em, ultima_tipo, ultima_autor, ultima_transcricao, chamados_abertos, aguardando_pessoa_desde, motivo_pessoa, concluida_em, espera_desde, esperando_pessoa, esperando_voce, nao_lidas, contato_pausado, empresa_pausada, agente_respondendo, cliente_apos_concluir, setores_abertos, sem_responsavel, aguardando_cliente';
+
+/** "?mais=N" da URL: quantas páginas da lista mostrar (1 a 10). */
+export function lerPaginasCaixa(v: string | undefined): number {
+  const n = Number.parseInt(v ?? '', 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(n, MAX_PAGINAS_CAIXA);
 }

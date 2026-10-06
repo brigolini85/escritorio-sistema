@@ -6,7 +6,7 @@ import { EmptyState } from '@/components/patterns/empty-state';
 import { agruparConversas, juntarSemRepetir, lerLimites, type LinhaAtendimento } from '@/lib/atendimento';
 import { interpretarBusca } from '@/lib/busca';
 import { lerAgentePausado } from '@/lib/leituras-admin';
-import { consultaCaixa, filtroPadrao, passaNoFiltro, rotuloFiltroCaixa, type FiltroCaixa } from '@/lib/caixa';
+import { COLUNAS_CAIXA, consultaCaixa, filtroPadrao, LINHAS_POR_PAGINA_CAIXA, MAX_PAGINAS_CAIXA, passaNoFiltro, rotuloFiltroCaixa, type FiltroCaixa } from '@/lib/caixa';
 import { cn } from '@/lib/cn';
 import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -14,7 +14,6 @@ import { FiltrosCaixa } from './filtros-caixa';
 import { ItemConversa } from './item-conversa';
 import { Realce } from './realce';
 
-const LIMITE_LISTA = 200;
 
 /**
  * Coluna da esquerda do Atendimento (320px), usada na lista (/atendimento) e ao lado da conversa aberta
@@ -27,6 +26,7 @@ export async function ListaConversas({
   filtro,
   filtroNaUrl,
   q,
+  paginas = 1,
   caminho,
   selecionada,
   titulo,
@@ -38,6 +38,8 @@ export async function ListaConversas({
   filtro: FiltroCaixa;
   filtroNaUrl: string | null;
   q: string;
+  /** Revisão geral (painel I5): quantas páginas de 200 mostrar ("Carregar mais", ?mais=N). */
+  paginas?: number;
   caminho: string;
   selecionada?: string;
   /** Na lista, o título da página (h1); ao lado da conversa, um título de seção (h2). */
@@ -50,9 +52,10 @@ export async function ListaConversas({
 }) {
   const sb = await supabaseServidor();
   const busca = interpretarBusca(q);
+  const limite = LINHAS_POR_PAGINA_CAIXA * paginas;
   // A mesma consulta (filtro e busca) para a lista e para quem está esperando.
   const montar = () => {
-    let consulta = sb.from('caixa_entrada').select('*');
+    let consulta = sb.from('caixa_entrada').select(COLUNAS_CAIXA);
     if (filtro === 'minhas') consulta = consulta.eq('atendente_id', u.id);
     else if (filtro === 'setor') consulta = consulta.overlaps('setores_abertos', u.setores.length ? u.setores : ['00000000-0000-0000-0000-000000000000']);
     else if (filtro === 'sem_responsavel') consulta = consulta.eq('sem_responsavel', true);
@@ -65,9 +68,9 @@ export async function ListaConversas({
     return consulta;
   };
   const [{ data: recentes, error }, { data: esperandoAgora, error: erroEspera }, { data: pessoas }, pausaGeral, { data: limitesBrutos }] = await Promise.all([
-    montar().order('ultima_em', { ascending: false, nullsFirst: false }).limit(LIMITE_LISTA),
+    montar().order('ultima_em', { ascending: false, nullsFirst: false }).limit(limite),
     // Quem espera há mais tempo costuma ter a última mensagem antiga: lido à parte, nunca fica fora do limite da lista.
-    montar().not('espera_desde', 'is', null).order('espera_desde', { ascending: true }).limit(LIMITE_LISTA),
+    montar().not('espera_desde', 'is', null).order('espera_desde', { ascending: true }).limit(limite),
     nomesProntos ? Promise.resolve({ data: null }) : sb.from('usuarios').select('id, nome'),
     pausaPronta !== undefined ? Promise.resolve(pausaPronta) : lerAgentePausado(sb),
     sb.rpc('limites_espera'),
@@ -79,7 +82,9 @@ export async function ListaConversas({
     sem_responsavel: Boolean(l.sem_responsavel), aguardando_cliente: Boolean(l.aguardando_cliente),
     estado: l.estado, chamados_abertos: l.chamados_abertos,
   }, filtro, u));
-  const sufixo = consultaCaixa({ filtro: filtroNaUrl, q });
+  const sufixo = consultaCaixa({ filtro: filtroNaUrl, q, mais: paginas });
+  // Revisão geral (painel I5): a lista chegou ao limite; há mais conversas antigas para carregar.
+  const temMais = !error && (recentes?.length ?? 0) >= limite;
   const limites = lerLimites(limitesBrutos);
   const grupos = agruparConversas(linhas as unknown as LinhaAtendimento[], new Date());
   const esperandoVoce = linhas.filter((l) => l.esperando_voce).length;
@@ -133,6 +138,18 @@ export async function ListaConversas({
                 </summary>
                 <ul className="divide-y divide-border">{grupos.concluidasHoje.map(item)}</ul>
               </details>
+            )}
+            {temMais && (
+              <p className="border-t border-border px-3 py-3 text-center text-sm text-muted">
+                {paginas < MAX_PAGINAS_CAIXA ? (
+                  <Link href={`${caminho}${consultaCaixa({ filtro: filtroNaUrl, q, mais: paginas + 1 })}`} scroll={false}
+                    className="font-medium text-brand underline-offset-4 hover:underline">
+                    Carregar mais conversas
+                  </Link>
+                ) : (
+                  <>Mostrando as {limite.toLocaleString('pt-BR')} conversas mais recentes. Use a busca para achar as mais antigas.</>
+                )}
+              </p>
             )}
           </Realce>
         )}

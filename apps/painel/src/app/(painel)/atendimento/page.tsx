@@ -2,7 +2,7 @@ import { MessagesSquare } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { EmptyState } from '@/components/patterns/empty-state';
-import { lerFiltroCaixa } from '@/lib/caixa';
+import { lerFiltroCaixa, lerPaginasCaixa } from '@/lib/caixa';
 import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { AtalhosLista } from './atalhos-lista';
@@ -12,7 +12,7 @@ import { ListaConversas } from './lista-conversas';
 
 const COLUNA_LISTA = 'w-full border-r border-border lg:w-lista-conversas lg:shrink-0';
 
-export default async function Atendimento({ searchParams }: { searchParams: Promise<{ filtro?: string; q?: string }> }) {
+export default async function Atendimento({ searchParams }: { searchParams: Promise<{ filtro?: string; q?: string; mais?: string }> }) {
   const u = await obterUsuario();
   // "Atendimento: Sem acesso" (Parte D): o banco já não mostra conversa nenhuma; a tela nem abre.
   if (!temNivel(u, 'atendimento', 'meus_setores')) redirect('/inicio');
@@ -31,6 +31,7 @@ export default async function Atendimento({ searchParams }: { searchParams: Prom
           filtro={filtro}
           filtroNaUrl={sp.filtro ?? null}
           q={q}
+          paginas={lerPaginasCaixa(sp.mais)}
           caminho="/atendimento"
           titulo="h1"
           className={COLUNA_LISTA}
