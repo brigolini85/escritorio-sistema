@@ -1,7 +1,7 @@
 import 'server-only';
 import { semMigracaoI1 } from '@/lib/agentes';
 import type { supabaseServidor } from '@/lib/supabase/servidor';
-import type { SituacaoDrive } from './drive-tela';
+import type { DriveDaTarefa, SituacaoDrive } from './drive-tela';
 
 type Sb = Awaited<ReturnType<typeof supabaseServidor>>;
 
@@ -27,4 +27,11 @@ export async function lerGuarda(sb: Sb): Promise<{ semI3b: boolean; erro: boolea
   if (semMigracaoI1(error)) return { semI3b: true, erro: false, dias: null };
   if (error) { console.error('[guarda] leitura', error); return { semI3b: false, erro: true, dias: null }; }
   return { semI3b: false, erro: false, dias: data?.[0]?.dias ?? null };
+}
+/** I3b: pasta do cliente e situação do Drive para a tarefa; null = banco sem a I3b.
+ * Erro de leitura vai como erro (revisão final): não vira "sem pasta" nem "Drive não configurado". */
+export async function lerDriveDaTarefa(sb: Sb, clienteId: string | null): Promise<DriveDaTarefa | null> {
+  const [pasta, situacao] = await Promise.all([clienteId ? lerPastaDoCliente(sb, clienteId) : Promise.resolve(null), lerSituacaoDrive(sb)]);
+  if (situacao.semI3b || pasta?.semI3b) return null;
+  return { pasta: pasta?.pasta ?? null, situacao: situacao.situacao, ...(pasta?.erro || situacao.erro ? { erro: true } : {}) };
 }

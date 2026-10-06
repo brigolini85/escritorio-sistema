@@ -37,7 +37,7 @@ export function GuardaTarefas({ dias, dono }: { dias: number | null; dono: boole
             {OPCOES_GUARDA.map((o) => <option key={paraTexto(o.valor)} value={paraTexto(o.valor)}>{o.rotulo}</option>)}
           </select>
         </div>
-        {dono ? <Button type="button" size="sm" onClick={salvar} disabled={enviando || escolhido === salvo}>SALVAR</Button>
+        {dono ? <Button type="button" size="sm" onClick={salvar} disabled={enviando || escolhido === salvo}>Salvar</Button>
           : <Badge variant="neutral"><LockKeyhole aria-hidden size={12} />só o dono</Badge>}
       </div>
       {erro && <p role="alert" className="text-sm text-danger">{erro}</p>}

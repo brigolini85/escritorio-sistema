@@ -22,7 +22,7 @@ import { processarSugestao } from './sugestao/processar';
 import { criarServidor } from './servidor';
 import { guardarNaTarefa, removerDaTarefa } from './tarefa/armazenamento';
 import { limparArquivosDasTarefas } from './tarefa/guarda';
-import { lerPastaComAviso, lerPastaDaTarefa } from './tarefa/pasta';
+import { lerPastaPedida } from './tarefa/pasta';
 import { enviarPedidoDePendencia } from './tarefa/pendencias';
 import { processarTarefa } from './tarefa/processar';
 import { alertasPeriodicos, batimento, demandasDeCertificado, resumoDiario } from './tarefas';
@@ -85,11 +85,10 @@ async function principal() {
       job!.data.tarefaId, job!.retryCount >= job!.retryLimit);
   });
   // Parte I3b (D7): LER A PASTA DE NOVO. Só leitura no Drive; copia para a tarefa o que for novo.
-  // A última tentativa não lança (F4): o erro fica na linha do tempo da tarefa.
+  // A última tentativa não lança (F4): o erro fica na linha do tempo da tarefa; sem Drive ou sem pasta, o motivo também.
   await boss.work<JobPastaDrive>(FILAS.pastaDrive, { includeMetadata: true }, async ([job]) => {
     const depsPasta = { repos, drive: drive.leitor, guardar, remover, relogio };
-    if (job!.retryCount >= job!.retryLimit) await lerPastaComAviso(depsPasta, job!.data.tarefaId, null);
-    else await lerPastaDaTarefa(depsPasta, job!.data.tarefaId);
+    await lerPastaPedida(depsPasta, job!.data.tarefaId, job!.retryCount >= job!.retryLimit);
   });
   // Parte I3a (D7): o pedido de pendência que uma pessoa aprovou, na voz do Thiago.
   await boss.work<JobPendencia>(FILAS.pendenciaCliente, async ([job]) => {

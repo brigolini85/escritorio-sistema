@@ -10,7 +10,8 @@ export async function anunciarSituacaoDrive(
   repos: Pick<Repos, 'registrarSituacaoDrive'>, d: { leitor: DriveLeitor | null; erro: string | null },
 ): Promise<void> {
   try {
-    let s: { email: string | null; erro: string | null } = { email: null, erro: d.erro };
+    // Sem leitor (chave tirada ou inválida): o e-mail antigo some, senão o painel diria "Drive ligado" (revisão final, Important 1).
+    let s: { email: string | null; erro: string | null; semLeitor?: boolean } = { email: null, erro: d.erro, semLeitor: true };
     if (d.leitor) {
       try {
         await d.leitor.verificar();

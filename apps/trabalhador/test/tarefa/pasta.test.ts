@@ -4,7 +4,9 @@ import { SemI3b, type PastaDaTarefa, type Repos, type TarefaParaTrabalho } from 
 import { criarDriveFalso, type ArquivoFalso } from '../../src/drive/falso';
 import { ErroDrive } from '../../src/drive/leitor';
 import { FERRAMENTA_PASTA, executarFerramentaTarefa, ferramentasDaTarefa, type VezDaTarefa } from '../../src/tarefa/ferramentas';
-import { FALHA_LEITURA_PASTA, PastaDoCliente, lerPastaComAviso, lerPastaDaTarefa, textoDaLeitura, type DepsPasta } from '../../src/tarefa/pasta';
+import {
+  FALHA_LEITURA_PASTA, PastaDoCliente, TEXTO_PEDIDO_SEM_DRIVE, TEXTO_PEDIDO_SEM_PASTA, lerPastaComAviso, lerPastaDaTarefa, lerPastaPedida, textoDaLeitura, type DepsPasta,
+} from '../../src/tarefa/pasta';
 
 const SOL = '1PastaDaPadariaSolAbcdefghij';
 const LUA = '1PastaDaMerceariaLuaAbcdefgh';
@@ -56,7 +58,8 @@ describe('PastaDoCliente (D5)', () => {
     const p = new PastaDoCliente(drive, SOL, new Set([LUA]));
     const { arquivos, ignorados } = await p.listar(null);
     expect(arquivos.map((a) => a.id).sort()).toEqual(['atalho', 'docx', 'doispais', 'extrato', 'folha']);
-    expect(ignorados).toEqual([{ nome: 'Mercearia Lua', motivo: 'outra_pasta' }]);
+    // Revisão final (minor 5): o nome da pasta de outro cliente não vaza para esta tarefa.
+    expect(ignorados).toEqual([{ nome: 'subpasta', motivo: 'outra_pasta' }]);
     expect(drive.listados).not.toContain(LUA);
     expect(await p.dentroDaPasta('extrato')).toBe(true);
     expect(await p.dentroDaPasta('folha')).toBe(true);
@@ -99,11 +102,12 @@ describe('lerPastaDaTarefa', () => {
     if (r.situacao !== 'lida') return;
     expect(r.novos.sort()).toEqual(['Folha de outubro.csv', 'extrato-itau.csv']);
     expect(r.ignorados.map((x) => `${x.nome}:${x.motivo}`).sort()).toEqual([
-      'Mercearia Lua:outra_pasta', 'compartilhado.csv:fora_da_pasta', 'contrato.docx:tipo', 'extrato-lua (atalho):atalho',
+      'compartilhado.csv:fora_da_pasta', 'contrato.docx:tipo', 'extrato-lua (atalho):atalho', 'subpasta:outra_pasta',
     ]);
     expect(m.drive.baixados.sort()).toEqual(['extrato', 'folha']);
     expect(m.guardados.every((c) => c.startsWith('T/drive/'))).toBe(true);
     expect(m.eventos.at(-1)).toContain('leu a pasta do Drive: 2 arquivos novos');
+    expect(m.eventos.at(-1)).not.toContain('Mercearia');
     // F1: leitura bem-sucedida limpa o erro da conta.
     expect(m.situacoes).toEqual([{ email: 'drive-teste@escritorio.iam.gserviceaccount.com', erro: null }]);
   });
@@ -211,6 +215,32 @@ describe('a ferramenta (D7)', () => {
     const r = await executarFerramentaTarefa(d, vezCom(async () => { throw new Error('rede caiu'); }), 'ler_pasta_do_cliente', { subpasta: '2026' });
     expect(r).toEqual({ conteudo: JSON.stringify({ erro: FALHA_LEITURA_PASTA }), erro: true });
     expect(eventos).toEqual([`não leu a pasta do Drive: ${FALHA_LEITURA_PASTA}`]);
+  });
+  it('LER A PASTA DE NOVO (job): sem Drive ou sem pasta deixa o motivo na linha do tempo (revisão final, Important 1)', async () => {
+    const semDrive = montar();
+    expect(await lerPastaPedida({ ...semDrive.d, drive: null }, 'T', false)).toEqual({ situacao: 'sem_drive' });
+    expect(semDrive.eventos).toEqual([TEXTO_PEDIDO_SEM_DRIVE]);
+    const semPasta = montar({ pasta: null });
+    expect(await lerPastaPedida(semPasta.d, 'T', true)).toEqual({ situacao: 'sem_pasta' });
+    expect(semPasta.eventos).toEqual([TEXTO_PEDIDO_SEM_PASTA]);
+    expect(TEXTO_PEDIDO_SEM_DRIVE).toBe('não leu a pasta do Drive: o Drive não está configurado no escritório. O agente lê só os arquivos enviados.');
+    expect(TEXTO_PEDIDO_SEM_PASTA).toBe('não leu a pasta do Drive: o cliente desta tarefa não tem pasta no Drive. Preencha na ficha do cliente, em Arquivos.');
+    // Decidida e sem a I3b: nada a dizer; a leitura normal segue gravando o próprio evento.
+    const decidida = montar({ estado: 'aprovada' });
+    expect(await lerPastaPedida(decidida.d, 'T', false)).toEqual({ situacao: 'decidida' });
+    expect(decidida.eventos).toEqual([]);
+    const lida = montar();
+    expect((await lerPastaPedida(lida.d, 'T', false)).situacao).toBe('lida');
+    expect(lida.eventos).toHaveLength(1);
+    // Evento que não grava não derruba o job.
+    const quebrado = montar({ pasta: null });
+    (quebrado.d.repos as unknown as { eventoTarefa: () => Promise<void> }).eventoTarefa = async () => { throw new Error('banco fora'); };
+    expect(await lerPastaPedida(quebrado.d, 'T', true)).toEqual({ situacao: 'sem_pasta' });
+  });
+  it('LER A PASTA DE NOVO (job): só a última tentativa engole o erro', async () => {
+    const m = montar({}, [pasta(SOL, 'Padaria Sol'), arq('falha-registro', 'x.csv', [SOL])]);
+    await expect(lerPastaPedida(m.d, 'T', false)).rejects.toThrow('Arquivo não encontrado no envio.');
+    expect(await lerPastaPedida(m.d, 'T', true)).toEqual({ situacao: 'erro', mensagem: FALHA_LEITURA_PASTA });
   });
   it('F4: lerPastaComAviso nunca lança (a primeira vez lê a pasta sem risco para a vez)', async () => {
     const m = montar({}, [pasta(SOL, 'Padaria Sol'), arq('falha-registro', 'x.csv', [SOL])]);

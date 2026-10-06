@@ -120,14 +120,17 @@ end $$;
 
 -- D9, F1: o trabalhador grava o e-mail da conta e o último erro de conta (curto, sem a chave); erro nulo limpa.
 -- Sem e-mail novo, mantém o que já estava (erro de conta pode ocorrer antes de conhecer o e-mail).
-create function public.registrar_situacao_drive(p_email text, p_erro text) returns void
+-- p_sem_leitor: o trabalhador está sem a chave (ou com a chave inválida); o e-mail antigo some e o painel diz "Drive não configurado".
+create function public.registrar_situacao_drive(p_email text, p_erro text, p_sem_leitor boolean default false) returns void
 language sql security definer set search_path = '' as $$
-  insert into public.drive_conta (id, email, erro, verificado_em) values (1, left(p_email, 320), left(p_erro, 300), now())
-  on conflict (id) do update set email = coalesce(excluded.email, public.drive_conta.email), erro = excluded.erro,
+  insert into public.drive_conta (id, email, erro, verificado_em)
+  values (1, case when p_sem_leitor then null else left(p_email, 320) end, left(p_erro, 300), now())
+  on conflict (id) do update set email = case when p_sem_leitor then null else coalesce(excluded.email, public.drive_conta.email) end,
+    erro = excluded.erro,
     verificado_em = excluded.verificado_em
 $$;
 
 revoke execute on function public.pasta_drive_da_tarefa(uuid), public.registrar_arquivo_drive(uuid, text, text, text, int, text, timestamptz),
-  public.registrar_situacao_drive(text, text) from public, anon, authenticated;
+  public.registrar_situacao_drive(text, text, boolean) from public, anon, authenticated;
 grant execute on function public.pasta_drive_da_tarefa(uuid), public.registrar_arquivo_drive(uuid, text, text, text, int, text, timestamptz),
-  public.registrar_situacao_drive(text, text) to service_role;
+  public.registrar_situacao_drive(text, text, boolean) to service_role;

@@ -371,7 +371,7 @@ Um agente do tipo **Trabalho** faz uma **tarefa longa em segundo plano, sempre d
 
 **Para a I4:** pedir ao agente pela janela e pelo WhatsApp, respostas de pendência pelo WhatsApp, tarefas agendadas, chegada automática do arquivo pedido ao cliente, pasta no servidor, cópia dos resultados no Drive e relatório de pendências em PDF.
 
-**Trocar o trabalhador:** só depois de aplicar **F–I3b juntas** (caixa acima) e, para o Drive, depois de pôr `GOOGLE_DRIVE_CONTA_SERVICO` no ambiente dele. Sem a chave tudo funciona como na I3a ("Drive não configurado: o agente lê só os arquivos enviados"). Sem a I3b no banco ele roda como na I3a, com aviso no log.
+**Trocar o trabalhador:** só depois de aplicar **F–I3b juntas** (caixa acima) e, para o Drive, depois de pôr `GOOGLE_DRIVE_CONTA_SERVICO` no ambiente dele. Sem a chave tudo funciona como na I3a: ao ligar sem ela, o trabalhador apaga o e-mail antigo da conta, e o painel mostra "Drive não configurado: o agente lê só os arquivos enviados" (sem **LER A PASTA DE NOVO**). **Tirou a chave** (por exemplo, porque vazou)? Reinicie o trabalhador: é ao ligar que ele avisa o painel. Um pedido de leitura que chegue sem a chave ou sem a pasta deixa o motivo na linha do tempo da tarefa. Sem a I3b no banco ele roda como na I3a, com aviso no log.
 
 **Como testar com segurança.** Crie a conta de serviço e compartilhe **uma** pasta de teste (um cliente fictício); na ficha dele, Arquivos, cole o link; numa demanda de teste do Contábil (em **Teste**), **TAREFA PARA O AGENTE** e veja os arquivos do Drive entrarem sozinhos em Fontes; ponha um PDF novo na pasta e clique **LER A PASTA DE NOVO**; no resultado, **BAIXAR PLANILHA**; **Agentes › Fiscal › Testar** no modo Por trás; **Configurações › Integrações** para a guarda.
 

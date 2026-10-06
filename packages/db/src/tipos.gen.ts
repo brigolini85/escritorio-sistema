@@ -2306,7 +2306,7 @@ isOneToOne: false
 { Args: { "p_arquivo_mime": string,"p_arquivo_nome": string,"p_arquivo_path": string,"p_conversa": string,"p_texto": string }; Returns: string
                            },
 "registrar_situacao_drive":
-{ Args: { "p_email": string,"p_erro": string }; Returns: undefined
+{ Args: { "p_email": string,"p_erro": string,"p_sem_leitor"?: boolean }; Returns: undefined
                            },
 "remover_acesso":
 { Args: { "p_id": string }; Returns: undefined

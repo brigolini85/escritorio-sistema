@@ -48,6 +48,9 @@ describe('a pasta do cliente na vez da tarefa', () => {
     expect(ia.recebidos[0]!.tools!.map((f) => (f as Anthropic.Tool).name)).toContain('ler_pasta_do_cliente');
     const situacao = JSON.stringify(ia.recebidos[0]!.messages[0]);
     expect(situacao).toContain('Pasta do cliente no Google Drive: ligada, só leitura.');
+    // Revisão final (minor 3): a primeira leitura pode ter falhado; antes de pedir ao cliente, ler a pasta.
+    expect(situacao).toContain('Se faltar um documento, use ler_pasta_do_cliente antes de pedir ao cliente');
+    expect(situacao).not.toContain('já estão na lista');
     expect(situacao).toContain('extrato-itau.csv');
     expect((await repos.tarefaParaTrabalho(t.id))!.estado).toBe('pronta');
     expect(await sqlTeste('select origem, caminho like $2 as na_tarefa from public.agente_tarefa_arquivos where tarefa_id = $1', [t.id, `${t.id}/drive/%`]))

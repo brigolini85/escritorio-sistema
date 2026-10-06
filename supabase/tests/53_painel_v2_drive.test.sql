@@ -1,7 +1,7 @@
 -- Parte I3b, Task 4 (spec 7E.6; D4, D5, D8, D9): a pasta do cliente no Drive, a situação da conta e os arquivos do Drive na tarefa.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(35);
 
 insert into auth.users (id, email) values
   ('fb000000-0000-0000-0000-00000000000a', 'claudia@i3d.local'), ('fb000000-0000-0000-0000-00000000000b', 'paula@i3d.local');
@@ -95,6 +95,15 @@ select set_config('request.jwt.claims', '{"sub":"fb000000-0000-0000-0000-0000000
 -- 29–30: quem vê a demanda lê a situação e o arquivo do Drive (D9, D20 da I3a)
 select is((select email from public.drive_conta), 'drive@escritorio.iam.gserviceaccount.com', 'pessoa ativa lê a situação');
 select is((select count(*)::int from public.agente_tarefa_arquivos where tarefa_id = 'fb300000-0000-0000-0000-00000000000a'), 1, 'quem vê a demanda vê o arquivo do Drive');
+-- 31–35: revisão final (Important 1): sem a chave (sem leitor) o e-mail antigo some; no caminho normal, e-mail nulo mantém o que estava
+select throws_ok($$ select public.registrar_situacao_drive(null, null, true) $$, '42501', null, 'pessoa não limpa a situação do Drive');
+reset role;
+set local role service_role;
+select lives_ok($$ select public.registrar_situacao_drive(null, 'O Google recusou a conta.') $$, 'erro de conta sem e-mail novo');
+select is((select email from public.drive_conta), 'drive@escritorio.iam.gserviceaccount.com', 'caminho normal: e-mail nulo mantém o e-mail');
+select lives_ok($$ select public.registrar_situacao_drive(null, null, true) $$, 'sem leitor: o trabalhador limpa a situação');
+select results_eq($$ select email, erro from public.drive_conta $$, $$ values (null::text, null::text) $$,
+  'sem leitor: sem e-mail e sem erro (Drive não configurado)');
 
 select * from finish();
 rollback;

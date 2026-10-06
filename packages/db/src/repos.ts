@@ -935,10 +935,11 @@ export function criarRepos(db: Db) {
 
     /**
      * D9, F1: só erro de CONTA (token/401) entra em `erro`; `erro: null` limpa (leitura bem-sucedida); `email: null` mantém o que já estava.
+     * `semLeitor`: o trabalhador está sem a chave (ou com ela inválida); o e-mail antigo some (o painel diz "Drive não configurado").
      * false = banco sem a I3b (o trabalhador avisa uma vez no log e segue).
      */
-    async registrarSituacaoDrive(s: { email: string | null; erro: string | null }): Promise<boolean> {
-      const r = await db.rpc('registrar_situacao_drive', { p_email: s.email as string, p_erro: s.erro as string });
+    async registrarSituacaoDrive(s: { email: string | null; erro: string | null; semLeitor?: boolean }): Promise<boolean> {
+      const r = await db.rpc('registrar_situacao_drive', { p_email: s.email as string, p_erro: s.erro as string, ...(s.semLeitor ? { p_sem_leitor: true } : {}) });
       if (r.error && SEM_PARTE_I.has(r.error.code ?? '')) return false;
       checar(r, 'registrarSituacaoDrive');
       return true;

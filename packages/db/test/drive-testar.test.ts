@@ -46,6 +46,9 @@ describe('Drive (I3b)', () => {
     expect(c).toEqual({ email: 'drive@x.iam.gserviceaccount.com', erro: 'A conta do Drive foi recusada.' });
     expect(await repos.registrarSituacaoDrive({ email: null, erro: null })).toBe(true);
     expect((await db.from('drive_conta').select('erro').single()).data!.erro).toBeNull();
+    // Revisão final (Important 1): sem leitor (chave tirada), o e-mail antigo some.
+    expect(await repos.registrarSituacaoDrive({ email: null, erro: null, semLeitor: true })).toBe(true);
+    expect((await db.from('drive_conta').select('email, erro').single()).data).toEqual({ email: null, erro: null });
   });
   it('situacaoDriveTeste grava direto (ajudante)', async () => {
     await situacaoDriveTeste('a@b.c', 'x');

@@ -1,6 +1,6 @@
 import { ROTULO_ESTADO_TAREFA, TEXTO_MOTIVO_PAUSA, podeAprovarTarefa, type EstadoTarefa, type EtapaTarefa, type MotivoPausa, type ResultadoTarefa, type TipoPendencia } from '@escritorio/core';
 import { formatarDataHora } from '@/lib/formatos';
-import type { SituacaoDrive } from './drive-tela';
+import type { DriveDaTarefa } from './drive-tela';
 
 /** Parte I3a: o que a tela da tarefa mostra (lido com a sessão da pessoa; a RLS decide). */
 export type PendenciaTela = {
@@ -27,7 +27,7 @@ export type TarefaTela = {
   etapas: EtapaTarefa[]; etapaAtual: number; resultado: ResultadoTarefa | null; ajustePendente: boolean;
   custoUsd: number; custoEtapas: Record<string, number>; limiteUsd: number; limiteMinutos: number; segundosTrabalhando: number;
   pendencias: PendenciaTela[]; arquivos: ArquivoTela[]; eventos: EventoTarefaTela[]; decididaPor: string | null; decididaEm: string | null;
-  /** I3b: null = banco sem a I3b. */ drive?: { pasta: string | null; situacao: SituacaoDrive | null } | null;
+  /** I3b: null = banco sem a I3b; erro = não consegui ler a pasta ou a situação. */ drive?: DriveDaTarefa | null;
 };
 /** O bloco da demanda (D21). */
 export type ResumoTarefaDemanda = {

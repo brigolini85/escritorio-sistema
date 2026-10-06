@@ -15,14 +15,15 @@ import { salvarPastaDrive } from './drive-acoes';
  * D8: "Pasta no Drive" salva sozinha, como Acessos de portais. O campo fica fora do formulário da ficha (form= de um formulário que não existe):
  * não entra no envio da ficha nem conta como "não salvo".
  */
-export function BlocoArquivos({ clienteId, pasta, situacao, podeEditar, semI3b, erroLeitura = false }: {
+export function BlocoArquivos({ clienteId, pasta, situacao, podeEditar, semI3b, erroLeitura = false, erroSituacao = false }: {
   clienteId: string | null; pasta: string | null; situacao: SituacaoDrive | null; podeEditar: boolean; semI3b: boolean; erroLeitura?: boolean;
+  /** Não consegui ler a situação do Drive (a pasta veio): o aviso diz isso, não "Drive não configurado". */ erroSituacao?: boolean;
 }) {
   const [valor, setValor] = useState(pasta ? linkDaPasta(pasta) : '');
   const [salva, setSalva] = useState(pasta);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, iniciar] = useTransition();
-  const aviso = avisoDoDrive(situacao);
+  const aviso = avisoDoDrive(situacao, erroSituacao);
   const salvar = () => iniciar(async () => {
     if (!clienteId) return;
     const r = await salvarPastaDrive(clienteId, valor);

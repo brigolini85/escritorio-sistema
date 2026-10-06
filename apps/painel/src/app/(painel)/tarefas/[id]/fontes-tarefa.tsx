@@ -2,7 +2,7 @@ import { Archive, CircleCheck, FileWarning, Lock, LockKeyhole, TriangleAlert } f
 import Link from 'next/link';
 import { tarefaAtiva } from '@escritorio/core';
 import { Badge } from '@/components/ui/badge';
-import { avisoDoDrive } from '@/lib/drive-tela';
+import { driveNaTarefa } from '@/lib/drive-tela';
 import { ROTULO_ORIGEM, textoDoPedido } from '@/lib/tarefas-tela';
 import type { TarefaTela } from '@/lib/tarefas-tela';
 import { EnviarArquivo } from './enviar-arquivo';
@@ -12,22 +12,22 @@ export function FontesTarefa({ t, podeMexer }: { t: TarefaTela; podeMexer: boole
   const faltando = t.pendencias.filter((p) => p.tipo === 'cliente' && p.estado === 'aberta');
   const ativa = tarefaAtiva(t.estado);
   const drive = t.drive;
-  const aviso = drive?.pasta ? avisoDoDrive(drive.situacao) : null;
+  // Revisão final: a faixa (botão e aviso) segue a situação do Drive; sem a chave, o e-mail some e o botão também.
+  const faixa = drive ? driveNaTarefa(drive, !!t.empresa) : null;
   return (
     <section className="flex flex-col gap-2" aria-labelledby="fontes-titulo">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 id="fontes-titulo" className="text-xs font-bold uppercase tracking-wide text-brand">Fontes lidas</h3>
         <p className="flex items-center gap-1 text-xs text-muted"><Lock aria-hidden size={12} /> só leitura · o agente nunca altera nem apaga arquivos</p>
       </div>
-      {podeMexer && ativa && drive && (
+      {podeMexer && ativa && faixa && (
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          {/* F1: o botão depende só de haver pasta e e-mail da conta; um erro antigo da conta não o esconde. */}
-          {drive.pasta && drive.situacao?.email && <LerPasta tarefaId={t.id} />}
-          {aviso && aviso.tom === 'warning' && <p className="flex items-center gap-1 text-warning"><TriangleAlert aria-hidden size={16} /> {aviso.texto}</p>}
-          {!drive.pasta && (
+          {faixa.lerDeNovo && <LerPasta tarefaId={t.id} />}
+          {faixa.aviso?.tom === 'warning' && <p className="flex items-center gap-1 text-warning"><TriangleAlert aria-hidden size={16} /> {faixa.aviso.texto}</p>}
+          {faixa.aviso?.tom === 'muted' && (
             <p className="text-muted">
-              Sem pasta no Drive: preencha na ficha do cliente, em Arquivos.
-              {t.empresa && <> <Link href={`/clientes/${t.empresa.id}#bloco-arquivos`} className="text-brand underline underline-offset-4">Abrir a ficha</Link></>}
+              {faixa.aviso.texto}
+              {faixa.aviso.ficha && t.empresa && <> <Link href={`/clientes/${t.empresa.id}#bloco-arquivos`} className="text-brand underline underline-offset-4">Abrir a ficha</Link></>}
             </p>
           )}
         </div>

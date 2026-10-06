@@ -67,7 +67,8 @@ export class PastaDoCliente {
             break niveis;
           }
           if (ehPasta(i)) {
-            if (this.outras.has(i.id)) ignorados.push({ nome: i.nome, motivo: 'outra_pasta' });
+            // Revisão final (minor 5): o nome da pasta de outro cliente não vai à linha do tempo nem ao modelo desta tarefa.
+            if (this.outras.has(i.id)) ignorados.push({ nome: 'subpasta', motivo: 'outra_pasta' });
             else proximo.push(i.id);
             continue;
           }
@@ -228,6 +229,21 @@ export async function lerPastaDaTarefa(d: DepsPasta, tarefaId: string, subpasta:
   // F1: a leitura que deu certo limpa o erro da conta (a não ser que a conta tenha sido recusada no meio).
   await d.repos.registrarSituacaoDrive({ email, erro: contaRecusada ? ERRO_CONTA_DRIVE : null }).catch(() => false);
   return { situacao: 'lida', novos, ignorados };
+}
+
+/** Revisão final (Important 1): o motivo na linha do tempo quando LER A PASTA DE NOVO não tem o que ler. */
+export const TEXTO_PEDIDO_SEM_DRIVE = 'não leu a pasta do Drive: o Drive não está configurado no escritório. O agente lê só os arquivos enviados.';
+export const TEXTO_PEDIDO_SEM_PASTA = 'não leu a pasta do Drive: o cliente desta tarefa não tem pasta no Drive. Preencha na ficha do cliente, em Arquivos.';
+
+/**
+ * O job `pasta_drive` (LER A PASTA DE NOVO): a pessoa pediu, então sempre vê uma resposta na linha do tempo.
+ * Só a última tentativa engole o erro (F4); antes, o erro faz o pg-boss tentar de novo.
+ */
+export async function lerPastaPedida(d: DepsPasta, tarefaId: string, ultima: boolean): Promise<LeituraDaPasta> {
+  const r = ultima ? await lerPastaComAviso(d, tarefaId, null) : await lerPastaDaTarefa(d, tarefaId);
+  const texto = r.situacao === 'sem_drive' ? TEXTO_PEDIDO_SEM_DRIVE : r.situacao === 'sem_pasta' ? TEXTO_PEDIDO_SEM_PASTA : null;
+  if (texto) await d.repos.eventoTarefa(tarefaId, texto).catch((e) => console.error('[drive] evento não gravado', tarefaId, e instanceof Error ? e.message : e));
+  return r;
 }
 
 /** F4: a leitura da pasta que nunca derruba a vez (primeira vez, ferramenta, LER A PASTA DE NOVO na última tentativa). */

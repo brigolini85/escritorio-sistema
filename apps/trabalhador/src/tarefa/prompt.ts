@@ -55,7 +55,7 @@ function situacaoDaPendencia(p: TarefaParaTrabalho['pendencias'][number]): strin
 }
 
 /** Parte I3b (D7): só entra quando a tarefa tem a pasta do cliente; sem ela o texto fica igual ao da I3a. */
-const LINHA_PASTA = 'Pasta do cliente no Google Drive: ligada, só leitura. Os arquivos dela já estão na lista abaixo; se alguém disser que pôs um documento novo lá, use ler_pasta_do_cliente.';
+const LINHA_PASTA = 'Pasta do cliente no Google Drive: ligada, só leitura. Os arquivos que vieram dela estão na lista abaixo. Se faltar um documento, use ler_pasta_do_cliente antes de pedir ao cliente; use também se alguém disser que pôs um documento novo lá.';
 
 /** D6: tudo o que a vez sabe da tarefa, montado do banco. Texto de pessoas e do cliente vai neutralizado. */
 export function montarSituacaoTarefa(t: TarefaParaTrabalho, agora: Date, opcoes: { pasta?: boolean } = {}): string {

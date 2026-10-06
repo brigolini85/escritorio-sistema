@@ -57,7 +57,7 @@ describe('Drive falso: o que os testes das tarefas precisam', () => {
 });
 
 describe('anunciarSituacaoDrive (D9)', () => {
-  it('sem chave grava "não configurado"; chave boa grava o e-mail; falha do Google grava o erro curto; sem a I3b só avisa', async () => {
+  it('sem chave grava "não configurado" e apaga o e-mail antigo (semLeitor); chave boa grava o e-mail; falha do Google grava o erro curto; sem a I3b só avisa', async () => {
     const gravado: unknown[] = [];
     const repos = { registrarSituacaoDrive: async (s: unknown) => { gravado.push(s); return true; } };
     await anunciarSituacaoDrive(repos, { leitor: null, erro: null });
@@ -66,10 +66,10 @@ describe('anunciarSituacaoDrive (D9)', () => {
     await anunciarSituacaoDrive(repos, { leitor: quebrado, erro: null });
     await anunciarSituacaoDrive(repos, { leitor: null, erro: 'A chave da conta de serviço do Drive não é um JSON válido.' });
     expect(gravado).toEqual([
-      { email: null, erro: null },
+      { email: null, erro: null, semLeitor: true },
       { email: 'x@y.iam.gserviceaccount.com', erro: null },
       { email: 'drive-teste@escritorio.iam.gserviceaccount.com', erro: 'O Google recusou a conta do Drive do escritório. Confira a chave e se a API do Drive está ligada.' },
-      { email: null, erro: 'A chave da conta de serviço do Drive não é um JSON válido.' },
+      { email: null, erro: 'A chave da conta de serviço do Drive não é um JSON válido.', semLeitor: true },
     ]);
     await expect(anunciarSituacaoDrive({ registrarSituacaoDrive: async () => false }, { leitor: null, erro: null })).resolves.toBeUndefined();
     await expect(anunciarSituacaoDrive({ registrarSituacaoDrive: async () => { throw new Error('rede'); } }, { leitor: null, erro: null })).resolves.toBeUndefined();

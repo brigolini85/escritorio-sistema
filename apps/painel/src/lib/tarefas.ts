@@ -2,7 +2,7 @@ import 'server-only';
 import { ehResultadoTarefa, tarefaAtiva, type EstadoTarefa, type EtapaTarefa, type MotivoPausa, type TipoPendencia } from '@escritorio/core';
 import { rotuloDoAgente } from '@/lib/agente-demanda';
 import { semMigracaoI1 } from '@/lib/agentes';
-import { lerPastaDoCliente, lerSituacaoDrive } from '@/lib/drive';
+import { lerDriveDaTarefa } from '@/lib/drive';
 import type { supabaseServidor } from '@/lib/supabase/servidor';
 import { ehMotivoSegurado, type AgenteDeTrabalho, type MotivoSegurado, type ResumoTarefaDemanda, type TarefaTela } from './tarefas-tela';
 
@@ -23,12 +23,6 @@ async function lerArquivosDaTarefa(sb: Sb, id: string) {
   const r = await sb.from('agente_tarefa_arquivos').select('id, nome, tamanho, origem, lido_em, detalhe, removido_em').eq('tarefa_id', id).order('criado_em');
   if (!semMigracaoI1(r.error)) return r;
   return sb.from('agente_tarefa_arquivos').select('id, nome, tamanho, origem, lido_em, detalhe').eq('tarefa_id', id).order('criado_em');
-}
-/** I3b: pasta do cliente e situação do Drive; null = banco sem a I3b. Erro de leitura vira "sem pasta/situação", já registrado no log. */
-async function lerDriveDaTarefa(sb: Sb, clienteId: string | null): Promise<TarefaTela['drive']> {
-  const [pasta, situacao] = await Promise.all([clienteId ? lerPastaDoCliente(sb, clienteId) : Promise.resolve(null), lerSituacaoDrive(sb)]);
-  if (situacao.semI3b || pasta?.semI3b) return null;
-  return { pasta: pasta?.pasta ?? null, situacao: situacao.situacao };
 }
 
 /** Parte I3a: a tarefa inteira para a página (D21). `semI3`: o banco ainda não tem a Parte I3 (a página mostra a faixa). */
