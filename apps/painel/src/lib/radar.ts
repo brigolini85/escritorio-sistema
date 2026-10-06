@@ -18,7 +18,7 @@ export type ConfigTela = {
 export type NovidadeTela = {
   id: string; titulo: string; url: string; fonteNome: string; selo: 'oficial' | 'confirmar'; publicadoEm: string | null; achadoEm: string;
   resumo: string; impacto: Impacto; setores: { id: string; nome: string }[]; criterios: CriteriosClientes; clientesAfetados: number;
-  vigenciaTexto: string | null; mensagemCliente: string | null; estado: EstadoNovidade; chamado: { id: string; numero: number | null } | null;
+  vigenciaTexto: string | null; mensagemCliente: string | null; estado: EstadoNovidade; chamado: { id: string; numero: number | null; setorId: string | null } | null;
   decididaPor: string | null; decididaEm: string | null;
   envios: { enviado: number; aguardando: number; naoEnviado: number; motivos: string[] };
 };
@@ -127,7 +127,7 @@ export async function lerTelaRadar(sb: Sb, filtro: FiltroRadar, agora: Date): Pr
   const chamadoIds = linhasNov.map((n) => textoOuNulo(n.chamado_id)).filter((x): x is string => !!x);
   const [enviosRpc, chamados] = await Promise.all([
     Promise.all(ids.map((id) => sb.rpc('envios_da_novidade' as never, { p_novidade: id } as never))),
-    chamadoIds.length ? sb.from('chamados').select('id, numero').in('id', chamadoIds) : Promise.resolve({ data: [], error: null }),
+    chamadoIds.length ? sb.from('chamados').select('id, numero, setor_id').in('id', chamadoIds) : Promise.resolve({ data: [], error: null }),
   ]);
   const enviosPor = new Map<string, NovidadeTela['envios']>();
   enviosRpc.forEach((r, i) => {
@@ -144,7 +144,7 @@ export async function lerTelaRadar(sb: Sb, filtro: FiltroRadar, agora: Date): Pr
     }
     enviosPor.set(ids[i]!, acc);
   });
-  const numeroDoChamado = new Map(ler(chamados as never as { data: Linha[] | null; error: unknown }, 'chamados', []).map((c) => [texto(c.id), numero(c.numero)]));
+  const dadosChamado = new Map(ler(chamados as never as { data: Linha[] | null; error: unknown }, 'chamados', []).map((c) => [texto(c.id), { numero: numero(c.numero), setorId: textoOuNulo(c.setor_id) }]));
 
   const q = semAcento(filtro.q);
   const lidas: NovidadeTela[] = linhasNov
@@ -160,7 +160,7 @@ export async function lerTelaRadar(sb: Sb, filtro: FiltroRadar, agora: Date): Pr
         setores: lista(n.setores).filter((s): s is string => typeof s === 'string' && nomeDoSetor.has(s)).map((s) => ({ id: s, nome: nomeDoSetor.get(s)! })),
         criterios: lerCriterios(n.criterios), clientesAfetados: numero(n.clientes_afetados), vigenciaTexto: textoOuNulo(n.vigencia_texto),
         mensagemCliente: textoOuNulo(n.mensagem_cliente), estado: n.estado as EstadoNovidade,
-        chamado: chamadoId ? { id: chamadoId, numero: numeroDoChamado.get(chamadoId) ?? null } : null,
+        chamado: chamadoId ? { id: chamadoId, numero: dadosChamado.get(chamadoId)?.numero ?? null, setorId: dadosChamado.get(chamadoId)?.setorId ?? null } : null,
         decididaPor: textoOuNulo(n.decidida_por), decididaEm: textoOuNulo(n.decidida_em),
         envios: enviosPor.get(texto(n.id)) ?? { enviado: 0, aguardando: 0, naoEnviado: 0, motivos: [] },
       };

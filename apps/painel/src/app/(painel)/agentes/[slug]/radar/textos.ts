@@ -50,11 +50,16 @@ export function textoCustoMes(usd: number, cotacao: number | null): string {
 }
 
 /** Desligado não procura; Teste só procura quando a pessoa pede (D6). */
-export function textoProximoGiro(c: { estado: 'ligado' | 'teste' | 'desligado'; hora: string; proximoGiro: string | null }, agora: Date): string {
+export function textoProximoGiro(c: { estado: 'ligado' | 'teste' | 'desligado'; proximoGiro: string | null }, agora: Date): string {
   if (c.estado === 'desligado') return 'Radar desligado';
   if (c.estado === 'teste' || !c.proximoGiro) return 'sem agenda';
   const dia = diaSP(new Date(c.proximoGiro));
-  const hh = c.hora.slice(0, 5);
   const quando = dia === diaSP(agora) ? 'hoje' : dia === diaSP(new Date(agora.getTime() + 86_400_000)) ? 'amanhã' : `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
-  return `${quando} ${hh} · automático`;
+  return `${quando} ${formatarHora(c.proximoGiro)} · automático`;
+}
+
+/** "Virou demanda" mostra o setor da própria demanda; se não der para saber, todos os setores da novidade. */
+export function setoresDaDemanda(n: { setores: { id: string; nome: string }[]; chamado: { setorId: string | null } | null }): string {
+  const dele = n.setores.find((s) => s.id === n.chamado?.setorId);
+  return dele ? dele.nome : n.setores.map((s) => s.nome).join(', ');
 }

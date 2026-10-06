@@ -131,12 +131,12 @@ describe('tela do Radar', () => {
   it('chamado: número quando a pessoa enxerga; null quando a RLS esconde', async () => {
     const sb = falso(base({
       radar_novidades: [nov('n1', { estado: 'demanda', chamado_id: 'c1' }), nov('n2', { estado: 'demanda', chamado_id: 'c2' })],
-      chamados: [{ id: 'c1', numero: 42 }],
+      chamados: [{ id: 'c1', numero: 42, setor_id: 's1' }],
     }));
     const t = await lerTelaRadar(sb as never, { ...filtro, estado: 'demanda' }, AGORA);
     const por = Object.fromEntries(t.novidades.map((n) => [n.id, n.chamado]));
-    expect(por.n1).toEqual({ id: 'c1', numero: 42 });
-    expect(por.n2).toEqual({ id: 'c2', numero: null });
+    expect(por.n1).toEqual({ id: 'c1', numero: 42, setorId: 's1' });
+    expect(por.n2).toEqual({ id: 'c2', numero: null, setorId: null });
   });
 
   it('config, estado do agente e telefone do dono só como booleano', async () => {

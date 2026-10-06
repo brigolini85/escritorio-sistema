@@ -12,7 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { cn } from '@/lib/cn';
 import type { NovidadeTela } from '@/lib/radar';
 import { avisarEquipeRadar, criarDemandaRadar, descartarNovidadeRadar, procurarFonteOficial } from '@/lib/radar-acoes';
-import { linhaFonte, rotuloSelo, textoDescartada, textoEnvios, textoVigencia, textoVirouDemanda } from './textos';
+import { linhaFonte, rotuloSelo, textoDescartada, textoEnvios, setoresDaDemanda, textoVigencia, textoVirouDemanda } from './textos';
 
 const IMPACTO = {
   alto: { Icone: TriangleAlert, selo: 'danger', borda: 'border-l-danger', texto: 'Impacto alto' },
@@ -53,7 +53,7 @@ export function CartaoNovidade({ n, quem, agoraIso, dono, admin, verLista, manda
           <h3 className="text-sm font-bold">{n.titulo}</h3>
           <Selo n={n} />
         </div>
-        <p className="text-sm text-muted">{textoVirouDemanda({ numero: n.chamado?.numero ?? null, setor: n.setores.map((s) => s.nome).join(', '), pessoa: quem, em: n.decididaEm })}</p>
+        <p className="text-sm text-muted">{textoVirouDemanda({ numero: n.chamado?.numero ?? null, setor: setoresDaDemanda(n), pessoa: quem, em: n.decididaEm })}</p>
         {envios && <p className="text-sm text-muted">{envios}</p>}
         <div className="flex flex-wrap items-center gap-3">
           {n.chamado && <Link href={`/demandas?demanda=${n.chamado.id}`} className="text-sm font-bold text-brand underline-offset-4 hover:underline">abrir a demanda{n.chamado.numero ? ` #${n.chamado.numero}` : ''}</Link>}

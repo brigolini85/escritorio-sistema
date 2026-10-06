@@ -12,7 +12,7 @@ import { ligarRadar, pedirGiroRadar } from '@/lib/radar-acoes';
 import type { TelaRadar } from '@/lib/radar';
 import { textoCustoMes, textoProximoGiro } from './textos';
 
-const SoDono = () => <span className="inline-flex items-center gap-1 text-xs text-muted"><Lock aria-hidden size={12} />só o dono</span>;
+export const SoDono = () => <span className="inline-flex items-center gap-1 text-xs text-muted"><Lock aria-hidden size={12} />só o dono</span>;
 
 function Numero({ rotulo, valor, detalhe }: { rotulo: string; valor: string; detalhe?: string }) {
   return (

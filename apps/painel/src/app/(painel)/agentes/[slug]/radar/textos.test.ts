@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  linhaFonte, MOTIVO_ENVIO, rotuloSelo, textoCustoMes, textoDescartada, textoEnvios, textoProximoGiro, textoVigencia, textoVirouDemanda,
+  linhaFonte, MOTIVO_ENVIO, rotuloSelo, setoresDaDemanda, textoCustoMes, textoDescartada, textoEnvios, textoProximoGiro, textoVigencia, textoVirouDemanda,
 } from './textos';
 
 const sp = (s: string) => s.replaceAll(String.fromCharCode(0xa0), ' ');
@@ -48,12 +48,24 @@ describe('textos da tela do Radar', () => {
   });
 
   it('próximo giro', () => {
-    const cfg = { estado: 'ligado' as const, hora: '07:00', proximoGiro: '2026-10-07T10:00:00Z' };
+    const cfg = { estado: 'ligado' as const, proximoGiro: '2026-10-07T10:00:00Z' };
     expect(textoProximoGiro(cfg, agora)).toBe('amanhã 07:00 · automático');
-    expect(textoProximoGiro({ ...cfg, hora: '18:30', proximoGiro: '2026-10-06T21:30:00Z' }, agora)).toBe('hoje 18:30 · automático');
+    expect(textoProximoGiro({ ...cfg, proximoGiro: '2026-10-06T21:30:00Z' }, agora)).toBe('hoje 18:30 · automático');
+    // Atrasado e ainda não rodou: o próximo é "agora", e a hora mostrada é a dele, não a da agenda.
+    expect(textoProximoGiro({ ...cfg, proximoGiro: '2026-10-06T13:00:00Z' }, agora)).toBe('hoje 10:00 · automático');
     expect(textoProximoGiro({ ...cfg, proximoGiro: '2026-10-09T10:00:00Z' }, agora)).toBe('09/10 07:00 · automático');
     expect(textoProximoGiro({ ...cfg, proximoGiro: null }, agora)).toBe('sem agenda');
     expect(textoProximoGiro({ ...cfg, estado: 'teste' }, agora)).toBe('sem agenda');
     expect(textoProximoGiro({ ...cfg, estado: 'desligado' }, agora)).toBe('Radar desligado');
+  });
+});
+
+describe('setor da demanda', () => {
+  const setores = [{ id: 's1', nome: 'Legalização' }, { id: 's2', nome: 'Fiscal' }];
+  it('usa o setor da própria demanda; sem ele, todos os da novidade', () => {
+    expect(setoresDaDemanda({ setores, chamado: { setorId: 's2' } })).toBe('Fiscal');
+    expect(setoresDaDemanda({ setores, chamado: { setorId: null } })).toBe('Legalização, Fiscal');
+    expect(setoresDaDemanda({ setores, chamado: { setorId: 'x' } })).toBe('Legalização, Fiscal');
+    expect(setoresDaDemanda({ setores, chamado: null })).toBe('Legalização, Fiscal');
   });
 });
