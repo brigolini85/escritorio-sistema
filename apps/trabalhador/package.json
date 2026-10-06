@@ -13,6 +13,7 @@
     "cenarios-atendimento": "tsx --env-file=../../.env src/cenarios/atendimento.ts",
     "cenarios-assistente": "tsx --env-file=../../.env src/cenarios/assistente.ts",
     "cenarios-tarefas": "tsx --env-file=../../.env src/cenarios/tarefas.ts",
+    "cenarios-radar": "tsx --env-file=../../.env src/cenarios/radar.ts",
     "seed-orientacoes-dono": "tsx src/agente/gerar-seed-skill-dono.ts"
   },
   "dependencies": {
