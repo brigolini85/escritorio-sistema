@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import type { Repos } from '@escritorio/db';
 import PgBoss from 'pg-boss';
 
 export const FILAS = {
@@ -41,43 +43,65 @@ export async function agendarProcessamento(fila: Fila, conversaId: string): Prom
   await fila.enviar(FILAS.processarConversa, { conversaId }, { singletonKey: conversaId, startAfter: ESPERA_AGRUPAMENTO_SEGUNDOS });
 }
 
+/**
+ * createQueue não muda uma fila que já existe (o pg-boss ignora): o updateQueue logo depois põe a configuração do código
+ * também nas filas criadas antes (homologação e produção). Revisão geral I1/I2.
+ */
+async function garantirFila(boss: PgBoss, nome: string, opcoes: Omit<PgBoss.Queue, 'name'> = {}): Promise<void> {
+  await boss.createQueue(nome, { name: nome, ...opcoes });
+  await boss.updateQueue(nome, { name: nome, ...opcoes });
+}
+
+/** I2: prazo do job da conversa; a vez para de abrir rodadas bem antes (PRAZO_VEZ_CONVERSA_MS) e a trava vale mais que isto. */
+export const EXPIRA_CONVERSA_SEGUNDOS = 900;
+/** I1: a trava da conversa (e do assistente) vence depois do prazo do job: um job vencido não roda junto com o que ainda está rodando. */
+export const TRAVA_VEZ_SEGUNDOS = 20 * 60;
+/** I1: a conversa (ou pergunta) ocupada volta para a fila depois deste tempo. */
+export const ESPERA_OCUPADA_SEGUNDOS = 15;
+
 export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   const boss = new PgBoss({ connectionString: databaseUrl });
   boss.on('error', (e) => console.error('[fila]', e));
   await boss.start();
-  // "stately": no máximo um job por estado e por singletonKey — um aguardando e um em execução por conversa.
-  await boss.createQueue(FILAS.processarConversa, { name: FILAS.processarConversa, policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
-  await boss.createQueue(FILAS.assistente, { name: FILAS.assistente, policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
+  // Revisão geral I1: "short" = no máximo um job ESPERANDO por chave (mensagens picadas viram um processamento só); a vez
+  // por conversa é a trava do banco (naVez). "stately" travava a busca de todos os consumidores no pg-boss 10.4.2.
+  await garantirFila(boss, FILAS.processarConversa, {
+    policy: 'short', retryLimit: 3, retryDelay: 20, retryBackoff: true, expireInSeconds: EXPIRA_CONVERSA_SEGUNDOS,
+  });
+  await garantirFila(boss, FILAS.assistente, { policy: 'short', retryLimit: 3, retryDelay: 20, retryBackoff: true });
   // Mesma configuração em apps/painel/src/lib/fila.ts (o painel enfileira os testes). "stately" + singletonKey = id do teste:
   // o mesmo teste enfileirado duas vezes não roda em paralelo (nem paga a IA duas vezes).
-  await boss.createQueue(FILAS.simularAgente, { name: FILAS.simularAgente, policy: 'stately', retryLimit: 2, retryDelay: 15, retryBackoff: true });
+  await garantirFila(boss, FILAS.simularAgente, { policy: 'stately', retryLimit: 2, retryDelay: 15, retryBackoff: true });
   // Mesma configuração em apps/painel/src/lib/fila.ts; singletonKey = id da sugestão (o painel enfileira).
-  await boss.createQueue(FILAS.sugerirResposta, { name: FILAS.sugerirResposta, policy: 'stately', retryLimit: 1, retryDelay: 5 });
+  await garantirFila(boss, FILAS.sugerirResposta, { policy: 'stately', retryLimit: 1, retryDelay: 5 });
   // Mesma configuração em apps/painel/src/lib/fila.ts. "stately" + singletonKey = tarefa: uma vez por tarefa (D6); 30 min por vez no máximo
   // (a vez para de abrir rodadas aos 20 min, F6: a expiração fica acima para o job não ser repetido com a vez ainda rodando).
-  await boss.createQueue(FILAS.agenteTrabalho, { name: FILAS.agenteTrabalho, policy: 'stately', retryLimit: 2, retryDelay: 30, retryBackoff: true, expireInSeconds: 1800 });
+  await garantirFila(boss, FILAS.agenteTrabalho, { policy: 'stately', retryLimit: 2, retryDelay: 30, retryBackoff: true, expireInSeconds: 1800 });
   // Mesma configuração em apps/painel/src/lib/fila.ts; singletonKey = pendência + vez do pedido.
-  await boss.createQueue(FILAS.pendenciaCliente, { name: FILAS.pendenciaCliente, policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true });
+  await garantirFila(boss, FILAS.pendenciaCliente, { policy: 'stately', retryLimit: 3, retryDelay: 30, retryBackoff: true });
   // Mesma configuração em apps/painel/src/lib/fila.ts; singletonKey = tarefa (uma leitura da pasta por vez).
-  await boss.createQueue(FILAS.pastaDrive, { name: FILAS.pastaDrive, policy: 'stately', retryLimit: 1, retryDelay: 30 });
+  await garantirFila(boss, FILAS.pastaDrive, { policy: 'stately', retryLimit: 1, retryDelay: 30 });
   // Parte I4 (D9): singletonKey = aviso; a reserva no banco impede o envio duplo.
-  await boss.createQueue(FILAS.avisoTarefa, { name: FILAS.avisoTarefa, retryLimit: 2, retryDelay: 30, retryBackoff: true });
-  await boss.createQueue(FILAS.enviarMensagem, { name: FILAS.enviarMensagem, retryLimit: 5, retryDelay: 10, retryBackoff: true });
-  await boss.createQueue(FILAS.removerArquivos, { name: FILAS.removerArquivos, retryLimit: 10, retryDelay: 60, retryBackoff: true });
+  await garantirFila(boss, FILAS.avisoTarefa, { retryLimit: 2, retryDelay: 30, retryBackoff: true });
+  await garantirFila(boss, FILAS.enviarMensagem, { retryLimit: 5, retryDelay: 10, retryBackoff: true });
+  await garantirFila(boss, FILAS.removerArquivos, { retryLimit: 10, retryDelay: 60, retryBackoff: true });
   for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao, FILAS.certificados]) {
-    await boss.createQueue(nome, { name: nome, retryLimit: 2 });
+    await garantirFila(boss, nome, { retryLimit: 2 });
   }
   // Parte I5: um ciclo por vez ("stately" sem chave: um esperando e um rodando); o giro pode levar até 40 min (D8).
-  await boss.createQueue(FILAS.radar, { name: FILAS.radar, policy: 'stately', retryLimit: 0, expireInSeconds: 3000 });
-  await boss.createQueue(FILAS.radarEnvios, { name: FILAS.radarEnvios, policy: 'stately', retryLimit: 0, expireInSeconds: 600 });
+  await garantirFila(boss, FILAS.radar, { policy: 'stately', retryLimit: 0, expireInSeconds: 3000 });
+  await garantirFila(boss, FILAS.radarEnvios, { policy: 'stately', retryLimit: 0, expireInSeconds: 600 });
   return boss;
 }
 
 export type JobAssistente = { usuarioId: string; canal: 'site' | 'whatsapp'; conversaId: string | null; telefone: string | null };
 
+/** A mesma chave da fila e da trava (I1): uma vez por usuário, canal e contexto. */
+export const chaveAssistente = (j: Pick<JobAssistente, 'usuarioId' | 'canal' | 'conversaId'>) => `${j.usuarioId}:${j.canal}:${j.conversaId ?? '-'}`;
+
 /** Uma execução por usuário, canal e contexto: perguntas seguidas são respondidas juntas. */
-export async function agendarAssistente(fila: Fila, j: JobAssistente): Promise<void> {
-  await fila.enviar(FILAS.assistente, j, { singletonKey: `${j.usuarioId}:${j.canal}:${j.conversaId ?? '-'}` });
+export async function agendarAssistente(fila: Fila, j: JobAssistente, startAfter?: number): Promise<void> {
+  await fila.enviar(FILAS.assistente, j, { singletonKey: chaveAssistente(j), ...(startAfter ? { startAfter } : {}) });
 }
 
 /** Job da fila `simular_agente`: o id da linha em `simulacoes_agente` (status pendente). */
@@ -115,4 +139,24 @@ export async function agendarPedidoPendencia(fila: Fila, pendenciaId: string, ve
 export type JobAviso = { avisoId: string };
 export async function agendarAviso(fila: Fila, avisoId: string): Promise<void> {
   await fila.enviar(FILAS.avisoTarefa, { avisoId } satisfies JobAviso, { singletonKey: avisoId });
+}
+
+/**
+ * Revisão geral I1: uma execução por chave (conversa, pergunta do assistente) por uma trava no banco, no lugar da política
+ * "stately" (que no pg-boss 10.4.2 travava a fila inteira). Ocupada: `ocupada` (em geral, enfileirar de novo mais tarde).
+ */
+export async function naVez<T>(
+  repos: Pick<Repos, 'pegarTrava' | 'soltarTrava'>, chave: string, segundos: number, fazer: () => Promise<T>, ocupada: () => Promise<void>,
+): Promise<T | 'ocupada'> {
+  const dono = randomUUID();
+  if (!(await repos.pegarTrava(chave, dono, segundos))) {
+    await ocupada();
+    return 'ocupada';
+  }
+  try {
+    return await fazer();
+  } finally {
+    // Falha ao soltar: a trava vence sozinha em `segundos`.
+    await repos.soltarTrava(chave, dono).catch((e) => console.error('[fila] trava não solta', chave, e));
+  }
 }

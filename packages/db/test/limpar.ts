@@ -30,6 +30,7 @@ export async function limparBanco(): Promise<void> {
   await c.query(`do $$ begin
     if to_regclass('public.drive_conta') is not null then delete from public.drive_conta; end if;
     if to_regclass('public.tarefas_guarda') is not null then update public.tarefas_guarda set dias = null, atualizado_por = null; end if;
+    if to_regclass('public.travas_trabalhador') is not null then delete from public.travas_trabalhador; end if;
     end $$`);
   await c.query("delete from auth.users where email like '%.local'");
   await c.query(`update public.configuracoes set agente_pausado = false, alerta_ia_80_mes = null, teto_ia_usd = 50, telefone_dono = null,

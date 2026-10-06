@@ -7,7 +7,7 @@ import { carregarContexto } from './agente/contexto';
 import type { DepsAgente } from './agente/ferramentas';
 import { montarConteudoUsuario, type AnexoParaIa } from './agente/prompt';
 import { enviarDoSistema } from './envio';
-import { agendarAssistente, type Fila } from './fila';
+import { ESPERA_OCUPADA_SEGUNDOS, FILAS, TRAVA_VEZ_SEGUNDOS, agendarAssistente, naVez, type Fila } from './fila';
 import type { ArmazenamentoMidia } from './midia/armazenamento';
 import type { Transcricao, Transcritor } from './midia/transcritor';
 
@@ -236,4 +236,10 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
     await d.repos.marcarAlertaIa80(mes);
   }
   return desfecho;
+}
+
+/** Revisão geral I1: uma vez por conversa (trava no banco, a mesma chave que o batimento confere); ocupada, volta para a fila mais tarde. */
+export async function processarConversaNaVez(d: DepsProcessamento, conversaId: string, ultimaTentativa: boolean) {
+  return naVez(d.repos, `conversa:${conversaId}`, TRAVA_VEZ_SEGUNDOS, () => processarConversa(d, conversaId, ultimaTentativa),
+    () => d.fila.enviar(FILAS.processarConversa, { conversaId }, { singletonKey: conversaId, startAfter: ESPERA_OCUPADA_SEGUNDOS }));
 }

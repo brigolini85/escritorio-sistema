@@ -9,14 +9,14 @@ import { driveDoAmbiente } from './drive/google';
 import { anunciarSituacaoDrive } from './drive/situacao';
 import { criarEmail } from './email';
 import { LimitadorEnvio, enviarMensagemDoPainel, verificarEnviadaPorMim } from './envio';
-import { processarAssistente } from './assistente/processar';
+import { processarAssistenteNaVez } from './assistente/processar';
 import {
   FILAS, criarBoss, filaDe, type JobAssistente, type JobAviso, type JobPastaDrive, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa,
 } from './fila';
 import { criarArmazenamento } from './midia/armazenamento';
 import { removerArquivosDoJob } from './midia/remocao';
 import { criarTranscritor } from './midia/transcritor';
-import { processarConversa } from './processar-conversa';
+import { processarConversaNaVez } from './processar-conversa';
 import { limparRetencao } from './retencao';
 import { canalDaSugestao } from './sugestao/ferramentas';
 import { processarSugestao } from './sugestao/processar';
@@ -62,15 +62,15 @@ async function principal() {
   await boss.work<{ paths: string[] }>(FILAS.removerArquivos, async ([job]) => {
     await removerArquivosDoJob(job!.data.paths, { anexos: (p) => midia.remover(p), tarefas: remover });
   });
-  // 4 consumidores: conversas diferentes andam em paralelo; a política "stately" garante uma execução por conversa.
+  // 4 consumidores: conversas diferentes andam em paralelo; a trava do banco (naVez) garante uma execução por conversa.
   for (let i = 0; i < 4; i++) {
     await boss.work<{ conversaId: string }>(FILAS.processarConversa, { includeMetadata: true }, async ([job]) => {
-      await processarConversa(deps, job!.data.conversaId, job!.retryCount >= job!.retryLimit);
+      await processarConversaNaVez(deps, job!.data.conversaId, job!.retryCount >= job!.retryLimit);
     });
   }
   for (let i = 0; i < 2; i++) {
     await boss.work<JobAssistente>(FILAS.assistente, { includeMetadata: true }, async ([job]) => {
-      await processarAssistente({ repos, ia: deps.ia, canal, fila: filaDe(boss) }, job!.data, job!.retryCount >= job!.retryLimit);
+      await processarAssistenteNaVez({ repos, ia: deps.ia, canal, fila: filaDe(boss) }, job!.data, job!.retryCount >= job!.retryLimit);
     });
   }
   // Testes do Treinar o agente: nada grava nem envia (o envio de `deps` é trocado por um bloqueado dentro da simulação).

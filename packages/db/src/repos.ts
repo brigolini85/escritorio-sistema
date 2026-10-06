@@ -314,6 +314,25 @@ export function criarRepos(db: Db) {
       checar(await db.from('mensagens').update({ processada_em: new Date().toISOString() }).in('id', ids), 'marcarProcessadas');
     },
 
+    /** Revisão geral I1: a vez de uma chave (conversa, pergunta do assistente) por `segundos`; o mesmo dono renova. */
+    async pegarTrava(chave: string, dono: string, segundos: number): Promise<boolean> {
+      return Boolean(checar(await db.rpc('pegar_trava', { p_chave: chave, p_dono: dono, p_segundos: segundos }), 'pegarTrava'));
+    },
+
+    async soltarTrava(chave: string, dono: string): Promise<void> {
+      checar(await db.rpc('soltar_trava', { p_chave: chave, p_dono: dono }), 'soltarTrava');
+    },
+
+    /** Revisão geral C1: conversas com o agente com mensagem de cliente não processada entre `deMin` e `ateMin` minutos (sem vez em andamento). */
+    async conversasComMensagemParada(deMin: number, ateMin: number): Promise<{ conversaId: string; desde: string; reenvios: number; ultimoReenvio: string | null }[]> {
+      const linhas = checar(await db.rpc('conversas_com_mensagem_parada', { p_de_min: deMin, p_ate_min: ateMin }), 'conversasComMensagemParada') ?? [];
+      return linhas.map((l) => ({ conversaId: l.conversa_id, desde: l.desde, reenvios: l.reenvios, ultimoReenvio: l.ultimo_reenvio }));
+    },
+
+    async marcarReenfileirada(conversaId: string): Promise<void> {
+      checar(await db.rpc('marcar_reenfileirada', { p_conversa: conversaId }), 'marcarReenfileirada');
+    },
+
     async historico(conversaId: string, limite: number): Promise<Mensagem[]> {
       const linhas = checar(await db.from('mensagens').select('*').eq('conversa_id', conversaId)
         .order('criado_em', { ascending: false }).limit(limite), 'historico');

@@ -1,6 +1,6 @@
 import { mesReferencia } from '@escritorio/core';
 import type { ArquivoAssistente, MensagemAssistente } from '@escritorio/db';
-import type { JobAssistente } from '../fila';
+import { ESPERA_OCUPADA_SEGUNDOS, TRAVA_VEZ_SEGUNDOS, agendarAssistente, chaveAssistente, naVez, type JobAssistente } from '../fila';
 import { prepararPedidoAoAgente } from './agentes';
 import { carregarContextoAssistente } from './contexto';
 import { MENSAGEM_VAZIA, executarAssistente } from './executar';
@@ -87,4 +87,11 @@ export async function processarAssistente(d: DepsAssistente, j: JobAssistente, u
   }
   await responder(r.resposta.join('\n\n') || MENSAGEM_VAZIA, r.arquivo, r.csvs);
   return 'respondido';
+}
+
+/** Revisão geral I1: uma vez por usuário, canal e contexto (trava no banco); ocupada, a pergunta volta para a fila mais tarde. */
+export async function processarAssistenteNaVez(d: DepsAssistente, j: JobAssistente, ultimaTentativa: boolean) {
+  return naVez(d.repos, `assistente:${chaveAssistente(j)}`, TRAVA_VEZ_SEGUNDOS, () => processarAssistente(d, j, ultimaTentativa),
+    // Sem fila (testes), o batimento devolve a pergunta parada em 2 min.
+    async () => { if (d.fila) await agendarAssistente(d.fila, j, ESPERA_OCUPADA_SEGUNDOS); });
 }
