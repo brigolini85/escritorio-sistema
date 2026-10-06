@@ -68,7 +68,7 @@ export function ferramentasDaTarefa(perfil: Pick<PerfilAgente, 'skills'>): Anthr
 export const AVISOS_TAREFA = {
   arquivoNaoEncontrado: 'Arquivo não encontrado nesta tarefa. Use um nome de listar_arquivos.',
   semFonte: 'Nada foi guardado: nunca invente valores. Cite em cada linha um arquivo lido nesta tarefa ou "pendência N"; o que não tem documento vira pendência (abrir_pendencia).',
-  valorSemLinha: 'Nada foi guardado: o resumo e os destaques só citam valores das linhas. Use o valor de uma linha, o total das linhas ou o total de um arquivo; '
+  valorSemLinha: 'Nada foi guardado: o resumo e os destaques só citam valores das linhas, no formato R$ 1.234,56. Use o valor de uma linha, o total das linhas ou o total de um arquivo; '
     + 'para outro valor (um saldo, um imposto), ponha uma linha com ele e a fonte.',
   semEmpresa: 'A demanda não tem empresa.',
   mensagemCliente: 'Escreva em mensagem_ao_cliente a mensagem curta que o Thiago mandaria ao cliente.',
@@ -87,8 +87,10 @@ const doBanco = (e: unknown) => (e instanceof Error ? e.message.replace(/^[\w.]+
 
 const listaCurta = (problemas: string[]) => `${problemas.slice(0, 10).join(' ')}${problemas.length > 10 ? ` (e mais ${problemas.length - 10})` : ''}`;
 
-/** Valor em reais no texto: com "R$" ou com centavos ("1.234,56"). Datas, contagens, CNPJ e porcentagens ficam de fora. */
-const VALOR_NO_TEXTO = /(R\$\s*)?(?<![\d.,/])-?(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?(?![\d%]|\s*%|[.,]\d)/g;
+/** Número no texto (com "R$" na frente, se houver): a sequência inteira de dígitos, pontos e vírgulas; pedaço de data fica de fora. */
+const NUMERO_NO_TEXTO = /(R\$\s*)?(?<![\d.,/])-?(\d(?:[\d.,]*\d)?)(?!\d|[.,]\d)/g;
+/** Formato brasileiro: 1.234,56 / 1234,56 / 12,5 / 1.234 / 12. */
+const FORMATO_BR = /^(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?$/;
 const centavos = (v: number) => Math.round(Math.abs(v) * 100);
 const chaveDaFonte = (f: string) => {
   const n = numeroDaPendencia(f);
@@ -117,10 +119,26 @@ export function conferirValoresCitados(r: ResultadoTarefa): string[] {
   }
   const problemas: string[] = [];
   const conferir = (onde: string, texto: string) => {
-    for (const m of texto.matchAll(VALOR_NO_TEXTO)) {
-      if (!m[1] && m[3] === undefined) continue;
-      const valor = Number(m[2]!.replace(/\./g, '')) * 100 + Number((m[3] ?? '0').padEnd(2, '0'));
+    const rsConferidos = new Set<number>();
+    for (const m of texto.matchAll(NUMERO_NO_TEXTO)) {
+      const depois = texto.slice(m.index + m[0].length);
+      const emReais = !!m[1] || /^\s*reais\b/i.test(depois);
+      if (m[1]) rsConferidos.add(m.index);
+      if (!emReais && /^\s*%/.test(depois)) continue;
+      const br = FORMATO_BR.exec(m[2]!);
+      // Dinheiro em outro formato ("R$ 12.50", "R$ 1,234.56", "1.234,567 reais") não passa calado: o modelo reescreve.
+      if (!br) {
+        if (emReais) problemas.push(`${onde}: ${m[0].trim()} — escreva no formato R$ 1.234,56, só com valores das linhas.`);
+        continue;
+      }
+      if (!emReais && br[1] === undefined) continue;
+      const [inteiro, cent = ''] = m[2]!.split(',');
+      const valor = Number(inteiro!.replace(/\./g, '')) * 100 + Number(cent.padEnd(2, '0'));
       if (!aceitos.has(valor)) problemas.push(`${onde}: ${m[0].trim()} não está em nenhuma linha.`);
+    }
+    // Todo "R$" tem de vir com um número conferido acima ("R$ doze", "R$ ?" também voltam).
+    for (const m of texto.matchAll(/R\$/g)) {
+      if (!rsConferidos.has(m.index)) problemas.push(`${onde}: "${texto.slice(m.index, m.index + 20).trim()}" — escreva no formato R$ 1.234,56, só com valores das linhas.`);
     }
   };
   conferir('Resumo', r.resumo);

@@ -99,6 +99,14 @@ describe('resumo e destaques só citam valores das linhas (F9)', () => {
       'Destaque 1 (Impostos): R$ 50 não está em nenhuma linha.',
     ]);
   });
+  it('dinheiro fora do formato brasileiro é recusado, mesmo com o valor de uma linha; no formato certo passa', () => {
+    const formato = (v: string) => `Resumo: ${v} — escreva no formato R$ 1.234,56, só com valores das linhas.`;
+    expect(conferirValoresCitados(r('Tarifa de R$ 12.50 e vendas de R$ 1,234.56; R$ 1.234,567 no total; 1,234.56 reais.'))).toEqual([
+      formato('R$ 12.50'), formato('R$ 1,234.56'), formato('R$ 1.234,567'), formato('1,234.56'),
+    ]);
+    expect(conferirValoresCitados(r('Saldo de R$ doze mil.'))).toEqual(['Resumo: "R$ doze mil." — escreva no formato R$ 1.234,56, só com valores das linhas.']);
+    expect(conferirValoresCitados(r('Tarifa de R$12,50, 12,50 reais e R$ -12,50; vendas de 1.234,56 reais.'))).toEqual([]);
+  });
   it('entregar_resultado recusa destaque com valor fora das linhas e nada é guardado', async () => {
     const v = await vez();
     await usar(v, 'ler_arquivo', { nome: 'extrato.csv' });
