@@ -30,13 +30,13 @@ export function ResultadoTarefa({ t }: { t: TarefaTela }) {
           {r.linhas.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm" aria-label="Linhas do resultado">
-                <thead><tr className="text-left text-xs uppercase text-muted"><th className="py-1">Descrição</th><th className="py-1 text-right">Valor</th><th className="py-1">Fonte</th></tr></thead>
+                <thead><tr className="text-left text-xs uppercase text-muted"><th className="py-1">Descrição</th><th className="py-1 pl-4 text-right">Valor</th><th className="py-1 pl-4">Fonte</th></tr></thead>
                 <tbody>
                   {r.linhas.slice(0, MOSTRAR).map((l, i) => (
                     <tr key={i} className="border-t border-border">
                       <td className="py-1">{l.descricao}{l.provisoria && <Badge variant="warning" className="ml-2">provisória</Badge>}</td>
-                      <td className="py-1 text-right tabular">{l.valor !== null ? formatarBRL(l.valor) : l.texto}</td>
-                      <td className="py-1 text-muted">{l.fonte}</td>
+                      <td className="whitespace-nowrap py-1 pl-4 text-right tabular">{l.valor !== null ? formatarBRL(l.valor) : l.texto}</td>
+                      <td className="py-1 pl-4 text-muted">{l.fonte}</td>
                     </tr>
                   ))}
                 </tbody>
