@@ -8,7 +8,7 @@ import { lerConfig } from './config';
 import { driveDoAmbiente } from './drive/google';
 import { anunciarSituacaoDrive } from './drive/situacao';
 import { criarEmail } from './email';
-import { LimitadorEnvio, enviarMensagemDoPainel, verificarEnviadaPorMim } from './envio';
+import { LimitadorEnvio, enviarMensagemDoPainel, tratarEnviadaPorMim } from './envio';
 import { processarAssistenteNaVez } from './assistente/processar';
 import {
   FILAS, criarBoss, filaDe, type JobAssistente, type JobAviso, type JobPastaDrive, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa,
@@ -108,7 +108,7 @@ async function principal() {
     await enviarMensagemDoPainel(envio, job!.data.mensagemId, job!.retryCount >= job!.retryLimit);
   });
   await boss.work<MensagemRecebida>(FILAS.verificarEnviadaPorMim, async ([job]) => {
-    await verificarEnviadaPorMim(envio, job!.data);
+    await tratarEnviadaPorMim(envio, filaDe(boss), job!.data);
   });
   await boss.work(FILAS.batimento, async () => batimento(depsTarefas));
   // A cada 5 minutos: demanda sem responsável e demanda vencida.

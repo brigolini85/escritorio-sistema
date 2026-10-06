@@ -1,6 +1,7 @@
 import { normalizarTelefone } from '@escritorio/core';
 import type { DocumentoEmpresa, Repos } from '@escritorio/db';
 import type { CanalWhatsApp, MensagemRecebida } from './canal/tipos';
+import { FILAS, type Fila } from './fila';
 import type { ArmazenamentoMidia } from './midia/armazenamento';
 
 export class LimitadorEnvio {
@@ -108,7 +109,22 @@ export async function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string, u
   }
 }
 
-export async function verificarEnviadaPorMim(d: DepsEnvio, m: MensagemRecebida): Promise<'do-sistema' | 'humano'> {
+/** Revisão geral I3: quantas vezes a verificação do eco espera (30 s cada) um envio do sistema que ainda não gravou o id. */
+export const ESPERAS_ECO = 6;
+
+/** Job da fila verificar-enviada-por-mim: o eco e quantas vezes já esperou. */
+export async function tratarEnviadaPorMim(d: DepsEnvio, fila: Fila, m: MensagemRecebida & { esperas?: number }): Promise<'do-sistema' | 'humano' | 'aguardar'> {
+  const esperas = m.esperas ?? 0;
+  const r = await verificarEnviadaPorMim(d, m, esperas < ESPERAS_ECO);
+  if (r === 'aguardar') await fila.enviar(FILAS.verificarEnviadaPorMim, { ...m, esperas: esperas + 1 }, { startAfter: 30 });
+  return r;
+}
+
+/**
+ * `podeEsperar` (revisão geral I3): sem id nem texto que case, mas com envio do sistema da conversa ainda pendente, devolve
+ * "aguardar" em vez de concluir que foi uma pessoa no celular (eco de arquivo grande chega antes de o envio gravar o id).
+ */
+export async function verificarEnviadaPorMim(d: DepsEnvio, m: MensagemRecebida, podeEsperar = false): Promise<'do-sistema' | 'humano' | 'aguardar'> {
   if (await d.repos.mensagemPorIdProvedor(m.idProvedor)) return 'do-sistema';
   const telefone = normalizarTelefone(m.telefone);
   if (!telefone) return 'do-sistema';
@@ -122,6 +138,8 @@ export async function verificarEnviadaPorMim(d: DepsEnvio, m: MensagemRecebida):
       return 'do-sistema';
     }
   }
+  // Só eco sem texto (arquivo): o sistema e o painel mandam arquivo sem legenda; texto digitado no celular não espera.
+  if (podeEsperar && m.tipo !== 'texto' && (await d.repos.temSaidaPendenteRecente(conversa.id, 10))) return 'aguardar';
   await d.repos.inserirSaidaExterna({ conversaId: conversa.id, clienteId: conversa.cliente_em_foco, idProvedor: m.idProvedor, conteudo: m.texto });
   // Como assumir pelo painel: limpa a espera e grava o marco "assumida" (sem pessoa: o celular não diz quem respondeu).
   await d.repos.assumirPeloCelular(conversa.id);

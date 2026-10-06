@@ -406,6 +406,17 @@ export function criarRepos(db: Db) {
       return checar(r, 'saidaPendenteComConteudo');
     },
 
+    /**
+     * Revisão geral I3: há envio do sistema (ou resposta do painel) desta conversa ainda sem o id da Z-API, criado ou reservado
+     * nos últimos `minutos`? O eco de um arquivo grande pode chegar antes de o envio gravar o id.
+     */
+    async temSaidaPendenteRecente(conversaId: string, minutos: number): Promise<boolean> {
+      const desde = new Date(Date.now() - minutos * 60_000).toISOString();
+      const r = await db.from('mensagens').select('id').eq('conversa_id', conversaId).eq('direcao', 'saida').eq('status_envio', 'pendente')
+        .is('id_provedor', null).or(`criado_em.gte.${desde},envio_reservado_em.gte.${desde}`).limit(1);
+      return checar(r, 'temSaidaPendenteRecente').length > 0;
+    },
+
     async abrirChamado(c: NovoChamado): Promise<{ id: string; numero: number }> {
       const novo = checar(await db.from('chamados').insert({
         cliente_id: c.clienteId, conversa_id: c.conversaId, setor_id: c.setorId, responsavel_id: c.responsavelId,
