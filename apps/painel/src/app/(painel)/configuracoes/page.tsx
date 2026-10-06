@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { hojeSP, hrefSecao, resumosDasSecoes, secaoDaUrl, secoesDe, type IdSecao } from '@/lib/configuracoes';
 import { LIMITES_BATIMENTO, situacaoTeto } from '@/lib/inicio';
+import { souDono } from '@/lib/agentes';
+import { lerGuarda, lerSituacaoDrive } from '@/lib/drive';
 import { exigirConfiguracoes } from '@/lib/sessao';
 import { CARGOS_SUGERIDOS } from '@/lib/usuarios';
 import { situacaoDoSinal } from '@/lib/sinal-vida';
@@ -33,6 +35,10 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
   if (pedida !== undefined && (Array.isArray(pedida) ? pedida[0] : pedida) !== secao.id) redirect(hrefSecao(secao.id));
   const sb = await supabaseServidor();
   const agora = new Date();
+  // Parte I3b: Drive e guarda só para o administrador; sem a atualização do banco vira aviso.
+  const [drive, guarda, dono] = admin
+    ? await Promise.all([lerSituacaoDrive(sb), lerGuarda(sb), souDono(sb)])
+    : [{ semI3b: false, situacao: null }, { semI3b: false, dias: null }, false] as const;
   const [{ data: cfg }, { data: setores }, { data: servicos }, { data: respostas }, { data: feriados }, { data: sinais }, gasto] = await Promise.all([
     sb.from('configuracoes').select('*').eq('id', 1).single(),
     sb.from('setores').select('*').order('nome'),
@@ -66,7 +72,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
     setores: () => <SecaoSetores setores={setores ?? []} />,
     servicos: () => <SecaoServicos servicos={servicos ?? []} setores={setores ?? []} />,
     cargos: () => <SecaoCargos cfg={cfg} admin={admin} />,
-    integracoes: () => <SecaoIntegracoes sinal={sinal} />,
+    integracoes: () => <SecaoIntegracoes sinal={sinal} drive={drive} guarda={guarda} dono={dono} />,
   };
 
   return (

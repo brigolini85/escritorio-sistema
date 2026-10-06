@@ -29,6 +29,8 @@ export type PropsFicha = {
   admin: boolean;
   /** Bloco Acessos de portais: salva sozinho, a senha nunca vai junto da ficha (D13). */
   acessos: ReactNode;
+  /** Bloco Arquivos (Parte I3b): salva sozinho, como os acessos. */
+  arquivos?: ReactNode;
   ultimaAlteracao: string | null;
   /** "Agora" do servidor: as pendências saem iguais no servidor e no navegador. */
   agora: string;
@@ -44,7 +46,7 @@ export function FichaCliente(props: PropsFicha) {
   return <Formulario key={versao} {...props} aoCancelar={() => setVersao((v) => v + 1)} />;
 }
 
-function Formulario({ cliente, servicos, contratados, setores, pessoas, responsaveis, inscricoesSt, pode, admin, acessos, ultimaAlteracao, agora, aoCancelar }:
+function Formulario({ cliente, servicos, contratados, setores, pessoas, responsaveis, inscricoesSt, pode, admin, acessos, arquivos, ultimaAlteracao, agora, aoCancelar }:
   PropsFicha & { aoCancelar: () => void }) {
   const router = useRouter();
   const caixa = useRef<HTMLDivElement>(null);
@@ -198,6 +200,7 @@ function Formulario({ cliente, servicos, contratados, setores, pessoas, responsa
               <BlocoCertificado c={cliente} erros={erros} pode={pode} estado={estados.certificado} />
               {acessos}
             </div>
+            {arquivos}
           </div>
         </div>
         <RodapeFicha ultima={ultimaAlteracao} pode={pode} novo={!cliente} hidratado={hidratado} enviando={enviando} aoCancelar={aoCancelar} />
