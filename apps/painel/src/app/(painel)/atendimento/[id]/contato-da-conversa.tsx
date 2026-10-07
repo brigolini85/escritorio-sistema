@@ -1,5 +1,6 @@
 import { Bot, CirclePause, UserRoundPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { avisoDaLista, lerEmpresasAtivasDoSeletor } from '@/lib/listas-ativas';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato, cadastrarContatoDaConversa } from '../acoes';
 import { BotaoCadastrarContato, FormCadastroContato } from '@/components/patterns/form-cadastro-contato';
@@ -35,7 +36,9 @@ export async function ContatoDaConversa({ conversaId, contato, pode }: {
   }
 
   const sb = await supabaseServidor();
-  const { data: empresas } = await sb.from('clientes').select('id, razao_social, nome_fantasia').eq('ativo', true).order('razao_social');
+  // Revisão geral (painel I4): só quem pode cadastrar vê o seletor; em páginas, sem o corte de 1000 do PostgREST.
+  const lista = pode ? await lerEmpresasAtivasDoSeletor(sb) : { linhas: [], parcial: false, erro: false };
+  const aviso = avisoDaLista(lista, 'empresas');
   return (
     <div className="rounded-md border border-warning bg-warning-soft p-3 text-sm text-foreground">
       <p className="mb-2 flex items-center gap-1.5 font-semibold text-warning">
@@ -49,9 +52,10 @@ export async function ContatoDaConversa({ conversaId, contato, pode }: {
           <label className="block font-medium">Empresa (opcional)
             <select name="cliente_id" defaultValue="" className={campo}>
               <option value="">Sem empresa</option>
-              {(empresas ?? []).map((e) => <option key={e.id} value={e.id}>{e.nome_fantasia ?? e.razao_social}</option>)}
+              {lista.linhas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
             </select>
           </label>
+          {aviso && <p role="status" className="text-sm text-warning">{aviso}</p>}
           <label className="flex items-center gap-2"><input type="checkbox" name="pode_pedir_nota" className="size-4 accent-brand" /> Pode pedir nota</label>
           <label className="flex items-center gap-2"><input type="checkbox" name="agente_atende" defaultChecked className="size-4 accent-brand" /> O agente atende este contato</label>
           <BotaoCadastrarContato size="sm" className="self-start">Cadastrar contato</BotaoCadastrarContato>

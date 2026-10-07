@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { lerContatosDaEmpresa } from '@/lib/acesso-contato';
 import type { UsuarioPainel } from '@/lib/sessao';
+import { avisoDaLista, lerContatosAtivos } from '@/lib/listas-ativas';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { alternarAgenteContato } from '../../atendimento/acoes';
 import { adicionarContato, anonimizarContato, removerContato, vincularContatoExistente } from '../acoes';
@@ -34,7 +35,10 @@ export async function SecaoContatos({ id, u, pode, aberto }: { id: string; u: Us
     );
   }
   if (ficha === null) return <p role="alert" className="text-sm text-danger">Não consegui carregar os contatos agora. Recarregue a página.</p>;
-  const { data: todos } = pode ? await sb.from('contatos').select('id, nome, telefone').eq('ativo', true).order('nome') : { data: [] };
+  // Revisão geral (painel I4): em páginas, sem o corte de 1000 do PostgREST; erro ou lista incompleta viram aviso.
+  const listaTodos = pode ? await lerContatosAtivos(sb) : { linhas: [], parcial: false, erro: false };
+  const todos = listaTodos.linhas;
+  const avisoTodos = avisoDaLista(listaTodos, 'contatos');
   const jaVinculados = new Set(ficha.contatos.map((c) => c.id));
   const disponiveis = (todos ?? []).filter((c) => !jaVinculados.has(c.id));
   const admin = u.papel === 'admin';
@@ -133,13 +137,14 @@ export async function SecaoContatos({ id, u, pode, aberto }: { id: string; u: Us
                       {disponiveis.map((c) => <option key={c.id} value={c.id}>{c.nome} · {c.telefone}</option>)}
                     </select>
                   </FormField>
+                  {avisoTodos && <p role="status" className="text-sm text-warning">{avisoTodos}</p>}
                   <label className="flex items-center gap-2 text-base text-foreground"><input type="checkbox" name="pode_pedir_nota" className={classeCaixa} />Pode pedir nota (vínculo)</label>
                   <label className="flex items-center gap-2 text-base text-foreground"><input type="checkbox" name="pode_atualizar_preco" className={classeCaixa} />Pode mudar preço e cadastrar produto (vínculo)</label>
                 </CardContent>
                 <div className="flex justify-end border-t border-border px-4 py-3"><Button type="submit" size="sm" variant="outline">Vincular contato</Button></div>
               </form>
             ) : (
-              <CardContent><p className="text-sm text-muted">Todos os contatos cadastrados já estão ligados a esta empresa.</p></CardContent>
+              <CardContent><p className="text-sm text-muted">{avisoTodos ?? 'Todos os contatos cadastrados já estão ligados a esta empresa.'}</p></CardContent>
             )}
           </Card>
         </div>

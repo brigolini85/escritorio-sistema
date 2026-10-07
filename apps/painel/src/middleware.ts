@@ -25,6 +25,9 @@ export async function middleware(req: NextRequest) {
   const { data } = await sb.auth.getUser();
   const caminho = req.nextUrl.pathname;
   const publica = PUBLICAS.some((p) => caminho.startsWith(p));
+  // Revisão geral (painel M9): chamada a /api/* sem sessão recebe 401 em JSON (como a própria rota responderia), não o HTML do login;
+  // link aberto no navegador (download) segue indo para /entrar.
+  if (!data.user && !publica && caminho.startsWith('/api/') && !(req.headers.get('accept') ?? '').includes('text/html')) return NextResponse.json({ erro: 'sessão expirada' }, { status: 401 });
   if (!data.user && !publica) return NextResponse.redirect(new URL('/entrar', req.url));
   if (data.user && !publica) {
     // Horário de acesso (spec 7.2): o banco já recusa; aqui a pessoa vê o porquê. Erro na consulta não tranca ninguém.

@@ -22,7 +22,8 @@ export type ArquivoTela = { id: string; nome: string; tamanho: number; origem: '
 export type EventoTarefaTela = { quem: 'agente' | 'pessoa' | 'sistema'; nome: string; texto: string; criadoEm: string };
 export type TarefaTela = {
   id: string; numero: number; estado: EstadoTarefa; motivoPausa: MotivoPausa | null; agente: string; setorId: string | null; setor: string | null; /** F19: false só quando o setor está desativado. */ setorAtivo?: boolean;
-  demanda: { id: string; numero: number; titulo: string }; empresa: { id: string; nome: string; cnpj: string } | null;
+  /** pedidoDeNota: pedido salvo ou título "NF de ..." (revisão geral, painel I2). */
+  demanda: { id: string; numero: number; titulo: string; pedidoDeNota?: boolean }; empresa: { id: string; nome: string; cnpj: string } | null;
   pedido: string; pedidaPor: string | null; canal: 'painel' | 'whatsapp' | 'automatico'; criadoEm: string;
   etapas: EtapaTarefa[]; etapaAtual: number; resultado: ResultadoTarefa | null; ajustePendente: boolean;
   custoUsd: number; custoEtapas: Record<string, number>; limiteUsd: number; limiteMinutos: number; segundosTrabalhando: number;

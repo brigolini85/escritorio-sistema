@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import { lerFiltroCaixa } from '@/lib/caixa';
+import { lerFiltroCaixa, lerPaginasCaixa } from '@/lib/caixa';
 import { lerAgentePausado } from '@/lib/leituras-admin';
 import { lerDataAlvo } from '@/lib/historico';
 import { temNivel, usaAssistente } from '@/lib/permissoes';
@@ -18,7 +18,7 @@ import { ConversaAberta } from './conversa-aberta';
  */
 export default async function Conversa({ params, searchParams }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ erro?: string; filtro?: string; q?: string; data?: string }>;
+  searchParams: Promise<{ erro?: string; filtro?: string; q?: string; data?: string; mais?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -44,6 +44,7 @@ export default async function Conversa({ params, searchParams }: {
         filtro={lerFiltroCaixa(sp.filtro, u)}
         filtroNaUrl={sp.filtro ?? null}
         q={q}
+        paginas={lerPaginasCaixa(sp.mais)}
         caminho={`/atendimento/${id}`}
         selecionada={id}
         titulo="h2"

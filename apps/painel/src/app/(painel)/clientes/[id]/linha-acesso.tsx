@@ -30,7 +30,7 @@ export function LinhaAcesso({ clienteId, contato, semServicoComSetor, socios, po
   acoes: {
     agente: () => Promise<void>;
     remover?: () => Promise<void>;
-    apagar?: (dados: FormData) => Promise<void>;
+    apagar?: (dados: FormData) => Promise<{ aviso: string } | undefined | void>;
   };
 }) {
   const [aberta, setAberta] = useState(abertaInicial);

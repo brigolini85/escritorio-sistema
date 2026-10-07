@@ -14,13 +14,15 @@ import { ConfirmDialog } from './confirm-dialog';
  */
 export function ApagarDadosContato({ nome, acao, variante = 'discreto' }: {
   nome: string;
-  acao: (dados: FormData) => Promise<void>;
+  /** Revisão geral (painel I6): pode devolver um aviso (dados apagados, arquivos ainda pendentes de remoção). */
+  acao: (dados: FormData) => Promise<{ aviso: string } | undefined | void>;
   /** discreto: botão fantasma na linha; destaque: botão vermelho da zona de perigo. */
   variante?: 'discreto' | 'destaque';
 }) {
   const enviar = async (dados: FormData) => {
     try {
-      await acao(dados);
+      const r = await acao(dados);
+      if (r?.aviso) toast.warning(r.aviso, { duration: Infinity });
     } catch (e) {
       unstable_rethrow(e); // redirecionamento do Next continua valendo
       console.error('[lgpd] falha ao apagar os dados do contato', e);

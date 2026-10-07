@@ -75,8 +75,14 @@ export async function responder(conversaId: string, formData: FormData) {
   const mensagemId = (await rpc('registrar_resposta', {
     p_conversa: conversaId, p_texto: texto || null, p_arquivo_path: path, p_arquivo_nome: nome, p_arquivo_mime: mime,
   })) as string;
-  await enfileirarEnvio(mensagemId);
+  // A resposta já está gravada ("pendente"): se a fila falhar, o batimento do trabalhador reenfileira em 2 minutos.
+  // Erro aqui faria a pessoa reenviar o texto e o cliente receber duas vezes; por isso só avisa.
+  const naFila = await enfileirarEnvio(mensagemId).then(() => true, (e: unknown) => {
+    console.error('[atendimento] enfileirar envio falhou; o batimento tenta de novo:', mensagemId, e);
+    return false;
+  });
   revalidatePath(`/atendimento/${conversaId}`);
+  if (!naFila) redirect(comAvisoNaUrl(`/atendimento/${conversaId}`, 'resposta-na-fila'));
 }
 
 export async function notaInterna(chamadoId: string, conversaId: string, formData: FormData) {

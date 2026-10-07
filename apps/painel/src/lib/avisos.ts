@@ -8,6 +8,7 @@ const AVISOS = {
   'contato-voltou-sem-empresas': 'Contato arquivado voltou, sem empresas. Os vínculos antigos saíram.',
   'contato-voltou-com-empresas': 'Contato arquivado voltou com as empresas escolhidas.',
   'contato-voltou-com-empresas-outras-sairam': 'Contato arquivado voltou com as empresas escolhidas. As outras saíram.',
+  'resposta-na-fila': 'Resposta salva. O envio está demorando e será tentado de novo em instantes: não precisa mandar outra vez.',
 } as const;
 
 export type CodigoAviso = keyof typeof AVISOS;

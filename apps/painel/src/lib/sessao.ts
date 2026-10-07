@@ -1,6 +1,7 @@
 import 'server-only';
 import { lerNiveis, type Niveis } from '@escritorio/core';
 import { redirect } from 'next/navigation';
+import { cache } from 'react';
 import { tamanhoDoValor, type TamanhoLetra } from '@/components/layout/tamanho-letra';
 import { temNivel } from './permissoes';
 import { destinoSemAcesso, lerSituacao } from './situacao-acesso';
@@ -8,7 +9,11 @@ import { supabaseServidor } from './supabase/servidor';
 
 export type UsuarioPainel = { id: string; nome: string; papel: 'admin' | 'atendente'; niveis: Niveis; setores: string[]; tamanhoLetra: TamanhoLetra };
 
-export async function obterUsuario(): Promise<UsuarioPainel> {
+/**
+ * Revisão geral (painel I3): React cache por requisição; layout, página e ações repartem o mesmo getUser e a mesma leitura.
+ * O middleware segue conferindo a sessão e o horário em todo pedido (ele roda antes e fora do React).
+ */
+export const obterUsuario = cache(async (): Promise<UsuarioPainel> => {
   const sb = await supabaseServidor();
   const { data: auth } = await sb.auth.getUser();
   if (!auth.user) redirect('/entrar');
@@ -27,7 +32,7 @@ export async function obterUsuario(): Promise<UsuarioPainel> {
     niveis: lerNiveis(Object.fromEntries(u.usuario_permissoes.map((p) => [p.modulo, p.nivel]))),
     setores: u.usuario_setores.map((s) => s.setor_id), tamanhoLetra: tamanhoDoValor(u.tamanho_letra),
   };
-}
+});
 
 export async function exigirAdmin(): Promise<UsuarioPainel> {
   const u = await obterUsuario();
