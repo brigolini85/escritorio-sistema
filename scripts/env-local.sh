@@ -21,4 +21,6 @@ definir NEXT_PUBLIC_SUPABASE_URL "${API_URL}"
 definir NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA "${ANON_KEY}"
 definir DATABASE_URL "${DB_URL}"
 grep -q '^WEBHOOK_SEGREDO=.' .env || definir WEBHOOK_SEGREDO segredo-local-com-16-caracteres
+# Obrigatório no trabalhador (produção mínima): no computador é sempre local (só TELEFONES_PERMITIDOS recebem mensagem).
+grep -q '^AMBIENTE=.' .env || definir AMBIENTE local
 echo ".env gerado"
