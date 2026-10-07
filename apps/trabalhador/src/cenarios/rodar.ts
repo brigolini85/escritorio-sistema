@@ -294,7 +294,9 @@ async function principal() {
   }
   // `pnpm cenarios prioridade` roda só os cenários cujo nome contém "prioridade" (cada um custa chamadas ao Claude).
   const filtro = process.argv[2]?.trim();
-  const lista = filtro ? CENARIOS.filter((c) => c.nome.includes(filtro)) : CENARIOS;
+  // Vários filtros separados por ";;" (ex.: "saudação;;prioridade:") rodam os cenários que batem com qualquer um.
+  const filtros = filtro ? filtro.split(';;').map((f) => f.trim()).filter(Boolean) : [];
+  const lista = filtros.length ? CENARIOS.filter((c) => filtros.some((f) => c.nome.includes(f))) : CENARIOS;
   if (lista.length === 0) { console.error(`Nenhum cenário com "${filtro}" no nome.`); process.exit(1); }
   let falhou = 0;
   let custo = 0;
