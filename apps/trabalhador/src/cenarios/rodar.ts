@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { montarCsvVendaBling, pedidoVendaBling, type PedidoVendaSalvo } from '@escritorio/core';
 import { configurarAgenteTeste, criarSkillTeste, limparBanco } from '@escritorio/db/teste';
 import { contatoComEmpresas, criarCadastrosExemplo, db, definirAcessoTeste, repos, setorId } from '../../test/apoio/cenario';
@@ -115,6 +116,27 @@ async function csvsBling(conversaId: string): Promise<string[]> {
   return csvs;
 }
 
+async function contarEtapa(conversaId: string, etapa: string): Promise<number> {
+  const { count } = await db.from('decisoes_agente').select('id', { count: 'exact', head: true }).eq('conversa_id', conversaId).eq('etapa', etapa);
+  return count ?? 0;
+}
+
+/** "dia|data": o texto tem alguma das alternativas (sem diferenciar maiúsculas). */
+const contemAlgum = (texto: string, alternativas: string) =>
+  alternativas.toLowerCase().split('|').some((a) => texto.toLowerCase().includes(a));
+
+/** Quantas vezes o primeiro nome do contato aparece nas respostas (palavra inteira). */
+const vezesDoNome = (texto: string, nome: string) =>
+  (texto.match(new RegExp(`(^|[^\\p{L}])${nome}(?![\\p{L}])`, 'giu')) ?? []).length;
+
+/** Custo das chamadas ao Claude do cenário (o limparBanco do próximo apaga o uso_ia). */
+async function custoDoCenario(): Promise<number> {
+  const { data } = await db.from('uso_ia').select('custo_usd');
+  return (data ?? []).reduce((s, u) => s + Number(u.custo_usd), 0);
+}
+
+const conversas: { nome: string; rodadas: { cliente: string[]; thiago: string }[] }[] = [];
+
 async function rodar(c: Cenario): Promise<string[]> {
   const conversa = await preparar(c);
   const canal = new CanalFalso();
@@ -127,6 +149,7 @@ async function rodar(c: Cenario): Promise<string[]> {
   // Rodadas seguintes (ex.: o "sim" que confirma um preço, o "só essa" que libera a nota), cada uma depois da resposta à anterior.
   const rodadas = [c.mensagens, c.mensagens2, c.mensagens3, c.mensagens4].filter((r): r is string[] => !!r);
   const falhasRodada1: string[] = [];
+  const rodadasTexto: string[] = [];
   for (const [r, mensagens] of rodadas.entries()) {
     if (r > 0 && c.espera.precoFinal) {
       const antes = await precoVigente(c.espera.precoFinal.produto, c.espera.precoFinal.rede);
@@ -136,7 +159,24 @@ async function rodar(c: Cenario): Promise<string[]> {
     for (const [i, texto] of mensagens.entries()) {
       await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: `CEN${r}-${i}-${Date.now()}`, tipo: 'texto', conteudo: texto });
     }
+    const enviosAntes = canal.enviados.filter((x) => x.telefone === conversa.telefone).length;
+    const respondeuAntes = await contarEtapa(conversa.id, 'responder');
     await processarConversa(deps, conversa.id, true);
+    // Atendimento rápido: o que esta rodada mandou ao cliente, quantas vezes respondeu e quantas demandas há até aqui.
+    const textoRodada = canal.enviados.filter((x) => x.telefone === conversa.telefone).slice(enviosAntes).map((x) => x.texto ?? '').join('\n');
+    rodadasTexto.push(textoRodada);
+    const respostasRodada = (await contarEtapa(conversa.id, 'responder')) - respondeuAntes;
+    if (c.espera.respostasPorRodadaMax !== undefined && respostasRodada > c.espera.respostasPorRodadaMax) {
+      falhasRodada1.push(`rodada ${r + 1}: respondeu ${respostasRodada} vezes (máximo ${c.espera.respostasPorRodadaMax}; perguntas juntas numa mensagem)`);
+    }
+    const demandasEsperadas = c.espera.chamadosPorRodada?.[r];
+    if (demandasEsperadas !== undefined) {
+      const { count } = await db.from('chamados').select('id', { count: 'exact', head: true }).eq('conversa_id', conversa.id).eq('origem', 'agente');
+      if ((count ?? 0) !== demandasEsperadas) falhasRodada1.push(`depois da rodada ${r + 1}: esperava ${demandasEsperadas} demanda(s); obteve ${count ?? 0}`);
+    }
+    for (const t of c.espera.rodadaContem?.[r] ?? []) {
+      if (!contemAlgum(textoRodada, t)) falhasRodada1.push(`rodada ${r + 1}: resposta deveria conter "${t}"; foi: ${JSON.stringify(textoRodada)}`);
+    }
     const esperadas = c.espera.notasPorRodada?.[r];
     const abertas = await notasAbertas(conversa.id);
     if (esperadas !== undefined && abertas !== esperadas) falhasRodada1.push(`depois da rodada ${r + 1}: esperava ${esperadas} nota(s) passada(s) para o Fiscal; obteve ${abertas}`);
@@ -179,6 +219,16 @@ async function rodar(c: Cenario): Promise<string[]> {
   for (const t of e.csvBlingContem ?? []) if (!csvs.some((x) => x.includes(t))) falhas.push(`CSV do Bling deveria conter "${t}"; obtido ${JSON.stringify(csvs)}`);
   for (const t of e.tituloContem ?? []) if (!chamados?.some((x) => x.titulo.toLowerCase().includes(t.toLowerCase()))) falhas.push(`título do chamado deveria conter "${t}"`);
   for (const t of e.respostaContem ?? []) if (!respostas.toLowerCase().includes(t.toLowerCase())) falhas.push(`resposta deveria conter "${t}"`);
+  conversas.push({ nome: c.nome, rodadas: rodadas.map((m, i) => ({ cliente: m, thiago: rodadasTexto[i] ?? '' })) });
+  if (e.nomeMax !== undefined) {
+    const n = vezesDoNome(respostas, e.nomeDoContato ?? 'João');
+    if (n > e.nomeMax) falhas.push(`o nome do cliente apareceu ${n} vezes nas respostas (máximo ${e.nomeMax})`);
+  }
+  for (const s of e.setores ?? []) {
+    const ok = s === 'triagem' ? chamados?.some((x) => x.setor_id === null) : chamados?.some((x) => x.setores?.nome === s);
+    if (!ok) falhas.push(`esperava uma demanda no setor ${s}; obteve ${JSON.stringify(chamados?.map((x) => x.setores?.nome ?? 'triagem'))}`);
+  }
+  for (const t of e.resumoContemAlgum ?? []) if (!chamados?.some((x) => contemAlgum(x.resumo, t))) falhas.push(`resumo de alguma demanda deveria conter "${t}"; obtido ${JSON.stringify(chamados?.map((x) => x.resumo))}`);
   const arquivos = doContato.flatMap((x) => (x.arquivo ? [x.arquivo] : []));
   if (e.documentoEnviado && !arquivos.includes(e.documentoEnviado)) falhas.push(`esperava enviar ${e.documentoEnviado}; enviou ${JSON.stringify(arquivos)}`);
   if (e.semDocumento && arquivos.length) falhas.push(`não deveria enviar documento; enviou ${JSON.stringify(arquivos)}`);
@@ -247,12 +297,21 @@ async function principal() {
   const lista = filtro ? CENARIOS.filter((c) => c.nome.includes(filtro)) : CENARIOS;
   if (lista.length === 0) { console.error(`Nenhum cenário com "${filtro}" no nome.`); process.exit(1); }
   let falhou = 0;
+  let custo = 0;
+  // CENARIOS_TETO_USD: para antes do próximo cenário quando o gasto passa do teto (custo do uso_ia de cada cenário).
+  const teto = Number(process.env.CENARIOS_TETO_USD ?? 'Infinity');
+  let rodados = 0;
   for (const c of lista) {
+    if (custo >= teto) { console.log(`\nTeto de US$ ${teto} atingido: parei antes de "${c.nome}".`); break; }
     const falhas = await rodar(c).catch((e: Error) => [`erro: ${e.message}`]);
+    const gasto = await custoDoCenario().catch(() => 0);
+    custo += gasto;
+    rodados++;
     if (falhas.length) falhou++;
-    console.log(`${falhas.length ? '❌' : '✅'} ${c.nome}${falhas.length ? `\n   - ${falhas.join('\n   - ')}` : ''}`);
+    console.log(`${falhas.length ? '❌' : '✅'} ${c.nome} (US$ ${gasto.toFixed(3)})${falhas.length ? `\n   - ${falhas.join('\n   - ')}` : ''}`);
   }
-  console.log(`\n${lista.length - falhou}/${lista.length} cenários passaram`);
+  console.log(`\n${rodados - falhou}/${rodados} cenários passaram (de ${lista.length}); custo US$ ${custo.toFixed(3)}`);
+  if (process.env.CENARIOS_CONVERSAS) writeFileSync(process.env.CENARIOS_CONVERSAS, JSON.stringify(conversas, null, 2));
   process.exit(falhou ? 1 : 0);
 }
 
