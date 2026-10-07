@@ -3,6 +3,7 @@ import { criarClienteIa } from './agente/cliente-ia';
 import { processarSimulacao } from './agente/simular';
 import { criarAlertas } from './alertas';
 import type { MensagemRecebida } from './canal/tipos';
+import { canalComTrava } from './canal/trava';
 import { criarCanalZapi } from './canal/zapi';
 import { lerConfig } from './config';
 import { driveDoAmbiente } from './drive/google';
@@ -42,7 +43,11 @@ async function principal() {
   const drive = driveDoAmbiente(cfg.GOOGLE_DRIVE_CONTA_SERVICO);
   if (drive.erro) console.error('[drive]', drive.erro);
   await anunciarSituacaoDrive(repos, drive);
-  const canal = criarCanalZapi({ instancia: cfg.ZAPI_INSTANCIA, token: cfg.ZAPI_TOKEN, clientToken: cfg.ZAPI_CLIENT_TOKEN });
+  // Plano de prontidão (D1, D2): fora da produção, só os telefones da lista recebem mensagem (vale para todo envio, inclusive alertas ao dono).
+  const canal = canalComTrava(criarCanalZapi({ instancia: cfg.ZAPI_INSTANCIA, token: cfg.ZAPI_TOKEN, clientToken: cfg.ZAPI_CLIENT_TOKEN }),
+    { ambiente: cfg.AMBIENTE, permitidos: cfg.TELEFONES_PERMITIDOS },
+    (b) => repos.registrarDecisao({ conversaId: null, clienteId: null, etapa: 'envio_bloqueado', entrada: b, saida: { ambiente: cfg.AMBIENTE } }));
+  if (cfg.AMBIENTE !== 'producao') console.warn(`[trava] ${cfg.AMBIENTE}: só ${cfg.TELEFONES_PERMITIDOS.length} telefone(s) da lista recebem mensagem.`);
   const midia = criarArmazenamento(db);
   // Parte I3b (D4): os arquivos da pasta do cliente vão para o compartimento "tarefas".
   const guardar = guardarNaTarefa(db);
@@ -136,7 +141,8 @@ async function principal() {
   await boss.work(FILAS.radarEnvios, async () => { await enviosRadar(depsRadar); });
   await boss.schedule(FILAS.radarEnvios, '* * * * *');
 
-  const app = criarServidor({ canal, repos, fila: filaDe(boss), segredo: cfg.WEBHOOK_SEGREDO, relogio });
+  const app = criarServidor({ canal, repos, fila: filaDe(boss), segredo: cfg.WEBHOOK_SEGREDO, relogio,
+    saudeToken: cfg.SAUDE_TOKEN, ambiente: cfg.AMBIENTE });
   await app.listen({ host: '0.0.0.0', port: cfg.PORTA });
 
   let encerrando = false;

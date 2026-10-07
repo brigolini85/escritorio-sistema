@@ -12,6 +12,7 @@ import { iniciais } from '@/lib/atendimento';
 import { consultaCaixa } from '@/lib/caixa';
 import { cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, turnoDaPassagem, documentosAbertos as documentosAbertosDe, type CartaoDecisao, type DecisaoBruta } from '@/lib/conversa-itens';
 import { cn } from '@/lib/cn';
+import { envioBloqueado } from '@/lib/envio-bloqueado';
 import { mascararTelefone } from '@/lib/formatos';
 import { linhaDoTempo } from '@/lib/historico';
 import { AVISO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
@@ -43,7 +44,7 @@ import { COOKIE_PAINEL_CONVERSA, painelAbertoDoCookie, rotuloDasAbas } from './p
 const AUTOR: Record<string, AutorMensagem> = { cliente: 'cliente', agente: 'agente', atendente: 'atendente', sistema: 'sistema' };
 
 type ItemHistorico =
-  | { id: string; criado_em: string; tipo: 'mensagem'; autor: AutorMensagem; nome: string | null; propria: boolean; conteudo: string | null; transcricao: string | null; arquivo: { nome: string; href: string } | null; falhou: boolean; porQue: DecisaoBruta[] | null }
+  | { id: string; criado_em: string; tipo: 'mensagem'; autor: AutorMensagem; nome: string | null; propria: boolean; conteudo: string | null; transcricao: string | null; arquivo: { nome: string; href: string } | null; falhou: boolean; bloqueada: boolean; porQue: DecisaoBruta[] | null }
   | { id: string; criado_em: string; tipo: 'nota'; nome: string | null; propria: boolean; conteudo: string | null; demanda: number | null }
   | { id: string; criado_em: string; tipo: 'cartao'; cartao: CartaoDecisao }
   | { id: string; criado_em: string; tipo: 'marco'; texto: string };
@@ -172,7 +173,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
           ? { nome: (m.conteudo ?? 'Documento').replace(/^📎\s*/u, ''), href: `/api/documentos?id=${m.documento_id}` }
           : null
         : m.arquivo_path ? { nome: m.arquivo_nome ?? 'Abrir anexo', href: `/api/arquivos?path=${encodeURIComponent(m.arquivo_path)}` } : null,
-      falhou: m.status_envio === 'falhou', porQue: porQue.get(m.id) ?? null,
+      falhou: m.status_envio === 'falhou', bloqueada: envioBloqueado(m.id_provedor), porQue: porQue.get(m.id) ?? null,
     })),
     ...cartoesDeDecisao(decisoesTela).map((c): ItemHistorico => ({ id: c.id, criado_em: c.criado_em, tipo: 'cartao', cartao: c })),
     ...marcos.map((x): ItemHistorico => ({ id: x.id, criado_em: x.criado_em, tipo: 'marco', texto: x.texto })),
@@ -354,6 +355,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
                         transcricao={m.transcricao}
                         arquivo={m.arquivo}
                         falhou={m.falhou}
+                        bloqueada={m.bloqueada}
                       >
                         {m.porQue && <PorQue decisoes={m.porQue} />}
                       </MessageBubble>

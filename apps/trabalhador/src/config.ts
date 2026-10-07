@@ -1,3 +1,4 @@
+import { normalizarTelefone } from '@escritorio/core';
 import { z } from 'zod';
 
 export const Config = z.object({
@@ -21,6 +22,13 @@ export const Config = z.object({
   SMTP_USUARIO: z.string().min(1),
   SMTP_SENHA: z.string().min(1),
   SMTP_REMETENTE: z.string().email(),
+  // Plano de prontidão (D2, revisão P2-1): obrigatório, sem padrão — sem ele a produção ficaria muda (ou o teste mandaria a cliente real).
+  AMBIENTE: z.enum(['producao', 'homologacao', 'local']),
+  // Fora da produção, só estes telefones recebem mensagem (separados por vírgula).
+  TELEFONES_PERMITIDOS: z.string().optional().transform((v) =>
+    (v ?? '').split(',').map((t) => normalizarTelefone(t.trim())).filter((t): t is string => Boolean(t))),
+  // Plano de prontidão (D3): com ele, /saude mostra os detalhes; sem ele, só { ok }.
+  SAUDE_TOKEN: z.string().optional().transform((v) => v?.trim() || undefined),
   PORTA: z.coerce.number().default(3001),
 });
 export type Config = z.infer<typeof Config>;
@@ -29,7 +37,11 @@ export function lerConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const r = Config.safeParse(env);
   if (!r.success) {
     const faltando = r.error.issues.map((i) => i.path.join('.')).join(', ');
-    throw new Error(`Configuração inválida ou faltando: ${faltando}`);
+    // D2: a variável nova é a que mais vai faltar na subida; a mensagem diz o que pôr.
+    const dica = r.error.issues.some((i) => i.path[0] === 'AMBIENTE')
+      ? '. AMBIENTE deve ser producao, homologacao ou local (fora da produção, só os TELEFONES_PERMITIDOS recebem mensagem)'
+      : '';
+    throw new Error(`Configuração inválida ou faltando: ${faltando}${dica}`);
   }
   return r.data;
 }
