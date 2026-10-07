@@ -1,4 +1,4 @@
-import { Bot, CircleAlert, Info, Mic, Paperclip, Sparkles, StickyNote, UserRound, type LucideIcon } from 'lucide-react';
+import { Bot, CircleAlert, Info, Mic, Paperclip, ShieldOff, Sparkles, StickyNote, UserRound, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 import { formatarDataHora, formatarHora, isoOuNulo } from '@/lib/formatos';
@@ -39,6 +39,7 @@ export function MessageBubble({
   transcricao,
   arquivo,
   falhou = false,
+  bloqueada = false,
   acaoFalha,
   children,
   className,
@@ -53,6 +54,8 @@ export function MessageBubble({
   arquivo?: { nome: string; href: string } | null;
   /** Envio ao WhatsApp falhou. */
   falhou?: boolean;
+  /** Prontidão (D2): o trabalhador de teste barrou o envio (número fora da lista). */
+  bloqueada?: boolean;
   /** Ex.: botão "Tentar de novo" ao lado do aviso de falha. */
   acaoFalha?: ReactNode;
   /** Conteúdo rico abaixo do texto (DiffPreview, OrderSummary, botão do CSV). */
@@ -113,6 +116,12 @@ export function MessageBubble({
         </a>
       )}
       {children}
+      {bloqueada && !falhou && (
+        <p className="flex flex-wrap items-center gap-1.5 self-start rounded-sm bg-warning-soft px-1.5 py-0.5 text-sm font-medium text-warning">
+          <ShieldOff aria-hidden size={16} strokeWidth={1.75} className="shrink-0" />
+          Não enviada: ambiente de teste
+        </p>
+      )}
       {falhou && (
         <p className="flex flex-wrap items-center gap-1.5 self-start rounded-sm bg-danger-soft px-1.5 py-0.5 text-sm font-medium text-danger">
           <CircleAlert aria-hidden size={16} strokeWidth={1.75} className="shrink-0" />

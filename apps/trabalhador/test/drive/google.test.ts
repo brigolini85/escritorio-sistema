@@ -44,7 +44,7 @@ describe('conta de serviço (D3)', () => {
     const base = {
       SUPABASE_URL: 'http://127.0.0.1:54321', SUPABASE_SERVICE_ROLE_KEY: 'k', DATABASE_URL: 'postgresql://x', ANTHROPIC_API_KEY: 'k', ZAPI_INSTANCIA: 'i',
       ZAPI_TOKEN: 't', ZAPI_CLIENT_TOKEN: 'c', WEBHOOK_SEGREDO: 'segredo-com-16-caracteres', TRANSCRICAO_BASE_URL: 'https://api.groq.com/openai/v1',
-      TRANSCRICAO_API_KEY: 'k', TRANSCRICAO_MODELO: 'w', SMTP_HOST: 'smtp', SMTP_USUARIO: 'u', SMTP_SENHA: 's', SMTP_REMETENTE: 'avisos@escritorio.com.br',
+      TRANSCRICAO_API_KEY: 'k', TRANSCRICAO_MODELO: 'w', SMTP_HOST: 'smtp', SMTP_USUARIO: 'u', SMTP_SENHA: 's', SMTP_REMETENTE: 'avisos@escritorio.com.br', AMBIENTE: 'local',
     };
     expect(lerConfig(base).GOOGLE_DRIVE_CONTA_SERVICO).toBeUndefined();
     expect(lerConfig({ ...base, GOOGLE_DRIVE_CONTA_SERVICO: '  ' }).GOOGLE_DRIVE_CONTA_SERVICO).toBeUndefined();

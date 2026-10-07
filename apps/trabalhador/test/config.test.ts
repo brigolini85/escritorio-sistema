@@ -6,7 +6,7 @@ const completo = {
   ANTHROPIC_API_KEY: 'k', ZAPI_INSTANCIA: 'i', ZAPI_TOKEN: 't', ZAPI_CLIENT_TOKEN: 'c',
   WEBHOOK_SEGREDO: 'segredo-com-16-caracteres', TRANSCRICAO_BASE_URL: 'https://api.groq.com/openai/v1',
   TRANSCRICAO_API_KEY: 'k', TRANSCRICAO_MODELO: 'whisper-large-v3', SMTP_HOST: 'smtp', SMTP_USUARIO: 'u',
-  SMTP_SENHA: 's', SMTP_REMETENTE: 'avisos@escritorio.com.br',
+  SMTP_SENHA: 's', SMTP_REMETENTE: 'avisos@escritorio.com.br', AMBIENTE: 'local',
 };
 
 describe('lerConfig', () => {
