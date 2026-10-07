@@ -65,6 +65,19 @@ export type Cenario = {
     marco?: 'agente_assumiu' | 'agente_devolveu';   // marco da conversa que precisa existir
     /** Uma mensagem só ao cliente (uma decisão de envio na conversa), e ela é desse agente (revisão da Task 9: sem a 2ª abertura do Thiago). */
     soOAgenteEnviou?: string;
+    /** Atendimento rápido: o nome do contato aparece no máximo N vezes em todas as respostas (padrão do contato: João). */
+    nomeMax?: number;
+    nomeDoContato?: string;
+    /** Total de demandas abertas pelo agente depois de cada rodada. */
+    chamadosPorRodada?: number[];
+    /** Máximo de mensagens do WhatsApp com "?" por rodada: as perguntas do que falta vão juntas numa mensagem. */
+    perguntasPorRodadaMax?: number;
+    /** Por rodada, textos que a resposta dela deve ter; "a|b" aceita qualquer um. */
+    rodadaContem?: string[][];
+    /** Cada um destes setores ("triagem" = sem setor) tem alguma demanda. */
+    setores?: string[];
+    /** Algum resumo de demanda tem o texto; "a|b" aceita qualquer um. */
+    resumoContemAlgum?: string[];
   };
 };
 
@@ -80,7 +93,9 @@ export const CENARIOS: Cenario[] = [
   { nome: 'saudação', empresas: ['Indústria X'], mensagens: ['Bom dia!'], espera: { chamadoSetor: 'nenhum', ferramentas: ['responder'] } },
   { nome: 'agradecimento recebe resposta', empresas: ['Indústria X'], mensagens: ['Obrigado!'], espera: { chamadoSetor: 'nenhum', ferramentas: ['responder'] } },
   { nome: 'guia do DAS vai para o Fiscal', empresas: ['Indústria X'], mensagens: ['Preciso da guia do DAS de setembro'], espera: { chamadoSetor: 'Fiscal' } },
-  { nome: 'abertura de filial vai para Legalização', empresas: ['Indústria X'], mensagens: ['Quero abrir uma filial em Itabira'], espera: { chamadoSetor: 'Legalização' } },
+  // Catálogo do dono (2026-10-07): filial passa primeiro pelo Comercial (orçamento) e pede a atividade antes; sem Comercial, o setor mais próximo.
+  { nome: 'abertura de filial pergunta o que falta e passa para a equipe', empresas: ['Indústria X'], mensagens: ['Quero abrir uma filial em Itabira'],
+    mensagens2: ['A mesma atividade daqui, fabricação de salgados congelados, e os sócios são os mesmos'], espera: { chamadoSetor: 'qualquer', chamadosPorRodada: [0, 1] } },
   { nome: 'holerite vai para Pessoal', empresas: ['Indústria X'], mensagens: ['Me manda o holerite do João de agosto?'], espera: { chamadoSetor: 'Pessoal' } },
   { nome: 'dúvida tributária não é respondida pelo agente', empresas: ['Indústria X'], mensagens: ['Quanto de imposto vou pagar se vender 100 mil esse mês?'],
     espera: { chamadoSetor: 'Fiscal' } },
@@ -302,4 +317,107 @@ export const CENARIOS: Cenario[] = [
     agentes: [{ slug: 'fiscal', estado: 'ligado', modo: 'mesma_voz', ferramentas: ['consultar_chamados', 'ler_demandas_setor'] }],
     mensagens: ['Oi, quem fala? Queria saber se a nota do pedido 4512 já foi emitida.'],
     espera: { agenteChamado: 'fiscal', agenteEnviou: 'fiscal', soOAgenteEnviou: 'fiscal', respostaContem: ['Thiago'], semTexto: ['Aqui é do Fiscal', 'agente fiscal', 'especialista'] } },
+  ...CENARIOS_ATENDIMENTO_RAPIDO(),
 ];
+
+// Atendimento rápido (2026-10-07): nome só no cumprimento, perguntas juntas, catálogo e contato desconhecido.
+// "atend:" no nome para rodar só estes (pnpm cenarios atend:). Dados inventados.
+function CENARIOS_ATENDIMENTO_RAPIDO(): Cenario[] {
+  const COMERCIAL = { nome: 'Comercial', descricao: 'Quem ainda não é cliente: abrir empresa com o escritório, trocar de contador para o escritório, orçamento, serviços fora do contrato' };
+  const IRPF = { nome: 'IRPF', descricao: 'Imposto de renda pessoa física: declaração, restituição, malha fina, carnê-leão, venda de imóvel, espólio' };
+  const DIRECAO = { nome: 'Direção', descricao: 'Reclamação séria, possível erro do escritório, troca de contador, outro contador pedindo documentos, fiscalização, assunto sensível' };
+  const UMA = { perguntasPorRodadaMax: 1 };
+  return [
+    // Nome do cliente só no primeiro cumprimento.
+    { nome: 'atend: nome não se repete numa conversa de 4 rodadas', empresas: ['Indústria X'],
+      mensagens: ['Bom dia! Preciso da guia do DAS de setembro'], mensagens2: ['Me manda também a guia do FGTS de setembro, por favor'],
+      mensagens3: ['E o holerite da Ana de setembro'], mensagens4: ['Valeu, obrigado!'],
+      espera: { nomeMax: 1, setores: ['Fiscal', 'Pessoal'], ...UMA } },
+    { nome: 'atend: nome não se repete com pergunta e resposta no meio', empresas: ['Indústria X'],
+      mensagens: ['Boa tarde, tudo bem?'], mensagens2: ['Quero dar férias pra Carla do caixa'], mensagens3: ['A partir de 03/11, 30 dias'],
+      mensagens4: ['Obrigado!'],
+      espera: { nomeMax: 1, chamadoSetor: 'Pessoal', chamadosPorRodada: [0, 0, 1, 1], ...UMA } },
+    // Pedido incompleto: pergunta tudo o que falta numa mensagem e abre com o que coletou.
+    { nome: 'atend: férias incompletas perguntam início e dias juntos', empresas: ['Indústria X'],
+      mensagens: ['Quero dar férias pra Carla do caixa'], mensagens2: ['Começa dia 03/11, 30 dias, ela não quer vender nada'],
+      espera: { chamadoSetor: 'Pessoal', chamadosPorRodada: [0, 1], rodadaContem: [['dia|data|quando', 'dias']], tituloContem: ['férias'],
+        resumoContem: ['Carla', '03/11'], ...UMA } },
+    { nome: 'atend: rescisão incompleta pergunta quem pediu e o último dia', empresas: ['Indústria X'],
+      mensagens: ['Vou mandar o Pedro da entrega embora'], mensagens2: ['Fui eu que dispensei. O último dia dele é sexta, 10/10, aviso indenizado'],
+      espera: { chamadoSetor: 'Pessoal', chamadosPorRodada: [0, 1], rodadaContem: [['último dia|ultimo dia|data']], resumoContem: ['Pedro', '10/10'],
+        prioridade: 'alta', ...UMA } },
+    { nome: 'atend: admissão incompleta pergunta nome, salário e início juntos', empresas: ['Indústria X'],
+      mensagens: ['Vou contratar uma moça nova pro balcão'], mensagens2: ['Juliana Alves, salário de 1.800, começa dia 13/10'],
+      espera: { chamadoSetor: 'Pessoal', chamadosPorRodada: [0, 1], rodadaContem: [['nome', 'salário|salario', 'começa|início|inicio|data']],
+        resumoContem: ['Juliana', '13/10'], resumoContemAlgum: ['1.800|1800'], ...UMA } },
+    { nome: 'atend: guia atualizada pergunta qual guia e o mês', empresas: ['Indústria X'],
+      mensagens: ['Preciso de uma guia atualizada, perdi o vencimento'], mensagens2: ['É o DAS de agosto, vou pagar amanhã'],
+      espera: { chamadoSetor: 'Fiscal', chamadosPorRodada: [0, 1], rodadaContem: [['qual guia|qual imposto|qual é a guia|das', 'mês|mes|referência']],
+        resumoContem: ['agosto'], ...UMA } },
+    { nome: 'atend: balanço sem período pergunta o período', empresas: ['Indústria X'],
+      mensagens: ['Preciso do balanço da empresa'], mensagens2: ['Do ano de 2025, é pro banco'],
+      espera: { chamadoSetor: 'Contábil', chamadosPorRodada: [0, 1], rodadaContem: [['ano|período|periodo']], resumoContem: ['2025'], ...UMA } },
+    { nome: 'atend: outra empresa (cliente atual) pergunta atividade e cidade e vai ao Comercial', empresas: ['Indústria X'], setoresExtras: [COMERCIAL],
+      mensagens: ['Quero abrir outra empresa'], mensagens2: ['Uma empresa nova, de marmitas, aqui em Contagem mesmo'],
+      espera: { chamadoSetor: 'Comercial', chamadosPorRodada: [0, 1], rodadaContem: [['atividade|ramo|o que', 'cidade|onde']], resumoContem: ['Contagem'], ...UMA } },
+    { nome: 'atend: imposto de renda pergunta de quem é a declaração', empresas: ['Indústria X'], setoresExtras: [IRPF],
+      mensagens: ['Esse ano quero que vocês façam uma declaração de imposto de renda'], mensagens2: ['É da minha esposa, Márcia Lopes'],
+      espera: { chamadoSetor: 'IRPF', chamadosPorRodada: [0, 1], rodadaContem: [['de quem|sua ou|para quem|pra quem|seu ou']], resumoContem: ['Márcia'], ...UMA } },
+    { nome: 'atend: certidão sem dizer qual pergunta qual ou para quê', empresas: ['Indústria X'],
+      mensagens: ['Preciso de uma certidão'], mensagens2: ['A negativa federal, é pra uma licitação'],
+      espera: { chamadoSetor: 'Fiscal', chamadosPorRodada: [0, 1], rodadaContem: [['qual|para que|pra que|finalidade']], resumoContem: ['licitação'], ...UMA } },
+    // Dois pedidos na mesma mensagem.
+    { nome: 'atend: dois pedidos incompletos: perguntas juntas e duas demandas', empresas: ['Indústria X'],
+      mensagens: ['Preciso dar férias pro Marcos e também preciso do balancete'],
+      mensagens2: ['As férias a partir de 01/12, 30 dias. O balancete é de setembro'],
+      espera: { setores: ['Pessoal', 'Contábil'], chamadosPorRodada: [0, 2], rodadaContem: [['dia|data|quando', 'período|periodo|mês|mes']],
+        resumoContem: ['Marcos', '01/12'], ...UMA } },
+    { nome: 'atend: dois pedidos completos: duas demandas sem perguntar', empresas: ['Indústria X'],
+      mensagens: ['Me manda a guia do DAS de setembro e o holerite da Ana de setembro'],
+      espera: { setores: ['Fiscal', 'Pessoal'], chamadosPorRodada: [2], ...UMA } },
+    // Pedido completo: abre direto.
+    { nome: 'atend: férias completas abrem direto com as informações', empresas: ['Indústria X'],
+      mensagens: ['Quero dar 30 dias de férias pra Carla do caixa a partir de 03/11, ela não vai vender nenhum dia'],
+      espera: { chamadoSetor: 'Pessoal', chamadosPorRodada: [1], tituloContem: ['férias'], resumoContem: ['Carla', '03/11'], ...UMA } },
+    { nome: 'atend: pedido de demissão completo abre direto', empresas: ['Indústria X'],
+      mensagens: ['O Pedro da entrega pediu demissão, o último dia dele é 10/10 e ele vai cumprir o aviso'],
+      espera: { chamadoSetor: 'Pessoal', chamadosPorRodada: [1], resumoContem: ['Pedro', '10/10'], ...UMA } },
+    { nome: 'atend: balancete completo abre direto', empresas: ['Indústria X'],
+      mensagens: ['Me manda o balancete de setembro de 2026, é pro banco'],
+      espera: { chamadoSetor: 'Contábil', chamadosPorRodada: [1], ...UMA } },
+    { nome: 'atend: funcionário já trabalhando pergunta o que falta e abre urgente', empresas: ['Indústria X'],
+      mensagens: ['O rapaz novo da produção começou ontem e ainda não registramos, precisa registrar'], mensagens2: ['Lucas Pereira, auxiliar de produção, salário de 1.700'],
+      espera: { chamadoSetor: 'Pessoal', chamadosPorRodada: [0, 1], prioridade: 'urgente', tituloContem: ['urgente'], rodadaContem: [['nome']], ...UMA } },
+    // Número desconhecido (regra 8).
+    { nome: 'atend: possível cliente novo é conduzido e vai ao Comercial sem preço', empresas: [], setoresExtras: [COMERCIAL],
+      mensagens: ['Oi, boa tarde! Quanto vocês cobram pra cuidar da contabilidade de uma empresa?'],
+      mensagens2: ['Sou o Ricardo. Tenho uma loja de roupas em Betim, Simples Nacional, 3 funcionários. Quero trocar de contador'],
+      espera: { chamadoSetor: 'Comercial', chamadosPorRodada: [0, 1], tituloContem: ['Novo cliente', 'Ricardo'], prioridade: 'alta',
+        rodadaContem: [['nome|chamar', 'ramo|atividade|empresa']], semTexto: ['R$', 'reais'], resumoContem: ['Betim'], ...UMA } },
+    { nome: 'atend: quem quer abrir MEI é cliente novo no Comercial', empresas: [], setoresExtras: [COMERCIAL],
+      mensagens: ['Boa tarde, quero abrir um MEI de manicure, vocês fazem?'], mensagens2: ['Sou a Bruna Dias, moro em Belo Horizonte'],
+      espera: { chamadoSetor: 'Comercial', chamadosPorRodada: [0, 1], tituloContem: ['Novo cliente', 'Bruna'], rodadaContem: [['nome|chamar', 'cidade|onde']],
+        semTexto: ['R$'], ...UMA } },
+    { nome: 'atend: cliente novo que já disse tudo é passado direto ao Comercial', empresas: [], setoresExtras: [COMERCIAL],
+      mensagens: ['Olá, sou a Paula Mendes, tenho um salão de beleza em Contagem, no Simples, 2 funcionárias, e quero trocar de contador'],
+      espera: { chamadoSetor: 'Comercial', chamadosPorRodada: [1], tituloContem: ['Novo cliente', 'Paula'], semTexto: ['R$'] } },
+    { nome: 'atend: pessoa de empresa cliente vai para a triagem', empresas: [],
+      mensagens: ['Oi, aqui é a Sandra, da Padaria Pão Quente. Preciso do holerite da Ana de setembro'],
+      espera: { chamadoSetor: 'triagem', resumoContem: ['Pão Quente'] } },
+    { nome: 'atend: pessoa de empresa cliente sem nome: abre a triagem e pede nome e empresa', empresas: [],
+      mensagens: ['Me manda a guia do DAS da minha empresa'],
+      espera: { chamadoSetor: 'triagem', rodadaContem: [['nome', 'empresa']], ...UMA } },
+    { nome: 'atend: outro contador pedindo documentos vai para a Direção', empresas: [], setoresExtras: [DIRECAO],
+      mensagens: ['Boa tarde, sou o Carlos, da Contabilidade Alfa, o novo contador da Padaria Pão Quente. Preciso que vocês me enviem os balancetes e a folha dela'],
+      espera: { chamadoSetor: 'Direção', semDocumento: true } },
+    { nome: 'atend: engano é respondido uma vez sem demanda', empresas: [],
+      mensagens: ['Oi, é da pizzaria? Queria uma calabresa grande pra entrega'],
+      espera: { chamadoSetor: 'nenhum', ferramentas: ['responder'], ...UMA } },
+    { nome: 'atend: propaganda não vira demanda', empresas: [],
+      mensagens: ['PROMOÇÃO! Planos de internet fibra 500 mega por apenas 79,90. Responda SIM para saber mais'],
+      espera: { chamadoSetor: 'nenhum', ...UMA } },
+    { nome: 'atend: cliente atual não ouve o nome a cada resposta num pedido com pergunta', empresas: ['Indústria X'],
+      mensagens: ['Oi, preciso de uma certidão negativa'], mensagens2: ['Federal, pra licitação'], mensagens3: ['Obrigado!'],
+      espera: { nomeMax: 1, chamadoSetor: 'Fiscal', ...UMA } },
+  ];
+}

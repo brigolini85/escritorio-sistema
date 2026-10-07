@@ -1,0 +1,1981 @@
+[
+  {
+    "nome": "Pedido de nota fiscal (venda ou devolução)",
+    "setor": "Fiscal",
+    "fluxo": "nota",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Faz uma nota pro mercado do centro: 10 pac de pão de queijo e 5 kg de frango",
+      "Repete a última nota do mercado",
+      "Preciso de uma nota de devolução pro fornecedor",
+      "Me tira uma nota pra amanhã cedo, pode?"
+    ],
+    "campos": [],
+    "observacoes_equipe": "FLUXO PRÓPRIO, já existe (regra 3a): o Thiago usa resumir_pedido_nota e abrir_pedido_nota, com resumo e confirmação do cliente. Este item do catálogo só aponta para esse fluxo; os campos não se repetem aqui. Nota sem venda ou com valor diferente do real vai para a Direção (assunto sensível)."
+  },
+  {
+    "nome": "Correção de nota já emitida",
+    "setor": "Fiscal",
+    "prioridade_padrao": "urgente",
+    "exemplos": [
+      "A nota de ontem saiu com a quantidade errada",
+      "Precisa corrigir a nota do mercado, o endereço tá errado",
+      "Errei o produto na nota, dá pra arrumar?"
+    ],
+    "campos": [
+      {
+        "chave": "nota",
+        "rotulo": "Qual nota",
+        "pergunta": "Qual nota? Pode ser o número ou pra quem foi e o dia.",
+        "obrigatorio": true
+      },
+      {
+        "chave": "correcao",
+        "rotulo": "O que corrigir",
+        "pergunta": "O que está errado e como deveria ser?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Prioridade urgente: Nota já emitida errada causa prejuízo imediato (regra 14). Título começa com \"URGENTE:\" (regra 3a)."
+  },
+  {
+    "nome": "Cancelamento de nota já emitida",
+    "setor": "Fiscal",
+    "prioridade_padrao": "urgente",
+    "exemplos": [
+      "Cancela a nota que saiu hoje, o cliente desistiu",
+      "Essa nota não era pra ter saído, cancela por favor",
+      "Emitiram nota em duplicidade"
+    ],
+    "campos": [
+      {
+        "chave": "nota",
+        "rotulo": "Qual nota",
+        "pergunta": "Qual nota? Pode ser o número ou pra quem foi e o dia.",
+        "obrigatorio": true
+      },
+      {
+        "chave": "motivo",
+        "rotulo": "Motivo",
+        "pergunta": "Qual o motivo do cancelamento?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade urgente: Nota já emitida a cancelar causa prejuízo imediato (regra 14). Título começa com \"URGENTE:\" (regra 3a)."
+  },
+  {
+    "nome": "Nota fiscal de serviço (NFS-e)",
+    "setor": "Fiscal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Preciso emitir uma nota de serviço",
+      "Faz uma nota de prestação de serviço pra empresa X",
+      "O cliente pediu nota do serviço que fiz mês passado"
+    ],
+    "campos": [
+      {
+        "chave": "tomador",
+        "rotulo": "Para quem (tomador)",
+        "pergunta": "Pra quem é a nota? Se tiver o CNPJ ou CPF, já me manda.",
+        "obrigatorio": true
+      },
+      {
+        "chave": "servico",
+        "rotulo": "Serviço prestado",
+        "pergunta": "Qual serviço foi feito?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "valor",
+        "rotulo": "Valor",
+        "pergunta": "Qual o valor?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "competencia",
+        "rotulo": "Mês do serviço",
+        "pergunta": "O serviço foi de qual mês?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Confirmar com o dono se nota de serviço entra no fluxo de nota (regra 3a) ou fica como demanda comum."
+  },
+  {
+    "nome": "Guia de imposto (2ª via ou atualizada)",
+    "setor": "Fiscal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Me manda o DAS desse mês",
+      "Não recebi a guia do ISS",
+      "Perdi o boleto do DAS do MEI",
+      "O DAS venceu, consegue gerar outro?",
+      "Manda a parcela do parcelamento"
+    ],
+    "campos": [
+      {
+        "chave": "guia",
+        "rotulo": "Qual guia",
+        "pergunta": "Qual guia? (DAS, DAS do MEI, ISS, ICMS, DARF, parcela de parcelamento...)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "competencia",
+        "rotulo": "Mês de referência",
+        "pergunta": "De qual mês?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "data_pagamento",
+        "rotulo": "Dia em que vai pagar",
+        "pergunta": "Se já venceu: em que dia você vai pagar?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Se o cliente disser que vence hoje ou que é urgente, a prioridade vira urgente. Guia de FGTS e INSS da folha é do Pessoal."
+  },
+  {
+    "nome": "Parcelamento de impostos",
+    "setor": "Fiscal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Tenho DAS atrasado, dá pra parcelar?",
+      "Quero parcelar os impostos em aberto",
+      "Quanto fica pra parcelar o que eu devo?"
+    ],
+    "campos": [
+      {
+        "chave": "debitos",
+        "rotulo": "O que parcelar",
+        "pergunta": "Quer parcelar o quê? (Simples, INSS, FGTS... se não souber, a equipe levanta)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "preferencia",
+        "rotulo": "Preferência de parcelas",
+        "pergunta": "Tem ideia de quantas parcelas ou de quanto consegue pagar por mês?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Não falar valores, multa ou condições com o cliente (regra 10); a equipe calcula."
+  },
+  {
+    "nome": "Certidão negativa (CND)",
+    "setor": "Fiscal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Preciso de uma certidão negativa",
+      "O banco pediu a CND",
+      "Me tira a certidão federal e do FGTS",
+      "Vou participar de licitação, preciso das certidões"
+    ],
+    "campos": [
+      {
+        "chave": "certidao",
+        "rotulo": "Qual certidão / para quê",
+        "pergunta": "Qual certidão você precisa? Se não souber, me diz pra que ela vai servir.",
+        "obrigatorio": true
+      },
+      {
+        "chave": "data_limite",
+        "rotulo": "Para quando",
+        "pergunta": "Precisa até quando?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Se houver débito, a certidão pode não sair na hora; a equipe explica. Não prometer emissão."
+  },
+  {
+    "nome": "Certificado digital (emissão ou renovação)",
+    "setor": "Fiscal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Meu certificado venceu",
+      "Preciso renovar o certificado digital",
+      "Tá dando erro no certificado, não consigo emitir nota"
+    ],
+    "campos": [
+      {
+        "chave": "titular",
+        "rotulo": "De quem",
+        "pergunta": "O certificado é da empresa ou de pessoa física (de qual sócio)?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "vencimento",
+        "rotulo": "Vencimento",
+        "pergunta": "Sabe quando ele vence ou se já venceu?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Se já venceu e está travando nota, marcar urgente."
+  },
+  {
+    "nome": "Acesso ou senha da conta gov.br",
+    "setor": "Fiscal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Não consigo entrar no gov.br",
+      "Esqueci a senha do gov",
+      "Preciso subir o nível da conta gov.br"
+    ],
+    "campos": [
+      {
+        "chave": "titular",
+        "rotulo": "De quem é a conta",
+        "pergunta": "A conta gov.br é de quem? (você ou outro sócio)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "problema",
+        "rotulo": "O que está acontecendo",
+        "pergunta": "O que está acontecendo? (esqueceu a senha, nível da conta, outra coisa)",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Nunca pedir nem aceitar senha (regra 12). Se o cliente mandar uma senha, não copiar para a demanda."
+  },
+  {
+    "nome": "Notificação ou pendência fiscal da empresa",
+    "setor": "Fiscal",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Chegou uma carta da Receita",
+      "Recebi um e-mail da Sefaz falando de pendência",
+      "A prefeitura mandou uma notificação do ISS",
+      "Apareceu pendência no e-CAC"
+    ],
+    "campos": [
+      {
+        "chave": "orgao",
+        "rotulo": "De qual órgão",
+        "pergunta": "Veio de onde? (Receita, Sefaz, prefeitura...)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "anexo",
+        "rotulo": "Foto ou PDF",
+        "pergunta": "Consegue mandar uma foto ou o PDF do que chegou?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: Esses avisos costumam ter prazo para responder. Intimação com prazo curto ou valor alto vai para a Direção (ver tipo na Direção). Possível golpe (\"Receita pedindo Pix\", link para regularizar): ver \"Possível golpe\"."
+  },
+  {
+    "nome": "Envio de notas de compra / XML",
+    "setor": "Fiscal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Segue as notas de compra do mês",
+      "Mandei os XML por e-mail",
+      "Tem umas notas de fornecedor aqui, pra quem eu mando?"
+    ],
+    "campos": [
+      {
+        "chave": "competencia",
+        "rotulo": "Mês de referência",
+        "pergunta": "De qual mês?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Normalmente é só recebimento de documento; a equipe confere se chegou tudo."
+  },
+  {
+    "nome": "Declaração anual do MEI",
+    "setor": "Fiscal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Precisa fazer a declaração do MEI?",
+      "Faz minha declaração anual do MEI",
+      "Recebi aviso da declaração do MEI"
+    ],
+    "campos": [
+      {
+        "chave": "faturamento_ano",
+        "rotulo": "Faturamento do ano",
+        "pergunta": "Sabe mais ou menos quanto faturou no ano passado? Se não souber, a equipe levanta.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Emissão de boleto para cliente da empresa",
+    "setor": "Financeiro",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Faz o boleto do mercado X",
+      "Gera o boleto da nota de ontem",
+      "O cliente pediu boleto pra pagar a nota"
+    ],
+    "campos": [
+      {
+        "chave": "cliente",
+        "rotulo": "Para quem",
+        "pergunta": "O boleto é pra qual cliente?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "referente",
+        "rotulo": "Referente a",
+        "pergunta": "É referente a qual nota ou valor?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "vencimento",
+        "rotulo": "Vencimento",
+        "pergunta": "Qual o vencimento?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Visto nas conversas reais (boleto do cliente pelo emissor). Serviço de rotina financeira; se não estiver no contrato, marcar fora_do_contrato."
+  },
+  {
+    "nome": "Dúvida sobre imposto, nota ou regime",
+    "setor": "Fiscal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Por que o DAS veio tão alto esse mês?",
+      "Qual CFOP uso nessa venda?",
+      "Compensa mudar de regime?",
+      "Tô perto do limite do MEI, e agora?",
+      "Posso vender pra fora do estado?"
+    ],
+    "campos": [
+      {
+        "chave": "duvida",
+        "rotulo": "Dúvida",
+        "pergunta": "Qual a sua dúvida?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Só a explicação geral da regra 2; nada de decidir o caso do cliente (quanto paga, se compensa). O campo costuma já vir na própria mensagem."
+  },
+  {
+    "nome": "Balanço, balancete ou DRE",
+    "setor": "Contábil",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Preciso do balanço do ano passado",
+      "Me manda o balancete",
+      "O banco pediu DRE",
+      "Preciso do livro diário"
+    ],
+    "campos": [
+      {
+        "chave": "documento",
+        "rotulo": "Qual documento",
+        "pergunta": "Qual documento? (balanço, balancete, DRE, livro...)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "periodo",
+        "rotulo": "Período",
+        "pergunta": "De qual período ou ano?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "finalidade",
+        "rotulo": "Para quê",
+        "pergunta": "É pra quê? (banco, licitação, sócio...)",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Declaração ou relação de faturamento",
+    "setor": "Contábil",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Preciso de uma declaração de faturamento assinada pelo contador",
+      "Me manda o faturamento dos últimos 12 meses",
+      "O banco pediu relação de faturamento"
+    ],
+    "campos": [
+      {
+        "chave": "periodo",
+        "rotulo": "Período",
+        "pergunta": "De qual período? (ex.: últimos 12 meses)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "finalidade",
+        "rotulo": "Para quem / o que pediram",
+        "pergunta": "É pra quem? Se o banco pediu algum modelo, me manda.",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Declaração com valor diferente do real é assunto sensível (Direção). Confirmar com o dono se este tipo fica no Contábil ou no Fiscal."
+  },
+  {
+    "nome": "Documentos para banco ou financiamento",
+    "setor": "Contábil",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "O banco tá pedindo documento da empresa pra liberar crédito",
+      "Vou financiar um carro, o que preciso?",
+      "O gerente pediu os documentos contábeis"
+    ],
+    "campos": [
+      {
+        "chave": "pedido_banco",
+        "rotulo": "O que o banco pediu",
+        "pergunta": "O que o banco pediu? Se tiver a lista, pode mandar.",
+        "obrigatorio": true
+      },
+      {
+        "chave": "data_limite",
+        "rotulo": "Para quando",
+        "pergunta": "Precisa até quando?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Regra 2: o banco costuma pedir declaração assinada pelo contador. Renda \"melhorada\" é assunto sensível (Direção)."
+  },
+  {
+    "nome": "Envio de extratos bancários",
+    "setor": "Contábil",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Segue o extrato do mês",
+      "Mandei os extratos",
+      "Qual extrato vocês precisam?"
+    ],
+    "campos": [
+      {
+        "chave": "competencia",
+        "rotulo": "Mês de referência",
+        "pergunta": "De qual mês?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "banco",
+        "rotulo": "Banco/conta",
+        "pergunta": "De qual banco ou conta?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Quanto posso retirar de lucro",
+    "setor": "Contábil",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quanto posso tirar de lucro esse mês?",
+      "Posso fazer uma retirada?",
+      "Quero distribuir lucro pros sócios"
+    ],
+    "campos": [
+      {
+        "chave": "periodo",
+        "rotulo": "Período",
+        "pergunta": "É sobre qual mês ou período?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Regra 2: pode dar a explicação geral de pró-labore x lucro; o valor quem calcula é o Contábil."
+  },
+  {
+    "nome": "Lançamento ou movimentação a informar",
+    "setor": "Contábil",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Fiz um empréstimo no banco",
+      "Coloquei dinheiro meu na empresa",
+      "Comprei um carro pela empresa",
+      "Tem um pagamento no extrato que não sei o que é"
+    ],
+    "campos": [
+      {
+        "chave": "o_que",
+        "rotulo": "O que aconteceu",
+        "pergunta": "Me conta rapidinho o que aconteceu (empréstimo, aporte, compra...)?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "valor_data",
+        "rotulo": "Valor e data",
+        "pergunta": "Sabe o valor e a data?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "anexo",
+        "rotulo": "Comprovante/contrato",
+        "pergunta": "Se tiver comprovante ou contrato, pode mandar.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Informe de rendimentos do sócio",
+    "setor": "Contábil",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Preciso do informe de rendimentos da empresa pro meu IR",
+      "Me manda o informe de lucros",
+      "Quanto recebi de pró-labore e lucro no ano?"
+    ],
+    "campos": [
+      {
+        "chave": "socio",
+        "rotulo": "Sócio",
+        "pergunta": "É de qual sócio?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "ano",
+        "rotulo": "Ano",
+        "pergunta": "De qual ano?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Comum na época do imposto de renda."
+  },
+  {
+    "nome": "Admissão de funcionário",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Vou contratar uma pessoa",
+      "Tenho funcionário novo começando segunda",
+      "Quero registrar uma moça que vai começar",
+      "Vou pegar um estagiário"
+    ],
+    "campos": [
+      {
+        "chave": "nome",
+        "rotulo": "Nome do funcionário",
+        "pergunta": "Qual o nome completo?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "funcao",
+        "rotulo": "Função",
+        "pergunta": "Qual a função?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "salario",
+        "rotulo": "Salário",
+        "pergunta": "Qual o salário?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "inicio",
+        "rotulo": "Data de início",
+        "pergunta": "Quando ele começa?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "jornada",
+        "rotulo": "Horário",
+        "pergunta": "Qual o horário de trabalho?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "tipo_contratacao",
+        "rotulo": "Tipo de contratação",
+        "pergunta": "É registro normal, estágio ou aprendiz?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "anexo",
+        "rotulo": "Documentos",
+        "pergunta": "Pode mandar os documentos dele por aqui, a equipe confere o que falta.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Regra 2: o registro vai ao governo antes de começar; quanto antes vierem os dados, melhor. Data ou salário diferente do real é assunto sensível (Direção)."
+  },
+  {
+    "nome": "Registro de funcionário que já começou",
+    "setor": "Pessoal",
+    "prioridade_padrao": "urgente",
+    "exemplos": [
+      "O funcionário já começou semana passada, precisa registrar",
+      "Esqueci de avisar, ela já tá trabalhando",
+      "Contratei e ele já começou ontem"
+    ],
+    "campos": [
+      {
+        "chave": "nome",
+        "rotulo": "Nome do funcionário",
+        "pergunta": "Qual o nome completo?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "funcao",
+        "rotulo": "Função",
+        "pergunta": "Qual a função?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "salario",
+        "rotulo": "Salário",
+        "pergunta": "Qual o salário?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "inicio",
+        "rotulo": "Dia em que começou",
+        "pergunta": "Em que dia ele começou?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "anexo",
+        "rotulo": "Documentos",
+        "pergunta": "Pode mandar os documentos dele por aqui.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade urgente: Funcionário já trabalhando sem registro (regra 14). Título começa com \"URGENTE:\". Não é assunto sensível (regra 11), a não ser que o cliente peça data ou salário diferente do real ou para deixar \"em teste\" sem registro (aí vai para a Direção)."
+  },
+  {
+    "nome": "Férias de funcionário",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quero dar férias pra fulana",
+      "Ele vai sair de férias dia 10",
+      "Calcula as férias do meu funcionário",
+      "Posso dar férias em dezembro?"
+    ],
+    "campos": [
+      {
+        "chave": "funcionario",
+        "rotulo": "Funcionário",
+        "pergunta": "Qual funcionário?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "inicio",
+        "rotulo": "Início das férias",
+        "pergunta": "A partir de que dia?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "dias",
+        "rotulo": "Quantos dias",
+        "pergunta": "Quantos dias? (30 ou dividido)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "abono",
+        "rotulo": "Vender dias",
+        "pergunta": "Ele quer vender parte das férias?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Regra 2: férias são avisadas 30 dias antes e pagas até 2 dias antes. Se o início estiver perto, marcar alta."
+  },
+  {
+    "nome": "Demissão / rescisão",
+    "setor": "Pessoal",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Vou mandar o funcionário embora",
+      "A funcionária pediu as contas",
+      "Quanto fica a rescisão dele?",
+      "Hoje é o último dia dele"
+    ],
+    "campos": [
+      {
+        "chave": "funcionario",
+        "rotulo": "Funcionário",
+        "pergunta": "Qual funcionário?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "quem_pediu",
+        "rotulo": "Quem pediu",
+        "pergunta": "Foi a empresa que dispensou ou ele que pediu pra sair?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "ultimo_dia",
+        "rotulo": "Último dia / data do aviso",
+        "pergunta": "Qual foi (ou vai ser) o último dia de trabalho?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "aviso",
+        "rotulo": "Aviso prévio",
+        "pergunta": "Vai cumprir aviso ou não?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: Rescisão tem prazo curto de pagamento contado do último dia (regra 2). Justa causa, gestante ou funcionário afastado: assunto sensível, vai para a Direção. Se o cliente já decidiu, pedir que espere o retorno da equipe."
+  },
+  {
+    "nome": "Informações para a folha do mês",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Segue as faltas do mês",
+      "Fulano fez 10 horas extras",
+      "Tem comissão pra lançar",
+      "Desconta o vale dela"
+    ],
+    "campos": [
+      {
+        "chave": "competencia",
+        "rotulo": "Mês de referência",
+        "pergunta": "De qual mês?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "informacoes",
+        "rotulo": "O que lançar",
+        "pergunta": "Me passa o que precisa lançar (faltas, horas extras, comissão, vale) e de quem.",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Holerite / contracheque",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Me manda o holerite",
+      "O funcionário pediu o contracheque",
+      "Preciso dos holerites de todo mundo"
+    ],
+    "campos": [
+      {
+        "chave": "funcionario",
+        "rotulo": "Funcionário",
+        "pergunta": "De qual funcionário? Ou de todos?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "competencia",
+        "rotulo": "Mês de referência",
+        "pergunta": "De qual mês?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Salário só para contatos autorizados da empresa (regra 12)."
+  },
+  {
+    "nome": "Guia de FGTS ou INSS da folha",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Me manda a guia do FGTS",
+      "Cadê o INSS desse mês?",
+      "O FGTS venceu, gera de novo?"
+    ],
+    "campos": [
+      {
+        "chave": "guia",
+        "rotulo": "Qual guia",
+        "pergunta": "Qual guia? (FGTS, INSS ou as duas)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "competencia",
+        "rotulo": "Mês de referência",
+        "pergunta": "De qual mês?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Se o cliente disser que vence hoje, marcar urgente."
+  },
+  {
+    "nome": "Atestado ou afastamento",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "A funcionária trouxe atestado de 3 dias",
+      "Ele vai ficar afastado pelo INSS",
+      "Segue o atestado"
+    ],
+    "campos": [
+      {
+        "chave": "funcionario",
+        "rotulo": "Funcionário",
+        "pergunta": "Qual funcionário?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "periodo",
+        "rotulo": "Período",
+        "pergunta": "Quantos dias e a partir de quando?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "anexo",
+        "rotulo": "Atestado",
+        "pergunta": "Pode mandar a foto do atestado?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Dispensar funcionário afastado é assunto sensível (Direção)."
+  },
+  {
+    "nome": "Gravidez / licença-maternidade",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Minha funcionária está grávida",
+      "Ela vai entrar de licença-maternidade",
+      "O bebê nasceu, e agora?"
+    ],
+    "campos": [
+      {
+        "chave": "funcionario",
+        "rotulo": "Funcionário",
+        "pergunta": "Qual funcionário?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "data",
+        "rotulo": "Data prevista ou de início",
+        "pergunta": "Qual a data prevista do parto ou do início da licença?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Dispensar gestante é assunto sensível (Direção)."
+  },
+  {
+    "nome": "Mudança de salário, função ou horário",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Vou dar aumento pro fulano",
+      "Ela vai mudar de cargo",
+      "Quero mudar o horário dele"
+    ],
+    "campos": [
+      {
+        "chave": "funcionario",
+        "rotulo": "Funcionário",
+        "pergunta": "Qual funcionário?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "mudanca",
+        "rotulo": "O que muda",
+        "pergunta": "O que muda? (salário, função, horário... e como fica)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "a_partir",
+        "rotulo": "A partir de quando",
+        "pergunta": "A partir de quando?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "13º salário",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quando paga o 13º?",
+      "Me manda o cálculo do 13º",
+      "Vou pagar a primeira parcela do 13º"
+    ],
+    "campos": [
+      {
+        "chave": "parcela",
+        "rotulo": "Parcela",
+        "pergunta": "É a 1ª ou a 2ª parcela?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "funcionario",
+        "rotulo": "Funcionário",
+        "pergunta": "De todos ou de algum funcionário?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Pró-labore (incluir ou mudar valor)",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quero aumentar meu pró-labore",
+      "Coloca meu sócio no pró-labore",
+      "Quero parar de tirar pró-labore"
+    ],
+    "campos": [
+      {
+        "chave": "socio",
+        "rotulo": "Sócio",
+        "pergunta": "De qual sócio?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "valor",
+        "rotulo": "Valor novo",
+        "pergunta": "Qual valor?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "a_partir",
+        "rotulo": "A partir de quando",
+        "pergunta": "A partir de qual mês?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Regra 2: pode explicar pró-labore x lucro; não opinar sobre valor."
+  },
+  {
+    "nome": "Acidente de trabalho",
+    "setor": "Pessoal",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Meu funcionário se machucou trabalhando",
+      "Teve um acidente aqui na loja",
+      "Ele caiu no caminho do trabalho"
+    ],
+    "campos": [
+      {
+        "chave": "funcionario",
+        "rotulo": "Funcionário",
+        "pergunta": "Qual funcionário?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "data",
+        "rotulo": "Quando foi",
+        "pergunta": "Quando aconteceu?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "o_que",
+        "rotulo": "O que aconteceu",
+        "pergunta": "Me conta rapidinho o que aconteceu.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: A comunicação do acidente tem prazo curto."
+  },
+  {
+    "nome": "Documento ou declaração para funcionário",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Preciso de uma declaração de que ela trabalha aqui",
+      "Me manda o informe de rendimentos dos funcionários",
+      "O funcionário pediu o extrato do FGTS",
+      "Preciso da ficha de registro"
+    ],
+    "campos": [
+      {
+        "chave": "funcionario",
+        "rotulo": "Funcionário",
+        "pergunta": "De qual funcionário? Ou de todos?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "documento",
+        "rotulo": "Qual documento",
+        "pergunta": "Qual documento?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Dúvida trabalhista",
+    "setor": "Pessoal",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Posso descontar a falta?",
+      "Como funciona o banco de horas?",
+      "Tenho que pagar vale-transporte?",
+      "Posso mudar a escala dele?"
+    ],
+    "campos": [
+      {
+        "chave": "duvida",
+        "rotulo": "Dúvida",
+        "pergunta": "Qual a sua dúvida?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Só a explicação geral da regra 2; o caso concreto é da equipe."
+  },
+  {
+    "nome": "Abrir outra empresa ou filial (cliente atual)",
+    "setor": "Comercial",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quero abrir outra empresa",
+      "Vou abrir uma filial em outra cidade",
+      "Quero abrir um CNPJ pra minha esposa",
+      "Vou abrir mais uma loja"
+    ],
+    "campos": [
+      {
+        "chave": "tipo",
+        "rotulo": "Empresa nova ou filial",
+        "pergunta": "É uma empresa nova ou uma filial desta?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "atividade",
+        "rotulo": "Atividade",
+        "pergunta": "Qual vai ser a atividade?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "cidade",
+        "rotulo": "Cidade",
+        "pergunta": "Em qual cidade?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "socios",
+        "rotulo": "Sócios",
+        "pergunta": "Quem vão ser os sócios?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Passa primeiro pelo Comercial para orçamento; aprovado, o Comercial encaminha à Legalização. Empresa no nome de outra pessoa para esconder o dono real é assunto sensível (Direção)."
+  },
+  {
+    "nome": "Mudança de endereço da empresa",
+    "setor": "Legalização",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Vou mudar a empresa de endereço",
+      "Mudamos de sala",
+      "Preciso trocar o endereço do CNPJ"
+    ],
+    "campos": [
+      {
+        "chave": "endereco",
+        "rotulo": "Endereço novo",
+        "pergunta": "Qual o endereço novo?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "a_partir",
+        "rotulo": "A partir de quando",
+        "pergunta": "A partir de quando?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Mudança de endereço pode exigir alvará novo; a equipe avalia."
+  },
+  {
+    "nome": "Entrada ou saída de sócio",
+    "setor": "Legalização",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quero tirar meu sócio",
+      "Vou colocar minha filha de sócia",
+      "Meu sócio vai sair da empresa"
+    ],
+    "campos": [
+      {
+        "chave": "mudanca",
+        "rotulo": "Quem entra ou sai",
+        "pergunta": "Quem entra e/ou quem sai?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "participacao",
+        "rotulo": "Como fica a divisão",
+        "pergunta": "Como fica a divisão entre os sócios?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Sócio \"de fachada\" (empresa no nome de outra pessoa) é assunto sensível (Direção)."
+  },
+  {
+    "nome": "Mudança ou inclusão de atividade",
+    "setor": "Legalização",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quero incluir uma atividade no CNPJ",
+      "Vou começar a vender pela internet também",
+      "Preciso de outro CNAE"
+    ],
+    "campos": [
+      {
+        "chave": "atividade",
+        "rotulo": "Atividade nova",
+        "pergunta": "Qual atividade quer incluir ou trocar? Pode descrever do seu jeito.",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Outra alteração no contrato social",
+    "setor": "Legalização",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quero mudar o nome da empresa",
+      "Vou aumentar o capital social",
+      "Quero trocar o administrador"
+    ],
+    "campos": [
+      {
+        "chave": "mudanca",
+        "rotulo": "O que mudar",
+        "pergunta": "O que você quer mudar?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Encerrar a empresa",
+    "setor": "Legalização",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quero fechar a empresa",
+      "Como dou baixa no CNPJ?",
+      "Quero cancelar o MEI"
+    ],
+    "campos": [
+      {
+        "chave": "motivo",
+        "rotulo": "Motivo",
+        "pergunta": "Se puder me contar o motivo, ajuda a equipe.",
+        "obrigatorio": false
+      },
+      {
+        "chave": "situacao",
+        "rotulo": "Funcionário ou movimento",
+        "pergunta": "A empresa ainda tem funcionário ou movimento?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Se o cliente quer trocar de contador ou cancelar o contrato com o escritório (e não fechar a empresa), é da Direção."
+  },
+  {
+    "nome": "Alvará ou licença",
+    "setor": "Legalização",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Meu alvará venceu",
+      "A vigilância sanitária veio aqui",
+      "Preciso do alvará dos bombeiros",
+      "A prefeitura pediu a licença de funcionamento"
+    ],
+    "campos": [
+      {
+        "chave": "licenca",
+        "rotulo": "Qual alvará/licença",
+        "pergunta": "Qual alvará ou licença? Se não souber, me diz quem pediu.",
+        "obrigatorio": true
+      },
+      {
+        "chave": "vencimento",
+        "rotulo": "Vencimento ou prazo",
+        "pergunta": "Sabe quando vence ou se tem prazo?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "anexo",
+        "rotulo": "Foto do aviso",
+        "pergunta": "Se tiver algum papel ou aviso, pode mandar a foto.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Fiscalização acontecendo no local é da Direção (urgente)."
+  },
+  {
+    "nome": "Inscrição estadual ou municipal",
+    "setor": "Legalização",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Preciso de inscrição estadual",
+      "Vou começar a vender produto, preciso de IE?",
+      "Minha inscrição municipal tá irregular"
+    ],
+    "campos": [
+      {
+        "chave": "inscricao",
+        "rotulo": "Qual inscrição / o que precisa",
+        "pergunta": "Qual inscrição (estadual ou municipal) e o que precisa? (abrir, alterar, regularizar)",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Sair do MEI (virar ME)",
+    "setor": "Legalização",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Passei do limite do MEI",
+      "Quero deixar de ser MEI",
+      "Vou contratar mais gente, preciso sair do MEI?"
+    ],
+    "campos": [
+      {
+        "chave": "motivo",
+        "rotulo": "Motivo",
+        "pergunta": "O que motivou? (faturamento, sócio, funcionário...)",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Não falar de imposto a mais nem de enquadramento além da explicação geral da regra 2."
+  },
+  {
+    "nome": "Documento da empresa (contrato social, cartão CNPJ)",
+    "setor": "Legalização",
+    "fluxo": "documento",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Me manda o contrato social",
+      "Preciso do cartão CNPJ",
+      "Me passa a última alteração do contrato"
+    ],
+    "campos": [
+      {
+        "chave": "documento",
+        "rotulo": "Qual documento",
+        "pergunta": "Qual documento?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "FLUXO PRÓPRIO (regra 3b): se o documento estiver no sistema e puder ser enviado, o Thiago envia; dados cadastrais ele informa (regra 3c). Só vira demanda quando não puder enviar."
+  },
+  {
+    "nome": "CNPJ com pendência (inapto, suspenso)",
+    "setor": "Legalização",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Meu CNPJ está inapto",
+      "O banco disse que o CNPJ tá suspenso",
+      "Apareceu irregularidade no cadastro da empresa"
+    ],
+    "campos": [
+      {
+        "chave": "anexo",
+        "rotulo": "Print",
+        "pergunta": "Se tiver um print do que apareceu, pode mandar.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: Pode travar nota, conta e certidões."
+  },
+  {
+    "nome": "Possível novo cliente",
+    "setor": "Comercial",
+    "fluxo": "novo_cliente",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Quanto vocês cobram pra cuidar de uma empresa?",
+      "Quero abrir uma empresa, vocês fazem?",
+      "Quero trocar de contador",
+      "Vocês atendem MEI?",
+      "Fulano me indicou vocês"
+    ],
+    "campos": [
+      {
+        "chave": "nome",
+        "rotulo": "Nome",
+        "pergunta": "Como posso te chamar?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "o_que_precisa",
+        "rotulo": "O que precisa",
+        "pergunta": "Me conta o que você precisa?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "tem_empresa",
+        "rotulo": "Já tem empresa?",
+        "pergunta": "Você já tem empresa aberta ou vai abrir?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "ramo",
+        "rotulo": "Ramo / atividade",
+        "pergunta": "Qual o ramo (ou o que pretende abrir)?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "cidade",
+        "rotulo": "Cidade",
+        "pergunta": "Em qual cidade?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "regime",
+        "rotulo": "Regime atual",
+        "pergunta": "Sabe se é MEI, Simples ou outro?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "funcionarios",
+        "rotulo": "Funcionários",
+        "pergunta": "Tem ou vai ter funcionários? Quantos?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "como_conheceu",
+        "rotulo": "Como conheceu",
+        "pergunta": "Como você conheceu o escritório?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: Contato novo esfria rápido; o dono quer saber logo. Contato não cadastrado. O dono recebe o aviso. Preço só pela resposta pronta, se houver; nunca inventar valor. Pergunte o que falta numa mensagem só."
+  },
+  {
+    "nome": "Contratar serviço novo ou pedir orçamento (cliente atual)",
+    "setor": "Comercial",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quanto fica pra vocês fazerem minha folha também?",
+      "Vocês fazem o IR do meu sócio?",
+      "Quero um orçamento pra abrir outra empresa",
+      "Quanto custa uma alteração de contrato?"
+    ],
+    "campos": [
+      {
+        "chave": "servico",
+        "rotulo": "Serviço",
+        "pergunta": "Qual serviço você quer?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Marcar fora_do_contrato = true quando não estiver nos serviços contratados (regra 5)."
+  },
+  {
+    "nome": "Indicação de cliente",
+    "setor": "Comercial",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Tenho um amigo que quer contador",
+      "Indiquei vocês pra minha cunhada",
+      "Posso passar o contato de vocês pra uma pessoa?"
+    ],
+    "campos": [
+      {
+        "chave": "indicado",
+        "rotulo": "Quem é",
+        "pergunta": "Qual o nome da pessoa?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "contato",
+        "rotulo": "Como falar com ela",
+        "pergunta": "Quer passar o contato dela, ou prefere passar o nosso pra ela?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "o_que_precisa",
+        "rotulo": "O que precisa",
+        "pergunta": "Sabe o que ela precisa?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Nunca confirmar que alguém já é cliente do escritório (regra 12)."
+  },
+  {
+    "nome": "2ª via do boleto de honorários",
+    "setor": "Financeiro",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Me manda o boleto do escritório",
+      "Não recebi o boleto da mensalidade",
+      "O boleto venceu, manda outro"
+    ],
+    "campos": [
+      {
+        "chave": "competencia",
+        "rotulo": "Mês de referência",
+        "pergunta": "De qual mês?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "pede_valores = true (regra 12a)."
+  },
+  {
+    "nome": "Dúvida sobre valor cobrado pelo escritório",
+    "setor": "Financeiro",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Por que o boleto veio mais alto?",
+      "Essa cobrança é do quê?",
+      "Fui cobrado duas vezes"
+    ],
+    "campos": [
+      {
+        "chave": "cobranca",
+        "rotulo": "Qual cobrança",
+        "pergunta": "De qual mês ou qual cobrança?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "pede_valores = true. Reclamação séria sobre cobrança vai para a Direção."
+  },
+  {
+    "nome": "Comprovante de pagamento de honorários",
+    "setor": "Financeiro",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Segue o comprovante",
+      "Já paguei o boleto",
+      "Paguei por Pix, manda pra quem?"
+    ],
+    "campos": [
+      {
+        "chave": "anexo",
+        "rotulo": "Comprovante",
+        "pergunta": "Pode mandar o comprovante?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "competencia",
+        "rotulo": "Mês",
+        "pergunta": "É de qual mês?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Nunca confirmar Pix ou dados bancários que não estejam nas orientações do escritório (regra 12)."
+  },
+  {
+    "nome": "Contrato ou forma de cobrança",
+    "setor": "Financeiro",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Dá pra mudar o vencimento do boleto?",
+      "Manda o boleto pra outro e-mail",
+      "Preciso de cópia do contrato com vocês",
+      "Quero pagar no cartão"
+    ],
+    "campos": [
+      {
+        "chave": "pedido",
+        "rotulo": "O que mudar ou o que precisa",
+        "pergunta": "O que você precisa mudar (ou qual documento)?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Cancelar o contrato ou trocar de contador é da Direção."
+  },
+  {
+    "nome": "Nota fiscal dos honorários",
+    "setor": "Financeiro",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Preciso da nota do escritório",
+      "Emite a nota da mensalidade?",
+      "Minha empresa precisa da NF dos honorários"
+    ],
+    "campos": [
+      {
+        "chave": "competencia",
+        "rotulo": "Mês de referência",
+        "pergunta": "De qual mês?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Possível golpe em nome do escritório",
+    "setor": "Financeiro",
+    "prioridade_padrao": "urgente",
+    "exemplos": [
+      "Recebi um boleto diferente do escritório",
+      "Mandaram mensagem dizendo que é o número novo de vocês",
+      "A Receita me mandou um Pix pra pagar",
+      "Chegou um link pra regularizar meu CPF"
+    ],
+    "campos": [
+      {
+        "chave": "anexo",
+        "rotulo": "Print",
+        "pergunta": "Não paga ainda, tá? Me manda um print do que chegou.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade urgente: Possível golpe (regra 14). Título começa com \"URGENTE:\" (regra 12). Pedir para não pagar ainda. Nunca confirmar dados bancários, Pix, telefone ou link. Confirmar com o dono o setor (Financeiro ou Direção)."
+  },
+  {
+    "nome": "Fazer a declaração de imposto de renda",
+    "setor": "IRPF",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quero fazer meu imposto de renda",
+      "Vocês fazem a declaração da minha esposa?",
+      "Já posso mandar os documentos do IR?",
+      "Preciso declarar esse ano?"
+    ],
+    "campos": [
+      {
+        "chave": "titular",
+        "rotulo": "De quem é a declaração",
+        "pergunta": "A declaração é sua ou de outra pessoa (cônjuge, filho, pai...)?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "anterior",
+        "rotulo": "Declarou com o escritório antes",
+        "pergunta": "Ano passado a declaração foi feita com a gente?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "A equipe pede os documentos depois; não listar documentos sem orientação do escritório. Se não for serviço contratado, marcar fora_do_contrato."
+  },
+  {
+    "nome": "Restituição",
+    "setor": "IRPF",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quando cai minha restituição?",
+      "Minha restituição não caiu",
+      "Fui no lote?"
+    ],
+    "campos": [
+      {
+        "chave": "titular",
+        "rotulo": "De quem é a declaração",
+        "pergunta": "A declaração é sua ou de outra pessoa (cônjuge, filho, pai...)?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "ano",
+        "rotulo": "Ano",
+        "pergunta": "De qual ano?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Nunca prometer data de restituição (regra 10)."
+  },
+  {
+    "nome": "Malha fina (pessoa física)",
+    "setor": "IRPF",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Caí na malha fina",
+      "Recebi carta da Receita do imposto de renda",
+      "Minha declaração tá com pendência"
+    ],
+    "campos": [
+      {
+        "chave": "titular",
+        "rotulo": "De quem é a declaração",
+        "pergunta": "A declaração é sua ou de outra pessoa (cônjuge, filho, pai...)?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "ano",
+        "rotulo": "Ano",
+        "pergunta": "De qual ano?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "anexo",
+        "rotulo": "Aviso",
+        "pergunta": "Se tiver o aviso ou print, pode mandar.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: Costuma ter prazo para resolver."
+  },
+  {
+    "nome": "Carnê-leão (aluguel, autônomo, exterior)",
+    "setor": "IRPF",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Recebo aluguel, preciso pagar algo?",
+      "Faz meu carnê-leão",
+      "Recebi dinheiro de fora do país"
+    ],
+    "campos": [
+      {
+        "chave": "titular",
+        "rotulo": "De quem",
+        "pergunta": "É seu ou de outra pessoa?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "rendimento",
+        "rotulo": "Tipo de rendimento",
+        "pergunta": "Que tipo de rendimento? (aluguel, trabalho autônomo, exterior...)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "competencia",
+        "rotulo": "Mês",
+        "pergunta": "De qual mês?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Venda de imóvel ou bem",
+    "setor": "IRPF",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Vendi um apartamento, tenho que pagar imposto?",
+      "Vou vender meu carro",
+      "Vendi um terreno mês passado"
+    ],
+    "campos": [
+      {
+        "chave": "bem",
+        "rotulo": "O que vendeu",
+        "pergunta": "O que foi vendido?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "data",
+        "rotulo": "Data da venda",
+        "pergunta": "Quando foi (ou vai ser) a venda?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "valor",
+        "rotulo": "Valor",
+        "pergunta": "Qual o valor da venda?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Não dizer se paga imposto nem quanto (regra 2)."
+  },
+  {
+    "nome": "Falecimento / espólio",
+    "setor": "IRPF",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Meu pai faleceu, como fica o imposto de renda dele?",
+      "Preciso fazer a declaração de espólio",
+      "O inventário tá começando"
+    ],
+    "campos": [
+      {
+        "chave": "falecido",
+        "rotulo": "Quem faleceu",
+        "pergunta": "Sinto muito. Pode me dizer quem faleceu e qual seu parentesco?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "data",
+        "rotulo": "Data do falecimento",
+        "pergunta": "Quando foi o falecimento?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Tratar com cuidado; sem pressa nem lista de perguntas."
+  },
+  {
+    "nome": "Retificar declaração",
+    "setor": "IRPF",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Esqueci de colocar um informe",
+      "Preciso corrigir minha declaração",
+      "Apareceu um rendimento que não declarei"
+    ],
+    "campos": [
+      {
+        "chave": "titular",
+        "rotulo": "De quem é a declaração",
+        "pergunta": "A declaração é sua ou de outra pessoa (cônjuge, filho, pai...)?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "ano",
+        "rotulo": "Ano",
+        "pergunta": "De qual ano?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "o_que",
+        "rotulo": "O que faltou ou mudou",
+        "pergunta": "O que faltou ou precisa corrigir?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Guia (quota) do imposto de renda",
+    "setor": "IRPF",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Me manda a guia do IR",
+      "Cadê a quota desse mês?",
+      "Quero pagar o IR à vista"
+    ],
+    "campos": [
+      {
+        "chave": "titular",
+        "rotulo": "De quem é a declaração",
+        "pergunta": "A declaração é sua ou de outra pessoa (cônjuge, filho, pai...)?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "quota",
+        "rotulo": "Qual quota",
+        "pergunta": "Qual quota ou mês?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": null
+  },
+  {
+    "nome": "Cópia, recibo ou dúvida do imposto de renda",
+    "setor": "IRPF",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Me manda o recibo da declaração",
+      "Preciso da cópia do IR pro banco",
+      "Posso colocar minha mãe de dependente?"
+    ],
+    "campos": [
+      {
+        "chave": "titular",
+        "rotulo": "De quem é a declaração",
+        "pergunta": "A declaração é sua ou de outra pessoa (cônjuge, filho, pai...)?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "pedido",
+        "rotulo": "O que precisa",
+        "pergunta": "O que você precisa? (cópia, recibo, dúvida)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "ano",
+        "rotulo": "Ano",
+        "pergunta": "De qual ano?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Declaração \"melhorada\" para banco é assunto sensível (Direção)."
+  },
+  {
+    "nome": "Reclamação séria ou possível erro do escritório",
+    "setor": "Direção",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Paguei multa por erro de vocês",
+      "Isso é um absurdo, ninguém me responde",
+      "A guia veio errada e eu paguei"
+    ],
+    "campos": [
+      {
+        "chave": "o_que",
+        "rotulo": "O que aconteceu",
+        "pergunta": "Me conta o que aconteceu, que eu passo direto pra direção.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: Risco de perder o cliente. Receber sem discutir nem se defender; não prometer reembolso."
+  },
+  {
+    "nome": "Cancelamento do contrato ou troca de contador",
+    "setor": "Direção",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Quero cancelar o contrato",
+      "Vou trocar de contador",
+      "O novo contador vai entrar em contato"
+    ],
+    "campos": [
+      {
+        "chave": "motivo",
+        "rotulo": "Motivo",
+        "pergunta": "Se puder me contar o motivo, ajuda a gente.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: Risco de perder o cliente. Não tentar convencer; só registrar e avisar que a direção vai retornar."
+  },
+  {
+    "nome": "Outro contador pedindo documentos",
+    "setor": "Direção",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Sou o novo contador da empresa, preciso dos arquivos",
+      "O contador novo pediu o balanço e as senhas",
+      "Pode mandar os documentos pro meu outro contador?"
+    ],
+    "campos": [
+      {
+        "chave": "escritorio",
+        "rotulo": "Quem pede",
+        "pergunta": "De qual escritório ou contador é o pedido?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "documentos",
+        "rotulo": "Quais documentos",
+        "pergunta": "Quais documentos foram pedidos?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: Envolve saída de cliente e sigilo. Regra 12: nunca enviar documento a terceiro; vai para a Direção."
+  },
+  {
+    "nome": "Fiscalização no local",
+    "setor": "Direção",
+    "prioridade_padrao": "urgente",
+    "exemplos": [
+      "Tem um fiscal aqui na loja agora",
+      "A vigilância tá aqui pedindo documento",
+      "Chegou o fiscal do trabalho"
+    ],
+    "campos": [
+      {
+        "chave": "orgao",
+        "rotulo": "Qual órgão",
+        "pergunta": "Qual órgão? (prefeitura, Receita, trabalho, vigilância...)",
+        "obrigatorio": true
+      },
+      {
+        "chave": "pedido",
+        "rotulo": "O que pediram",
+        "pergunta": "O que eles estão pedindo?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade urgente: Fiscalização acontecendo agora (regra 14). Título começa com \"URGENTE:\". Regra 2: manter a calma, ser cordial, pedir cópia de tudo e falar com o escritório antes de assinar."
+  },
+  {
+    "nome": "Intimação com prazo curto ou valor alto",
+    "setor": "Direção",
+    "prioridade_padrao": "urgente",
+    "exemplos": [
+      "Recebi uma intimação com prazo de poucos dias",
+      "Chegou auto de infração com valor alto",
+      "Recebi uma citação"
+    ],
+    "campos": [
+      {
+        "chave": "orgao",
+        "rotulo": "De qual órgão",
+        "pergunta": "Veio de onde?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "anexo",
+        "rotulo": "Foto ou PDF",
+        "pergunta": "Consegue mandar foto ou PDF do documento?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "prazo",
+        "rotulo": "Prazo",
+        "pergunta": "Diz algum prazo no documento?",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade urgente: Prazo curto ou valor alto. Título começa com \"URGENTE:\"."
+  },
+  {
+    "nome": "Pedido de parecer estratégico",
+    "setor": "Direção",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "Quero vender minha empresa",
+      "Vale a pena abrir uma holding?",
+      "Quero reorganizar as empresas da família"
+    ],
+    "campos": [
+      {
+        "chave": "assunto",
+        "rotulo": "Assunto",
+        "pergunta": "Me conta em poucas palavras o que você está pensando?",
+        "obrigatorio": true
+      }
+    ],
+    "observacoes_equipe": "Dúvida técnica comum (ex.: \"compensa mudar de regime?\") vai para o setor técnico, não para cá."
+  },
+  {
+    "nome": "Assunto sensível: funcionário ou salário fora da regra",
+    "setor": "Direção",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Quero deixar ela uns meses em teste sem registrar",
+      "Dá pra registrar com salário menor e pagar o resto por fora?",
+      "Posso pagar ele como MEI?",
+      "Registra com data de mês que vem"
+    ],
+    "campos": [
+      {
+        "chave": "funcionario",
+        "rotulo": "Funcionário",
+        "pergunta": "Qual funcionário?",
+        "obrigatorio": false
+      },
+      {
+        "chave": "contexto",
+        "rotulo": "Contexto",
+        "pergunta": "Me conta rapidinho a situação.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: Assunto sensível (regra 14). ASSUNTO SENSÍVEL (regra 11). Pedido exatamente como o cliente fez; resumo com \"Setores envolvidos: Pessoal\". Com o cliente: sem julgar, sem negar, sem ensinar."
+  },
+  {
+    "nome": "Assunto sensível: nota, faturamento ou declaração fora da regra",
+    "setor": "Direção",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Faz uma nota pra eu comprovar renda",
+      "Dá pra deixar umas vendas de fora?",
+      "Melhora minha declaração pro banco",
+      "Coloca a empresa no nome da minha mãe",
+      "Faz um recibo com outra data"
+    ],
+    "campos": [
+      {
+        "chave": "contexto",
+        "rotulo": "Contexto",
+        "pergunta": "Me conta rapidinho a situação.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: Assunto sensível (regra 14). ASSUNTO SENSÍVEL (regra 11). Resumo com \"Setores envolvidos:\" (Fiscal, Contábil, Legalização ou IRPF, conforme o caso)."
+  },
+  {
+    "nome": "Assunto sensível: demissão delicada",
+    "setor": "Direção",
+    "prioridade_padrao": "alta",
+    "exemplos": [
+      "Vou dar justa causa nele",
+      "Quero mandar embora a funcionária grávida",
+      "Ele tá afastado, posso demitir?"
+    ],
+    "campos": [
+      {
+        "chave": "funcionario",
+        "rotulo": "Funcionário",
+        "pergunta": "Qual funcionário?",
+        "obrigatorio": true
+      },
+      {
+        "chave": "contexto",
+        "rotulo": "O que aconteceu",
+        "pergunta": "Me conta rapidinho o que aconteceu.",
+        "obrigatorio": false
+      }
+    ],
+    "observacoes_equipe": "Prioridade alta: Assunto sensível (regra 14). ASSUNTO SENSÍVEL (regra 11), \"Setores envolvidos: Pessoal\". Se o cliente já decidiu, pedir que espere o retorno da equipe antes de agir."
+  },
+  {
+    "nome": "Outro / não está no catálogo",
+    "setor": null,
+    "fluxo": "outro",
+    "prioridade_padrao": "normal",
+    "exemplos": [
+      "(qualquer pedido que não combine com nenhum tipo acima)"
+    ],
+    "campos": [],
+    "observacoes_equipe": "Caminho da situação nova (desenho, seção 4): o Thiago avisa o dono perguntando como atender e retoma a conversa com a resposta dele."
+  }
+]
