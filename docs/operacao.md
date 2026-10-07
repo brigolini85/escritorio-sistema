@@ -32,7 +32,7 @@ Para cada ambiente (homologação e produção), crie dois apps a partir do repo
 2. **Painel**: em "Build", escolha **Dockerfile** e informe `Dockerfile.painel`. Porta: **3000**. Em "Build arguments", informe `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA` do projeto Supabase daquele ambiente.
 3. Em cada app, **desligue a publicação automática** ("Auto deploy"). Quem publica é o GitHub, e só depois que os testes passam.
 4. Em cada app, copie a URL de **Deploy webhook**. Ela vai para os segredos do GitHub (passo 2.3).
-5. Em "Environment", cole as variáveis do arquivo `.env.example`, preenchidas com os valores daquele ambiente:
+5. Em "Environment", cole **em cada app só as variáveis dele**: no Trabalhador, as de `deploy/trabalhador.env.example`; no Painel, as de `deploy/painel.env.example` (o painel não recebe as chaves da Anthropic, Z-API, Groq, SMTP nem Drive). Preencha com os valores daquele ambiente. No Trabalhador, `AMBIENTE` é obrigatório: `producao` na produção; na homologação, `homologacao` e `TELEFONES_PERMITIDOS` com os celulares de teste (só eles recebem mensagem). A lista completa:
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA`, `DATABASE_URL` (o endereço do Session pooler);
    - `ANTHROPIC_API_KEY` (a chave do Claude);
    - `ZAPI_INSTANCIA`, `ZAPI_TOKEN`, `ZAPI_CLIENT_TOKEN` (da instância da Z-API daquele ambiente);
