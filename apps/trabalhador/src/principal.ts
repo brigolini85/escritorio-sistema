@@ -141,7 +141,8 @@ async function principal() {
   await boss.work(FILAS.radarEnvios, async () => { await enviosRadar(depsRadar); });
   await boss.schedule(FILAS.radarEnvios, '* * * * *');
 
-  const app = criarServidor({ canal, repos, fila: filaDe(boss), segredo: cfg.WEBHOOK_SEGREDO, relogio });
+  const app = criarServidor({ canal, repos, fila: filaDe(boss), segredo: cfg.WEBHOOK_SEGREDO, relogio,
+    saudeToken: cfg.SAUDE_TOKEN, ambiente: cfg.AMBIENTE });
   await app.listen({ host: '0.0.0.0', port: cfg.PORTA });
 
   let encerrando = false;

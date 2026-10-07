@@ -1,18 +1,41 @@
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { telefoneDoWhatsApp } from '@escritorio/core';
 import type { Repos } from '@escritorio/db';
 import type { CanalWhatsApp } from './canal/tipos';
 import { FILAS, agendarProcessamento, type Fila } from './fila';
 
-export type DepsServidor = { canal: CanalWhatsApp; repos: Repos; fila: Fila; segredo: string; relogio: () => Date };
+export type DepsServidor = {
+  canal: CanalWhatsApp; repos: Repos; fila: Fila; segredo: string; relogio: () => Date;
+  /** Prontidão (D3): com ele, /saude mostra os detalhes. */
+  saudeToken?: string;
+  /** Prontidão (D2): aparece nos detalhes do /saude (produção sem AMBIENTE=producao não passa despercebida). */
+  ambiente?: string;
+};
 
-const LIMITE_SINAL_MS = 3 * 60_000;
+export const LIMITES_SAUDE = { sinalMs: 3 * 60_000 } as const;
+
+type Falha = 'banco' | 'batimento' | 'whatsapp';
+/** Prontidão (D3): o que o monitor externo precisa saber. Sem segredo na resposta. */
+export async function avaliarSaude(repos: Pick<Repos, 'sinaisVida'>, agora: Date) {
+  let sinais: Record<string, Date>;
+  try {
+    sinais = await repos.sinaisVida();
+  } catch {
+    return { ok: false, falhas: ['banco'] as Falha[], sinais: {} as Record<string, string> };
+  }
+  const recente = (c: string) => Boolean(sinais[c] && agora.getTime() - sinais[c].getTime() < LIMITES_SAUDE.sinalMs);
+  const falhas: Falha[] = [];
+  if (!recente('fila')) falhas.push('batimento');
+  if (!recente('whatsapp')) falhas.push('whatsapp');
+  return { ok: falhas.length === 0, falhas, sinais: Object.fromEntries(Object.entries(sinais).map(([k, v]) => [k, v.toISOString()])) };
+}
 
 function segredoConfere(recebido: string, esperado: string): boolean {
-  const a = Buffer.from(recebido);
-  const b = Buffer.from(esperado);
-  return a.length === b.length && timingSafeEqual(a, b);
+  // Compara os resumos (mesmo tamanho sempre): o tempo não revela nem o conteúdo nem o comprimento do segredo.
+  const a = createHash('sha256').update(recebido).digest();
+  const b = createHash('sha256').update(esperado).digest();
+  return timingSafeEqual(a, b);
 }
 
 export function criarServidor(d: DepsServidor): FastifyInstance {
@@ -21,7 +44,8 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
     logger: {
       level: 'info',
       // O segredo do webhook faz parte da URL: nunca vai para o log.
-      serializers: { req: (req) => ({ method: req.method, url: req.url.replace(/\/webhook\/zapi\/[^/?]+/, '/webhook/zapi/***') }) },
+      // O token do /saude (?token=) também não.
+      serializers: { req: (req) => ({ method: req.method, url: req.url.replace(/\/webhook\/zapi\/[^/?]+/, '/webhook/zapi/***').replace(/([?&]token=)[^&]*/, '$1***') }) },
     },
   });
 
@@ -67,12 +91,16 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
     return { ok: true };
   });
 
-  app.get('/saude', async (_req, rep) => {
-    const sinais = await d.repos.sinaisVida();
-    const agora = d.relogio().getTime();
-    const ok = ['fila', 'whatsapp'].every((c) => sinais[c] && agora - sinais[c].getTime() < LIMITE_SINAL_MS);
-    return rep.code(ok ? 200 : 503).send({ ok, sinais });
+  app.get<{ Querystring: { token?: string } }>('/saude', async (req, rep) => {
+    const s = await avaliarSaude(d.repos, d.relogio());
+    const cabecalho = req.headers['x-saude-token'];
+    const dado = (typeof cabecalho === 'string' ? cabecalho : undefined) ?? req.query.token ?? '';
+    // Sem token (ou errado): só o ok, para o monitor público; nada de 401 (o monitor sem token continua funcionando).
+    const detalhes = Boolean(d.saudeToken) && segredoConfere(dado, d.saudeToken!);
+    return rep.code(s.ok ? 200 : 503).send(detalhes ? { ...s, ambiente: d.ambiente ?? null } : { ok: s.ok });
   });
+  // D3: o HEALTHCHECK do contêiner; só diz que o processo responde (WhatsApp ou banco fora não reiniciam o trabalhador em laço).
+  app.get('/vivo', async () => ({ ok: true }));
 
   return app;
 }

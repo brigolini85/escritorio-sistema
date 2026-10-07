@@ -27,6 +27,8 @@ export const Config = z.object({
   // Fora da produção, só estes telefones recebem mensagem (separados por vírgula).
   TELEFONES_PERMITIDOS: z.string().optional().transform((v) =>
     (v ?? '').split(',').map((t) => normalizarTelefone(t.trim())).filter((t): t is string => Boolean(t))),
+  // Plano de prontidão (D3): com ele, /saude mostra os detalhes; sem ele, só { ok }.
+  SAUDE_TOKEN: z.string().optional().transform((v) => v?.trim() || undefined),
   PORTA: z.coerce.number().default(3001),
 });
 export type Config = z.infer<typeof Config>;
