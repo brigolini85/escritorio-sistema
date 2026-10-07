@@ -6,5 +6,6 @@ export default defineConfig({
   // Testes que chamam componentes de servidor (.tsx) direto: JSX do React 17+ sem precisar importar React.
   esbuild: { jsx: 'automatic' },
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
-  test: { include: ['src/**/*.test.ts'] },
+  // Variáveis que o painel exige na partida (segurança do login, item 5), com valores só de teste.
+  test: { include: ['src/**/*.test.ts'], env: { PAINEL_URL: 'http://localhost:3000' } },
 });
