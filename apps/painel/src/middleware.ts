@@ -1,8 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { ehRotaPublica } from '@/lib/rotas-publicas';
 import { situacaoDe } from '@/lib/situacao-acesso';
-
-const PUBLICAS = ['/entrar', '/auth/confirm', '/definir-senha', '/esqueci-senha'];
 
 export async function middleware(req: NextRequest) {
   let resposta = NextResponse.next({ request: req });
@@ -24,7 +23,7 @@ export async function middleware(req: NextRequest) {
   };
   const { data } = await sb.auth.getUser();
   const caminho = req.nextUrl.pathname;
-  const publica = PUBLICAS.some((p) => caminho.startsWith(p));
+  const publica = ehRotaPublica(caminho);
   // Revisão geral (painel M9): chamada a /api/* sem sessão recebe 401 em JSON (como a própria rota responderia), não o HTML do login;
   // link aberto no navegador (download) segue indo para /entrar.
   if (!data.user && !publica && caminho.startsWith('/api/') && !(req.headers.get('accept') ?? '').includes('text/html')) return NextResponse.json({ erro: 'sessão expirada' }, { status: 401 });

@@ -27,3 +27,15 @@ describe('middleware sem sessão, link de download aberto no navegador', () => {
     expect(r.status).toBe(307);
   });
 });
+
+describe('middleware sem sessão, rota de nome parecido com uma pública (item 1)', () => {
+  it.each(['/entrar-x', '/esqueci-senha-admin', '/auth/confirm/outra'])('%s vai para /entrar', async (c) => {
+    const r = await middleware(new NextRequest(`http://localhost${c}`));
+    expect(r.status).toBe(307);
+    expect(r.headers.get('location')).toBe('http://localhost/entrar');
+  });
+  it('/entrar continua aberta', async () => {
+    const r = await middleware(new NextRequest('http://localhost/entrar'));
+    expect(r.headers.get('location')).toBeNull();
+  });
+});
