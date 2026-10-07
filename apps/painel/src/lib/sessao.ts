@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { tamanhoDoValor, type TamanhoLetra } from '@/components/layout/tamanho-letra';
 import { temNivel } from './permissoes';
+import { TELA_SEGUNDO_FATOR } from './segundo-fator';
 import { destinoSemAcesso, lerSituacao } from './situacao-acesso';
 import { supabaseServidor } from './supabase/servidor';
 
@@ -18,7 +19,7 @@ export const obterUsuario = cache(async (): Promise<UsuarioPainel> => {
   const { data: auth } = await sb.auth.getUser();
   if (!auth.user) redirect('/entrar');
   const { data: u, error: erroLinha } = await sb.from('usuarios')
-    .select('id, nome, papel, ativo, tamanho_letra, usuario_setores(setor_id), usuario_permissoes(modulo, nivel)')
+    .select('id, nome, papel, ativo, tamanho_letra, ver_acessos_portais, usuario_setores(setor_id), usuario_permissoes(modulo, nivel)')
     .eq('id', auth.user.id).maybeSingle();
   if (!u || !u.ativo) {
     // Fora do horário a RLS também esconde a própria linha: a situação diz qual dos dois casos é.
@@ -26,6 +27,11 @@ export const obterUsuario = cache(async (): Promise<UsuarioPainel> => {
     if (erroLinha) console.error('[sessao] leitura do usuário', erroLinha.message);
     const situacao = lerSituacao(await sb.rpc('situacao_acesso'), 'sessao');
     redirect(erroLinha && situacao !== 'fora_do_horario' ? '/entrar?erro=indisponivel' : destinoSemAcesso(situacao));
+  }
+  // Segurança do login (item 8): redirecionamento de ação de servidor não passa pelo middleware; aqui vale para toda tela.
+  if (u.papel === 'admin' || u.ver_acessos_portais) {
+    const { data: nivel } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (nivel?.currentLevel !== 'aal2') redirect(TELA_SEGUNDO_FATOR);
   }
   return {
     id: u.id, nome: u.nome, papel: u.papel,

@@ -27,3 +27,32 @@ describe('middleware sem sessão, link de download aberto no navegador', () => {
     expect(r.status).toBe(307);
   });
 });
+
+describe('middleware sem sessão, rota de nome parecido com uma pública (item 1)', () => {
+  it.each(['/entrar-x', '/esqueci-senha-admin', '/auth/confirm/outra'])('%s vai para /entrar', async (c) => {
+    const r = await middleware(new NextRequest(`http://localhost${c}`));
+    expect(r.status).toBe(307);
+    expect(r.headers.get('location')).toBe('http://localhost/entrar');
+  });
+  it('/entrar continua aberta', async () => {
+    const r = await middleware(new NextRequest('http://localhost/entrar'));
+    expect(r.headers.get('location')).toBeNull();
+  });
+});
+
+describe('cabeçalhos de segurança (item 6)', () => {
+  it('página aberta recebe CSP com nonce, e o mesmo nonce vai para o Next no pedido', async () => {
+    const r = await middleware(new NextRequest('http://localhost/entrar'));
+    const csp = r.headers.get('content-security-policy') ?? '';
+    expect(csp).toContain("frame-ancestors 'none'");
+    const nonce = /'nonce-([^']+)'/.exec(csp)?.[1];
+    expect(nonce).toBeTruthy();
+    expect(r.headers.get('x-middleware-request-x-nonce')).toBe(nonce);
+    expect(r.headers.get('x-middleware-request-content-security-policy')).toBe(csp);
+  });
+  it('cada pedido tem um nonce novo', async () => {
+    const a = (await middleware(new NextRequest('http://localhost/entrar'))).headers.get('content-security-policy');
+    const b = (await middleware(new NextRequest('http://localhost/entrar'))).headers.get('content-security-policy');
+    expect(a).not.toBe(b);
+  });
+});

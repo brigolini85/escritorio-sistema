@@ -3,14 +3,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SENHA_MINIMA, senhaCurta } from '@/lib/senha';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
 async function definir(formData: FormData) {
   'use server';
   const senha = String(formData.get('senha') ?? '');
-  if (senha.length < 10) redirect('/definir-senha?erro=curta');
+  if (senhaCurta(senha)) redirect('/definir-senha?erro=curta');
   const sb = await supabaseServidor();
   const { error } = await sb.auth.updateUser({ password: senha });
+  // Segurança do login (item 8): quem já tem o aplicativo autenticador confirma o código antes de trocar a senha.
+  if (error?.code === 'insufficient_aal') redirect('/segundo-fator?depois=senha');
   if (error) redirect('/definir-senha?erro=falha');
   redirect('/inicio');
 }
@@ -42,7 +45,7 @@ export default async function DefinirSenha({ searchParams }: { searchParams: Pro
                 id="nova-senha"
                 name="senha"
                 type="password"
-                minLength={10}
+                minLength={SENHA_MINIMA}
                 required
                 autoComplete="new-password"
                 placeholder="Nova senha"

@@ -2342,11 +2342,17 @@ isOneToOne: false
 "excluir_regra_assunto":
 { Args: { "p_id": string }; Returns: undefined
                            },
+"exige_segundo_fator":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "exigir_acesso":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "exigir_arquivar":
 { Args: { "p_tipo": string }; Returns: string
+                           },
+"exigir_segundo_fator":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "ferramentas_do_atendimento":
 { Args: Record<PropertyKey, never>; Returns: (string)[]
@@ -2741,6 +2747,9 @@ isOneToOne: false
                            },
 "salvar_usuario":
 { Args: { "p_dados": Json,"p_id": string }; Returns: undefined
+                           },
+"segundo_fator_ok":
+{ Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "simular_mudanca_prazo":
 { Args: { "p_dias": number,"p_prioridade": Database["public"]['Enums']["prioridade_demanda"] }; Returns: Json
