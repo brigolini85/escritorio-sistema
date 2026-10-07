@@ -202,6 +202,50 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
   });
 });
 
+describe('atendimento rápido (2026-10-07): nome, perguntas juntas, catálogo e contato desconhecido', () => {
+  const s = montarSistema([], []);
+
+  it('nome do cliente só no primeiro cumprimento; os exemplos não repetem o nome', () => {
+    expect(s).toContain('Nome do cliente: use o nome só no primeiro cumprimento da conversa.');
+    expect(s).toContain('nunca comece as respostas seguintes com o nome');
+    expect(s).toContain('"Por nada! Qualquer coisa é só chamar."');
+    expect(s).not.toContain('Por nada, João!');
+    expect(s).toContain('com a conversa em andamento, sem cumprimento e sem o nome');
+  });
+
+  it('tom de atendente profissional', () => {
+    expect(s).toContain('como um atendente profissional: cordial, educado e objetivo');
+  });
+
+  it('regra 3f: confere o catálogo, pergunta tudo o que falta de uma vez e registra "Campo: valor"', () => {
+    const r3f = s.slice(s.indexOf('\n3f. '), s.indexOf('\n4. '));
+    expect(r3f).toContain('antes de abrir_chamado, ache o tipo que combina');
+    expect(r3f).toContain('pergunte TUDO o que falta de uma vez, numa única mensagem curta');
+    expect(r3f).toContain('nunca faça uma pergunta por mensagem');
+    expect(r3f).toContain('Pedido completo: abra direto, sem perguntas.');
+    expect(r3f).toContain('Dois ou mais pedidos na mesma mensagem: uma demanda para cada um');
+    expect(r3f).toContain('o título começa pelo nome do tipo');
+    expect(r3f).toContain('uma linha "Campo: valor" para cada informação coletada');
+    expect(r3f).toContain('Pedido de nota fiscal segue a regra 3a, documento da empresa a regra 3b e assunto sensível a regra 11.');
+  });
+
+  it('regra 8: cliente novo no Comercial, pessoa de cliente na triagem, outro contador na Direção, engano sem demanda', () => {
+    const r8 = s.slice(s.indexOf('\n8. '), s.indexOf('\n9. '));
+    expect(r8).toContain('Possível cliente novo');
+    expect(r8).toContain('abra no setor Comercial (sem ele em SETORES, "triagem") com o título "Novo cliente: <necessidade> – <nome>"');
+    expect(r8).toContain('Não fale preço nem prometa nada (só o que estiver nas RESPOSTAS PRONTAS)');
+    expect(r8).toContain('abra com setor_id "triagem" para a equipe confirmar o cadastro');
+    expect(r8).toContain('outro contador pedindo documentos na Direção (regra 12)');
+    expect(r8).toContain('Engano ou propaganda: responda com educação uma única vez e não abra demanda.');
+    expect(r8).toContain('Não trate de nenhum assunto sigiloso nem informe dados de clientes.');
+  });
+
+  it('regra 14 aceita a prioridade marcada no catálogo', () => {
+    const r14 = s.slice(s.indexOf('\n14. '), s.indexOf('\nSETORES:'));
+    expect(r14).toContain('Os tipos do CATÁLOGO DE PEDIDOS marcados com (alta) ou (urgente) já têm essa prioridade.');
+  });
+});
+
 describe('diaMes (data de abertura em consultar_chamados)', () => {
   it('mostra dd/mm no horário de Brasília', () => {
     expect(diaMes('2026-09-30T02:00:00Z')).toBe('29/09');
