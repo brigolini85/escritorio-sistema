@@ -4,7 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import { sqlTeste } from '@escritorio/db/teste';
 import { criarUsuarioTeste, db, entrar } from './apoio';
 import { chaveDe, codigoTotp, guardarChave } from './apoio-mfa';
-import { exigirBancoLocal } from './trava-local';
+import { exigirBancoLocal } from './trava-local';import { apagarPessoas } from './apoio-sessao';
+
 
 // Segurança do login (item 8): aplicativo autenticador obrigatório para administrador e para quem vê acessos de portais.
 const SENHA = 'senha-forte-123';
@@ -21,6 +22,8 @@ async function axeSemGraves(page: Page) {
   const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
   expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
 }
+
+test.afterAll(async () => { await apagarPessoas(['admin-fator@e2e.local', 'bia-fator@e2e.local', 'admin-api@e2e.local']); });
 
 test('administrador no primeiro login cadastra o aplicativo; no seguinte só digita o código', async ({ page }) => {
   await criarUsuarioTeste({ email: ADMIN, senha: SENHA, nome: 'Admin Fator', papel: 'admin' });

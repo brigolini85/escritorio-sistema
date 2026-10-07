@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { criarUsuarioTeste, entrar } from './apoio';
+import { criarUsuarioTeste, entrar } from './apoio';import { apagarPessoas } from './apoio-sessao';
+
 
 // Segurança do login (item 6): cabeçalhos de segurança, sem quebrar a tela nem o tempo real.
 const SENHA = 'senha-forte-123';
@@ -12,6 +13,8 @@ function vigiarCsp(page: Page): string[] {
   });
   return violacoes;
 }
+
+test.afterAll(async () => { await apagarPessoas(['csp@e2e.local']); });
 
 test('tela de entrada: CSP com nonce, sem moldura, sem farejar tipo, referrer restrito', async ({ page }) => {
   const violacoes = vigiarCsp(page);

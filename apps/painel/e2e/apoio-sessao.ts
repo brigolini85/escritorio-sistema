@@ -17,3 +17,11 @@ export async function atividadeHa(ctx: BrowserContext, baseURL: string, ms: numb
   const valor = await assinarAtividade(sessionId, Date.now() - ms, process.env.SUPABASE_SERVICE_ROLE_KEY!);
   await ctx.addCookies([{ name: COOKIE_ATIVIDADE, value: valor, url: baseURL, httpOnly: true, sameSite: 'Lax' }]);
 }
+
+/** Tira do banco local as pessoas criadas por um spec (login e linha em usuarios), para não aparecerem nas listas de outros. */
+export async function apagarPessoas(emails: string[]): Promise<void> {
+  const { db } = await import('./apoio');
+  const { data } = await db.auth.admin.listUsers({ perPage: 1000 });
+  for (const u of data.users.filter((x) => emails.includes(x.email ?? ''))) await db.auth.admin.deleteUser(u.id);
+  await db.from('usuarios').delete().in('email', emails);
+}

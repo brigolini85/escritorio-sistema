@@ -1,10 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { criarUsuarioTeste, entrar } from './apoio';
-import { atividadeHa } from './apoio-sessao';
+import { atividadeHa } from './apoio-sessao';import { apagarPessoas } from './apoio-sessao';
+
 
 // Segurança do login (item 7): 1 h sem uso encerra a sessão, com mensagem; o cookie de atividade não é lido pelo JavaScript.
 const SENHA = 'senha-forte-123';
 const H = 60 * 60 * 1000;
+
+test.afterAll(async () => { await apagarPessoas(['sessao@e2e.local']); });
 
 test('em uso a sessão segue; o cookie de atividade é httpOnly', async ({ page, context, baseURL }) => {
   await criarUsuarioTeste({ email: 'sessao@e2e.local', senha: SENHA, nome: 'Ana Sessão', papel: 'atendente', setores: ['Fiscal'] });

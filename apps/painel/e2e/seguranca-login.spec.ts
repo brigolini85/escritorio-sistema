@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import { criarUsuarioTeste, db, entrar } from './apoio';
-import { exigirBancoLocal } from './trava-local';
+import { exigirBancoLocal } from './trava-local';import { apagarPessoas } from './apoio-sessao';
+
 
 // Segurança do login (item 10): os casos que faltavam na especificação.
 const SENHA = 'senha-forte-123';
@@ -11,6 +12,8 @@ function clientePublico() {
   exigirBancoLocal(process.env.NEXT_PUBLIC_SUPABASE_URL, 'NEXT_PUBLIC_SUPABASE_URL');
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA!, { auth: { persistSession: false } });
 }
+
+test.afterAll(async () => { await apagarPessoas(['ana-sl@e2e.local', 'adm-sl@e2e.local', 'arq-sl@e2e.local', 'sem-cadastro@e2e.local', 'volta-sl@e2e.local']); });
 
 test('logado, o horário muda: ao recarregar a tela fica bloqueada', async ({ page }) => {
   const ana = await criarUsuarioTeste({ email: 'ana-sl@e2e.local', senha: SENHA, nome: 'Ana SL', papel: 'atendente', setores: ['Fiscal'] });
