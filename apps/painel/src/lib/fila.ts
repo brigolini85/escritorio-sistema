@@ -12,7 +12,8 @@ function obterBoss(): Promise<PgBoss> {
     // Idempotente: garante as filas mesmo se o painel subir antes do trabalhador. Mesma configuração da Task 9.
     await b.createQueue('enviar-mensagem', { name: 'enviar-mensagem', retryLimit: 5, retryDelay: 10, retryBackoff: true });
     await b.createQueue('remover-arquivos', { name: 'remover-arquivos', retryLimit: 10, retryDelay: 60, retryBackoff: true });
-    await b.createQueue('assistente', { name: 'assistente', policy: 'stately', retryLimit: 3, retryDelay: 20, retryBackoff: true });
+    // Mesma configuração do trabalhador (FILAS.assistente, revisão geral I1): "short"; a vez é a trava do banco (naVez).
+    await b.createQueue('assistente', { name: 'assistente', policy: 'short', retryLimit: 3, retryDelay: 20, retryBackoff: true });
     // Mesma configuração do trabalhador (apps/trabalhador/src/fila.ts, FILAS.simularAgente).
     await b.createQueue('simular_agente', { name: 'simular_agente', policy: 'stately', retryLimit: 2, retryDelay: 15, retryBackoff: true });
     // Mesma configuração do trabalhador (apps/trabalhador/src/fila.ts, FILAS.sugerirResposta).
