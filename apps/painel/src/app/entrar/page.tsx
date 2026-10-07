@@ -6,15 +6,8 @@ import { MONOGRAMA, NOME_ESCRITORIO } from '@/lib/escritorio';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { entrar } from './acoes';
 import { avisoParaMostrar } from './aviso-login';
+import { mensagemDeErro } from './erros';
 import { classeCampoSublinhado, classeRotuloLogin, FaixasLogin } from './faixas';
-
-const ERROS: Record<string, string> = {
-  credenciais: 'E-mail ou senha incorretos.',
-  inativo: 'Seu acesso está desativado. Fale com o administrador.',
-  link: 'O link expirou ou já foi usado. Peça outro em "Esqueci a senha".',
-  fora_do_horario: 'Fora do seu horário de acesso. Fale com o administrador se precisar entrar agora.',
-  indisponivel: 'Não consegui conferir seu acesso agora. Tente de novo em instantes.',
-};
 
 /** O recado do administrador nunca derruba a tela: qualquer falha vira "sem recado". */
 async function lerAviso(): Promise<string | null> {
@@ -52,7 +45,7 @@ export default async function Entrar({ searchParams }: { searchParams: Promise<{
         <div className="flex w-full max-w-md flex-col gap-6 login:justify-self-end">
           {erro && (
             <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">
-              {ERROS[erro] ?? 'Não foi possível entrar.'}
+              {mensagemDeErro(erro)}
             </p>
           )}
           <form action={entrar} className="flex flex-col gap-8">

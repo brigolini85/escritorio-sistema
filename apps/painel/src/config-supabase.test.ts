@@ -28,4 +28,8 @@ describe('supabase/config.toml: Auth', () => {
     expect(valor('auth', 'enable_signup')).toBe('false');
     expect(valor('auth', 'enable_anonymous_sign_ins')).toBe('false');
   });
+  it('sessão de no máximo 12 h e 1 h sem uso (item 7)', () => {
+    expect(valor('auth.sessions', 'timebox')).toBe('12h');
+    expect(valor('auth.sessions', 'inactivity_timeout')).toBe('1h');
+  });
 });
