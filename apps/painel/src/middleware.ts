@@ -1,11 +1,12 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { chavePublica, supabaseUrl } from '@/lib/ambiente-publico';
 import { ehRotaPublica } from '@/lib/rotas-publicas';
 import { situacaoDe } from '@/lib/situacao-acesso';
 
 export async function middleware(req: NextRequest) {
   let resposta = NextResponse.next({ request: req });
-  const sb = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA!, {
+  const sb = createServerClient(supabaseUrl(), chavePublica(), {
     cookies: {
       getAll: () => req.cookies.getAll(),
       setAll: (lista) => {
