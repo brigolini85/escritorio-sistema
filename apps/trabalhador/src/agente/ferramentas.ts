@@ -36,6 +36,8 @@ export type EstadoExecucao = {
 };
 
 const TRIAGEM = 'triagem';
+/** Setores em que um número desconhecido (sem empresa) pode ter demanda aberta; qualquer outro vira triagem. */
+const SETORES_DO_DESCONHECIDO: readonly string[] = ['Comercial', 'Direção', 'Financeiro'];
 const MAX_PARTES_RESPOSTA = 3;
 export const objeto = (properties: Record<string, object>, required: string[]) =>
   ({ type: 'object' as const, properties, required, additionalProperties: false });
@@ -448,10 +450,15 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
         if (bloqueio) return bloqueio;
       }
       let setorId: string | null = null;
-      if (!desconhecido && entrada.setor_id !== TRIAGEM) {
+      if (entrada.setor_id !== TRIAGEM) {
         const setor = ctx.setores.find((s) => s.id === entrada.setor_id);
-        if (!setor) return falha(AVISOS.setorInvalido);
-        setorId = setor.id;
+        if (!desconhecido) {
+          if (!setor) return falha(AVISOS.setorInvalido);
+          setorId = setor.id;
+        } else if (setor && SETORES_DO_DESCONHECIDO.includes(setor.nome)) {
+          // Regra 8: cliente novo no Comercial, outro contador na Direção, fornecedor do escritório no Financeiro; o resto, triagem.
+          setorId = setor.id;
+        }
       }
       const clienteId = desconhecido ? null : ctx.empresaEmFoco?.id ?? null;
       let resumo = entrada.resumo;

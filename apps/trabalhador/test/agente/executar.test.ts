@@ -164,6 +164,23 @@ describe('executarAgente', () => {
     expect(data).toEqual({ setor_id: null, cliente_id: null });
   });
 
+  it('número desconhecido: cliente novo no Comercial e outro contador na Direção, sem empresa (atendimento rápido, regra 8)', async () => {
+    for (const nome of ['Comercial', 'Direção']) {
+      await db.from('setores').upsert({ nome, descricao_assuntos: nome }, { onConflict: 'nome', ignoreDuplicates: true });
+    }
+    for (const [i, nome] of ['Comercial', 'Direção'].entries()) {
+      const conversa = await repos.obterOuCriarConversa(`553198888777${i}`, null);
+      const ia = new IaRoteirizada([
+        usarFerramentas({ nome: 'abrir_chamado', entrada: { setor_id: await setorId(nome), titulo: 'Novo cliente: abrir empresa – Ana', resumo: 'Nome: Ana', fora_do_contrato: false, prioridade: 'alta' } }),
+        usarFerramentas({ nome: 'responder', entrada: { texto: 'Vou passar para o nosso time comercial.' } }),
+        fim(),
+      ]);
+      await executarAgente(deps(ia), await contexto(conversa.id), conteudo);
+      const { data } = await db.from('chamados').select('setor_id, cliente_id').eq('conversa_id', conversa.id).single();
+      expect(data).toEqual({ setor_id: await setorId(nome), cliente_id: null });
+    }
+  });
+
   it('segunda triagem na mesma conversa complementa a primeira em vez de abrir outra', async () => {
     const conversa = await repos.obterOuCriarConversa('5531988887777', null);
     for (const resumo of ['Quer contratar o escritório', 'Nome: Thiago, empresa: Padaria Teste']) {
