@@ -1,13 +1,49 @@
+# Contexto das imagens: só o código. Nada de chaves, dados de clientes nem pastas de trabalho
+# (um docker build feito da pasta do computador levaria tudo isso para as camadas de build; achado 17-5).
+
+# Dependências e builds (a imagem instala e compila de novo)
 node_modules
 **/node_modules
 .next
 **/.next
 dist
 **/dist
-.env
-.git
+*.tsbuildinfo
 playwright-report
 test-results
-supabase/.temp
+**/playwright-report
+**/test-results
+
+# Chaves: todo .env (local, homologação, produção, exemplos); o exemplo não é usado no build
+.env
+.env.*
+**/.env
+**/.env.*
+*.env
+*.env.example
+
+# Git, pastas de trabalho do Claude e do dono
+.git
+.claude
 .superpowers
+**/.superpowers
+.playwright-mcp
+pedidos-do-dono
 conversas-reais
+arquiteto-agentes-demandas
+*.skill
+CAPTURAS*
+**/CAPTURAS*
+backups
+
+# Arquivos soltos da homologação no computador (segredo do webhook, scripts que leem os .env)
+webhook-zapi.txt
+.vez-supabase.txt
+.producao-previa.txt
+*.bat
+*.ps1
+
+# Não entram nas imagens (banco, documentação, CI)
+supabase
+docs
+.github
