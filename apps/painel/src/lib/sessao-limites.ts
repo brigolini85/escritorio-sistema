@@ -63,3 +63,32 @@ export function avaliarSessao(p: { login: number | null; atividade: number | nul
   if (ultimoUso !== null && p.agora - ultimoUso > INATIVIDADE_MS) return 'vencida';
   return 'ok';
 }
+
+/**
+ * Só uso de verdade renova a 1 h (verificação final da entrada em produção). Uma tela de Atendimento aberta recarrega
+ * pelo tempo real e a cada minuto (router.refresh); se isso contasse, nunca venceria. O middleware não distingue essas
+ * recargas de um clique no menu (o Next tira dele os cabeçalhos RSC), então:
+ * - página aberta direto (Sec-Fetch-Mode: navigate, ou cliente sem esse cabeçalho) e ação de formulário (Next-Action)
+ *   contam como uso agora;
+ * - o resto (navegação por link, recargas, pré-cargas, /api) só leva a atividade até o último toque da pessoa
+ *   (clique, tecla, rolagem), que a tela grava no cookie `painel_uso` já no relógio do servidor (MarcarUso).
+ * Uma recarga automática carrega o mesmo `painel_uso` velho: não estica nada. Um `painel_uso` de outra sessão (mais
+ * velho que o login) também não. O `painel_uso` é lido pelo JavaScript da tela; mexer nele à mão só adianta até a
+ * hora atual e nunca passa das 12 h do login.
+ */
+export const COOKIE_USO = 'painel_uso';
+
+export function momentoDoUso(p: { modo: string | null; acao: boolean; marca: string | undefined; agora: number }): number | null {
+  if (p.acao || p.modo === null || p.modo === 'navigate') return p.agora;
+  const m = /^\d{1,15}$/.exec(p.marca ?? '');
+  if (!m) return null;
+  const t = Number(m[0]);
+  return t <= p.agora + FOLGA_MS ? Math.min(t, p.agora) : null;
+}
+
+/** Novo momento de atividade a gravar, ou null se o pedido não traz uso mais novo que o já contado (ou que o login). */
+export function atividadeNova(p: { uso: number | null; atividade: number | null; login: number | null }): number | null {
+  if (p.uso === null) return null;
+  const base = p.atividade ?? p.login;
+  return base === null || p.uso > base ? p.uso : null;
+}

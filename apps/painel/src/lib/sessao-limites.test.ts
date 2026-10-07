@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  assinarAtividade, avaliarSessao, INATIVIDADE_MS, lerAtividade, lerClaims, momentoDoLogin, SESSAO_MAXIMA_MS,
+  assinarAtividade, atividadeNova, avaliarSessao, INATIVIDADE_MS, lerAtividade, lerClaims, momentoDoLogin, momentoDoUso, SESSAO_MAXIMA_MS,
 } from './sessao-limites';
 
 // Segurança do login (item 7): sessão de no máximo 12 h e 1 h sem uso, conferidas pelo painel.
@@ -64,5 +64,31 @@ describe('avaliarSessao', () => {
   it('sem momento do login (token sem amr): só a inatividade vale', () => {
     expect(avaliarSessao({ login: null, atividade: agora - 1000, agora })).toBe('ok');
     expect(avaliarSessao({ login: null, atividade: null, agora })).toBe('ok');
+  });
+});
+
+describe('momentoDoUso e atividadeNova (só uso de verdade conta para a 1 h)', () => {
+  const agora = 100 * H;
+  it('página aberta direto, cliente sem Sec-Fetch-Mode e ação de formulário: uso agora', () => {
+    expect(momentoDoUso({ modo: 'navigate', acao: false, marca: undefined, agora })).toBe(agora);
+    expect(momentoDoUso({ modo: null, acao: false, marca: undefined, agora })).toBe(agora);
+    expect(momentoDoUso({ modo: 'cors', acao: true, marca: undefined, agora })).toBe(agora);
+  });
+  it('recarga, pré-carga ou link (fetch): só até o último toque gravado pela tela', () => {
+    expect(momentoDoUso({ modo: 'cors', acao: false, marca: String(agora - 5000), agora })).toBe(agora - 5000);
+    expect(momentoDoUso({ modo: 'same-origin', acao: false, marca: undefined, agora })).toBeNull();
+    expect(momentoDoUso({ modo: 'cors', acao: false, marca: 'lixo', agora })).toBeNull();
+  });
+  it('toque "no futuro": até 1 min de folga vale como agora; além disso, não vale', () => {
+    expect(momentoDoUso({ modo: 'cors', acao: false, marca: String(agora + 30_000), agora })).toBe(agora);
+    expect(momentoDoUso({ modo: 'cors', acao: false, marca: String(agora + 5 * H), agora })).toBeNull();
+  });
+  it('só grava quando o uso é mais novo que a atividade já contada (ou que o login)', () => {
+    expect(atividadeNova({ uso: agora, atividade: agora - H / 2, login: agora - H })).toBe(agora);
+    expect(atividadeNova({ uso: agora - H, atividade: agora - H / 2, login: agora - 2 * H })).toBeNull();
+    expect(atividadeNova({ uso: null, atividade: agora - H / 2, login: null })).toBeNull();
+    // Toque de uma sessão anterior (mais velho que o login) não conta.
+    expect(atividadeNova({ uso: agora - 3 * H, atividade: null, login: agora - H })).toBeNull();
+    expect(atividadeNova({ uso: agora, atividade: null, login: null })).toBe(agora);
   });
 });

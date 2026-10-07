@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
+import { MarcarUso } from '@/components/layout/marcar-uso';
 import { COOKIE_MENU, menuRecolhidoDoCookie } from '@/components/layout/preferencias';
 import { estadoPelaPausaGeral } from '@/components/patterns/estado-agente';
 import { COOKIE_TEMA, escolhaDoCookie } from '@/components/tema/tema';
@@ -39,6 +40,8 @@ export default async function LayoutPainel({ children }: { children: ReactNode }
       tema={escolhaDoCookie(loja.get(COOKIE_TEMA)?.value)}
       recolhidoInicial={menuRecolhidoDoCookie(loja.get(COOKIE_MENU)?.value)}
     >
+      {/* Regra de 1 h sem uso: só toque de verdade conta (sessao-limites.ts). */}
+      <MarcarUso agoraServidor={Date.now()} />
       {children}
     </AppShell>
   );

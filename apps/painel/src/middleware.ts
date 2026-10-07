@@ -4,7 +4,9 @@ import { chavePublica, supabaseUrl } from '@/lib/ambiente-publico';
 import { cabecalhoHsts, gerarNonce, politicaDeConteudo } from '@/lib/cabecalhos-seguranca';
 import { ehRotaPublica } from '@/lib/rotas-publicas';
 import { ehTelaDoSegundoFator, TELA_SEGUNDO_FATOR } from '@/lib/segundo-fator';
-import { assinarAtividade, avaliarSessao, COOKIE_ATIVIDADE, lerAtividade, lerClaims, momentoDoLogin, SESSAO_MAXIMA_MS } from '@/lib/sessao-limites';
+import {
+  assinarAtividade, atividadeNova, avaliarSessao, COOKIE_ATIVIDADE, COOKIE_USO, lerAtividade, lerClaims, momentoDoLogin, momentoDoUso, SESSAO_MAXIMA_MS,
+} from '@/lib/sessao-limites';
 import { situacaoDe } from '@/lib/situacao-acesso';
 
 /** Cabeçalhos de segurança da resposta (item 6); os fixos vêm do next.config. */
@@ -59,7 +61,8 @@ async function decidir(req: NextRequest): Promise<NextResponse> {
     const segredo = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
     const agora = Date.now();
     const atividade = sessionId ? await lerAtividade(req.cookies.get(COOKIE_ATIVIDADE)?.value, sessionId, segredo) : null;
-    if (avaliarSessao({ login: claims ? momentoDoLogin(claims) : null, atividade, agora }) === 'vencida') {
+    const login = claims ? momentoDoLogin(claims) : null;
+    if (avaliarSessao({ login, atividade, agora }) === 'vencida') {
       // Só esta sessão (as de outros computadores seguem as próprias contas); os cookies saem junto.
       await sb.auth.signOut({ scope: 'local' });
       resposta.cookies.delete(COOKIE_ATIVIDADE);
@@ -70,8 +73,14 @@ async function decidir(req: NextRequest): Promise<NextResponse> {
       }
       return redirecionar('/entrar?erro=sessao');
     }
-    if (sessionId) {
-      resposta.cookies.set(COOKIE_ATIVIDADE, await assinarAtividade(sessionId, agora, segredo), {
+    // Só uso de verdade renova a 1 h: recarga automática (tempo real, a cada minuto) e pré-carga de link não
+    // (regra em sessao-limites.ts, momentoDoUso).
+    const uso = momentoDoUso({
+      modo: req.headers.get('sec-fetch-mode'), acao: req.headers.has('next-action'), marca: req.cookies.get(COOKIE_USO)?.value, agora,
+    });
+    const novaAtividade = atividadeNova({ uso, atividade, login });
+    if (sessionId && novaAtividade !== null) {
+      resposta.cookies.set(COOKIE_ATIVIDADE, await assinarAtividade(sessionId, novaAtividade, segredo), {
         httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: SESSAO_MAXIMA_MS / 1000,
       });
     }

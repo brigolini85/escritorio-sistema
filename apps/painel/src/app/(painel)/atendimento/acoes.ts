@@ -48,15 +48,6 @@ export async function trocarEmpresa(conversaId: string, clienteId: string): Prom
   return { ok: true, mensagem: `Conversa agora em ${(data as { empresa: string }).empresa}.` };
 }
 
-/** Não lidas por pessoa (spec 7A.2): marca até a última mensagem que a tela mostrou. true = mudou algo. */
-export async function marcarLida(conversaId: string, ate: string): Promise<boolean> {
-  await obterUsuario();
-  const sb = await supabaseServidor();
-  const { data, error } = await sb.rpc('marcar_conversa_lida', { p_conversa: conversaId, p_ate: ate });
-  if (error) console.error('marcar_conversa_lida falhou:', error.message);
-  return !error && Boolean(data);
-}
-
 export async function responder(conversaId: string, formData: FormData) {
   const texto = String(formData.get('texto') ?? '').trim();
   const arquivo = formData.get('arquivo');

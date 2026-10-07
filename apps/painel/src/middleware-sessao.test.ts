@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { assinarAtividade, COOKIE_ATIVIDADE } from '@/lib/sessao-limites';
+import { assinarAtividade, COOKIE_ATIVIDADE, COOKIE_USO } from '@/lib/sessao-limites';
 
 // Segurança do login (item 7): o middleware encerra a sessão vencida (12 h desde o login ou 1 h sem uso).
 const H = 60 * 60 * 1000;
@@ -20,9 +20,10 @@ vi.mock('@supabase/ssr', () => ({
 import { middleware } from './middleware';
 
 const SEGREDO = 'segredo-de-teste';
-async function pedir(caminho: string, atividade?: number, accept?: string) {
-  const headers = new Headers(accept ? { accept } : {});
-  if (atividade !== undefined) headers.set('cookie', `${COOKIE_ATIVIDADE}=${await assinarAtividade('s1', atividade, SEGREDO)}`);
+async function pedir(caminho: string, atividade?: number, accept?: string, extras: Record<string, string> = {}) {
+  const headers = new Headers({ ...(accept ? { accept } : {}), ...extras });
+  const outros = headers.get('cookie');
+  if (atividade !== undefined) headers.set('cookie', [`${COOKIE_ATIVIDADE}=${await assinarAtividade('s1', atividade, SEGREDO)}`, outros].filter(Boolean).join('; '));
   return middleware(new NextRequest(`http://localhost${caminho}`, { headers }));
 }
 
@@ -65,5 +66,37 @@ describe('middleware: limites da sessão', () => {
     const r = await pedir('/api/busca?q=x', Date.now());
     expect(r.status).toBe(401);
     expect(await r.json()).toEqual({ erro: 'sessão expirada' });
+  });
+  // Tela aberta (Atendimento) que recarrega sozinha não pode segurar a sessão para sempre. O Next tira os cabeçalhos
+  // RSC antes do middleware: recarga, pré-carga e clique no menu chegam iguais (fetch, Sec-Fetch-Mode: cors).
+  const fetchDaTela = (uso?: number) => ({ 'sec-fetch-mode': 'cors', ...(uso !== undefined ? { cookie: `${COOKIE_USO}=${uso}` } : {}) });
+  it('recarga automática sem toque novo da pessoa: segue, mas não renova o cookie de atividade', async () => {
+    falso.login = Date.now() - 2 * H;
+    const r = await pedir('/atendimento', Date.now() - 50 * 60 * 1000, undefined, fetchDaTela(Date.now() - 55 * 60 * 1000));
+    expect(r.headers.get('location')).toBeNull();
+    expect(r.cookies.get(COOKIE_ATIVIDADE)).toBeUndefined();
+    const semToque = await pedir('/atendimento', Date.now() - 50 * 60 * 1000, undefined, fetchDaTela());
+    expect(semToque.cookies.get(COOKIE_ATIVIDADE)).toBeUndefined();
+    expect(falso.signOut).not.toHaveBeenCalled();
+  });
+  it('recarga automática depois de 1 h sem uso: desloga', async () => {
+    falso.login = Date.now() - 3 * H;
+    const r = await pedir('/atendimento', Date.now() - H - 60 * 1000, undefined, fetchDaTela(Date.now() - 2 * H));
+    expect(r.headers.get('location')).toBe('http://localhost/entrar?erro=sessao');
+    expect(falso.signOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+  it('clique no menu (toque recente gravado pela tela): renova até o toque', async () => {
+    falso.login = Date.now() - 2 * H;
+    const toque = Date.now() - 2000;
+    const r = await pedir('/demandas', Date.now() - 50 * 60 * 1000, undefined, fetchDaTela(toque));
+    const valor = r.cookies.get(COOKIE_ATIVIDADE)?.value ?? '';
+    expect(Number(valor.split('.')[0])).toBe(toque);
+  });
+  it('página aberta direto e ação de formulário: renovam agora', async () => {
+    falso.login = Date.now() - 2 * H;
+    const nav = await pedir('/demandas', Date.now() - 50 * 60 * 1000, undefined, { 'sec-fetch-mode': 'navigate' });
+    expect(Number((nav.cookies.get(COOKIE_ATIVIDADE)?.value ?? '').split('.')[0])).toBeGreaterThan(Date.now() - 5000);
+    const acao = await pedir('/atendimento', Date.now() - 50 * 60 * 1000, undefined, { 'sec-fetch-mode': 'cors', 'next-action': 'abc' });
+    expect(Number((acao.cookies.get(COOKIE_ATIVIDADE)?.value ?? '').split('.')[0])).toBeGreaterThan(Date.now() - 5000);
   });
 });
