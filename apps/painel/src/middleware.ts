@@ -1,10 +1,29 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { chavePublica, supabaseUrl } from '@/lib/ambiente-publico';
+import { cabecalhoHsts, gerarNonce, politicaDeConteudo } from '@/lib/cabecalhos-seguranca';
 import { ehRotaPublica } from '@/lib/rotas-publicas';
 import { situacaoDe } from '@/lib/situacao-acesso';
 
+/** Cabeçalhos de segurança da resposta (item 6); os fixos vêm do next.config. */
+function comSeguranca<R extends NextResponse>(r: R, csp: string): R {
+  r.headers.set('Content-Security-Policy', csp);
+  const hsts = cabecalhoHsts(process.env);
+  if (hsts) r.headers.set('Strict-Transport-Security', hsts);
+  return r;
+}
+
 export async function middleware(req: NextRequest) {
+  // Segurança do login (item 6): nonce novo por pedido; o Next lê a CSP do pedido e põe o nonce nos próprios scripts.
+  const nonce = gerarNonce();
+  const csp = politicaDeConteudo({ nonce, supabaseUrl: supabaseUrl(), desenvolvimento: process.env.NODE_ENV !== 'production' });
+  req.headers.set('x-nonce', nonce);
+  req.headers.set('content-security-policy', csp);
+  const resultado = await decidir(req);
+  return comSeguranca(resultado, csp);
+}
+
+async function decidir(req: NextRequest): Promise<NextResponse> {
   let resposta = NextResponse.next({ request: req });
   const sb = createServerClient(supabaseUrl(), chavePublica(), {
     cookies: {
