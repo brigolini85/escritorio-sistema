@@ -116,11 +116,6 @@ async function csvsBling(conversaId: string): Promise<string[]> {
   return csvs;
 }
 
-async function contarEtapa(conversaId: string, etapa: string): Promise<number> {
-  const { count } = await db.from('decisoes_agente').select('id', { count: 'exact', head: true }).eq('conversa_id', conversaId).eq('etapa', etapa);
-  return count ?? 0;
-}
-
 /** "dia|data": o texto tem alguma das alternativas (sem diferenciar maiúsculas). */
 const contemAlgum = (texto: string, alternativas: string) =>
   alternativas.toLowerCase().split('|').some((a) => texto.toLowerCase().includes(a));
@@ -160,14 +155,15 @@ async function rodar(c: Cenario): Promise<string[]> {
       await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: `CEN${r}-${i}-${Date.now()}`, tipo: 'texto', conteudo: texto });
     }
     const enviosAntes = canal.enviados.filter((x) => x.telefone === conversa.telefone).length;
-    const respondeuAntes = await contarEtapa(conversa.id, 'responder');
     await processarConversa(deps, conversa.id, true);
-    // Atendimento rápido: o que esta rodada mandou ao cliente, quantas vezes respondeu e quantas demandas há até aqui.
-    const textoRodada = canal.enviados.filter((x) => x.telefone === conversa.telefone).slice(enviosAntes).map((x) => x.texto ?? '').join('\n');
+    // Atendimento rápido: o que esta rodada mandou ao cliente, quantas mensagens com pergunta e quantas demandas há até aqui.
+    const daRodada = canal.enviados.filter((x) => x.telefone === conversa.telefone).slice(enviosAntes).map((x) => x.texto ?? '');
+    const textoRodada = daRodada.join('\n');
     rodadasTexto.push(textoRodada);
-    const respostasRodada = (await contarEtapa(conversa.id, 'responder')) - respondeuAntes;
-    if (c.espera.respostasPorRodadaMax !== undefined && respostasRodada > c.espera.respostasPorRodadaMax) {
-      falhasRodada1.push(`rodada ${r + 1}: respondeu ${respostasRodada} vezes (máximo ${c.espera.respostasPorRodadaMax}; perguntas juntas numa mensagem)`);
+    // As perguntas do que falta vão juntas numa mensagem só (o cumprimento pode vir à parte, sem pergunta).
+    const comPergunta = daRodada.filter((t) => t.includes('?') && !t.includes('Aqui é o Thiago')).length;
+    if (c.espera.perguntasPorRodadaMax !== undefined && comPergunta > c.espera.perguntasPorRodadaMax) {
+      falhasRodada1.push(`rodada ${r + 1}: ${comPergunta} mensagens com pergunta (máximo ${c.espera.perguntasPorRodadaMax}): ${JSON.stringify(daRodada)}`);
     }
     const demandasEsperadas = c.espera.chamadosPorRodada?.[r];
     if (demandasEsperadas !== undefined) {

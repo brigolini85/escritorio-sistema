@@ -70,8 +70,8 @@ export type Cenario = {
     nomeDoContato?: string;
     /** Total de demandas abertas pelo agente depois de cada rodada. */
     chamadosPorRodada?: number[];
-    /** Máximo de respostas (ferramenta responder) por rodada: as perguntas vão juntas numa mensagem. */
-    respostasPorRodadaMax?: number;
+    /** Máximo de mensagens do WhatsApp com "?" por rodada: as perguntas do que falta vão juntas numa mensagem. */
+    perguntasPorRodadaMax?: number;
     /** Por rodada, textos que a resposta dela deve ter; "a|b" aceita qualquer um. */
     rodadaContem?: string[][];
     /** Cada um destes setores ("triagem" = sem setor) tem alguma demanda. */
@@ -93,7 +93,9 @@ export const CENARIOS: Cenario[] = [
   { nome: 'saudação', empresas: ['Indústria X'], mensagens: ['Bom dia!'], espera: { chamadoSetor: 'nenhum', ferramentas: ['responder'] } },
   { nome: 'agradecimento recebe resposta', empresas: ['Indústria X'], mensagens: ['Obrigado!'], espera: { chamadoSetor: 'nenhum', ferramentas: ['responder'] } },
   { nome: 'guia do DAS vai para o Fiscal', empresas: ['Indústria X'], mensagens: ['Preciso da guia do DAS de setembro'], espera: { chamadoSetor: 'Fiscal' } },
-  { nome: 'abertura de filial vai para Legalização', empresas: ['Indústria X'], mensagens: ['Quero abrir uma filial em Itabira'], espera: { chamadoSetor: 'Legalização' } },
+  // Catálogo do dono (2026-10-07): filial passa primeiro pelo Comercial (orçamento) e pede a atividade antes; sem Comercial, o setor mais próximo.
+  { nome: 'abertura de filial pergunta o que falta e passa para a equipe', empresas: ['Indústria X'], mensagens: ['Quero abrir uma filial em Itabira'],
+    mensagens2: ['A mesma atividade daqui, fabricação de salgados congelados, e os sócios são os mesmos'], espera: { chamadoSetor: 'qualquer', chamadosPorRodada: [0, 1] } },
   { nome: 'holerite vai para Pessoal', empresas: ['Indústria X'], mensagens: ['Me manda o holerite do João de agosto?'], espera: { chamadoSetor: 'Pessoal' } },
   { nome: 'dúvida tributária não é respondida pelo agente', empresas: ['Indústria X'], mensagens: ['Quanto de imposto vou pagar se vender 100 mil esse mês?'],
     espera: { chamadoSetor: 'Fiscal' } },
@@ -324,7 +326,7 @@ function CENARIOS_ATENDIMENTO_RAPIDO(): Cenario[] {
   const COMERCIAL = { nome: 'Comercial', descricao: 'Quem ainda não é cliente: abrir empresa com o escritório, trocar de contador para o escritório, orçamento, serviços fora do contrato' };
   const IRPF = { nome: 'IRPF', descricao: 'Imposto de renda pessoa física: declaração, restituição, malha fina, carnê-leão, venda de imóvel, espólio' };
   const DIRECAO = { nome: 'Direção', descricao: 'Reclamação séria, possível erro do escritório, troca de contador, outro contador pedindo documentos, fiscalização, assunto sensível' };
-  const UMA = { respostasPorRodadaMax: 1 };
+  const UMA = { perguntasPorRodadaMax: 1 };
   return [
     // Nome do cliente só no primeiro cumprimento.
     { nome: 'atend: nome não se repete numa conversa de 4 rodadas', empresas: ['Indústria X'],
@@ -383,9 +385,9 @@ function CENARIOS_ATENDIMENTO_RAPIDO(): Cenario[] {
     { nome: 'atend: balancete completo abre direto', empresas: ['Indústria X'],
       mensagens: ['Me manda o balancete de setembro de 2026, é pro banco'],
       espera: { chamadoSetor: 'Contábil', chamadosPorRodada: [1], ...UMA } },
-    { nome: 'atend: funcionário já trabalhando abre urgente na hora e pede o que falta', empresas: ['Indústria X'],
-      mensagens: ['O rapaz novo da produção começou ontem e ainda não registramos, precisa registrar'],
-      espera: { chamadoSetor: 'Pessoal', chamadosPorRodada: [1], prioridade: 'urgente', tituloContem: ['urgente'], rodadaContem: [['nome']], ...UMA } },
+    { nome: 'atend: funcionário já trabalhando pergunta o que falta e abre urgente', empresas: ['Indústria X'],
+      mensagens: ['O rapaz novo da produção começou ontem e ainda não registramos, precisa registrar'], mensagens2: ['Lucas Pereira, auxiliar de produção, salário de 1.700'],
+      espera: { chamadoSetor: 'Pessoal', chamadosPorRodada: [0, 1], prioridade: 'urgente', tituloContem: ['urgente'], rodadaContem: [['nome']], ...UMA } },
     // Número desconhecido (regra 8).
     { nome: 'atend: possível cliente novo é conduzido e vai ao Comercial sem preço', empresas: [], setoresExtras: [COMERCIAL],
       mensagens: ['Oi, boa tarde! Quanto vocês cobram pra cuidar da contabilidade de uma empresa?'],
@@ -396,9 +398,9 @@ function CENARIOS_ATENDIMENTO_RAPIDO(): Cenario[] {
       mensagens: ['Boa tarde, quero abrir um MEI de manicure, vocês fazem?'], mensagens2: ['Sou a Bruna Dias, moro em Belo Horizonte'],
       espera: { chamadoSetor: 'Comercial', chamadosPorRodada: [0, 1], tituloContem: ['Novo cliente', 'Bruna'], rodadaContem: [['nome|chamar', 'cidade|onde']],
         semTexto: ['R$'], ...UMA } },
-    { nome: 'atend: cliente novo sem setor Comercial vai para a triagem', empresas: [],
+    { nome: 'atend: cliente novo que já disse tudo é passado direto ao Comercial', empresas: [], setoresExtras: [COMERCIAL],
       mensagens: ['Olá, sou a Paula Mendes, tenho um salão de beleza em Contagem, no Simples, 2 funcionárias, e quero trocar de contador'],
-      espera: { chamadoSetor: 'triagem', tituloContem: ['Novo cliente'], semTexto: ['R$'] } },
+      espera: { chamadoSetor: 'Comercial', chamadosPorRodada: [1], tituloContem: ['Novo cliente', 'Paula'], semTexto: ['R$'] } },
     { nome: 'atend: pessoa de empresa cliente vai para a triagem', empresas: [],
       mensagens: ['Oi, aqui é a Sandra, da Padaria Pão Quente. Preciso do holerite da Ana de setembro'],
       espera: { chamadoSetor: 'triagem', resumoContem: ['Pão Quente'] } },
@@ -406,7 +408,7 @@ function CENARIOS_ATENDIMENTO_RAPIDO(): Cenario[] {
       mensagens: ['Me manda a guia do DAS da minha empresa'],
       espera: { chamadoSetor: 'triagem', rodadaContem: [['nome', 'empresa']], ...UMA } },
     { nome: 'atend: outro contador pedindo documentos vai para a Direção', empresas: [], setoresExtras: [DIRECAO],
-      mensagens: ['Boa tarde, sou o Carlos, contador novo da Padaria Pão Quente. Preciso que vocês me enviem os balancetes e a folha dela'],
+      mensagens: ['Boa tarde, sou o Carlos, da Contabilidade Alfa, o novo contador da Padaria Pão Quente. Preciso que vocês me enviem os balancetes e a folha dela'],
       espera: { chamadoSetor: 'Direção', semDocumento: true } },
     { nome: 'atend: engano é respondido uma vez sem demanda', empresas: [],
       mensagens: ['Oi, é da pizzaria? Queria uma calabresa grande pra entrega'],

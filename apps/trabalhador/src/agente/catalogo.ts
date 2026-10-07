@@ -39,6 +39,6 @@ function linha(t: TipoPedido): string {
 
 /** Seção compacta do catálogo: tipo → setor (prioridade, se não for normal): perguntas do que precisa [opcionais]. */
 export function secaoCatalogo(tipos: readonly TipoPedido[] = CATALOGO_PEDIDOS): string {
-  return `CATÁLOGO DE PEDIDOS (guia da regra 3f: tipo → setor, prioridade quando não é normal e as perguntas do que a equipe precisa saber; entre colchetes, o que só se pergunta se couber na mesma mensagem. Se o setor não estiver em SETORES, use o mais próximo ou "triagem"):
+  return `CATÁLOGO DE PEDIDOS (guia da regra 3f: tipo → setor, prioridade quando não é normal e as perguntas do que a equipe precisa saber; entre colchetes, o opcional, que só se pergunta junto de uma pergunta necessária. Se o setor não estiver em SETORES, use o mais próximo ou "triagem"):
 ${tipos.map(linha).join('\n')}`;
 }

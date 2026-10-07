@@ -210,7 +210,7 @@ describe('atendimento rápido (2026-10-07): nome, perguntas juntas, catálogo e 
     expect(s).toContain('nunca comece as respostas seguintes com o nome');
     expect(s).toContain('"Por nada! Qualquer coisa é só chamar."');
     expect(s).not.toContain('Por nada, João!');
-    expect(s).toContain('com a conversa em andamento, sem cumprimento e sem o nome');
+    expect(s).toContain('não se apresente de novo nem repita o nome do cliente');
   });
 
   it('tom de atendente profissional', () => {
@@ -220,13 +220,16 @@ describe('atendimento rápido (2026-10-07): nome, perguntas juntas, catálogo e 
   it('regra 3f: confere o catálogo, pergunta tudo o que falta de uma vez e registra "Campo: valor"', () => {
     const r3f = s.slice(s.indexOf('\n3f. '), s.indexOf('\n4. '));
     expect(r3f).toContain('antes de abrir_chamado, ache o tipo que combina');
-    expect(r3f).toContain('pergunte TUDO o que falta de uma vez, numa única mensagem curta');
+    expect(r3f).toContain('pergunte TUDO o que falta de uma vez (se faltam três coisas, as três perguntas vão juntas), num único parágrafo');
     expect(r3f).toContain('nunca faça uma pergunta por mensagem');
+    expect(r3f).toContain('nunca abra a demanda e pergunte na mesma resposta');
+    expect(r3f).toContain('Só diga que passou para a equipe depois de abrir a demanda (abrir_chamado) nesta mesma resposta.');
     expect(r3f).toContain('Pedido completo: abra direto, sem perguntas.');
     expect(r3f).toContain('Dois ou mais pedidos na mesma mensagem: uma demanda para cada um');
     expect(r3f).toContain('o título começa pelo nome do tipo');
+    expect(r3f).toContain('com prioridade urgente, o título começa por "URGENTE: "');
     expect(r3f).toContain('uma linha "Campo: valor" para cada informação coletada');
-    expect(r3f).toContain('Pedido de nota fiscal segue a regra 3a, documento da empresa a regra 3b e assunto sensível a regra 11.');
+    expect(r3f).toContain('Pedido de nota fiscal segue a regra 3a, documento da empresa a regra 3b, assunto sensível a regra 11 e número desconhecido a regra 8.');
   });
 
   it('regra 8: cliente novo no Comercial, pessoa de cliente na triagem, outro contador na Direção, engano sem demanda', () => {
@@ -234,7 +237,8 @@ describe('atendimento rápido (2026-10-07): nome, perguntas juntas, catálogo e 
     expect(r8).toContain('Possível cliente novo');
     expect(r8).toContain('abra no setor Comercial (sem ele em SETORES, "triagem") com o título "Novo cliente: <necessidade> – <nome>"');
     expect(r8).toContain('Não fale preço nem prometa nada (só o que estiver nas RESPOSTAS PRONTAS)');
-    expect(r8).toContain('abra com setor_id "triagem" para a equipe confirmar o cadastro');
+    expect(r8).toContain('abra com setor_id "triagem" nesta mesma resposta, para a equipe confirmar o cadastro');
+    expect(r8).toContain('aqui não vale a espera da regra 3f');
     expect(r8).toContain('outro contador pedindo documentos na Direção (regra 12)');
     expect(r8).toContain('Engano ou propaganda: responda com educação uma única vez e não abra demanda.');
     expect(r8).toContain('Não trate de nenhum assunto sigiloso nem informe dados de clientes.');

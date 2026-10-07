@@ -42,6 +42,6 @@ describe('catálogo de pedidos no prompt do Thiago', () => {
     const s = montarSistema([{ id: 'S1', nome: 'Fiscal', descricao_assuntos: 'guias' }], []);
     expect(s.indexOf('CATÁLOGO DE PEDIDOS (guia')).toBeGreaterThan(s.indexOf('14. Prioridade'));
     expect(s.indexOf('CATÁLOGO DE PEDIDOS (guia')).toBeLessThan(s.indexOf('SETORES:'));
-    expect(s.length).toBeLessThan(31000);
+    expect(s.length).toBeLessThan(32000);
   });
 });
