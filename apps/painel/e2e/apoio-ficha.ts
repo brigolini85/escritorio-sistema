@@ -2,6 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { db } from './apoio';
 import { exigirBancoLocal } from './trava-local';
+import { elevarSessao } from './apoio-mfa';
 
 /** CNPJ que o servidor falso (consultas-falsas.mjs) devolve como Padaria Sol. */
 export const CNPJ_SOL = '12345678000195';
@@ -40,6 +41,8 @@ export async function sessaoDe(email: string): Promise<SupabaseClient> {
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA!, { auth: { persistSession: false } });
   const { error } = await sb.auth.signInWithPassword({ email, password: SENHA });
   if (error) throw error;
+  // Segurança do login (item 8): quem precisa confirma o segundo fator, como no navegador.
+  await elevarSessao(sb, email);
   return sb;
 }
 

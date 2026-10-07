@@ -304,9 +304,11 @@ auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 max_enrolled_factors = 10
 
 # Control MFA via App Authenticator (TOTP)
+# Segurança do login (item 8): aplicativo autenticador obrigatório para administrador e para quem vê acessos de portais.
+# TOTP vale em todos os planos (só o MFA por SMS é pago).
 [auth.mfa.totp]
-enroll_enabled = false
-verify_enabled = false
+enroll_enabled = true
+verify_enabled = true
 
 # Configure MFA via Phone Messaging
 [auth.mfa.phone]

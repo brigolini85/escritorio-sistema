@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { passarPeloSegundoFator } from './apoio-mfa';
 import { clienteServicoLocal } from './trava-local';
 
 // Só com o Supabase local (trava-local): este cliente cria e apaga pessoas.
@@ -24,5 +25,7 @@ export async function entrar(page: Page, email: string, senha: string): Promise<
   await page.getByLabel('E-mail').fill(email);
   await page.getByLabel('Senha').fill(senha);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await page.waitForURL('**/inicio');
+  // Segurança do login (item 8): administrador e quem vê acessos de portais passam pelo código do aplicativo.
+  await page.waitForURL((u) => u.pathname === '/inicio' || u.pathname === '/segundo-fator');
+  if (new URL(page.url()).pathname === '/segundo-fator') await passarPeloSegundoFator(page, email);
 }

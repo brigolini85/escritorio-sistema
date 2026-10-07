@@ -12,6 +12,8 @@ async function definir(formData: FormData) {
   if (senhaCurta(senha)) redirect('/definir-senha?erro=curta');
   const sb = await supabaseServidor();
   const { error } = await sb.auth.updateUser({ password: senha });
+  // Segurança do login (item 8): quem já tem o aplicativo autenticador confirma o código antes de trocar a senha.
+  if (error?.code === 'insufficient_aal') redirect('/segundo-fator?depois=senha');
   if (error) redirect('/definir-senha?erro=falha');
   redirect('/inicio');
 }

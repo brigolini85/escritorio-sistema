@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { chavePublica, supabaseUrl } from '@/lib/ambiente-publico';
 import { cabecalhoHsts, gerarNonce, politicaDeConteudo } from '@/lib/cabecalhos-seguranca';
 import { ehRotaPublica } from '@/lib/rotas-publicas';
+import { ehTelaDoSegundoFator, TELA_SEGUNDO_FATOR } from '@/lib/segundo-fator';
 import { assinarAtividade, avaliarSessao, COOKIE_ATIVIDADE, lerAtividade, lerClaims, momentoDoLogin, SESSAO_MAXIMA_MS } from '@/lib/sessao-limites';
 import { situacaoDe } from '@/lib/situacao-acesso';
 
@@ -74,13 +75,24 @@ async function decidir(req: NextRequest): Promise<NextResponse> {
         httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: SESSAO_MAXIMA_MS / 1000,
       });
     }
+    // Segurança do login (item 8): quem precisa do segundo fator e só usou a senha (aal1) não passa da tela do código.
+    // As duas perguntas ao banco vão juntas; com aal2 a segunda nem é feita.
+    const [{ data: s, error }, fator] = await Promise.all([
+      sb.rpc('situacao_acesso'),
+      claims?.aal === 'aal2' ? Promise.resolve(null) : sb.rpc('exige_segundo_fator'),
+    ]);
     // Horário de acesso (spec 7.2): o banco já recusa; aqui a pessoa vê o porquê. Erro na consulta não tranca ninguém.
-    const { data: s, error } = await sb.rpc('situacao_acesso');
     if (error) console.error('[middleware] situação de acesso', error.message);
     const situacao = error ? null : situacaoDe(s);
     const naPagina = caminho.startsWith('/fora-do-horario');
     if (situacao === 'fora_do_horario' && !naPagina) return redirecionar('/fora-do-horario');
     if (situacao === 'liberado' && naPagina) return redirecionar('/inicio');
+    // Erro ao perguntar não tranca a tela (como o horário); o banco segue recusando as ações sensíveis sem o fator.
+    if (fator?.error) console.error('[middleware] segundo fator', fator.error.message);
+    if (situacao !== 'fora_do_horario' && fator?.data === true && !ehTelaDoSegundoFator(caminho)) {
+      if (chamadaDeCodigo) return NextResponse.json({ erro: 'confirme o segundo fator' }, { status: 401 });
+      return redirecionar(TELA_SEGUNDO_FATOR);
+    }
   }
   return resposta;
 }

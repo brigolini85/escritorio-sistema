@@ -2,6 +2,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { COOKIE_LETRA, OPCOES_COOKIE_LETRA, tamanhoDoValor } from '@/components/layout/tamanho-letra';
+import { TELA_SEGUNDO_FATOR } from '@/lib/segundo-fator';
 import { COOKIE_ATIVIDADE } from '@/lib/sessao-limites';
 import { lerSituacao } from '@/lib/situacao-acesso';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -24,7 +25,9 @@ export async function entrar(formData: FormData) {
   // O tamanho da letra segue a pessoa, mesmo noutro computador.
   const { data: perfil } = await sb.from('usuarios').select('tamanho_letra').eq('id', data.user.id).maybeSingle();
   (await cookies()).set(COOKIE_LETRA, tamanhoDoValor(perfil?.tamanho_letra), OPCOES_COOKIE_LETRA);
-  redirect('/inicio');
+  // Segurança do login (item 8): administrador e quem vê acessos de portais confirmam o código do aplicativo antes.
+  const { data: exige } = await sb.rpc('exige_segundo_fator');
+  redirect(exige === true ? TELA_SEGUNDO_FATOR : '/inicio');
 }
 
 export async function sair() {
