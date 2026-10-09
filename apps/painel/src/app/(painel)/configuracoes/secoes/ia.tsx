@@ -29,7 +29,7 @@ export function SecaoIa({ cfg, teto }: { cfg: Config; teto: ReturnType<typeof si
   return (
     <>
       <FormularioConfig acao={salvarTetoAlertas} rotulo="Teto de IA e alertas">
-        <Cartao id="teto-ia" titulo="Teto de IA e alertas" descricao="Ao chegar no teto do mês, o agente para de responder e as conversas vão para a equipe.">
+        <Cartao id="teto-ia" titulo="Teto de IA e alertas" descricao="Ao chegar no teto do mês ou no limite do dia de um número, o agente para de responder e a conversa vai para a equipe.">
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div>
               <FormField
@@ -40,6 +40,26 @@ export function SecaoIa({ cfg, teto }: { cfg: Config; teto: ReturnType<typeof si
                 <Input name="teto_ia_usd" type="number" step="1" min="1" required defaultValue={Number(cfg.teto_ia_usd)} className="tabular sm:w-40" />
               </FormField>
               <Antes campo="teto_ia_usd" texto={formatarUSD(Number(cfg.teto_ia_usd))} />
+            </div>
+            <div>
+              <FormField
+                id="limite_dia_contato_usd"
+                rotulo="Limite por dia de cada contato cadastrado (US$)"
+                ajuda="Passou disso no dia, a conversa vai para a equipe sem resposta da IA e você recebe um aviso."
+              >
+                <Input name="limite_dia_contato_usd" inputMode="decimal" required defaultValue={decimalBr(cfg.limite_dia_contato_usd)} className="tabular sm:w-40" />
+              </FormField>
+              <Antes campo="limite_dia_contato_usd" texto={formatarUSD(Number(cfg.limite_dia_contato_usd))} />
+            </div>
+            <div>
+              <FormField
+                id="limite_dia_desconhecido_usd"
+                rotulo="Limite por dia de número desconhecido (US$)"
+                ajuda="Número que ainda não é contato cadastrado. O dia conta no horário de Brasília."
+              >
+                <Input name="limite_dia_desconhecido_usd" inputMode="decimal" required defaultValue={decimalBr(cfg.limite_dia_desconhecido_usd)} className="tabular sm:w-40" />
+              </FormField>
+              <Antes campo="limite_dia_desconhecido_usd" texto={formatarUSD(Number(cfg.limite_dia_desconhecido_usd))} />
             </div>
             <div>
               <FormField id="minutos_alerta_fila" rotulo="Demanda sem responsável: avisar após (minutos)">

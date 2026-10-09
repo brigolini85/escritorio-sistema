@@ -19,6 +19,17 @@ describe('ExpedienteForm e TetoAlertasForm (separados na Parte D: teto e alertas
       teto_ia_usd: 80, minutos_alerta_fila: 30, email_alertas: 'dono@escritorio.com', telefone_dono: '5531977770000',
     });
   });
+  it('auditoria 4.2 (D2): limites diários por número, com vírgula ou ponto; negativo é recusado', () => {
+    const f = new FormData();
+    f.set('teto_ia_usd', '80'); f.set('minutos_alerta_fila', '30');
+    f.set('limite_dia_contato_usd', '2,50'); f.set('limite_dia_desconhecido_usd', '0.3');
+    expect(TetoAlertasForm.parse(f)).toMatchObject({ limite_dia_contato_usd: 2.5, limite_dia_desconhecido_usd: 0.3 });
+    f.set('limite_dia_desconhecido_usd', '-1');
+    const r = TetoAlertasForm.safeParse(f);
+    expect(r.success ? [] : r.error.issues.map((i) => i.message)).toEqual(['O limite por dia não pode ser negativo.']);
+    f.set('limite_dia_desconhecido_usd', '');
+    expect(TetoAlertasForm.safeParse(f).success).toBe(false);
+  });
 });
 
 describe('CotacaoForm: cotação do dólar e custo por minuto da transcrição (Parte F; cartão próprio na G1)', () => {

@@ -9,10 +9,10 @@ import { montarConteudoUsuario, type AnexoParaIa } from './agente/prompt';
 import { enviarDoSistema } from './envio';
 import { ESPERA_OCUPADA_SEGUNDOS, FILAS, TRAVA_VEZ_SEGUNDOS, agendarAssistente, naVez, type Fila } from './fila';
 import { ArquivoGrandeDemais, type ArmazenamentoMidia } from './midia/armazenamento';
-import type { Transcricao, Transcritor } from './midia/transcritor';
+import { AVISO_AUDIO_LONGO, audioLongoDemais, cortarTranscricao, type Transcricao, type Transcritor } from './midia/transcritor';
 
 export type DepsProcessamento = DepsAgente & { transcritor: Transcritor; midia: ArmazenamentoMidia; alertas: Alertas; relogio: () => Date; fila: Fila };
-export type DesfechoProcessamento = 'sem-mensagens' | 'assistente' | 'interno' | 'humano' | 'pausado' | 'teto' | 'agente' | 'escalado' | 'volume';
+export type DesfechoProcessamento = 'sem-mensagens' | 'assistente' | 'interno' | 'humano' | 'pausado' | 'teto' | 'limite' | 'agente' | 'escalado' | 'volume';
 
 const TAMANHO_HISTORICO = 20;
 /** Revisão geral I2: a vez do agente para de abrir rodadas depois disto (bem abaixo do prazo do job, EXPIRA_CONVERSA_SEGUNDOS). */
@@ -41,6 +41,8 @@ type DestinoCusto = { conversaId: string | null; clienteId: string | null };
 
 /** Transcreve e grava o custo (spec 7B.2). Falha do fornecedor não é cobrada: só o aviso. Falha ao gravar o custo não perde o áudio. */
 async function transcrever(d: DepsProcessamento, conversa: Conversa, custo: DestinoCusto, bytes: Uint8Array, mime: string, nome: string): Promise<string> {
+  // Auditoria 5.7: áudio de mais de 10 min nem vai ao fornecedor; o arquivo fica salvo para a equipe ouvir.
+  if (audioLongoDemais(bytes)) return AVISO_AUDIO_LONGO;
   let r: Transcricao;
   try {
     r = await d.transcritor.transcrever(bytes, mime, nome);
@@ -57,19 +59,40 @@ async function transcrever(d: DepsProcessamento, conversa: Conversa, custo: Dest
   } catch (e) {
     console.error('[mídia] falha ao gravar o custo da transcrição', conversa.id, e);
   }
-  return r.texto;
+  // Auditoria 5.7: a transcrição vai em cada rodada e no histórico das próximas vezes.
+  return cortarTranscricao(r.texto);
+}
+
+/** Auditoria 4.5 e 5.2: no máximo isto de imagens e PDFs vai ao modelo por vez (cinco PDFs grandes já passam do limite da API). */
+export const MAX_ANEXOS_POR_VEZ = 5;
+const AVISO_MUITOS_ANEXOS = '[anexo não aberto: muitos arquivos de uma vez]';
+
+/** O anexo que passou do limite fica salvo e o agente sabe que ele veio. O aviso não se repete numa nova tentativa. */
+async function avisarAnexoNaoAberto(d: DepsProcessamento, m: Mensagem): Promise<void> {
+  if (m.conteudo?.includes(AVISO_MUITOS_ANEXOS)) return;
+  m.conteudo = `${m.conteudo ?? ''} ${AVISO_MUITOS_ANEXOS}`.trim();
+  await d.repos.atualizarMensagem(m.id, { conteudo: m.conteudo });
 }
 
 async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: Mensagem[], custo: DestinoCusto): Promise<AnexoParaIa[]> {
   const anexos: AnexoParaIa[] = [];
+  const guardar = async (m: Mensagem, anexo: AnexoParaIa | null | undefined) => {
+    if (!anexo) return;
+    if (anexos.length < MAX_ANEXOS_POR_VEZ) anexos.push(anexo);
+    else await avisarAnexoNaoAberto(d, m);
+  };
   for (const m of novas) {
     const nome = m.arquivo_nome ?? (m.tipo === 'audio' ? 'audio.ogg' : m.tipo === 'imagem' ? 'imagem.jpg' : 'arquivo');
     // Nova tentativa: a imagem ou o PDF já foi salvo na primeira; lê de volta para o agente continuar vendo.
     if (m.arquivo_path) {
       if (m.tipo === 'imagem' || m.tipo === 'documento') {
+        // Já passou do limite na primeira tentativa: nem lê o arquivo.
+        if (anexos.length >= MAX_ANEXOS_POR_VEZ || m.conteudo?.includes(AVISO_MUITOS_ANEXOS)) {
+          await avisarAnexoNaoAberto(d, m);
+          continue;
+        }
         const bytes = await d.midia.ler(m.arquivo_path).catch(() => null);
-        const anexo = bytes && anexoParaIa(m, bytes, m.arquivo_mime ?? '', nome);
-        if (anexo) anexos.push(anexo);
+        await guardar(m, bytes && anexoParaIa(m, bytes, m.arquivo_mime ?? '', nome));
       }
       continue;
     }
@@ -80,11 +103,9 @@ async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: M
       if (m.tipo === 'audio') {
         patch.transcricao = await transcrever(d, conversa, custo, salvo.bytes, salvo.mime.split(';')[0]!, nome);
         m.transcricao = patch.transcricao;
-      } else {
-        const anexo = anexoParaIa(m, salvo.bytes, salvo.mime, nome);
-        if (anexo) anexos.push(anexo);
       }
       await d.repos.atualizarMensagem(m.id, patch);
+      if (m.tipo !== 'audio') await guardar(m, anexoParaIa(m, salvo.bytes, salvo.mime, nome));
     } catch (e) {
       console.error('[mídia] falha ao preparar', m.id, e);
       // O agente precisa saber que o arquivo não veio; e a origem sai para não tentar (e avisar) de novo.
@@ -250,12 +271,27 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   }
 
   const mes = mesReferencia(d.relogio());
-  if ((await d.repos.custoIaDoMes(mes)) >= config.tetoIaUsd) {
+  const custoMes = await d.repos.custoIaDoMes(mes);
+  if (custoMes >= config.tetoIaUsd) {
     await avisarRespostaAosPedidos(d.repos, conversa.id, ctx.contato?.id, ctx.pedidosAoContato);
     await encaminharParaHumano(d, conversa, 'Limite mensal de gasto com IA atingido', config.mensagens.ia_indisponivel ?? null);
     await marcarPassagem(d, conversa.id, MOTIVOS_PASSAGEM.teto);
     await d.repos.marcarProcessadas(ids);
     return 'teto';
+  }
+
+  // Auditoria 4.2 e 5.2 (D2): um número só não esgota mais o teto do mês de todos. O limite é lido a cada vez: o número que
+  // vira contato cadastrado no meio do dia passa a ter o limite maior.
+  const limiteDia = contato ? config.limiteDiaContatoUsd : config.limiteDiaDesconhecidoUsd;
+  const custoTelefone = await d.repos.custoIaDoTelefoneHoje(conversa.telefone);
+  if (custoTelefone >= limiteDia) {
+    await avisarRespostaAosPedidos(d.repos, conversa.id, ctx.contato?.id, ctx.pedidosAoContato);
+    // Sem mensagem ao cliente (D2): a equipe vê a conversa na Triagem.
+    await encaminharParaHumano(d, conversa, 'Limite diário de gasto com IA deste número atingido', null);
+    await marcarPassagem(d, conversa.id, MOTIVOS_PASSAGEM.limiteDia);
+    await d.repos.marcarProcessadas(ids);
+    await avisarLimiteDia(d, conversa.telefone);
+    return 'limite';
   }
 
   // Revisão geral I4: resposta automática do outro lado e o agente respondendo um ao outro sem fim. Para e passa à equipe.
@@ -278,7 +314,9 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   let desfecho: DesfechoProcessamento = 'agente';
   let agenteAgiu = false;
   try {
-    const r = await atenderComAgentes({ ...d, prazoVez: inicio + PRAZO_VEZ_CONVERSA_MS }, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
+    // Auditoria 4.11: a vez para entre as rodadas se o gasto dela passar do limite do número ou do teto do mês.
+    const orcamento = { telefoneAntes: custoTelefone, limiteDia, mesAntes: custoMes, tetoMes: config.tetoIaUsd, gastoNaVez: 0 };
+    const r = await atenderComAgentes({ ...d, prazoVez: inicio + PRAZO_VEZ_CONVERSA_MS, orcamento }, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
     agenteAgiu = true;
     if (r.status === 'escalar') {
       if (await assumidaPorHumano(d, conversaId)) {
@@ -304,14 +342,50 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   }
   try {
     await d.repos.marcarProcessadas(ids);
-    if (config.alertaIa80Mes !== mes && (await d.repos.custoIaDoMes(mes)) >= 0.8 * config.tetoIaUsd) {
-      await d.alertas.alertar({ nivel: 'operacional', mensagem: `O gasto com IA do mês passou de 80% do teto (US$ ${config.tetoIaUsd}).` });
-      await d.repos.marcarAlertaIa80(mes);
-    }
   } catch (e) {
     throw new ErroDepoisDoAgente(e);
   }
+  // O batimento confere de novo a cada poucos minutos: falha aqui não derruba a vez.
+  await conferirAlertaIa80(d).catch((e) => console.error('[alerta 80%] não conferido', conversaId, e));
   return desfecho;
+}
+
+/** Minutos desde a meia-noite de São Paulo, para o "uma vez por dia". */
+function minutosDesdeMeiaNoiteSP(agora: Date): number {
+  const data = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(agora);
+  return Math.max(1, Math.ceil((agora.getTime() - new Date(`${data}T00:00:00-03:00`).getTime()) / 60_000));
+}
+
+/** D2: o dono fica sabendo uma vez por dia por telefone (o texto com o final do número é a chave). Falha não derruba a vez. */
+async function avisarLimiteDia(d: Pick<DepsProcessamento, 'repos' | 'alertas'>, telefone: string): Promise<void> {
+  const mensagem = `O número …${telefone.slice(-4)} passou do limite diário de IA e foi passado à equipe.`;
+  try {
+    // O banco grava o alerta com o relógio dele: o dia conta pelo relógio de verdade, não pelo do job.
+    if (await d.repos.alertaRecente(mensagem, minutosDesdeMeiaNoiteSP(new Date()))) return;
+    await d.alertas.alertar({ nivel: 'operacional', mensagem });
+  } catch (e) {
+    console.error('[limite do dia] alerta não registrado', telefone.slice(-4), e);
+  }
+}
+
+/**
+ * Auditoria 4.12: alerta de 80% do teto do mês. A soma é de todo o uso_ia (atendimento, especialista, transcrição, assistente,
+ * sugestão, tarefas, Radar). Só quem marcou o mês envia; se nenhum canal entregou, a marcação volta para tentar de novo.
+ * Roda depois de cada vez de atendimento e no batimento (tarefas.ts), que cobre o gasto fora do atendimento.
+ */
+export async function conferirAlertaIa80(d: Pick<DepsProcessamento, 'repos' | 'alertas' | 'relogio'>): Promise<void> {
+  const config = await d.repos.obterConfiguracoes();
+  const mes = mesReferencia(d.relogio());
+  if (config.alertaIa80Mes === mes) return;
+  if ((await d.repos.custoIaDoMes(mes)) < 0.8 * config.tetoIaUsd) return;
+  if (!(await d.repos.marcarAlertaIa80(mes))) return;
+  let entregue = false;
+  try {
+    const r = await d.alertas.alertar({ nivel: 'operacional', mensagem: `O gasto com IA do mês passou de 80% do teto (US$ ${config.tetoIaUsd}).` });
+    entregue = !r || r.entregue;
+  } finally {
+    if (!entregue) await d.repos.desmarcarAlertaIa80(mes);
+  }
 }
 
 /** Revisão geral I1: uma vez por conversa (trava no banco, a mesma chave que o batimento confere); ocupada, volta para a fila mais tarde. */

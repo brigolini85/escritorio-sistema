@@ -193,10 +193,15 @@ const hora = (iso: string) =>
 /** Revisão geral I5: texto que veio do cliente (ou do celular) não abre nem fecha as marcas do pedido (<historico> etc.). */
 const neutro = (t: string) => t.replace(/</g, '‹').replace(/>/g, '›');
 
-function textoDaMensagem(m: Mensagem): string {
+/** Auditoria 4.5 e 5.2: o texto das mensagens novas de uma vez vai até aqui (o resto é cortado com o aviso). */
+export const MAX_CARACTERES_NOVAS = 8000;
+const AVISO_MENSAGEM_CORTADA = '[mensagem cortada]';
+
+/** `historico`: a imagem já foi vista numa vez anterior e não vai de novo ao modelo (auditoria 5.2): só o nome. */
+function textoDaMensagem(m: Mensagem, historico = false): string {
   const partes: string[] = [];
   if (m.tipo === 'audio') partes.push(`[áudio transcrito] ${m.transcricao ? neutro(m.transcricao) : '(sem transcrição)'}`);
-  if (m.tipo === 'imagem') partes.push('[imagem anexada]');
+  if (m.tipo === 'imagem') partes.push(historico ? `[imagem enviada antes: ${m.arquivo_nome ? neutro(m.arquivo_nome) : 'imagem'}]` : '[imagem anexada]');
   if (m.tipo === 'documento') partes.push(`[documento: ${m.arquivo_nome ? neutro(m.arquivo_nome) : 'arquivo'}]`);
   if (m.conteudo) partes.push(neutro(m.conteudo));
   return partes.join(' ');
@@ -221,8 +226,10 @@ export function montarConteudoUsuario(
     `Expediente do escritório agora: ${ctx.noExpediente ? 'aberto' : 'fechado'}`,
   ].join('\n');
   // I5: a linha seguinte de uma mensagem fica recuada; o cliente não forja "[dd/mm, hh:mm] Escritório: ..." numa linha nova.
-  const hist = historico.map((m) => `[${hora(m.criado_em)}] ${quem(m)}: ${textoDaMensagem(m).replace(/\r\n?|[\u2028\u2029]/g, '\n').replace(/\n/g, '\n  ')}`).join('\n');
-  const novasTexto = novas.map(textoDaMensagem).join('\n');
+  const hist = historico.map((m) => `[${hora(m.criado_em)}] ${quem(m)}: ${textoDaMensagem(m, true).replace(/\r\n?|[\u2028\u2029]/g, '\n').replace(/\n/g, '\n  ')}`).join('\n');
+  const todasNovas = novas.map((m) => textoDaMensagem(m)).join('\n');
+  const novasTexto = todasNovas.length > MAX_CARACTERES_NOVAS
+    ? `${todasNovas.slice(0, MAX_CARACTERES_NOVAS)}\n${AVISO_MENSAGEM_CORTADA}` : todasNovas;
 
   const blocos: Anthropic.ContentBlockParam[] = [{
     type: 'text',

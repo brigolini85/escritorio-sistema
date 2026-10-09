@@ -8,7 +8,8 @@ import type { ParametrosIa } from './cliente-ia';
 import type { ContextoAgente } from './contexto';
 import { ferramentasDoAgenteSetor, montarBlocosEspecialista } from './especialista';
 import {
-  NOMES_FERRAMENTAS, executarFerramenta, falha, ok, type DepsAgente, type Devolucao, type EstadoExecucao, type ExecutorFerramentas, type Resultado,
+  NOMES_FERRAMENTAS, executarFerramenta, falha, ok, type DepsAgente, type Devolucao, type EstadoExecucao, type ExecutorFerramentas, type OrcamentoVez,
+  type Resultado,
 } from './ferramentas';
 import { LIMITE_ORIENTACOES } from './orientacoes';
 import { ferramentasDoPerfil, modeloDoPerfil, perfilDoContexto } from './perfil';
@@ -38,12 +39,20 @@ async function registrarUso(d: DepsAgente, ctx: ContextoAgente, r: Anthropic.Mes
   const modelo = modeloDoPerfil(perfil, ctx.config);
   const preco = ctx.config.precosModelos[modelo] ?? { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
   const uso = usoDaResposta(r.usage);
+  const custoUsd = calcularCustoUsd(uso, preco);
+  // Conta antes de gravar: a chamada já foi cobrada, mesmo que a gravação falhe (auditoria 4.11).
+  if (d.orcamento) d.orcamento.gastoNaVez += custoUsd;
   // A simulação troca o repositório e grava como testar_agente (agente/simular.ts). O agente vai junto (D16 da I1, D10 da I2).
   await d.repos.registrarUsoIa({
     funcionalidade: especialista ? 'especialista_setor' : 'agente_clientes', usuarioId: null, conversaId: ctx.conversa.id,
     clienteId: ctx.empresaEmFoco?.id ?? null, modelo, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
-    tokensCacheLeitura: uso.cacheLeitura, tokensCacheEscrita: uso.cacheEscrita, custoUsd: calcularCustoUsd(uso, preco), agenteId: perfil.id,
+    tokensCacheLeitura: uso.cacheLeitura, tokensCacheEscrita: uso.cacheEscrita, custoUsd, agenteId: perfil.id,
   });
+}
+
+/** Auditoria 4.11: o telefone passou do limite do dia ou o mês passou do teto com o que esta vez já gastou. */
+function passouDoOrcamento(o: OrcamentoVez | undefined): boolean {
+  return !!o && (o.telefoneAntes + o.gastoNaVez >= o.limiteDia || o.mesAntes + o.gastoNaVez >= o.tetoMes);
 }
 
 /** O pedido de uma rodada (Parte I1): o de antes, com o modelo e as ferramentas do perfil. Mesma ordem de chaves (D2). */
@@ -153,6 +162,8 @@ export async function executarAgente(
     if (d.prazoVez !== undefined && Date.now() >= d.prazoVez) {
       return estado.respondeu ? terminou() ?? okFinal() : { status: 'escalar', motivo: 'tempo esgotado', respondeu: false };
     }
+    // Auditoria 4.11: o limite era conferido só na entrada; agora também antes de cada rodada (do Thiago e do agente do setor).
+    if (passouDoOrcamento(d.orcamento)) return { status: 'escalar', motivo: 'limite de custo', respondeu: estado.respondeu };
     // A cada rodada: selecionar_empresa pode ter trocado a empresa em foco (e com ela as orientações da empresa).
     const { pedido, cortadas } = montarPedido(ctx, messages, papel);
     const r = await d.ia.criar(pedido);

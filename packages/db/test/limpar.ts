@@ -34,6 +34,7 @@ export async function limparBanco(): Promise<void> {
     end $$`);
   await c.query("delete from auth.users where email like '%.local'");
   await c.query(`update public.configuracoes set agente_pausado = false, alerta_ia_80_mes = null, teto_ia_usd = 50, telefone_dono = null,
+    limite_dia_contato_usd = 2, limite_dia_desconhecido_usd = 0.30,
     espera_verde_min = 5, espera_ambar_min = 15`);
   // Parte I5: o Radar volta às sementes (fontes, agenda, sem giros nem novidades). Sem a I5 no banco, nada.
   await c.query(`do $$ begin

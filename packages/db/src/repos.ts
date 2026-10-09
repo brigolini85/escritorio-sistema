@@ -18,6 +18,9 @@ export type Configuracoes = {
   expediente: ConfigExpediente;
   agentePausado: boolean;
   tetoIaUsd: number;
+  /** Auditoria 4.2 e 5.2 (D2): gasto máximo com IA por telefone por dia (São Paulo), para contato cadastrado e para número desconhecido. */
+  limiteDiaContatoUsd: number;
+  limiteDiaDesconhecidoUsd: number;
   alertaIa80Mes: string | null;
   minutosAlertaFila: number;
   telefoneDono: string | null;
@@ -561,6 +564,9 @@ export function criarRepos(db: Db) {
         expediente: { inicio: c.horario_inicio.slice(0, 5), fim: c.horario_fim.slice(0, 5), diasUteis: c.dias_uteis, feriados: f.map((x) => x.data) },
         agentePausado: c.agente_pausado,
         tetoIaUsd: Number(c.teto_ia_usd),
+        // Banco sem a coluna (antes da migração 20261030000500): os valores da decisão D2.
+        limiteDiaContatoUsd: Number(c.limite_dia_contato_usd ?? 2),
+        limiteDiaDesconhecidoUsd: Number(c.limite_dia_desconhecido_usd ?? 0.3),
         alertaIa80Mes: c.alerta_ia_80_mes,
         minutosAlertaFila: c.minutos_alerta_fila,
         telefoneDono: c.telefone_dono,
@@ -574,8 +580,19 @@ export function criarRepos(db: Db) {
       };
     },
 
-    async marcarAlertaIa80(mes: string): Promise<void> {
-      checar(await db.from('configuracoes').update({ alerta_ia_80_mes: mes }).eq('id', 1), 'marcarAlertaIa80');
+    /** Auditoria 4.12: só quem conseguiu marcar o mês (update ... where alerta_ia_80_mes is distinct from mes) manda o alerta. */
+    async marcarAlertaIa80(mes: string): Promise<boolean> {
+      return Boolean(checar(await db.rpc('marcar_alerta_ia80', { p_mes: mes }), 'marcarAlertaIa80'));
+    },
+
+    /** O alerta não chegou por nenhum canal: a marcação volta para a próxima conferência tentar de novo. */
+    async desmarcarAlertaIa80(mes: string): Promise<void> {
+      checar(await db.from('configuracoes').update({ alerta_ia_80_mes: null }).eq('id', 1).eq('alerta_ia_80_mes', mes), 'desmarcarAlertaIa80');
+    },
+
+    /** Auditoria 4.2 e 5.2 (D2): gasto com IA de hoje (dia de São Paulo) de todas as conversas com este telefone. */
+    async custoIaDoTelefoneHoje(telefone: string): Promise<number> {
+      return Number(checar(await db.rpc('custo_ia_do_telefone_hoje', { p_telefone: telefone }), 'custoIaDoTelefoneHoje'));
     },
 
     async setoresAtivos(): Promise<{ id: string; nome: string; descricao_assuntos: string }[]> {

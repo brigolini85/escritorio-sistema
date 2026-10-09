@@ -25,14 +25,24 @@ const decimalOpcional = (msg: string, minimoExclusivo: boolean) => z.preprocess(
   z.number({ invalid_type_error: msg }).refine((n) => Number.isFinite(n) && (minimoExclusivo ? n > 0 : n >= 0), msg).nullable(),
 );
 
+/** Auditoria 4.2 (D2): limite por dia, com vírgula ou ponto; vazio ou negativo é recusado. Fora do formulário: não muda. */
+const limiteDia = z.preprocess(
+  (v) => (v === null || v === undefined ? undefined : String(v).trim() === '' ? Number.NaN : Number(String(v).trim().replace(',', '.'))),
+  z.number({ invalid_type_error: 'O limite por dia não pode ser negativo.' })
+    .refine((n) => Number.isFinite(n) && n >= 0, 'O limite por dia não pode ser negativo.').optional(),
+);
+
 /** Teto de IA e alertas: só o administrador (P12 da Parte D; o banco também segura essas colunas). */
 export const TetoAlertasForm = z.preprocess((v) => {
   const f = v as FormData;
   return {
     teto_ia_usd: f.get('teto_ia_usd'), minutos_alerta_fila: f.get('minutos_alerta_fila'),
     email_alertas: f.get('email_alertas') || null, telefone_dono: f.get('telefone_dono') || null,
+    limite_dia_contato_usd: f.get('limite_dia_contato_usd'), limite_dia_desconhecido_usd: f.get('limite_dia_desconhecido_usd'),
   };
 }, z.object({
+  limite_dia_contato_usd: limiteDia,
+  limite_dia_desconhecido_usd: limiteDia,
   teto_ia_usd: z.coerce.number().positive('O teto precisa ser maior que zero.'),
   minutos_alerta_fila: z.coerce.number().int().min(5, 'No mínimo 5 minutos.'),
   email_alertas: z.string().email('Confira o e-mail.').nullable(),

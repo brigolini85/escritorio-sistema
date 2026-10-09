@@ -12,6 +12,8 @@ export const MOTIVOS_PASSAGEM = {
   // Revisão geral C1 e I4: mensagem que ficou sem resposta do agente; muitas mensagens seguidas (resposta automática).
   semResposta: 'mensagem do cliente ficou sem resposta do agente',
   volume: 'muitas mensagens seguidas (possível resposta automática)',
+  // Auditoria 4.2 e 5.2 (D2): o número passou do limite diário de gasto com IA.
+  limiteDia: 'limite diário de gasto com IA deste número atingido',
 } as const;
 
 const ESCALADAS: Record<string, string> = {
@@ -20,6 +22,8 @@ const ESCALADAS: Record<string, string> = {
   'terminou sem responder': 'o agente terminou sem responder',
   'limite de iterações': 'o agente passou do número máximo de passos',
   'tempo esgotado': 'o agente passou do tempo máximo da vez',
+  // Auditoria 4.11: limite do número ou teto do mês atingido entre as rodadas.
+  'limite de custo': 'o agente passou do limite de gasto com IA',
 };
 
 /** Motivo de executarAgente (status "escalar") em texto da tela; desconhecido vira um texto genérico. */

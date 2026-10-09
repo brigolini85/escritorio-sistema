@@ -41,3 +41,40 @@ export function criarTranscritor(
     },
   };
 }
+
+// Auditoria 5.7: um áudio de 2 h virava dezenas de milhares de caracteres, reenviados em cada rodada e nas 20 vezes seguintes.
+export const MAX_CARACTERES_TRANSCRICAO = 4000;
+export const AVISO_TRANSCRICAO_CORTADA = '[áudio longo: transcrição cortada]';
+export const AVISO_AUDIO_LONGO = '[áudio longo demais: não foi transcrito]';
+const MAX_SEGUNDOS_AUDIO = 10 * 60;
+/** Sem duração no cabeçalho: 10 MB de voz do WhatsApp passa bem de 10 min. */
+const MAX_BYTES_AUDIO_SEM_DURACAO = 10 * 1024 * 1024;
+
+export function cortarTranscricao(texto: string): string {
+  return texto.length > MAX_CARACTERES_TRANSCRICAO ? `${texto.slice(0, MAX_CARACTERES_TRANSCRICAO)} ${AVISO_TRANSCRICAO_CORTADA}` : texto;
+}
+
+const OGGS = [0x4f, 0x67, 0x67, 0x53];
+const ehOggS = (b: Uint8Array, i: number) => OGGS.every((c, k) => b[i + k] === c);
+
+/**
+ * Duração de um Ogg Opus (o áudio do WhatsApp): a posição da última página, em amostras a 48 kHz. Outro formato, ou cabeçalho
+ * que não se lê, devolve null (aí vale o tamanho do arquivo).
+ */
+export function duracaoOpusSegundos(bytes: Uint8Array): number | null {
+  if (bytes.length < 36 || !ehOggS(bytes, 0)) return null;
+  const inicio = new TextDecoder('latin1').decode(bytes.subarray(0, Math.min(bytes.length, 200)));
+  if (!inicio.includes('OpusHead')) return null;
+  for (let i = bytes.length - 27; i > 0; i--) {
+    if (!ehOggS(bytes, i)) continue;
+    const posicao = new DataView(bytes.buffer, bytes.byteOffset + i + 6, 8).getBigInt64(0, true);
+    return posicao > 0n ? Number(posicao) / 48_000 : null;
+  }
+  return null;
+}
+
+/** Mais de 10 min (pela duração do cabeçalho) ou, sem ela, mais de 10 MB: nem vai ao transcritor. */
+export function audioLongoDemais(bytes: Uint8Array): boolean {
+  const segundos = duracaoOpusSegundos(bytes);
+  return segundos !== null ? segundos > MAX_SEGUNDOS_AUDIO : bytes.length > MAX_BYTES_AUDIO_SEM_DURACAO;
+}

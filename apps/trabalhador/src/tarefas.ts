@@ -5,7 +5,7 @@ import type { CanalWhatsApp } from './canal/tipos';
 import type { Email } from './email';
 import { enviarDoSistema, type DepsEnvio } from './envio';
 import { FILAS, agendarAssistente, agendarAviso, agendarPedidoPendencia, agendarProcessamento, agendarTarefa, type Fila } from './fila';
-import { passarAEquipeSemResposta } from './processar-conversa';
+import { conferirAlertaIa80, passarAEquipeSemResposta } from './processar-conversa';
 
 export type DepsTarefas = { repos: Repos; canal: CanalWhatsApp; alertas: Alertas; envio: DepsEnvio; email: Email; fila: Fila; relogio: () => Date };
 
@@ -70,7 +70,10 @@ export async function alertaVencimento(d: DepsTarefas): Promise<number> {
 }
 
 /** A cada 5 minutos: cada alerta no seu try, para a falha de um não pular o outro; o erro volta no fim e o job consta como falho. */
-export async function alertasPeriodicos(d: DepsTarefas, tarefas: ((d: DepsTarefas) => Promise<unknown>)[] = [alertaFila, alertaVencimento]): Promise<void> {
+// Auditoria 4.12: o alerta de 80% do mês também roda aqui, para o gasto fora do atendimento (assistente, tarefas, Radar, sugestão).
+export async function alertasPeriodicos(
+  d: DepsTarefas, tarefas: ((d: DepsTarefas) => Promise<unknown>)[] = [alertaFila, alertaVencimento, conferirAlertaIa80],
+): Promise<void> {
   const erros: unknown[] = [];
   for (const tarefa of tarefas) {
     try {

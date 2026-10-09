@@ -18,7 +18,12 @@ import type { ContextoAgente } from './contexto';
 import { lerReferenciaDoPerfil, lerSkillDoPerfil } from './skills';
 
 /** prazoVez (revisão geral I2): hora (Date.now) a partir da qual a vez não abre outra rodada; sem ele, sem prazo (simulação, cenários). */
-export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa; prazoVez?: number };
+export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa; prazoVez?: number; orcamento?: OrcamentoVez };
+/**
+ * Auditoria 4.11 e D2: o gasto do telefone hoje e do mês antes desta vez, os limites e o que esta vez já gastou (somado a cada
+ * rodada). Passou de um dos dois, a vez não abre rodada nova. Sem ele, sem limite (simulação, cenários).
+ */
+export type OrcamentoVez = { telefoneAntes: number; limiteDia: number; mesAntes: number; tetoMes: number; gastoNaVez: number };
 /** Parte I2 (D4): o que o agente do setor entrega ao Thiago no modo por trás. */
 export type Devolucao = { respostaAoCliente: string; paraAEquipe: string | null };
 export type EstadoExecucao = {
