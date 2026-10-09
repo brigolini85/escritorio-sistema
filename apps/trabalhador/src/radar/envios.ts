@@ -50,7 +50,7 @@ export async function enviarEnvioRadar(d: { repos: Repos; radar: ReposRadar; env
       await d.radar.liberarEnvioRadar(e.id).catch((e2) => console.error('[radar envio] reserva não liberada', e.id, e2));
       throw erro;
     }
-    // A Z-API aceitou e a gravação falhou: a mensagem saiu. Corrige o status dela (enviarDoSistema a marcou como falha).
+    // A Z-API aceitou e a gravação falhou: a mensagem saiu. Corrige o status dela (enviarDoSistema a deixou "incerto").
     console.error('[radar envio] a mensagem saiu, mas o status não foi gravado', e.id, erro);
     const mid = mensagemId as string | null, prov = idProvedor as string;
     if (mid) await gravarComNovasTentativas('status da mensagem não gravado', () => d.envio.repos.marcarEnviada(mid, prov));

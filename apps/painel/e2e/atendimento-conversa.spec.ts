@@ -139,3 +139,24 @@ test('sem acesso a pedidos de nota, o por quê mostra o aviso e nunca o conteúd
   await expect(page.getByText('SEGREDO-DO-PEDIDO')).toHaveCount(0);
   expect(await page.content()).not.toContain('SEGREDO-DO-PEDIDO');
 });
+
+test('auditoria 3.3: resposta sem confirmação mostra "Não confirmada" e só a do painel tem "Enviar de novo"', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'ana-conversa@e2e.local', senha: SENHA, nome: 'Ana Conversa', papel: 'atendente', setores: ['Fiscal'] });
+  const s = await cenario();
+  const t = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+  const { data: linhas } = await db.from('mensagens').insert([
+    { conversa_id: s.conversa, direcao: 'saida', autor: 'agente', conteudo: 'Resposta do agente sem eco', criado_em: t(5), status_envio: 'incerto' },
+    { conversa_id: s.conversa, direcao: 'saida', autor: 'atendente', conteudo: 'Resposta da equipe sem eco', criado_em: t(4), status_envio: 'incerto',
+      envio_reservado_em: t(4) },
+  ]).select('id, autor');
+  const daEquipe = linhas!.find((l) => l.autor === 'atendente')!.id;
+  await entrar(page, 'ana-conversa@e2e.local', SENHA);
+  await page.goto(`/atendimento/${s.conversa}`);
+  const log = page.getByRole('log', { name: 'Histórico da conversa' });
+  await expect(page.locator('body')).toHaveAttribute(HIDRATADA, '', { timeout: 30_000 });
+  await expect(log.getByText('Não confirmada: confira no WhatsApp')).toHaveCount(2);
+  await expect(log.getByRole('button', { name: 'Enviar de novo' })).toHaveCount(1);
+  await log.getByRole('button', { name: 'Enviar de novo' }).click();
+  await expect.poll(async () => (await db.from('mensagens').select('status_envio').eq('id', daEquipe).single()).data?.status_envio).toBe('pendente');
+  await expect(log.getByRole('button', { name: 'Enviar de novo' })).toHaveCount(0);
+});

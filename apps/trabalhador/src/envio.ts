@@ -1,50 +1,84 @@
-import { normalizarTelefone } from '@escritorio/core';
+import { telefoneDoWhatsApp } from '@escritorio/core';
 import type { DocumentoEmpresa, Repos } from '@escritorio/db';
-import type { CanalWhatsApp, MensagemRecebida } from './canal/tipos';
+import { EnvioIncerto, type CanalWhatsApp, type MensagemRecebida } from './canal/tipos';
 import { FILAS, type Fila } from './fila';
 import type { ArmazenamentoMidia } from './midia/armazenamento';
 
+/**
+ * Auditoria 3.11: o limite de avisos do sistema por minuto. A contagem fica no banco (reservar_envio_sistema), para valer
+ * entre processos; sem vaga, o aviso vai para a fila de envio e a vez da conversa não espera.
+ */
 export class LimitadorEnvio {
-  private envios: number[] = [];
-  constructor(
-    private readonly maxPorMinuto: number,
-    private readonly agora: () => number = Date.now,
-    private readonly dormir: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
-  ) {}
+  constructor(readonly maxPorMinuto: number) {}
+}
 
-  async aguardar(): Promise<void> {
-    for (;;) {
-      const t = this.agora();
-      this.envios = this.envios.filter((x) => t - x < 60_000);
-      if (this.envios.length < this.maxPorMinuto) {
-        this.envios.push(t);
-        return;
-      }
-      await this.dormir(60_000 - (t - this.envios[0]!));
-    }
+/** Sem vaga no minuto: o aviso sai pela fila de envio depois disto. */
+export const ESPERA_SEM_VAGA_SEGUNDOS = 60;
+
+/** `fila`: para onde vão os avisos do sistema sem vaga no minuto. Sem ela (testes, cenários), o aviso sai na hora. */
+export type DepsEnvio = { repos: Repos; canal: CanalWhatsApp; limitador: LimitadorEnvio; midia: ArmazenamentoMidia; fila?: Fila };
+
+async function temVaga(d: DepsEnvio): Promise<boolean> {
+  try {
+    return await d.repos.reservarVagaEnvioSistema(d.limitador.maxPorMinuto);
+  } catch (e) {
+    // O limite protege a Z-API de rajadas; sem conseguir contar, o aviso sai (melhor que sumir).
+    console.error('[envio] limite de avisos não consultado; envia assim mesmo', e);
+    return true;
   }
 }
 
-export type DepsEnvio = { repos: Repos; canal: CanalWhatsApp; limitador: LimitadorEnvio; midia: ArmazenamentoMidia };
+async function adiarAviso(d: DepsEnvio, id: string): Promise<boolean> {
+  if (!d.fila) return false;
+  await d.fila.enviar(FILAS.enviarMensagem, { mensagemId: id }, { startAfter: ESPERA_SEM_VAGA_SEGUNDOS });
+  return true;
+}
+
+/**
+ * Auditoria 3.2: envia e grava o resultado. Incerto (a requisição saiu e não se sabe se entregou): "incerto", sem erro, e o
+ * eco confirma; quem chamou segue como se tivesse saído (não manda "IA indisponível", não reenvia). Falha certa (4xx,
+ * conexão recusada): "falhou" e o erro segue. A gravação de "enviada" que falha deixa "incerto" (a mensagem saiu).
+ */
+async function enviarERegistrar(d: DepsEnvio, id: string, enviar: () => Promise<{ idProvedor: string }>): Promise<void> {
+  let idProvedor: string;
+  try {
+    ({ idProvedor } = await enviar());
+  } catch (e) {
+    if (e instanceof EnvioIncerto) {
+      console.warn(`[envio] resultado incerto na mensagem ${id}; o eco confirma`, e.message);
+      await d.repos.marcarIncerto(id);
+      return;
+    }
+    await d.repos.marcarFalha(id);
+    throw e;
+  }
+  try {
+    await d.repos.marcarEnviada(id, idProvedor);
+  } catch (e) {
+    await d.repos.marcarIncerto(id).catch((e2) => console.error('[envio] nem "incerto" foi gravado', id, e2));
+    throw e;
+  }
+}
 
 /**
  * Grava a mensagem como pendente ANTES de enviar, para reconhecer o eco "enviada por mim".
- * O limitador vale só para mensagens de autor "sistema" (avisos, alertas, resumo) — respostas do agente não esperam.
+ * O limite vale só para mensagens de autor "sistema" (avisos, alertas, resumo) — respostas do agente não esperam.
  */
 export async function enviarDoSistema(
   d: DepsEnvio,
   p: { conversaId: string; telefone: string; clienteId: string | null; autor: 'agente' | 'sistema'; texto: string; turnoAgente?: string | null },
 ): Promise<string> {
   const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: p.autor, conteudo: p.texto, turnoAgente: p.turnoAgente ?? null });
-  if (p.autor === 'sistema') await d.limitador.aguardar();
-  try {
-    const { idProvedor } = await d.canal.enviarTexto(p.telefone, p.texto);
-    await d.repos.marcarEnviada(id, idProvedor);
-    return id;
-  } catch (e) {
-    await d.repos.marcarFalha(id);
-    throw e;
+  if (p.autor === 'sistema' && !(await temVaga(d))) {
+    try {
+      if (await adiarAviso(d, id)) return id;
+    } catch (e) {
+      await d.repos.marcarFalha(id);
+      throw e;
+    }
   }
+  await enviarERegistrar(d, id, () => d.canal.enviarTexto(p.telefone, p.texto));
+  return id;
 }
 
 /**
@@ -64,23 +98,33 @@ export async function enviarDocumentoDoSistema(
   // O painel mostra o documento com link (download auditado pelo id), não só o nome.
   const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: 'agente', conteudo: `📎 ${p.documento.nome}`,
     turnoAgente: p.turnoAgente ?? null, documentoId: p.documento.id });
+  let url: string;
   try {
-    const url = await arquivoEmBase64(d, p.documento.arquivoPath, p.documento.arquivoMime, 'documentos');
-    const { idProvedor } = await d.canal.enviarArquivo(p.telefone, { url, nome: p.documento.arquivoNome });
-    await d.repos.marcarEnviada(id, idProvedor);
-    return id;
+    url = await arquivoEmBase64(d, p.documento.arquivoPath, p.documento.arquivoMime, 'documentos');
   } catch (e) {
     await d.repos.marcarFalha(id);
     throw e;
   }
+  await enviarERegistrar(d, id, () => d.canal.enviarArquivo(p.telefone, { url, nome: p.documento.arquivoNome }));
+  return id;
 }
 
 const CAMINHO_DE_ANEXO = /^conversas\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[^/]+$/;
 
-/** Nova tentativa aceita "falhou"; a mensagem só fica "falhou" de vez na última tentativa da fila. */
+/**
+ * Job enviar-mensagem: resposta do painel ("pendente" ou "falhou" numa nova tentativa) ou aviso do sistema adiado pelo
+ * limite (auditoria 3.11). A mensagem só fica "falhou" de vez na última tentativa da fila.
+ * Auditoria 3.3: resultado incerto não relança (a nova tentativa mandaria de novo): fica "incerto" e a tela mostra
+ * "Não confirmada" com "Enviar de novo". Texto e arquivo: o texto sai primeiro e vira mensagem própria numa transação,
+ * e só então o arquivo; a reserva (envio_reservado_em) é por mensagem.
+ */
 export async function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string, ultimaTentativa = true): Promise<void> {
   const m = await d.repos.obterMensagem(mensagemId);
-  if (m.autor !== 'atendente' || (m.status_envio !== 'pendente' && m.status_envio !== 'falhou')) return;
+  const doPainel = m.autor === 'atendente' && (m.status_envio === 'pendente' || m.status_envio === 'falhou');
+  const avisoAdiado = m.autor === 'sistema' && m.direcao === 'saida' && m.status_envio === 'pendente' && !m.arquivo_path;
+  if (!doPainel && !avisoAdiado) return;
+  // Ainda sem vaga no minuto: volta para a fila (sem reservar).
+  if (avisoAdiado && !(await temVaga(d)) && (await adiarAviso(d, m.id))) return;
   // Outra tarefa da fila já está enviando esta resposta: não manda de novo.
   if (!(await d.repos.reservarEnvio(m.id))) return;
   // Revisão geral I1: a chave de serviço lê qualquer arquivo; só anexo de conversa sai daqui (o banco já confere quem pediu).
@@ -91,20 +135,43 @@ export async function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string, u
     return;
   }
   const conversa = await d.repos.obterConversa(m.conversa_id);
+  let idProvedor: string | null = null;
   try {
-    let idProvedor: string | null = null;
-    if (m.conteudo) {
-      idProvedor = (await d.canal.enviarTexto(conversa.telefone, m.conteudo)).idProvedor;
-      if (m.arquivo_path) await d.repos.separarTextoEnviado(m.id, idProvedor);
+    if (m.conteudo && m.arquivo_path) {
+      // O texto vira mensagem própria (enviada com o id, ou incerta sem id); a nova tentativa não o repete.
+      // Se a separação falhar depois de o texto sair, o eco do texto separa sozinho (casar_eco_saida) antes da nova tentativa.
+      let separado: { id: string | null; status: 'enviada' | 'incerto' };
+      try {
+        separado = { id: (await d.canal.enviarTexto(conversa.telefone, m.conteudo)).idProvedor, status: 'enviada' };
+      } catch (e) {
+        if (!(e instanceof EnvioIncerto)) throw e;
+        console.warn(`[envio] texto da resposta ${m.id} com resultado incerto; o arquivo segue`, e.message);
+        separado = { id: null, status: 'incerto' };
+      }
+      await d.repos.separarTextoEnviado(m.id, separado.id, separado.status);
     }
     if (m.arquivo_path) {
       const url = await arquivoEmBase64(d, m.arquivo_path, m.arquivo_mime ?? 'application/pdf');
       idProvedor = (await d.canal.enviarArquivo(conversa.telefone, { url, nome: m.arquivo_nome ?? 'arquivo.pdf' })).idProvedor;
+    } else if (m.conteudo) {
+      idProvedor = (await d.canal.enviarTexto(conversa.telefone, m.conteudo)).idProvedor;
     }
-    await d.repos.marcarEnviada(m.id, idProvedor ?? `sem-id-${m.id}`);
   } catch (e) {
+    if (e instanceof EnvioIncerto) {
+      // A reserva fica: é o momento do envio (a janela do eco) e impede outra tarefa de pegar a mensagem.
+      console.warn(`[envio] resposta ${m.id} com resultado incerto; não reenvia sozinha`, e.message);
+      await d.repos.marcarIncerto(m.id);
+      return;
+    }
     if (ultimaTentativa) await d.repos.marcarFalha(m.id);
     await d.repos.liberarEnvio(m.id);
+    throw e;
+  }
+  try {
+    await d.repos.marcarEnviada(m.id, idProvedor ?? `sem-id-${m.id}`);
+  } catch (e) {
+    // A mensagem saiu: nunca volta a "pendente" livre (a reserva fica e "incerto" impede o reenvio).
+    await d.repos.marcarIncerto(m.id).catch((e2) => console.error('[envio] nem "incerto" foi gravado', m.id, e2));
     throw e;
   }
 }
@@ -123,25 +190,35 @@ export async function tratarEnviadaPorMim(d: DepsEnvio, fila: Fila, m: MensagemR
 /**
  * `podeEsperar` (revisão geral I3): sem id nem texto que case, mas com envio do sistema da conversa ainda pendente, devolve
  * "aguardar" em vez de concluir que foi uma pessoa no celular (eco de arquivo grande chega antes de o envio gravar o id).
+ * Auditoria 3.2: o eco casa também com a saída "incerto" (texto com espaços normalizados ou nome do arquivo, 10 min).
  */
 export async function verificarEnviadaPorMim(d: DepsEnvio, m: MensagemRecebida, podeEsperar = false): Promise<'do-sistema' | 'humano' | 'aguardar'> {
   if (await d.repos.mensagemPorIdProvedor(m.idProvedor)) return 'do-sistema';
-  const telefone = normalizarTelefone(m.telefone);
+  // Auditoria 3.10: o mesmo critério da entrada; número estrangeiro ou "@lid" não vira conversa fantasma "55…".
+  const telefone = telefoneDoWhatsApp(m.telefone);
   if (!telefone) return 'do-sistema';
   // Resposta do assistente interno: não tem linha em `mensagens` e nunca assume a conversa como atendimento humano.
   if (await d.repos.usuarioDoAssistente(telefone)) return 'do-sistema';
   const conversa = await d.repos.obterOuCriarConversa(telefone, null);
-  if (m.texto) {
-    const pendente = await d.repos.saidaPendenteComConteudo(conversa.id, m.texto);
-    if (pendente) {
-      await d.repos.marcarEnviada(pendente.id, m.idProvedor);
-      return 'do-sistema';
-    }
-  }
+  const arquivoNome = m.tipo !== 'texto' ? m.midia?.nomeArquivo ?? null : null;
+  if (await d.repos.casarEcoSaida(conversa.id, m.texto, arquivoNome, m.idProvedor)) return 'do-sistema';
   // Só eco sem texto (arquivo): o sistema e o painel mandam arquivo sem legenda; texto digitado no celular não espera.
   if (podeEsperar && m.tipo !== 'texto' && (await d.repos.temSaidaPendenteRecente(conversa.id, 10))) return 'aguardar';
   await d.repos.inserirSaidaExterna({ conversaId: conversa.id, clienteId: conversa.cliente_em_foco, idProvedor: m.idProvedor, conteudo: m.texto });
   // Como assumir pelo painel: limpa a espera e grava o marco "assumida" (sem pessoa: o celular não diz quem respondeu).
-  await d.repos.assumirPeloCelular(conversa.id);
+  if (await d.repos.assumirPeloCelular(conversa.id)) await alertarRespostaPeloCelular(d, telefone);
   return 'humano';
+}
+
+/**
+ * Auditoria 3.6: a equipe precisa saber que o agente parou nesta conversa (pode ter sido engano). Uma vez por hora por
+ * conversa; só os 4 últimos dígitos do telefone. Falha ao registrar não muda o resultado.
+ */
+async function alertarRespostaPeloCelular(d: DepsEnvio, telefone: string): Promise<void> {
+  const mensagem = `Alguém respondeu pelo celular a …${telefone.slice(-4)}; o agente parou nessa conversa.`;
+  try {
+    if (!(await d.repos.alertaRecente(mensagem, 60))) await d.repos.registrarAlerta({ nivel: 'aviso', mensagem });
+  } catch (e) {
+    console.error('[eco] alerta da resposta pelo celular não registrado', telefone.slice(-4), e);
+  }
 }

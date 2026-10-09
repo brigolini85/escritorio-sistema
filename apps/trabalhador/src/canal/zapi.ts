@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CanalWhatsApp, MensagemRecebida } from './tipos';
+import { EnvioIncerto, type CanalWhatsApp, type MensagemRecebida } from './tipos';
 
 const Corpo = z.object({
   type: z.literal('ReceivedCallback'),
@@ -18,6 +18,14 @@ const Corpo = z.object({
     documentUrl: z.string(), fileName: z.string().nullish(), mimeType: z.string().nullish(), caption: z.string().nullish(),
   }).optional(),
 }).passthrough();
+
+/** Auditoria 3.2: a conexão nem abriu (endereço não resolvido, recusada): a requisição não saiu, é falha certa. */
+const CONEXAO_NAO_SAIU = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'ENETUNREACH', 'EHOSTUNREACH']);
+function codigoDaCausa(e: unknown): string {
+  const causa = (e as { cause?: { code?: unknown } } | null)?.cause;
+  const codigo = causa?.code ?? (e as { code?: unknown } | null)?.code;
+  return typeof codigo === 'string' ? codigo : '';
+}
 
 /** Revisão geral I9: prazo de cada chamada à Z-API (o arquivo vai inteiro em Base64). Abaixo da reserva do envio do painel. */
 export const PRAZO_ZAPI_MS = { texto: 30_000, arquivo: 120_000, status: 15_000 } as const;
@@ -40,16 +48,28 @@ export function criarCanalZapi(
         signal: AbortSignal.timeout(prazoMs),
       });
     } catch (e) {
-      if (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')) throw new Error(`Z-API sem resposta no prazo (${prazoMs} ms)`);
-      throw e;
+      // Auditoria 3.2: depois que a requisição saiu, prazo estourado ou conexão caída não dizem se a Z-API entregou.
+      if (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')) throw new EnvioIncerto(`Z-API sem resposta no prazo (${prazoMs} ms)`);
+      if (CONEXAO_NAO_SAIU.has(codigoDaCausa(e))) throw e;
+      throw new EnvioIncerto(`Z-API: conexão interrompida (${e instanceof Error ? e.message : String(e)})`);
     }
-    if (!r.ok) throw new Error(`Z-API ${r.status}: ${await r.text()}`);
-    return (await r.json()) as Record<string, unknown>;
+    if (!r.ok) {
+      const texto = await r.text().catch(() => '');
+      // 4xx: a Z-API recusou (falha certa). 5xx: pode ter entregue.
+      if (r.status >= 500) throw new EnvioIncerto(`Z-API ${r.status}: ${texto.slice(0, 200)}`);
+      throw new Error(`Z-API ${r.status}: ${texto.slice(0, 200)}`);
+    }
+    try {
+      return (await r.json()) as Record<string, unknown>;
+    } catch {
+      throw new EnvioIncerto('Z-API respondeu sem JSON');
+    }
   }
 
   function idDaResposta(j: Record<string, unknown>): string {
     const id = j.messageId ?? j.id ?? j.zaapId;
-    if (typeof id !== 'string') throw new Error('Z-API não devolveu id da mensagem');
+    // Aceita (2xx) e sem id: a mensagem pode ter saído.
+    if (typeof id !== 'string') throw new EnvioIncerto('Z-API não devolveu id da mensagem');
     return id;
   }
 

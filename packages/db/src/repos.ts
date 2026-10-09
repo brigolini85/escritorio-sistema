@@ -289,16 +289,31 @@ export function criarRepos(db: Db) {
      * A equipe respondeu pelo celular: o mesmo que assumir_conversa faz (estado humano, espera limpa, marco "assumida"),
      * sem pessoa (o celular não diz quem foi). O filtro no próprio update evita marco repetido a cada resposta.
      */
-    async assumirPeloCelular(conversaId: string): Promise<void> {
+    async assumirPeloCelular(conversaId: string): Promise<boolean> {
       const mudou = checar(await db.from('conversas').update({ estado: 'humano', aguardando_pessoa_desde: null, motivo_pessoa: null,
         concluida_em: null, atualizado_em: new Date().toISOString() }).eq('id', conversaId).neq('estado', 'humano').select('id'), 'assumirPeloCelular');
       if (mudou.length > 0) {
         checar(await db.from('conversa_eventos').insert({ conversa_id: conversaId, tipo: 'assumida' }), 'assumirPeloCelular');
-        return;
+        return true;
       }
       // Já estava com a equipe: só garante que não sobrou espera de antes (não grava outro marco).
       checar(await db.from('conversas').update({ aguardando_pessoa_desde: null, motivo_pessoa: null }).eq('id', conversaId)
         .not('aguardando_pessoa_desde', 'is', null), 'assumirPeloCelular');
+      return false;
+    },
+
+    /**
+     * Auditoria 3.12 e 4.16: marca o aviso de privacidade antes de enviar; só quem marcou envia (duas vezes ao mesmo tempo
+     * na conversa nova mandam um aviso só).
+     */
+    async marcarAvisoLgpd(conversaId: string): Promise<boolean> {
+      return checar(await db.from('conversas').update({ aviso_lgpd_enviado_em: new Date().toISOString() })
+        .eq('id', conversaId).is('aviso_lgpd_enviado_em', null).select('id'), 'marcarAvisoLgpd').length > 0;
+    },
+
+    /** O envio do aviso falhou de certo (não saiu): desmarca para a nova tentativa mandar. */
+    async desmarcarAvisoLgpd(conversaId: string): Promise<void> {
+      checar(await db.from('conversas').update({ aviso_lgpd_enviado_em: null }).eq('id', conversaId), 'desmarcarAvisoLgpd');
     },
 
     async inserirMensagemEntrada(m: NovaMensagemEntrada): Promise<{ id: string; duplicada: boolean }> {
@@ -416,23 +431,39 @@ export function criarRepos(db: Db) {
     /**
      * Resposta com texto e arquivo: depois que o texto sai, ele vira uma mensagem própria (com o id do provedor,
      * para o eco ser reconhecido) e a original fica só com o arquivo, para uma nova tentativa não repetir o texto.
+     * Auditoria 3.3 (M10): numa transação só (RPC); texto incerto separa como "incerto", sem id. Já separada pelo eco: nada.
      */
-    async separarTextoEnviado(mensagemId: string, idProvedor: string): Promise<void> {
-      const m = checar(await db.from('mensagens').select('*').eq('id', mensagemId).single(), 'separarTextoEnviado');
-      checar(await db.from('mensagens').insert({
-        conversa_id: m.conversa_id, cliente_id: m.cliente_id, direcao: 'saida', autor: m.autor, atendente_id: m.atendente_id,
-        tipo: 'texto', conteudo: m.conteudo, id_provedor: idProvedor, status_envio: 'enviada',
-        criado_em: new Date(new Date(m.criado_em).getTime() - 1).toISOString(),
-      }), 'separarTextoEnviado');
-      checar(await db.from('mensagens').update({ conteudo: null }).eq('id', mensagemId), 'separarTextoEnviado');
+    async separarTextoEnviado(mensagemId: string, idProvedor: string | null, status: 'enviada' | 'incerto' = 'enviada'): Promise<void> {
+      checar(await db.rpc('separar_texto_enviado', { p_mensagem: mensagemId, p_id_provedor: idProvedor as string, p_status: status }), 'separarTextoEnviado');
     },
 
     async marcarEnviada(id: string, idProvedor: string): Promise<void> {
       checar(await db.from('mensagens').update({ status_envio: 'enviada', id_provedor: idProvedor }).eq('id', id), 'marcarEnviada');
     },
 
+    /** Auditoria 3.2: o eco que chegou antes do fim do envio já a deixou "enviada"; a falha não desfaz isso. */
     async marcarFalha(id: string): Promise<void> {
-      checar(await db.from('mensagens').update({ status_envio: 'falhou' }).eq('id', id), 'marcarFalha');
+      checar(await db.from('mensagens').update({ status_envio: 'falhou' }).eq('id', id).neq('status_envio', 'enviada'), 'marcarFalha');
+    },
+
+    /** Auditoria 3.2: resultado desconhecido (a Z-API pode ter entregado). Só a pendente muda: o eco pode ter chegado antes. */
+    async marcarIncerto(id: string): Promise<void> {
+      checar(await db.from('mensagens').update({ status_envio: 'incerto' }).eq('id', id).eq('status_envio', 'pendente'), 'marcarIncerto');
+    },
+
+    /**
+     * Auditoria 3.2 e 3.3: o eco sem id conhecido casa com a saída pendente ou incerta da conversa (texto com espaços
+     * normalizados ou nome do arquivo, últimos 10 min, a mais antiga) e a deixa "enviada" com o id do eco.
+     */
+    async casarEcoSaida(conversaId: string, texto: string | null, arquivoNome: string | null, idProvedor: string): Promise<string | null> {
+      const r = await db.rpc('casar_eco_saida', { p_conversa: conversaId, p_texto: texto as string, p_arquivo_nome: arquivoNome as string,
+        p_id_provedor: idProvedor });
+      return (checar(r, 'casarEcoSaida') as string | null) ?? null;
+    },
+
+    /** Auditoria 3.11: uma vaga de aviso do sistema no minuto, contada no banco (vale entre processos). */
+    async reservarVagaEnvioSistema(maxPorMinuto: number): Promise<boolean> {
+      return Boolean(checar(await db.rpc('reservar_envio_sistema', { p_max: maxPorMinuto }), 'reservarVagaEnvioSistema'));
     },
 
     async obterMensagem(id: string): Promise<Mensagem> {
@@ -441,13 +472,6 @@ export function criarRepos(db: Db) {
 
     async mensagemPorIdProvedor(idProvedor: string): Promise<Mensagem | null> {
       return checar(await db.from('mensagens').select('*').eq('id_provedor', idProvedor).maybeSingle(), 'mensagemPorIdProvedor');
-    },
-
-    async saidaPendenteComConteudo(conversaId: string, texto: string): Promise<Mensagem | null> {
-      const desde = new Date(Date.now() - 2 * 60_000).toISOString();
-      const r = await db.from('mensagens').select('*').eq('conversa_id', conversaId).eq('direcao', 'saida')
-        .eq('status_envio', 'pendente').eq('conteudo', texto).gte('criado_em', desde).limit(1).maybeSingle();
-      return checar(r, 'saidaPendenteComConteudo');
     },
 
     /**

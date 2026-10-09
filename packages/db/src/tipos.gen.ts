@@ -1153,6 +1153,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"limite_envio_sistema": {
+                  Row: {
+                    "minuto": string,"total": number
+                  }
+                  Insert: {
+                    "minuto": string,"total": number
+                  }
+                  Update: {
+                    "minuto"?: string,"total"?: number
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"mensagens": {
                   Row: {
                     "arquivo_mime": string | null,"arquivo_nome": string | null,"arquivo_path": string | null,"atendente_id": string | null,"autor": Database["public"]['Enums']["autor_mensagem"],"cliente_id": string | null,"conteudo": string | null,"conversa_id": string,"criado_em": string,"direcao": Database["public"]['Enums']["direcao_mensagem"],"documento_id": string | null,"envio_reservado_em": string | null,"id": string,"id_provedor": string | null,"midia_url_origem": string | null,"processada_em": string | null,"reenfileirada": number,"reenfileirada_em": string | null,"status_envio": Database["public"]['Enums']["status_envio"] | null,"tipo": Database["public"]['Enums']["tipo_mensagem"],"transcricao": string | null,"turno_agente": string | null,"turno_agente_entrada": string | null,"turno_agente_entrada_em": string | null
@@ -2256,6 +2269,9 @@ isOneToOne: false
 "cargos_validos":
 { Args: { "p": (string)[] }; Returns: boolean
                            },
+"casar_eco_saida":
+{ Args: { "p_arquivo_nome": string,"p_conversa": string,"p_id_provedor": string,"p_texto": string }; Returns: string
+                           },
 "clientes_afetados_radar":
 { Args: { "p_novidade": string }; Returns: {
               "cidade": string,"cliente_id": string,"nome": string,"regime": string,"uf": string
@@ -2778,6 +2794,9 @@ isOneToOne: false
 "receber_pendencia":
 { Args: { "p_arquivo"?: string,"p_id": string,"p_mensagem"?: string,"p_observacao": string }; Returns: boolean
                            },
+"reenviar_resposta":
+{ Args: { "p_mensagem": string }; Returns: string
+                           },
 "referencia_da_skill":
 { Args: { "p_agente": string,"p_caminho": string,"p_incluir"?: string,"p_nome": string }; Returns: string
                            },
@@ -2829,6 +2848,9 @@ isOneToOne: false
 { Args: { "p_id": string }; Returns: {
               "cliente_id": string,"contato_id": string,"id": string,"novidade_id": string,"telefone": string,"texto": string
             }[]
+                           },
+"reservar_envio_sistema":
+{ Args: { "p_max": number }; Returns: boolean
                            },
 "reservar_resumo_radar":
 { Args: { "p_giro": string }; Returns: Json
@@ -2923,6 +2945,9 @@ isOneToOne: false
 "segundo_fator_ok":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"separar_texto_enviado":
+{ Args: { "p_id_provedor": string,"p_mensagem": string,"p_status": string }; Returns: string
+                           },
 "simular_mudanca_prazo":
 { Args: { "p_dias": number,"p_prioridade": Database["public"]['Enums']["prioridade_demanda"] }; Returns: Json
                            },
@@ -2986,6 +3011,9 @@ isOneToOne: false
 "texto_da_ficha":
 { Args: { "k": string,"p": Json }; Returns: string
                            },
+"texto_do_eco":
+{ Args: { "p": string }; Returns: string
+                           },
 "texto_prazo":
 { Args: { "p": string }; Returns: string
                            },
@@ -3027,7 +3055,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "autor_mensagem": "cliente"|"agente"|"atendente"|"sistema","direcao_mensagem": "entrada"|"saida","estado_conversa": "agente"|"humano","papel_usuario": "admin"|"atendente","prioridade_demanda": "baixa"|"normal"|"alta"|"urgente","status_chamado": "aberto"|"em_andamento"|"aguardando_cliente"|"concluido","status_envio": "pendente"|"enviada"|"falhou","tipo_mensagem": "texto"|"audio"|"imagem"|"documento","tipo_parceiro": "cliente"|"fornecedor"
+            "autor_mensagem": "cliente"|"agente"|"atendente"|"sistema","direcao_mensagem": "entrada"|"saida","estado_conversa": "agente"|"humano","papel_usuario": "admin"|"atendente","prioridade_demanda": "baixa"|"normal"|"alta"|"urgente","status_chamado": "aberto"|"em_andamento"|"aguardando_cliente"|"concluido","status_envio": "pendente"|"enviada"|"falhou"|"incerto","tipo_mensagem": "texto"|"audio"|"imagem"|"documento","tipo_parceiro": "cliente"|"fornecedor"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -3147,7 +3175,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "autor_mensagem": ["cliente", "agente", "atendente", "sistema"],"direcao_mensagem": ["entrada", "saida"],"estado_conversa": ["agente", "humano"],"papel_usuario": ["admin", "atendente"],"prioridade_demanda": ["baixa", "normal", "alta", "urgente"],"status_chamado": ["aberto", "em_andamento", "aguardando_cliente", "concluido"],"status_envio": ["pendente", "enviada", "falhou"],"tipo_mensagem": ["texto", "audio", "imagem", "documento"],"tipo_parceiro": ["cliente", "fornecedor"]
+            "autor_mensagem": ["cliente", "agente", "atendente", "sistema"],"direcao_mensagem": ["entrada", "saida"],"estado_conversa": ["agente", "humano"],"papel_usuario": ["admin", "atendente"],"prioridade_demanda": ["baixa", "normal", "alta", "urgente"],"status_chamado": ["aberto", "em_andamento", "aguardando_cliente", "concluido"],"status_envio": ["pendente", "enviada", "falhou", "incerto"],"tipo_mensagem": ["texto", "audio", "imagem", "documento"],"tipo_parceiro": ["cliente", "fornecedor"]
           }
         }
 } as const

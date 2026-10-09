@@ -1,4 +1,4 @@
-import { Bot, CircleAlert, Info, Mic, Paperclip, ShieldOff, Sparkles, StickyNote, UserRound, type LucideIcon } from 'lucide-react';
+import { Bot, CircleAlert, CircleHelp, Info, Mic, Paperclip, ShieldOff, Sparkles, StickyNote, UserRound, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 import { formatarDataHora, formatarHora, isoOuNulo } from '@/lib/formatos';
@@ -39,8 +39,10 @@ export function MessageBubble({
   transcricao,
   arquivo,
   falhou = false,
+  incerta = false,
   bloqueada = false,
   acaoFalha,
+  acaoIncerta,
   children,
   className,
 }: {
@@ -54,10 +56,14 @@ export function MessageBubble({
   arquivo?: { nome: string; href: string } | null;
   /** Envio ao WhatsApp falhou. */
   falhou?: boolean;
+  /** Auditoria 3.3: a Z-API pode ter entregado (prazo estourado, conexão caída): ninguém sabe se chegou. */
+  incerta?: boolean;
   /** Prontidão (D2): o trabalhador de teste barrou o envio (número fora da lista). */
   bloqueada?: boolean;
   /** Ex.: botão "Tentar de novo" ao lado do aviso de falha. */
   acaoFalha?: ReactNode;
+  /** Ex.: botão "Enviar de novo" ao lado do aviso de não confirmada. */
+  acaoIncerta?: ReactNode;
   /** Conteúdo rico abaixo do texto (DiffPreview, OrderSummary, botão do CSV). */
   children?: ReactNode;
   className?: string;
@@ -116,6 +122,13 @@ export function MessageBubble({
         </a>
       )}
       {children}
+      {incerta && (
+        <p className="flex flex-wrap items-center gap-1.5 self-start rounded-sm bg-warning-soft px-1.5 py-0.5 text-sm font-medium text-warning">
+          <CircleHelp aria-hidden size={16} strokeWidth={1.75} className="shrink-0" />
+          Não confirmada: confira no WhatsApp
+          {acaoIncerta}
+        </p>
+      )}
       {bloqueada && !falhou && (
         <p className="flex flex-wrap items-center gap-1.5 self-start rounded-sm bg-warning-soft px-1.5 py-0.5 text-sm font-medium text-warning">
           <ShieldOff aria-hidden size={16} strokeWidth={1.75} className="shrink-0" />

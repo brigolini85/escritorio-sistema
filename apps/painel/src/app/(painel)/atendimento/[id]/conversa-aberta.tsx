@@ -7,6 +7,7 @@ import { AgentStateIndicator } from '@/components/patterns/agent-state-indicator
 import { estadoDaConversa } from '@/components/patterns/estado-agente';
 import { HistoricoRolante } from '@/components/patterns/historico-rolante';
 import { MessageBubble, type AutorMensagem } from '@/components/patterns/message-bubble';
+import { Button } from '@/components/ui/button';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { iniciais } from '@/lib/atendimento';
 import { consultaCaixa } from '@/lib/caixa';
@@ -22,7 +23,7 @@ import { resumirPedido } from '@/lib/resumo-pedido';
 import type { UsuarioPainel } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { ConversaAssistente } from '../../assistente/conversa-assistente';
-import { alterarStatus, assumir, concluir, concluirAtendimento, devolverAoAgente, notaInterna, responder, transferir } from '../acoes';
+import { alterarStatus, assumir, concluir, concluirAtendimento, devolverAoAgente, enviarDeNovo, notaInterna, responder, transferir } from '../acoes';
 import { Realce } from '../realce';
 import { AcoesConversa, BotaoPainel, type DemandaDaConversa as AcoesDaDemanda } from './acoes-conversa';
 import { situacaoDasMensagens } from '../../treinar-agente/ensinar';
@@ -44,7 +45,7 @@ import { COOKIE_PAINEL_CONVERSA, painelAbertoDoCookie, rotuloDasAbas } from './p
 const AUTOR: Record<string, AutorMensagem> = { cliente: 'cliente', agente: 'agente', atendente: 'atendente', sistema: 'sistema' };
 
 type ItemHistorico =
-  | { id: string; criado_em: string; tipo: 'mensagem'; autor: AutorMensagem; nome: string | null; propria: boolean; conteudo: string | null; transcricao: string | null; arquivo: { nome: string; href: string } | null; falhou: boolean; bloqueada: boolean; porQue: DecisaoBruta[] | null }
+  | { id: string; criado_em: string; tipo: 'mensagem'; autor: AutorMensagem; nome: string | null; propria: boolean; conteudo: string | null; transcricao: string | null; arquivo: { nome: string; href: string } | null; falhou: boolean; incerta: boolean; reenviavel: boolean; bloqueada: boolean; porQue: DecisaoBruta[] | null }
   | { id: string; criado_em: string; tipo: 'nota'; nome: string | null; propria: boolean; conteudo: string | null; demanda: number | null }
   | { id: string; criado_em: string; tipo: 'cartao'; cartao: CartaoDecisao }
   | { id: string; criado_em: string; tipo: 'marco'; texto: string };
@@ -173,7 +174,9 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
           ? { nome: (m.conteudo ?? 'Documento').replace(/^📎\s*/u, ''), href: `/api/documentos?id=${m.documento_id}` }
           : null
         : m.arquivo_path ? { nome: m.arquivo_nome ?? 'Abrir anexo', href: `/api/arquivos?path=${encodeURIComponent(m.arquivo_path)}` } : null,
-      falhou: m.status_envio === 'falhou', bloqueada: envioBloqueado(m.id_provedor), porQue: porQue.get(m.id) ?? null,
+      falhou: m.status_envio === 'falhou',
+      // Auditoria 3.3: sem confirmação da Z-API; só a resposta do painel tem "Enviar de novo" (a do agente, a equipe confere).
+      incerta: m.status_envio === 'incerto', reenviavel: m.status_envio === 'incerto' && m.autor === 'atendente', bloqueada: envioBloqueado(m.id_provedor), porQue: porQue.get(m.id) ?? null,
     })),
     ...cartoesDeDecisao(decisoesTela).map((c): ItemHistorico => ({ id: c.id, criado_em: c.criado_em, tipo: 'cartao', cartao: c })),
     ...marcos.map((x): ItemHistorico => ({ id: x.id, criado_em: x.criado_em, tipo: 'marco', texto: x.texto })),
@@ -355,6 +358,12 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
                         transcricao={m.transcricao}
                         arquivo={m.arquivo}
                         falhou={m.falhou}
+                        incerta={m.incerta}
+                        acaoIncerta={m.reenviavel ? (
+                          <form action={enviarDeNovo.bind(null, m.id, id)}>
+                            <Button type="submit" variant="link" size="sm">Enviar de novo</Button>
+                          </form>
+                        ) : undefined}
                         bloqueada={m.bloqueada}
                       >
                         {m.porQue && <PorQue decisoes={m.porQue} />}

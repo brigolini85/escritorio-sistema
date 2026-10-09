@@ -76,6 +76,29 @@ export async function responder(conversaId: string, formData: FormData) {
   if (!naFila) redirect(comAvisoNaUrl(`/atendimento/${conversaId}`, 'resposta-na-fila'));
 }
 
+/**
+ * Auditoria 3.3: a resposta "Não confirmada" (a Z-API pode ter entregado) não sai de novo sozinha; a pessoa confere no
+ * WhatsApp e, se precisar, pede "Enviar de novo". O banco só aceita resposta do painel incerta de conversa que ela vê;
+ * o segundo clique (já pendente ou enviada) não faz nada.
+ */
+export async function enviarDeNovo(mensagemId: string, conversaId: string) {
+  await obterUsuario();
+  const sb = await supabaseServidor();
+  const { error } = await sb.rpc('reenviar_resposta', { p_mensagem: mensagemId });
+  if (error) {
+    console.error('[atendimento] enviar de novo recusado:', mensagemId, error.message);
+    revalidatePath(`/atendimento/${conversaId}`);
+    return;
+  }
+  // Pendente de novo: se a fila falhar, o batimento do trabalhador reenfileira em 2 minutos.
+  const naFila = await enfileirarEnvio(mensagemId).then(() => true, (e: unknown) => {
+    console.error('[atendimento] enfileirar envio falhou; o batimento tenta de novo:', mensagemId, e);
+    return false;
+  });
+  revalidatePath(`/atendimento/${conversaId}`);
+  if (!naFila) redirect(comAvisoNaUrl(`/atendimento/${conversaId}`, 'resposta-na-fila'));
+}
+
 export async function notaInterna(chamadoId: string, conversaId: string, formData: FormData) {
   const texto = String(formData.get('texto') ?? '').trim();
   if (!texto) return;

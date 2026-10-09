@@ -9,7 +9,7 @@ import { lerConfig } from './config';
 import { driveDoAmbiente } from './drive/google';
 import { anunciarSituacaoDrive } from './drive/situacao';
 import { criarEmail } from './email';
-import { LimitadorEnvio } from './envio';
+import { LimitadorEnvio, type DepsEnvio } from './envio';
 import { criarBoss, encerrarComCalma, filaDe, type Fila } from './fila';
 import { iniciarConsumo } from './iniciar';
 import { lerBuild, novoEstadoInstancia, situacaoDoProcesso, type Instancia } from './instancia';
@@ -39,7 +39,8 @@ async function principal() {
   // Parte I3b (D4): os arquivos da pasta do cliente vão para o compartimento "tarefas".
   const guardar = guardarNaTarefa(db);
   const remover = removerDaTarefa(db);
-  const envio = { repos, canal, limitador: new LimitadorEnvio(20), midia };
+  // Auditoria 3.11: o limite de avisos do sistema conta no banco; sem vaga, o aviso vai para a fila (posta ao preparar).
+  const envio: DepsEnvio = { repos, canal, limitador: new LimitadorEnvio(20), midia };
   const email = criarEmail({ host: cfg.SMTP_HOST, porta: cfg.SMTP_PORTA, usuario: cfg.SMTP_USUARIO, senha: cfg.SMTP_SENHA, remetente: cfg.SMTP_REMETENTE });
   const alertas = criarAlertas({ repos, email, envio });
   // Auditoria 4.3: a partida confere o AMBIENTE do processo contra o do banco antes de qualquer escrita (pg-boss, Drive).
@@ -52,6 +53,7 @@ async function principal() {
     criarBoss: () => criarBoss(cfg.DATABASE_URL),
     preparar: async (boss) => {
       await anunciarSituacaoDrive(repos, drive);
+      envio.fila = filaDe(boss);
       const deps = {
         repos, envio, midia, alertas, relogio, fila: filaDe(boss),
         ia: criarClienteIa(cfg.ANTHROPIC_API_KEY),

@@ -163,6 +163,24 @@ async function encaminharParaHumano(
   }
 }
 
+/**
+ * Auditoria 3.12 e 4.16: o aviso de privacidade sai uma vez. Marca antes e envia depois; só quem marcou envia (duas vezes
+ * ao mesmo tempo na conversa nova mandam um só). Resultado incerto conta como enviado (melhor perder um aviso numa falha
+ * rara que mandar dois). Falha certa (não saiu): desmarca e o erro segue, para a nova tentativa mandar.
+ */
+export async function enviarAvisoLgpd(d: Pick<DepsProcessamento, 'repos' | 'envio'>, conversa: Conversa, aviso: string): Promise<void> {
+  if (conversa.aviso_lgpd_enviado_em) return;
+  if (!(await d.repos.marcarAvisoLgpd(conversa.id))) return;
+  const texto = aviso.trim();
+  if (!texto) return;
+  try {
+    await enviarDoSistema(d.envio, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: conversa.cliente_em_foco, autor: 'sistema', texto });
+  } catch (e) {
+    await d.repos.desmarcarAvisoLgpd(conversa.id).catch((e2) => console.error('[lgpd] marca do aviso não desfeita', conversa.id, e2));
+    throw e;
+  }
+}
+
 /** Se um atendente assumiu durante o processamento, o sistema não fala mais nada com o cliente. */
 async function assumidaPorHumano(d: DepsProcessamento, conversaId: string): Promise<boolean> {
   return (await d.repos.obterConversa(conversaId)).estado === 'humano';
@@ -323,12 +341,8 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
 
   const config = await d.repos.obterConfiguracoes();
 
-  if (!conversa.aviso_lgpd_enviado_em) {
-    // O texto é do dono (Configurações → Mensagens automáticas); vazio = não enviar aviso.
-    const aviso = (config.mensagens.aviso_lgpd ?? '').trim();
-    if (aviso) await enviarDoSistema(d.envio, { conversaId, telefone: conversa.telefone, clienteId: conversa.cliente_em_foco, autor: 'sistema', texto: aviso });
-    await d.repos.atualizarConversa(conversaId, { aviso_lgpd_enviado_em: d.relogio().toISOString() });
-  }
+  // O texto é do dono (Configurações → Mensagens automáticas); vazio = não enviar aviso.
+  await enviarAvisoLgpd(d, conversa, config.mensagens.aviso_lgpd ?? '');
 
   const ctx = await carregarContexto(d.repos, conversa, contato, config, d.relogio());
   conversa = ctx.conversa = await d.repos.obterConversa(conversaId);

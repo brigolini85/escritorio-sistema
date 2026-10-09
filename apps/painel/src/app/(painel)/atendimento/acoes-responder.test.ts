@@ -13,7 +13,7 @@ vi.mock('@/lib/sessao', () => ({ obterUsuario: async () => ({ papel: 'atendente'
 vi.mock('@/lib/supabase/servidor', () => ({ supabaseServidor: async () => ({ rpc: falso.rpc }) }));
 
 import { textoDoAviso } from '@/lib/avisos';
-import { responder } from './acoes';
+import { enviarDeNovo, responder } from './acoes';
 
 const CONVERSA = '22222222-2222-4222-8222-222222222222';
 function form(texto: string) {
@@ -51,5 +51,33 @@ describe('responder', () => {
     falso.rpc.mockResolvedValue({ data: null, error: { message: 'Arquivo não encontrado nesta conversa.' } });
     await expect(responder(CONVERSA, form('Oi'))).rejects.toThrow('Arquivo não encontrado');
     expect(falso.enfileirar).not.toHaveBeenCalled();
+  });
+});
+
+// Auditoria 3.3: a resposta "Não confirmada" não sai de novo sozinha; só quando a pessoa pede (Enviar de novo).
+describe('enviarDeNovo', () => {
+  const MENSAGEM = '33333333-3333-4333-8333-333333333333';
+
+  it('volta a resposta incerta para a fila', async () => {
+    falso.rpc.mockResolvedValue({ data: MENSAGEM, error: null });
+    await enviarDeNovo(MENSAGEM, CONVERSA);
+    expect(falso.rpc).toHaveBeenCalledWith('reenviar_resposta', { p_mensagem: MENSAGEM });
+    expect(falso.enfileirar).toHaveBeenCalledWith(MENSAGEM);
+    expect(falso.revalidar).toHaveBeenCalledWith(`/atendimento/${CONVERSA}`);
+    expect(falso.redirect).not.toHaveBeenCalled();
+  });
+
+  it('segundo clique (já não está esperando confirmação): não põe na fila de novo nem lança', async () => {
+    falso.rpc.mockResolvedValue({ data: null, error: { message: 'Esta mensagem não está esperando confirmação.' } });
+    await expect(enviarDeNovo(MENSAGEM, CONVERSA)).resolves.toBeUndefined();
+    expect(falso.enfileirar).not.toHaveBeenCalled();
+    expect(falso.revalidar).toHaveBeenCalledWith(`/atendimento/${CONVERSA}`);
+  });
+
+  it('fila fora do ar: avisa que o envio será tentado de novo (a resposta está pendente)', async () => {
+    falso.rpc.mockResolvedValue({ data: MENSAGEM, error: null });
+    falso.enfileirar.mockRejectedValue(new Error('pg-boss fora'));
+    await enviarDeNovo(MENSAGEM, CONVERSA);
+    expect(falso.redirect).toHaveBeenCalledWith(`/atendimento/${CONVERSA}?aviso=resposta-na-fila`);
   });
 });

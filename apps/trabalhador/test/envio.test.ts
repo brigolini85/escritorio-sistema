@@ -18,15 +18,7 @@ beforeEach(async () => {
   d = { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) };
 });
 
-describe('LimitadorEnvio', () => {
-  it('espera quando passa do limite por minuto', async () => {
-    let agora = 0;
-    const esperas: number[] = [];
-    const l = new LimitadorEnvio(2, () => agora, async (ms) => { esperas.push(ms); agora += ms; });
-    await l.aguardar(); await l.aguardar(); await l.aguardar();
-    expect(esperas).toEqual([60_000]);
-  });
-});
+// Auditoria 3.11: o limitador em memória (que esperava dentro da vez) deu lugar à contagem no banco; ver envio-incerto.test.ts.
 
 describe('enviarDoSistema', () => {
   it('registra antes, envia e grava o id do provedor', async () => {

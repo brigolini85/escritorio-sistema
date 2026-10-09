@@ -54,7 +54,7 @@ export async function enviarPedidoDePendencia(d: { repos: Repos; envio: DepsEnvi
       await d.repos.liberarEnvioPendencia(p.id).catch((e2) => console.error('[pendência] reserva não liberada', p.id, e2));
       throw e;
     }
-    // A Z-API aceitou e a gravação falhou: a mensagem saiu. Corrige o status dela (enviarDoSistema a marcou como falha).
+    // A Z-API aceitou e a gravação falhou: a mensagem saiu. Corrige o status dela (enviarDoSistema a deixou "incerto").
     console.error('[pendência] o pedido saiu, mas o status da mensagem não foi gravado', p.id, e);
     const id = mensagemId as string | null, prov = idProvedor as string;
     if (id) await gravarComNovasTentativas('status da mensagem não gravado', () => d.envio.repos.marcarEnviada(id, prov));
