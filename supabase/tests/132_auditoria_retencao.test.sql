@@ -4,7 +4,7 @@
 -- (caminhos_referenciados), e uma coluna nova com cara de caminho de arquivo que não entrou nela derruba este teste.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(66);
+select plan(71);
 
 -- 1–12: estrutura e permissões (só o trabalhador; a chave da varredura só o administrador muda)
 select has_column('public', 'configuracoes', 'varredura_orfaos_apagar', 'configuracoes tem a chave da varredura');
@@ -98,6 +98,14 @@ update public.chamados set concluido_em = '2024-10-01'
  where id in ('e1324000-0000-0000-0000-000000000001', 'e1324000-0000-0000-0000-000000000004');
 update public.chamados set concluido_em = '2026-08-01' where id = 'e1324000-0000-0000-0000-000000000002';
 update public.chamados set criado_em = '2024-01-01' where id = 'e1324000-0000-0000-0000-000000000003';
+-- Pedido de venda e etapas da tarefa com texto livre (revisão 2). Gravados direto: o gatilho de chamados só marca a data,
+-- e a data antiga é posta de novo abaixo.
+update public.chamados set pedido_venda = '{"unidade_id":null,"texto_destinatario":"Mercado do Joaquim","data":"01/10/2024","itens":[{"produto":"Arroz","sku":null,"un":"UN","quantidade":2,"valor_unitario":10}],"data_prevista":null,"forma_pagamento":"Pix","valor_frete":5,"tipo_frete":"R","transportadora":"Transportes do Joaquim","observacoes":"ligar para Joaquim 31 99999-0000","entrega":{"endereco":"Rua do Joaquim","numero":"10","complemento":null,"bairro":"Centro","cidade":"BH","uf":"MG","cep":"30000000"}}'
+ where id = 'e1324000-0000-0000-0000-000000000001';
+update public.chamados set atualizado_em = '2024-10-01' where id = 'e1324000-0000-0000-0000-000000000001';
+update public.agente_tarefas set etapas = '[{"nome":"Conferir extrato","concluida":true,"resumo":"Joaquim deve R$ 10"},{"nome":"Fechar","concluida":false,"resumo":null}]',
+       drive_subpasta = 'Joaquim/2024'
+ where id = 'e1325000-0000-0000-0000-000000000001';
 
 insert into public.alertas (nivel, mensagem, criado_em) values ('aviso', 'alerta antigo', '2025-01-01'), ('aviso', 'alerta novo', '2026-09-01');
 insert into public.auditoria_acessos (acao, entidade, entidade_id, criado_em) values
@@ -152,6 +160,16 @@ select is((select texto from public.chamado_eventos where chamado_id = 'e1324000
   'anonimizar: a nota sai (o evento fica)');
 select is((select pedido from public.agente_tarefas where id = 'e1325000-0000-0000-0000-000000000001'), '[texto apagado pela guarda de 1 ano]',
   'anonimizar: o pedido da tarefa sai (a tarefa fica)');
+select is((select pedido_venda - 'itens' from public.chamados where id = 'e1324000-0000-0000-0000-000000000001'),
+  '{"unidade_id":null,"texto_destinatario":"[texto apagado pela guarda de 1 ano]","data":"01/10/2024","data_prevista":null,"forma_pagamento":"Pix","valor_frete":5,"tipo_frete":"R"}'::jsonb,
+  'anonimizar: o pedido perde destinatário, entrega, observações e transportadora; o resto fica');
+select is((select pedido_venda -> 'itens' from public.chamados where id = 'e1324000-0000-0000-0000-000000000001'),
+  '[{"produto":"Arroz","sku":null,"un":"UN","quantidade":2,"valor_unitario":10}]'::jsonb, 'anonimizar: os itens do pedido ficam (relatórios de venda)');
+select is((select etapas from public.agente_tarefas where id = 'e1325000-0000-0000-0000-000000000001'),
+  '[{"nome":"Conferir extrato","concluida":true,"resumo":null},{"nome":"Fechar","concluida":false,"resumo":null}]'::jsonb,
+  'anonimizar: o resumo de cada etapa sai; nome e situação ficam');
+select is((select drive_subpasta from public.agente_tarefas where id = 'e1325000-0000-0000-0000-000000000001'), null,
+  'anonimizar: a subpasta do Drive sai');
 select is((select titulo from public.chamados where id = 'e1324000-0000-0000-0000-000000000002'), 'D2', 'anonimizar: a recente fica');
 select is((select titulo from public.chamados where id = 'e1324000-0000-0000-0000-000000000003'), 'D3', 'anonimizar: a aberta fica');
 select is(public.retencao_apagar('demandas', '2026-10-10', 1000), 0, 'anonimizar: a próxima volta não repete');
@@ -212,6 +230,8 @@ select is((select array_agg(c) from public.caminhos_sem_referencia('tarefas', ar
 insert into public.conversas (id, telefone, contato_id) values ('e1323000-0000-0000-0000-000000000009', '5531999991321', 'e1322000-0000-0000-0000-000000000001');
 insert into public.chamados (id, cliente_id, conversa_id, titulo, resumo) values
   ('e1324000-0000-0000-0000-000000000009', 'e1321000-0000-0000-0000-000000000001', 'e1323000-0000-0000-0000-000000000009', 'Da Rita', 'Rita pediu');
+update public.chamados set pedido_venda = '{"unidade_id":null,"texto_destinatario":"Rita","data":"09/10/2026","itens":[],"data_prevista":null,"forma_pagamento":null,"valor_frete":null,"tipo_frete":null,"transportadora":null,"observacoes":"falar com Rita","entrega":null}'
+ where id = 'e1324000-0000-0000-0000-000000000009';
 insert into public.agente_tarefas (id, agente_id, chamado_id, cliente_id, pedido, limite_usd, limite_minutos) values
   ('e1325000-0000-0000-0000-000000000009', (select id from public.agentes where slug = 'contabil'), 'e1324000-0000-0000-0000-000000000009',
    'e1321000-0000-0000-0000-000000000001', 'Tarefa da Rita', 2, 20);
@@ -232,6 +252,9 @@ select ok(exists (select 1 from public.alertas where mensagem = 'A mensagem de 5
 select is((select count(*)::int from public.radar_envios where contato_id = 'e1322000-0000-0000-0000-000000000001' and texto like '%Rita%'), 0,
   'envios do Radar ao titular sem o texto');
 select is((select mensagem from public.agente_tarefa_avisos where chave = 'p132'), '[removido a pedido do titular]', 'aviso da tarefa sem o texto');
+select is((select pedido_venda from public.chamados where id = 'e1324000-0000-0000-0000-000000000009'),
+  '{"unidade_id":null,"texto_destinatario":"[removido a pedido do titular]","data":"09/10/2026","itens":[],"data_prevista":null,"forma_pagamento":null,"valor_frete":null,"tipo_frete":null}'::jsonb,
+  'pedido de venda do titular: destinatário, entrega, observações e transportadora saem (revisão 2)');
 
 -- 49–51: a chave da varredura só o administrador muda
 set local role authenticated;

@@ -150,3 +150,17 @@ describe('pedido salvo na demanda + cadastro do comprador', () => {
     expect(p.comprador).toMatchObject({ nome: 'Brasil Santa Efigênia', documento: null });
   });
 });
+
+describe('pedido anonimizado pela guarda ou pela LGPD (auditoria 6.3, revisão 2)', () => {
+  it('sem entrega, observações e transportadora: vira nulo e o arquivo sai', () => {
+    const salvo = {
+      unidade_id: null, texto_destinatario: '[texto apagado pela guarda de 1 ano]', data: '01/10/2024',
+      itens: [{ produto: 'Arroz', sku: null, un: 'UN', quantidade: 2, valor_unitario: 10 }],
+      data_prevista: null, forma_pagamento: 'Pix', valor_frete: 5, tipo_frete: 'R',
+    } as PedidoVendaSalvo;
+    const p = pedidoVendaBling(7, salvo, null);
+    expect([p.transportadora, p.observacoes]).toEqual([null, null]);
+    expect(p.entrega).toMatchObject({ endereco: null, cidade: null });
+    expect(montarCsvVendaBling([p]).split('\n')[1]).not.toContain('undefined');
+  });
+});

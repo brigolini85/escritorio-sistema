@@ -27,11 +27,15 @@ export type PedidoVendaBling = {
   data_prevista: Texto; vendedor: Texto; forma_pagamento: Texto; id_forma_pagamento: Texto;
 };
 
-/** O que o agente guarda na demanda de nota de venda; o comprador é lido do cadastro na hora de gerar o arquivo. */
+/**
+ * O que o agente guarda na demanda de nota de venda; o comprador é lido do cadastro na hora de gerar o arquivo.
+ * Auditoria 6.3 (revisão 2): a anonimização (guarda de 1 ano ou LGPD) tira entrega, observações e transportadora do
+ * pedido guardado; por isso os três são opcionais na leitura.
+ */
 export type PedidoVendaSalvo = {
   unidade_id: string | null; texto_destinatario: string; data: string; itens: ItemVendaBling[];
   data_prevista: Texto; forma_pagamento: Texto; valor_frete: number | null; tipo_frete: 'R' | 'D' | null;
-  transportadora: Texto; observacoes: Texto; entrega: EnderecoBling | null;
+  transportadora?: Texto; observacoes?: Texto; entrega?: EnderecoBling | null;
 };
 
 /** Campos do cadastro do cliente (unidade) que entram no arquivo. */
@@ -53,7 +57,7 @@ export function pedidoVendaBling(numero: number, s: PedidoVendaSalvo, u: Comprad
     frete: s.valor_frete ?? 0, desconto: 0, outras_despesas: 0,
     // Sem endereço de entrega combinado na conversa, a entrega é no endereço do comprador.
     entrega: { nome, ...(s.entrega ?? endereco) },
-    transportadora: s.transportadora, servico: null, tipo_frete: s.tipo_frete, observacoes: s.observacoes, qtd_parcela: 0,
+    transportadora: s.transportadora ?? null, servico: null, tipo_frete: s.tipo_frete, observacoes: s.observacoes ?? null, qtd_parcela: 0,
     data_prevista: s.data_prevista, vendedor: null, forma_pagamento: s.forma_pagamento, id_forma_pagamento: null,
   };
 }

@@ -129,13 +129,25 @@ begin
                limit v_lote for update skip locked) c2;
       if cardinality(v_ids) = 0 then return 0; end if;
       select coalesce(array_agg(id), '{}') into v_tarefas from public.agente_tarefas where chamado_id = any (v_ids);
-      update public.chamados set titulo = c_guarda, resumo = c_guarda where id = any (v_ids);
+      -- Revisão 2: do pedido de venda saem os textos livres (destinatário, entrega, observações, transportadora); ficam
+      -- unidade, itens, datas, frete e forma de pagamento (relatórios de venda e o arquivo do Bling continuam).
+      update public.chamados set titulo = c_guarda, resumo = c_guarda,
+             pedido_venda = case when pedido_venda is null then null
+                                 else (pedido_venda - 'entrega' - 'observacoes' - 'transportadora')
+                                      || jsonb_build_object('texto_destinatario', c_guarda) end
+       where id = any (v_ids);
       -- O gatilho de chamados marca atualizado_em; a data volta a ser a de antes.
       update public.chamados ch set atualizado_em = x.d from unnest(v_ids, v_datas) as x(id, d) where ch.id = x.id;
       update public.chamado_eventos set texto = null where chamado_id = any (v_ids);
       delete from public.agente_sugestoes where chamado_id = any (v_ids);
       delete from public.pre_analises_nota where chamado_id = any (v_ids);
-      update public.agente_tarefas set pedido = c_guarda, anotacoes = '', resultado = null, ajustes = '[]'::jsonb
+      -- Revisão 2: o resumo de cada etapa é texto livre (o nome vem do procedimento da skill e fica); a subpasta do Drive
+      -- pode ter nome de pessoa. motivo_pausa é um código fixo (não é texto livre) e já é nulo na tarefa decidida.
+      update public.agente_tarefas set pedido = c_guarda, anotacoes = '', resultado = null, ajustes = '[]'::jsonb,
+             drive_subpasta = null,
+             etapas = coalesce((select jsonb_agg(case when jsonb_typeof(e) = 'object' and e ? 'resumo'
+                                                      then e || '{"resumo": null}'::jsonb else e end order by o)
+                                  from jsonb_array_elements(etapas) with ordinality as x(e, o)), '[]'::jsonb)
        where id = any (v_tarefas);
       update public.agente_tarefa_eventos set texto = c_guarda where tarefa_id = any (v_tarefas);
       update public.agente_tarefa_avisos set mensagem = c_guarda where tarefa_id = any (v_tarefas);
@@ -206,7 +218,12 @@ begin
   update public.conversas set motivo_pessoa = null where id = any (v_conversas);
 
   -- Demandas do titular (pela conversa ou só pelo contato): título, resumo e notas podem conter dados pessoais.
-  update public.chamados set titulo = c_removido, resumo = c_removido where id = any (v_chamados);
+  -- Revisão 2 da Task 15: o pedido de venda perde os textos livres (destinatário, entrega, observações, transportadora).
+  update public.chamados set titulo = c_removido, resumo = c_removido,
+         pedido_venda = case when pedido_venda is null then null
+                             else (pedido_venda - 'entrega' - 'observacoes' - 'transportadora')
+                                  || jsonb_build_object('texto_destinatario', c_removido) end
+   where id = any (v_chamados);
   update public.chamado_eventos set texto = null where chamado_id = any (v_chamados);
 
   -- Parte I: sugestões, pré-análise, tarefas, pendências e arquivos das tarefas.
