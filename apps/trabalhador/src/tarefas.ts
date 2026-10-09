@@ -31,6 +31,8 @@ export async function batimento(d: DepsTarefas): Promise<void> {
   for (const pendenciaId of await d.repos.pedidosAoClienteParados(2)) await agendarPedidoPendencia(d.fila, pendenciaId, 'batimento');
   // Parte I4 (D9): aviso que não saiu (fila perdida, fora do horário) volta para a fila.
   for (const avisoId of await d.repos.avisosTarefaParados()) await agendarAviso(d.fila, avisoId);
+  // Revisão da Task 9: mensagem incerta sem eco há 10 min avisa a equipe (uma vez); falha aqui não derruba o batimento.
+  await avisarIncertosAntigos(d).catch((e) => console.error('[incerto] aviso de mensagens não confirmadas', e));
   // Revisão geral C1: mensagem de cliente parada; uma falha aqui não derruba o resto do batimento (o WhatsApp abaixo).
   await mensagensParadas(d).catch((e) => console.error('[parada] mensagens paradas', e));
   const conectado = await d.canal.status().then((s) => s.conectado).catch(() => false);
@@ -40,6 +42,16 @@ export async function batimento(d: DepsTarefas): Promise<void> {
   }
   if (!(await d.repos.alertaRecente(MSG_WHATSAPP_DESCONECTADO, 30))) {
     await d.alertas.alertar({ nivel: 'critico', mensagem: MSG_WHATSAPP_DESCONECTADO });
+  }
+}
+
+/**
+ * Revisão da Task 9 (auditoria 3.2): mensagem do agente ou do sistema "incerto" (a Z-API pode ter entregado) que nenhum
+ * eco confirmou em 10 min: a equipe confere no WhatsApp. Uma vez por mensagem (marca no banco); só os 4 últimos dígitos.
+ */
+export async function avisarIncertosAntigos(d: Pick<DepsTarefas, 'repos' | 'alertas'>): Promise<void> {
+  for (const c of await d.repos.marcarIncertosAntigos()) {
+    await d.alertas.alertar({ nivel: 'aviso', mensagem: `Mensagem para …${c.telefone.slice(-4)} não confirmada há 10 min; confira no WhatsApp` });
   }
 }
 

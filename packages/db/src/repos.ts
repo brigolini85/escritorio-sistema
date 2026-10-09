@@ -418,7 +418,9 @@ export function criarRepos(db: Db) {
     /** Reserva o envio de uma resposta do painel; só uma tarefa por vez (a reserva vence em RESERVA_ENVIO_MINUTOS). */
     async reservarEnvio(id: string): Promise<boolean> {
       const limite = new Date(Date.now() - RESERVA_ENVIO_MINUTOS * 60_000).toISOString();
-      const r = await db.from('mensagens').update({ envio_reservado_em: new Date().toISOString() })
+      // Revisão da Task 9: envio_tentado_em marca que o envio foi tentado (o eco só casa com resposta do painel já tentada).
+      const agora = new Date().toISOString();
+      const r = await db.from('mensagens').update({ envio_reservado_em: agora, envio_tentado_em: agora })
         .eq('id', id).in('status_envio', ['pendente', 'falhou'])
         .or(`envio_reservado_em.is.null,envio_reservado_em.lt.${limite}`).select('id');
       return checar(r, 'reservarEnvio').length > 0;
@@ -455,15 +457,26 @@ export function criarRepos(db: Db) {
      * Auditoria 3.2 e 3.3: o eco sem id conhecido casa com a saída pendente ou incerta da conversa (texto com espaços
      * normalizados ou nome do arquivo, últimos 10 min, a mais antiga) e a deixa "enviada" com o id do eco.
      */
-    async casarEcoSaida(conversaId: string, texto: string | null, arquivoNome: string | null, idProvedor: string): Promise<string | null> {
+    async casarEcoSaida(conversaId: string, texto: string | null, arquivoNome: string | null, idProvedor: string, ehArquivo = false): Promise<string | null> {
       const r = await db.rpc('casar_eco_saida', { p_conversa: conversaId, p_texto: texto as string, p_arquivo_nome: arquivoNome as string,
-        p_id_provedor: idProvedor });
+        p_id_provedor: idProvedor, p_eh_arquivo: ehArquivo });
       return (checar(r, 'casarEcoSaida') as string | null) ?? null;
     },
 
     /** Auditoria 3.11: uma vaga de aviso do sistema no minuto, contada no banco (vale entre processos). */
     async reservarVagaEnvioSistema(maxPorMinuto: number): Promise<boolean> {
       return Boolean(checar(await db.rpc('reservar_envio_sistema', { p_max: maxPorMinuto }), 'reservarVagaEnvioSistema'));
+    },
+
+    /** Revisão da Task 9: alerta uma vez só por chave (chave primária no banco: dois processos, um alerta). */
+    async marcarAvisoUnico(chave: string): Promise<boolean> {
+      return Boolean(checar(await db.rpc('marcar_aviso_unico', { p_chave: chave }), 'marcarAvisoUnico'));
+    },
+
+    /** Revisão da Task 9: conversas com mensagem do agente ou do sistema "incerto" há mais de 10 min, cada uma avisada uma vez. */
+    async marcarIncertosAntigos(): Promise<{ conversaId: string; telefone: string }[]> {
+      const linhas = checar(await db.rpc('marcar_incertos_antigos'), 'marcarIncertosAntigos') ?? [];
+      return linhas.map((l) => ({ conversaId: l.conversa_id, telefone: l.telefone }));
     },
 
     async obterMensagem(id: string): Promise<Mensagem> {
@@ -480,7 +493,8 @@ export function criarRepos(db: Db) {
      */
     async temSaidaPendenteRecente(conversaId: string, minutos: number): Promise<boolean> {
       const desde = new Date(Date.now() - minutos * 60_000).toISOString();
-      const r = await db.from('mensagens').select('id').eq('conversa_id', conversaId).eq('direcao', 'saida').eq('status_envio', 'pendente')
+      // Revisão da Task 9: "incerto" também (a Z-API pode ter entregado e o eco chegar antes de o envio terminar).
+      const r = await db.from('mensagens').select('id').eq('conversa_id', conversaId).eq('direcao', 'saida').in('status_envio', ['pendente', 'incerto'])
         .is('id_provedor', null).or(`criado_em.gte.${desde},envio_reservado_em.gte.${desde}`).limit(1);
       return checar(r, 'temSaidaPendenteRecente').length > 0;
     },

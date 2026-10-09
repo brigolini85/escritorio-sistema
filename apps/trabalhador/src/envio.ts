@@ -66,10 +66,14 @@ async function enviarERegistrar(d: DepsEnvio, id: string, enviar: () => Promise<
  */
 export async function enviarDoSistema(
   d: DepsEnvio,
-  p: { conversaId: string; telefone: string; clienteId: string | null; autor: 'agente' | 'sistema'; texto: string; turnoAgente?: string | null },
+  p: {
+    conversaId: string; telefone: string; clienteId: string | null; autor: 'agente' | 'sistema'; texto: string; turnoAgente?: string | null;
+    /** Revisão da Task 9: fora do limite de avisos (o aviso de privacidade, um por conversa, sai antes da resposta). */
+    semLimite?: boolean;
+  },
 ): Promise<string> {
   const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: p.autor, conteudo: p.texto, turnoAgente: p.turnoAgente ?? null });
-  if (p.autor === 'sistema' && !(await temVaga(d))) {
+  if (p.autor === 'sistema' && !p.semLimite && !(await temVaga(d))) {
     try {
       if (await adiarAviso(d, id)) return id;
     } catch (e) {
@@ -148,7 +152,15 @@ export async function enviarMensagemDoPainel(d: DepsEnvio, mensagemId: string, u
         console.warn(`[envio] texto da resposta ${m.id} com resultado incerto; o arquivo segue`, e.message);
         separado = { id: null, status: 'incerto' };
       }
-      await d.repos.separarTextoEnviado(m.id, separado.id, separado.status);
+      try {
+        await d.repos.separarTextoEnviado(m.id, separado.id, separado.status);
+      } catch (e) {
+        // Revisão da Task 9: o texto já saiu; relançar faria a nova tentativa mandar o texto de novo. Fica "incerto" com a
+        // reserva: o eco do texto ainda separa sozinho, e a pessoa vê "Não confirmada" e decide sobre o arquivo.
+        console.error(`[envio] texto da resposta ${m.id} saiu, mas a separação falhou; fica incerta`, e);
+        await d.repos.marcarIncerto(m.id);
+        return;
+      }
     }
     if (m.arquivo_path) {
       const url = await arquivoEmBase64(d, m.arquivo_path, m.arquivo_mime ?? 'application/pdf');
@@ -200,13 +212,16 @@ export async function verificarEnviadaPorMim(d: DepsEnvio, m: MensagemRecebida, 
   // Resposta do assistente interno: não tem linha em `mensagens` e nunca assume a conversa como atendimento humano.
   if (await d.repos.usuarioDoAssistente(telefone)) return 'do-sistema';
   const conversa = await d.repos.obterOuCriarConversa(telefone, null);
-  const arquivoNome = m.tipo !== 'texto' ? m.midia?.nomeArquivo ?? null : null;
-  if (await d.repos.casarEcoSaida(conversa.id, m.texto, arquivoNome, m.idProvedor)) return 'do-sistema';
+  // Revisão da Task 9: eco de arquivo casa pelo nome (sem extensão nem maiúsculas) ou, sem nome que case, com o arquivo
+  // mais antigo da conversa (imagem chega sem nome).
+  const ehArquivo = m.tipo !== 'texto';
+  const arquivoNome = ehArquivo ? m.midia?.nomeArquivo ?? null : null;
+  if (await d.repos.casarEcoSaida(conversa.id, m.texto, arquivoNome, m.idProvedor, ehArquivo)) return 'do-sistema';
   // Só eco sem texto (arquivo): o sistema e o painel mandam arquivo sem legenda; texto digitado no celular não espera.
   if (podeEsperar && m.tipo !== 'texto' && (await d.repos.temSaidaPendenteRecente(conversa.id, 10))) return 'aguardar';
   await d.repos.inserirSaidaExterna({ conversaId: conversa.id, clienteId: conversa.cliente_em_foco, idProvedor: m.idProvedor, conteudo: m.texto });
   // Como assumir pelo painel: limpa a espera e grava o marco "assumida" (sem pessoa: o celular não diz quem respondeu).
-  if (await d.repos.assumirPeloCelular(conversa.id)) await alertarRespostaPeloCelular(d, telefone);
+  if (await d.repos.assumirPeloCelular(conversa.id)) await alertarRespostaPeloCelular(d, conversa.id, telefone);
   return 'humano';
 }
 
@@ -214,10 +229,13 @@ export async function verificarEnviadaPorMim(d: DepsEnvio, m: MensagemRecebida, 
  * Auditoria 3.6: a equipe precisa saber que o agente parou nesta conversa (pode ter sido engano). Uma vez por hora por
  * conversa; só os 4 últimos dígitos do telefone. Falha ao registrar não muda o resultado.
  */
-async function alertarRespostaPeloCelular(d: DepsEnvio, telefone: string): Promise<void> {
+async function alertarRespostaPeloCelular(d: DepsEnvio, conversaId: string, telefone: string): Promise<void> {
   const mensagem = `Alguém respondeu pelo celular a …${telefone.slice(-4)}; o agente parou nessa conversa.`;
   try {
-    if (!(await d.repos.alertaRecente(mensagem, 60))) await d.repos.registrarAlerta({ nivel: 'aviso', mensagem });
+    // Revisão da Task 9: a chave é a conversa e a hora (UTC), no banco: duas conversas com o mesmo final avisam as duas,
+    // e dois processos ao mesmo tempo avisam uma vez.
+    const hora = new Date().toISOString().slice(0, 13);
+    if (await d.repos.marcarAvisoUnico(`celular:${conversaId}:${hora}`)) await d.repos.registrarAlerta({ nivel: 'aviso', mensagem });
   } catch (e) {
     console.error('[eco] alerta da resposta pelo celular não registrado', telefone.slice(-4), e);
   }

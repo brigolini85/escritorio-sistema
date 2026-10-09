@@ -174,8 +174,11 @@ export async function enviarAvisoLgpd(d: Pick<DepsProcessamento, 'repos' | 'envi
   const texto = aviso.trim();
   if (!texto) return;
   try {
-    await enviarDoSistema(d.envio, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: conversa.cliente_em_foco, autor: 'sistema', texto });
+    // Revisão da Task 9: fora do limite de avisos (um por conversa): sai na hora, antes da resposta, e nunca fica na fila.
+    await enviarDoSistema(d.envio, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: conversa.cliente_em_foco, autor: 'sistema', texto,
+      semLimite: true });
   } catch (e) {
+    // Falha certa: a mensagem ficou "falhou" (não saiu); desmarca para a nova tentativa mandar.
     await d.repos.desmarcarAvisoLgpd(conversa.id).catch((e2) => console.error('[lgpd] marca do aviso não desfeita', conversa.id, e2));
     throw e;
   }
