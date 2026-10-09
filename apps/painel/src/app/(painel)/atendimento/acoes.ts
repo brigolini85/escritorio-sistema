@@ -140,9 +140,12 @@ export async function cadastrarContatoDaConversa(conversaId: string, formData: F
   const { data: conversa, error: e1 } = await sb.from('conversas').select('telefone').eq('id', conversaId).single();
   if (e1) throw new Error(e1.message);
   // Telefone de contato arquivado traz o contato de volta com a empresa escolhida aqui e as de antes marcadas na pergunta.
-  const { id: contatoId, aviso } = await cadastrarContatoPeloTelefone(sb, {
+  const r = await cadastrarContatoPeloTelefone(sb, {
     nome, telefone: conversa.telefone, clienteId, agentePausado: formData.get('agente_atende') !== 'on', manter: lerManter(formData),
   });
+  // Recusa do banco: o aviso vermelho da conversa (?erro=), que a página já mostra.
+  if ('erro' in r) redirect(`/atendimento/${conversaId}?erro=${encodeURIComponent(r.erro)}`);
+  const { id: contatoId, aviso } = r;
   if (clienteId) {
     const { error } = await sb.from('contato_clientes').upsert({ contato_id: contatoId, cliente_id: clienteId, pode_pedir_nota: formData.get('pode_pedir_nota') === 'on' });
     if (error) throw new Error(error.message);

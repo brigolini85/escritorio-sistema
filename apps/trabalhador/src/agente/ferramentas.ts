@@ -422,7 +422,11 @@ async function documentosVisiveis(d: DepsAgente, estado: EstadoExecucao, cliente
 
 /** Nota, preço e cadastros de parceiros só para quem pode (D10); o resto vira instrução para abrir demanda no Fiscal. */
 async function exigirFluxoNota(d: DepsAgente, estado: EstadoExecucao, clienteId: string): Promise<Resultado | null> {
-  const acesso = await acessoNaEmpresa(d, estado, clienteId);
+  return semFluxoNota(estado, await acessoNaEmpresa(d, estado, clienteId));
+}
+
+/** A mesma conferência com o acesso já lido nesta ferramenta. */
+function semFluxoNota(estado: EstadoExecucao, acesso: AcessoContato): Resultado | null {
   const fiscal = estado.ctx.setores.find((s) => s.nome === 'Fiscal')?.id ?? null;
   return podeFluxoNota(acesso, fiscal) ? null : ok({ instrucao: AVISOS.semFluxoNota });
 }
@@ -515,13 +519,8 @@ export const textoConfirmacaoPreco = (p: { produto: string; rede: string; antigo
 export const textoConfirmacaoProduto = (p: { codigo: string; descricao: string; unidade: string }) =>
   `Confirma o cadastro: código ${p.codigo}, ${p.descricao}, unidade ${p.unidade}? Responda SIM para confirmar.`;
 
-const ehBasicoNaEmpresa = async (d: DepsAgente, estado: EstadoExecucao, clienteId: string) => ehBasico(await acessoNaEmpresa(d, estado, clienteId));
-
 /** D1: Básico não muda preço nem cadastra produto, mesmo com a marcação antiga (o banco também confere). */
-async function podeMudarPreco(d: DepsAgente, estado: EstadoExecucao, clienteId: string): Promise<boolean> {
-  const acesso = await acessoNaEmpresa(d, estado, clienteId);
-  return acesso.podeAtualizarPreco && !ehBasico(acesso);
-}
+const podeMudarPreco = (acesso: AcessoContato) => acesso.podeAtualizarPreco && !ehBasico(acesso);
 
 /** Unidade (cliente) e produto da empresa em foco, com o preço vigente da rede. */
 async function precoDaRede(d: DepsAgente, clienteId: string, unidadeId: string, produtoId: string) {
@@ -848,12 +847,14 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     case 'alterar_preco': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
+      // O acesso é lido uma vez e vale para as três conferências desta chamada (revisão da Task 11).
+      const acesso = await acessoNaEmpresa(d, estado, e.clienteId);
       // D1 (Task 5): Básico recebe a recusa de permissão, antes da instrução do fluxo de nota e também com a confirmação já pedida.
-      if (await ehBasicoNaEmpresa(d, estado, e.clienteId)) return falha(AVISOS.precoSemPermissao);
-      const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+      if (ehBasico(acesso)) return falha(AVISOS.precoSemPermissao);
+      const semNota = semFluxoNota(estado, acesso);
       if (semNota) return semNota;
       if (entrada.confirmacao_id) return usarConfirmacaoDoCliente(d, estado, entrada.confirmacao_id, 'preco');
-      if (!(await podeMudarPreco(d, estado, e.clienteId))) return falha(AVISOS.precoSemPermissao);
+      if (!podeMudarPreco(acesso)) return falha(AVISOS.precoSemPermissao);
       const p = await precoDaRede(d, e.clienteId, entrada.unidade_id, entrada.produto_id);
       if ('resultado' in p) return p;
       return perguntarAoCliente(d, estado, {
@@ -866,12 +867,14 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     case 'cadastrar_produto': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
+      // O acesso é lido uma vez e vale para as três conferências desta chamada (revisão da Task 11).
+      const acesso = await acessoNaEmpresa(d, estado, e.clienteId);
       // D1 (Task 5): Básico recebe a recusa de permissão, antes da instrução do fluxo de nota e também com a confirmação já pedida.
-      if (await ehBasicoNaEmpresa(d, estado, e.clienteId)) return falha(AVISOS.produtoSemPermissao);
-      const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+      if (ehBasico(acesso)) return falha(AVISOS.produtoSemPermissao);
+      const semNota = semFluxoNota(estado, acesso);
       if (semNota) return semNota;
       if (entrada.confirmacao_id) return usarConfirmacaoDoCliente(d, estado, entrada.confirmacao_id, 'produto');
-      if (!(await podeMudarPreco(d, estado, e.clienteId))) return falha(AVISOS.produtoSemPermissao);
+      if (!podeMudarPreco(acesso)) return falha(AVISOS.produtoSemPermissao);
       const produto = { codigo: entrada.codigo, descricao: entrada.descricao, unidade: entrada.unidade.toUpperCase() || 'UN', apelidos: entrada.apelidos ?? [] };
       // Código repetido: recusa já, sem perguntar ao cliente uma coisa que não vai dar certo.
       if ((await d.repos.produtosDaEmpresa(e.clienteId)).some((x) => x.codigo === produto.codigo)) return falha(AVISOS.produtoRepetido);

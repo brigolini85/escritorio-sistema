@@ -2,7 +2,7 @@
 -- conversa zera a empresa em foco e marca a hora da troca, e o perfil do acesso é o das marcações (recalculado no banco).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(44);
 
 insert into auth.users (id, email) values ('e1290000-0000-0000-0000-00000000000b', 'bia@t129.local');
 insert into public.usuarios (id, nome, email, papel, permissoes) values
@@ -59,7 +59,33 @@ update public.conversas set contato_id = 'e1292000-0000-0000-0000-000000000002',
 select is((select cliente_em_foco from public.conversas where id = 'e1293000-0000-0000-0000-000000000001'),
   'e1291000-0000-0000-0000-00000000000b'::uuid, 'foco escolhido na mesma escrita vale');
 
--- 16–29: perfil_das_marcas, com os casos de packages/core/test/acesso.test.ts. A Rede contrata Fiscal, Pessoal, Contábil e
+-- 16–22: contato arquivado ou com o telefone trocado também conta como troca nas conversas dele (1.10, revisão)
+insert into public.contatos (id, nome, telefone) values
+  ('e1292000-0000-0000-0000-000000000004', 'T129 Dora', '5531966660129'),
+  ('e1292000-0000-0000-0000-000000000005', 'T129 Edu', '5531955550129'),
+  ('e1292000-0000-0000-0000-000000000006', 'T129 Fabi', '5531944440129');
+insert into public.conversas (id, telefone, contato_id, cliente_em_foco) values
+  ('e1293000-0000-0000-0000-000000000004', '5531966660129', 'e1292000-0000-0000-0000-000000000004', 'e1291000-0000-0000-0000-00000000000a'),
+  ('e1293000-0000-0000-0000-000000000005', '5531955550129', 'e1292000-0000-0000-0000-000000000005', 'e1291000-0000-0000-0000-00000000000a'),
+  ('e1293000-0000-0000-0000-000000000006', '5531944440129', 'e1292000-0000-0000-0000-000000000006', 'e1291000-0000-0000-0000-00000000000a');
+update public.contatos set nome = 'T129 Dora Silva' where id = 'e1292000-0000-0000-0000-000000000004';
+select is((select (contato_trocado_em is null, cliente_em_foco)::text from public.conversas where id = 'e1293000-0000-0000-0000-000000000004'),
+  '(t,e1291000-0000-0000-0000-00000000000a)', 'mudar só o nome não mexe na conversa');
+update public.contatos set ativo = false where id = 'e1292000-0000-0000-0000-000000000004';
+select ok((select contato_trocado_em is not null from public.conversas where id = 'e1293000-0000-0000-0000-000000000004'),
+  'contato arquivado: hora da troca gravada na conversa dele');
+select is((select cliente_em_foco from public.conversas where id = 'e1293000-0000-0000-0000-000000000004'), null,
+  'contato arquivado: foco zerado');
+select is((select contato_id from public.conversas where id = 'e1293000-0000-0000-0000-000000000004'),
+  'e1292000-0000-0000-0000-000000000004'::uuid, 'o contato da conversa fica (o painel ainda mostra quem era)');
+update public.contatos set telefone = '5531955550999' where id = 'e1292000-0000-0000-0000-000000000005';
+select ok((select contato_trocado_em is not null from public.conversas where id = 'e1293000-0000-0000-0000-000000000005'),
+  'telefone trocado: hora da troca gravada');
+select is((select cliente_em_foco from public.conversas where id = 'e1293000-0000-0000-0000-000000000005'), null, 'telefone trocado: foco zerado');
+select is((select (contato_trocado_em is null, cliente_em_foco)::text from public.conversas where id = 'e1293000-0000-0000-0000-000000000006'),
+  '(t,e1291000-0000-0000-0000-00000000000a)', 'conversa de outro contato não muda');
+
+-- 23–36: perfil_das_marcas, com os casos de packages/core/test/acesso.test.ts. A Rede contrata Fiscal, Pessoal, Contábil e
 -- Legalização (Financeiro entra sempre). Ajudante: as marcas de um perfil pronto, como marcasDoPerfil.
 insert into public.servicos (id, nome, setor_id) select gen_random_uuid(), 'T129 ' || nome, id from public.setores
   where nome in ('Fiscal', 'Pessoal', 'Contábil', 'Legalização');
@@ -106,7 +132,7 @@ select is(public.perfil_das_marcas('e1291000-0000-0000-0000-00000000000b',
   'socio', 'empresa sem serviço com setor: todos os setores contam');
 select ok(not has_function_privilege('authenticated', 'public.perfil_das_marcas(uuid, jsonb)', 'execute'), 'só o banco usa o cálculo');
 
--- 30–37: salvar_acesso_contato grava o perfil das marcações, não o que veio (1.9)
+-- 37–44: salvar_acesso_contato grava o perfil das marcações, não o que veio (1.9)
 insert into public.contato_clientes (contato_id, cliente_id) values
   ('e1292000-0000-0000-0000-000000000002', 'e1291000-0000-0000-0000-00000000000a');
 create function pg_temp.perfil_gravado() returns text language sql as $$

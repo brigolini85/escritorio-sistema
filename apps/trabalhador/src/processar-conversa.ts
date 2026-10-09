@@ -169,7 +169,8 @@ async function encaminharParaHumano(
 ): Promise<void> {
   const clienteId = await empresaDaConversa(d, conversa);
   const abertos = abrirTriagem ? await d.repos.chamadosAbertosDaConversa(conversa.id) : [];
-  if (abrirTriagem && !abertos.some((c) => c.setor_id === null)) {
+  // A Triagem aberta de outra empresa não basta: abre a desta (a mesma regra de abrir_chamado, auditoria 1.5).
+  if (abrirTriagem && !abertos.some((c) => c.setor_id === null && c.cliente_id === clienteId)) {
     await d.repos.abrirChamado({
       clienteId, conversaId: conversa.id, setorId: null, responsavelId: null,
       titulo: motivo, resumo: 'Atendimento encaminhado automaticamente para a equipe.', foraDoContrato: false, origem: 'sistema',
@@ -433,7 +434,7 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   // Auditoria 1.10: número desconhecido (reciclado pela operadora, contato arquivado) não recebe no modelo a conversa do dono
   // anterior: só os últimos 30 dias e depois da última troca de contato da conversa.
   const desconhecido = !contato || contato.empresas.length === 0;
-  const desdeHistorico = desconhecido ? inicioDoHistoricoDesconhecido(conversa, Date.now()) : undefined;
+  const desdeHistorico = desconhecido ? inicioDoHistoricoDesconhecido(conversa, d.relogio().getTime()) : undefined;
   const historico = (await d.repos.historico(conversaId, TAMANHO_HISTORICO + novas.length, desdeHistorico))
     .filter((m) => !ids.includes(m.id)).slice(-TAMANHO_HISTORICO);
   // Só as mensagens deste lote (já com transcrição): as que chegarem durante o processamento ficam para o próximo job.

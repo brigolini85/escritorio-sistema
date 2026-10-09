@@ -9,7 +9,7 @@ import { avisoDoCadastro, cadastrarContatoPeloTelefone, lerManter } from './cada
 const ID = '22222222-2222-4222-8222-222222222222';
 const EMPRESA = '33333333-3333-4333-8333-333333333333';
 const OUTRA = '44444444-4444-4444-8444-444444444444';
-const sbFalso = (data: unknown, error: { message: string } | null = null) => ({ rpc: vi.fn(async () => ({ data, error })) });
+const sbFalso = (data: unknown, error: { code?: string; message: string } | null = null) => ({ rpc: vi.fn(async () => ({ data, error })) });
 
 describe('aviso do cadastro de contato', () => {
   it('contato que já estava ativo (ou novo) não gera aviso', () => {
@@ -55,9 +55,18 @@ describe('cadastrarContatoPeloTelefone', () => {
       p_nome: 'Zé', p_telefone: '5531999991702', p_cliente: undefined, p_agente_pausado: true, p_manter: undefined,
     });
   });
-  it('erro do banco aparece para a pessoa', async () => {
-    await expect(cadastrarContatoPeloTelefone(sbFalso(null, { message: 'Os dados deste contato foram apagados (LGPD). Ele não volta.' }) as never,
-      { nome: 'Zé', telefone: '5531999991702' })).rejects.toThrow('Os dados deste contato foram apagados (LGPD). Ele não volta.');
+  // Revisão da Task 11: o erro volta como { erro } (como as outras ações), não como exceção.
+  it('a frase do banco (raise exception) volta para a pessoa', async () => {
+    expect(await cadastrarContatoPeloTelefone(sbFalso(null, { code: 'P0001', message: 'Os dados deste contato foram apagados (LGPD). Ele não volta.' }) as never,
+      { nome: 'Zé', telefone: '5531999991702' })).toEqual({ erro: 'Os dados deste contato foram apagados (LGPD). Ele não volta.' });
+  });
+  it('corrida com o mesmo número (índice único): a frase do telefone repetido', async () => {
+    expect(await cadastrarContatoPeloTelefone(sbFalso(null, { code: '23505', message: 'duplicate key value violates unique constraint "contatos_telefone_unico"' }) as never,
+      { nome: 'Zé', telefone: '5531999991702' })).toEqual({ erro: 'Este telefone já é de outro contato (com ou sem o nono dígito).' });
+  });
+  it('outro erro do Postgres não vai para a tela', async () => {
+    expect(await cadastrarContatoPeloTelefone(sbFalso(null, { code: '42501', message: 'permission denied for table contatos' }) as never,
+      { nome: 'Zé', telefone: '5531999991702' })).toEqual({ erro: 'Não foi possível cadastrar agora. Tente de novo.' });
   });
 });
 

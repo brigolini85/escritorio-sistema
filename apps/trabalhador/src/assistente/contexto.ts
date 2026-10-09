@@ -4,7 +4,7 @@ import { TITULO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, podeVerChamado, podeVerConver
 
 export type ConversaDoContexto = {
   telefone: string; contato: string | null; empresa: { id: string; nome: string } | null;
-  /** Empresa do gasto com IA (empresaDoUso): diferente de `empresa`, que é só texto do prompt e cai na primeira da lista. */
+  /** Empresa do gasto com IA (empresaDoUso); a mesma de `empresa`, que vai no texto do prompt. */
   empresaIdentificadaId?: string | null;
   demandas: { numero: number; titulo: string; status: string }[]; mensagens: string[];
 };
@@ -36,12 +36,14 @@ export async function carregarContextoAssistente(
   if (conversaId && (await podeVerConversa(repos, usuario, conversaId))) {
     const c = await repos.obterConversa(conversaId);
     const contato = await repos.buscarContato(c.telefone);
-    const empresa = contato?.empresas.find((e) => e.id === c.cliente_em_foco) ?? contato?.empresas[0] ?? null;
+    // Auditoria 1.4 (revisão): a mesma regra única; várias empresas sem foco não viram a primeira da lista.
+    const idEmpresa = empresaDoUso(c.cliente_em_foco, contato?.empresas ?? []);
+    const empresa = contato?.empresas.find((e) => e.id === idEmpresa) ?? null;
     const abertas = (await repos.chamadosAbertosDaConversa(conversaId)).filter((x) => podeVerChamado(usuario, x));
     const mensagens = (await repos.historico(conversaId, 20)).map((m) => `${m.autor === 'cliente' ? 'Cliente' : 'Escritório'}: ${m.conteudo ?? m.transcricao ?? `[${m.tipo}]`}`);
     conversa = {
       telefone: c.telefone, contato: contato?.nome ?? null, empresa: empresa ? { id: empresa.id, nome: empresa.nome } : null,
-      empresaIdentificadaId: empresaDoUso(c.cliente_em_foco, contato?.empresas ?? []),
+      empresaIdentificadaId: idEmpresa,
       demandas: abertas.map((x) => ({ numero: Number(x.numero), titulo: !podeVerPedidos(usuario) && ehPedidoDeNota(x) ? TITULO_SEM_ACESSO_PEDIDO : x.titulo, status: x.status })), mensagens,
     };
   }

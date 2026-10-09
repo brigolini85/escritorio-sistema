@@ -99,6 +99,21 @@ revoke execute on function public.conversa_troca_de_contato() from public, anon,
 create trigger troca_de_contato before update of contato_id on public.conversas
   for each row execute function public.conversa_troca_de_contato();
 
+-- Número reciclado (revisão da 1.10): o contato arquivado, ou com o telefone trocado, deixa de ser o dono das conversas dele.
+-- O contato_id fica (o painel ainda mostra quem era), mas a hora da troca corta o histórico do número que agora é
+-- desconhecido e o foco sai. security definer: quem arquiva no painel não precisa poder escrever em conversas.
+create function public.contato_deixou_o_numero() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if (old.ativo and not new.ativo) or new.telefone is distinct from old.telefone then
+    update public.conversas set contato_trocado_em = now(), cliente_em_foco = null where contato_id = old.id;
+  end if;
+  return null;
+end $$;
+revoke execute on function public.contato_deixou_o_numero() from public, anon, authenticated;
+create trigger deixou_o_numero after update of ativo, telefone on public.contatos
+  for each row execute function public.contato_deixou_o_numero();
+
 -- ---------- 1.9: o perfil é o das marcações ----------
 -- Porta de perfilDasMarcas + marcasDoPerfil + setoresDisponiveis (packages/core/src/acesso.ts). Mudar os perfis prontos
 -- (PRESETS) lá pede mudar aqui também; o pgTAP 129 tem os mesmos casos do teste do core.

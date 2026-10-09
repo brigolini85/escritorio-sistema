@@ -57,7 +57,10 @@ async function adicionarContatoSemAviso(clienteId: string, formData: FormData) {
   const sb = await exigirEdicao();
   const c = ContatoForm.parse(campos(formData));
   // Telefone de contato arquivado traz o contato de volta com esta empresa e as de antes escolhidas na pergunta.
-  const { id: contatoId, aviso } = await cadastrarContatoPeloTelefone(sb, { nome: c.nome, telefone: c.telefone, clienteId, manter: lerManter(formData) });
+  const r = await cadastrarContatoPeloTelefone(sb, { nome: c.nome, telefone: c.telefone, clienteId, manter: lerManter(formData) });
+  // comAvisoDeErro (adicionarContato) leva a frase ao ?erro= da ficha.
+  if ('erro' in r) throw new Error(r.erro);
+  const { id: contatoId, aviso } = r;
   const { error: e2 } = await sb.from('contato_clientes').upsert({
     contato_id: contatoId, cliente_id: clienteId, pode_pedir_nota: c.pode_pedir_nota, pode_atualizar_preco: c.pode_atualizar_preco,
   });

@@ -7,7 +7,7 @@ import { LimitadorEnvio } from '../../src/envio';
 import { criarArmazenamento } from '../../src/midia/armazenamento';
 import { processarConversa, type DepsProcessamento } from '../../src/processar-conversa';
 import { criarServidor } from '../../src/servidor';
-import { contatoComEmpresas, db, repos } from '../apoio/cenario';
+import { contatoComEmpresas, db, definirAcessoTeste, repos } from '../apoio/cenario';
 import { FilaFalsa } from '../apoio/fila-falsa';
 import { IaRoteirizada, fim, usarFerramentas } from '../apoio/ia-roteirizada';
 import * as f from '../fixtures/zapi/sinteticos';
@@ -20,14 +20,14 @@ const TEL = '5531999990001'; // o mesmo do webhook de teste (fixtures/zapi/sinte
 const DIA_MS = 86_400_000;
 let canal: CanalFalso;
 
-function deps(ia: IaRoteirizada): DepsProcessamento {
+function deps(ia: IaRoteirizada, agora = SEGUNDA_10H): DepsProcessamento {
   return {
     repos, ia, fila: new FilaFalsa(),
     envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) },
     midia: criarArmazenamento(db),
     transcritor: { modelo: 'falso', provedor: 'groq', transcrever: vi.fn().mockResolvedValue({ texto: '', segundos: null }) },
     alertas: { alertar: async () => {} },
-    relogio: () => SEGUNDA_10H,
+    relogio: () => agora,
   };
 }
 const dTool = () => ({ repos, ia: new IaRoteirizada([]), envio: { repos, canal, limitador: new LimitadorEnvio(100), midia: criarArmazenamento(db) } });
@@ -123,34 +123,85 @@ describe('ferramentas', () => {
 });
 
 describe('histórico de número desconhecido (1.10)', () => {
-  const inserir = async (conversaId: string, conteudo: string, diasAtras: number) => semErro(await db.from('mensagens').insert({
+  const inserir = async (conversaId: string, conteudo: string, criadoEm: Date) => semErro(await db.from('mensagens').insert({
     conversa_id: conversaId, direcao: 'entrada', autor: 'cliente', tipo: 'texto', conteudo,
-    criado_em: new Date(Date.now() - diasAtras * DIA_MS).toISOString(), processada_em: new Date().toISOString(),
+    criado_em: criadoEm.toISOString(), processada_em: new Date().toISOString(),
   }));
-
-  it('só os últimos 30 dias e depois da última troca de contato vão ao modelo', async () => {
-    const { conversa, contato } = await contatoComEmpresas(['Empresa A']);
-    await inserir(conversa.id, 'ANTIGA: resumo da nota com CNPJ da empresa A', 40);
-    await inserir(conversa.id, 'ANTES DA TROCA: preço da costela', 5);
-    semErro(await db.from('conversas').update({ contato_trocado_em: new Date(Date.now() - 2 * DIA_MS).toISOString() }).eq('id', conversa.id));
-    await inserir(conversa.id, 'DEPOIS DA TROCA: oi de novo', 1);
-    // O contato é arquivado e o número passa a outra pessoa: agora é desconhecido.
-    semErro(await db.from('contatos').update({ ativo: false }).eq('id', contato.id));
-    await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: 'NOVA-1', tipo: 'texto', conteudo: 'bom dia' });
+  const textoParaOModelo = async (conversaId: string, idProvedor: string, agora = SEGUNDA_10H) => {
+    await repos.inserirMensagemEntrada({ conversaId, clienteId: null, idProvedor, tipo: 'texto', conteudo: 'bom dia' });
     const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Bom dia! Como posso ajudar?' } }), fim()]);
-    await processarConversa(deps(ia), conversa.id, false);
-    const texto = (ia.recebidos[0]!.messages[0]!.content as { text: string }[])[0]!.text;
-    expect(texto).toContain('DEPOIS DA TROCA');
+    await processarConversa(deps(ia, agora), conversaId, false);
+    return (ia.recebidos[0]!.messages[0]!.content as { text: string }[])[0]!.text;
+  };
+
+  it('contato arquivado e número com outra pessoa: as mensagens do contato antigo não vão ao modelo (revisão)', async () => {
+    const { conversa, contato } = await contatoComEmpresas(['Empresa A']);
+    await inserir(conversa.id, 'DO CONTATO ANTIGO: resumo da nota com CNPJ da empresa A', new Date(Date.now() - DIA_MS));
+    await inserir(conversa.id, 'DO CONTATO ANTIGO: preço da costela', new Date(Date.now() - 60_000));
+    // Arquivado pelo caminho de sempre (o painel muda ativo); ninguém grava a hora da troca à mão.
+    semErro(await db.from('contatos').update({ ativo: false }).eq('id', contato.id));
+    const texto = await textoParaOModelo(conversa.id, 'NOVA-1');
+    expect(texto).not.toContain('DO CONTATO ANTIGO');
+    expect(texto).toContain('bom dia');
+  });
+
+  it('número que nunca foi contato: só os últimos 30 dias (pelo relógio da vez)', async () => {
+    // Relógio da vez 60 dias atrás: a conta usa ele (d.relogio), não a hora da máquina.
+    const agora = new Date(Date.now() - 60 * DIA_MS);
+    const conversa = await repos.obterOuCriarConversa('5531977770111', null);
+    await inserir(conversa.id, 'ANTIGA: mensagem de 40 dias', new Date(agora.getTime() - 40 * DIA_MS));
+    await inserir(conversa.id, 'RECENTE: mensagem de 5 dias', new Date(agora.getTime() - 5 * DIA_MS));
+    const texto = await textoParaOModelo(conversa.id, 'NOVA-3', agora);
+    expect(texto).toContain('RECENTE');
     expect(texto).not.toContain('ANTIGA');
-    expect(texto).not.toContain('ANTES DA TROCA');
   });
 
   it('contato conhecido continua com o histórico de sempre', async () => {
     const { conversa } = await contatoComEmpresas(['Empresa A']);
-    await inserir(conversa.id, 'ANTIGA: pedido de nota', 40);
-    await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: 'NOVA-2', tipo: 'texto', conteudo: 'bom dia' });
-    const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Bom dia!' } }), fim()]);
-    await processarConversa(deps(ia), conversa.id, false);
-    expect((ia.recebidos[0]!.messages[0]!.content as { text: string }[])[0]!.text).toContain('ANTIGA: pedido de nota');
+    await inserir(conversa.id, 'ANTIGA: pedido de nota', new Date(SEGUNDA_10H.getTime() - 40 * DIA_MS));
+    expect(await textoParaOModelo(conversa.id, 'NOVA-2')).toContain('ANTIGA: pedido de nota');
+  });
+});
+
+describe('Triagem automática por empresa (encaminharParaHumano, revisão da 1.5)', () => {
+  it('Triagem aberta de A e foco em B: o agente pausado abre a Triagem de B', async () => {
+    const { conversa, empresas } = await contatoComEmpresas(['Empresa A', 'Empresa B']);
+    const [a, b] = [empresas[0]!.id, empresas[1]!.id];
+    await repos.abrirChamado({ clienteId: a, conversaId: conversa.id, setorId: null, responsavelId: null, titulo: 'Triagem da A',
+      resumo: 'x', foraDoContrato: false, origem: 'agente' });
+    semErro(await db.from('conversas').update({ cliente_em_foco: b }).eq('id', conversa.id));
+    semErro(await db.from('configuracoes').update({ agente_pausado: true }).eq('id', 1));
+    await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: b, idProvedor: 'TRI-1', tipo: 'texto', conteudo: 'oi' });
+    expect(await processarConversa(deps(new IaRoteirizada([])), conversa.id, false)).toBe('pausado');
+    const { data } = await db.from('chamados').select('cliente_id, setor_id').eq('conversa_id', conversa.id).order('numero');
+    expect(data).toEqual([{ cliente_id: a, setor_id: null }, { cliente_id: b, setor_id: null }]);
+  });
+});
+
+describe('alterar_preco e cadastrar_produto leem o acesso uma vez (revisão)', () => {
+  it('uma leitura de acessoDoContato por chamada, com as mesmas decisões', async () => {
+    const r = await contatoComEmpresas(['Empresa A']);
+    const a = r.empresas[0]!.id;
+    let leituras = 0;
+    const contado = { ...repos, acessoDoContato: async (c: string, e: string) => { leituras++; return repos.acessoDoContato(c, e); } };
+    const ctx = await carregarContexto(repos, r.conversa, await repos.buscarContato(TEL), await repos.obterConfiguracoes(), SEGUNDA_10H);
+    const estado: EstadoExecucao = { ctx, respondeu: false };
+    const usar = async (nome: string, entrada: object) => {
+      leituras = 0;
+      const x = await executarFerramenta({ ...dTool(), repos: contado }, estado, nome, entrada);
+      return { ...JSON.parse(x.resultado), _erro: x.erro, leituras };
+    };
+    const produto = { codigo: '30', descricao: 'Lasanha', unidade: 'PAC' };
+    const preco = { unidade_id: '00000000-0000-0000-0000-000000000000', produto_id: '00000000-0000-0000-0000-000000000000', novo_valor: 10 };
+    // Sem "pode mudar preço" (Fiscal marcado: fluxo de nota liberado): recusa de permissão.
+    expect(await usar('alterar_preco', preco)).toMatchObject({ erro: AVISOS.precoSemPermissao, _erro: true, leituras: 1 });
+    expect(await usar('cadastrar_produto', produto)).toMatchObject({ erro: AVISOS.produtoSemPermissao, _erro: true, leituras: 1 });
+    // Básico: a mesma recusa de permissão (D1).
+    await definirAcessoTeste(r.contato.id, a, { perfil: 'basico', podePedirNota: true, podeAtualizarPreco: true });
+    expect(await usar('alterar_preco', preco)).toMatchObject({ erro: AVISOS.precoSemPermissao, _erro: true, leituras: 1 });
+    expect(await usar('cadastrar_produto', produto)).toMatchObject({ erro: AVISOS.produtoSemPermissao, _erro: true, leituras: 1 });
+    // Sem fluxo de nota (nem nota nem Fiscal): a instrução de abrir demanda.
+    await definirAcessoTeste(r.contato.id, a, { perfil: 'rh_dp', setores: ['Pessoal'], podePedirNota: false, podeAtualizarPreco: true });
+    expect(await usar('alterar_preco', preco)).toEqual({ instrucao: AVISOS.semFluxoNota, _erro: false, leituras: 1 });
   });
 });
