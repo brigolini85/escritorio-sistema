@@ -193,9 +193,9 @@ const hora = (iso: string) =>
 /** Revisão geral I5: texto que veio do cliente (ou do celular) não abre nem fecha as marcas do pedido (<historico> etc.). */
 const neutro = (t: string) => t.replace(/</g, '‹').replace(/>/g, '›');
 
-/** Auditoria 4.5 e 5.2: o texto das mensagens novas de uma vez vai até aqui (o resto é cortado com o aviso). */
+/** Auditoria 4.5 e 5.2: o texto das mensagens novas de uma vez vai até aqui. Fica o fim, onde está a mensagem mais nova (revisão da Task 6). */
 export const MAX_CARACTERES_NOVAS = 8000;
-const AVISO_MENSAGEM_CORTADA = '[mensagem cortada]';
+const AVISO_INICIO_CORTADO = '[início cortado]';
 
 /** `historico`: a imagem já foi vista numa vez anterior e não vai de novo ao modelo (auditoria 5.2): só o nome. */
 function textoDaMensagem(m: Mensagem, historico = false): string {
@@ -229,7 +229,7 @@ export function montarConteudoUsuario(
   const hist = historico.map((m) => `[${hora(m.criado_em)}] ${quem(m)}: ${textoDaMensagem(m, true).replace(/\r\n?|[\u2028\u2029]/g, '\n').replace(/\n/g, '\n  ')}`).join('\n');
   const todasNovas = novas.map((m) => textoDaMensagem(m)).join('\n');
   const novasTexto = todasNovas.length > MAX_CARACTERES_NOVAS
-    ? `${todasNovas.slice(0, MAX_CARACTERES_NOVAS)}\n${AVISO_MENSAGEM_CORTADA}` : todasNovas;
+    ? `${AVISO_INICIO_CORTADO}\n${todasNovas.slice(-MAX_CARACTERES_NOVAS)}` : todasNovas;
 
   const blocos: Anthropic.ContentBlockParam[] = [{
     type: 'text',

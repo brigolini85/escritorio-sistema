@@ -47,8 +47,12 @@ export const MAX_CARACTERES_TRANSCRICAO = 4000;
 export const AVISO_TRANSCRICAO_CORTADA = '[áudio longo: transcrição cortada]';
 export const AVISO_AUDIO_LONGO = '[áudio longo demais: não foi transcrito]';
 const MAX_SEGUNDOS_AUDIO = 10 * 60;
-/** Sem duração no cabeçalho: 10 MB de voz do WhatsApp passa bem de 10 min. */
-const MAX_BYTES_AUDIO_SEM_DURACAO = 10 * 1024 * 1024;
+/**
+ * Sem cabeçalho válido: 2 MB (voz do WhatsApp em Opus passa de 10 min só perto disso). Com cabeçalho, 10 MB continua sendo o
+ * teto, porque o cabeçalho vem do cliente e pode mentir a duração (revisão da Task 6).
+ */
+const MAX_BYTES_AUDIO_SEM_DURACAO = 2 * 1024 * 1024;
+const MAX_BYTES_AUDIO = 10 * 1024 * 1024;
 
 export function cortarTranscricao(texto: string): string {
   return texto.length > MAX_CARACTERES_TRANSCRICAO ? `${texto.slice(0, MAX_CARACTERES_TRANSCRICAO)} ${AVISO_TRANSCRICAO_CORTADA}` : texto;
@@ -56,25 +60,31 @@ export function cortarTranscricao(texto: string): string {
 
 const OGGS = [0x4f, 0x67, 0x67, 0x53];
 const ehOggS = (b: Uint8Array, i: number) => OGGS.every((c, k) => b[i + k] === c);
+/** Bit 4 do tipo da página: fim do fluxo (EOS). */
+const FIM_DO_FLUXO = 4;
 
 /**
- * Duração de um Ogg Opus (o áudio do WhatsApp): a posição da última página, em amostras a 48 kHz. Outro formato, ou cabeçalho
- * que não se lê, devolve null (aí vale o tamanho do arquivo).
+ * Duração de um Ogg Opus (o áudio do WhatsApp): a posição da última página, em amostras a 48 kHz. Só vale se a última página
+ * marca o fim do fluxo e é do mesmo fluxo (número de série) da primeira. Outro formato, ou cabeçalho que não se lê, devolve
+ * null (aí vale o tamanho do arquivo).
  */
 export function duracaoOpusSegundos(bytes: Uint8Array): number | null {
   if (bytes.length < 36 || !ehOggS(bytes, 0)) return null;
   const inicio = new TextDecoder('latin1').decode(bytes.subarray(0, Math.min(bytes.length, 200)));
   if (!inicio.includes('OpusHead')) return null;
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const serie = v.getUint32(14, true);
   for (let i = bytes.length - 27; i > 0; i--) {
     if (!ehOggS(bytes, i)) continue;
-    const posicao = new DataView(bytes.buffer, bytes.byteOffset + i + 6, 8).getBigInt64(0, true);
+    if ((bytes[i + 5]! & FIM_DO_FLUXO) === 0 || v.getUint32(i + 14, true) !== serie) return null;
+    const posicao = v.getBigInt64(i + 6, true);
     return posicao > 0n ? Number(posicao) / 48_000 : null;
   }
   return null;
 }
 
-/** Mais de 10 min (pela duração do cabeçalho) ou, sem ela, mais de 10 MB: nem vai ao transcritor. */
+/** Mais de 10 min (pela duração do cabeçalho, e no máximo 10 MB) ou, sem cabeçalho válido, mais de 2 MB: nem vai ao transcritor. */
 export function audioLongoDemais(bytes: Uint8Array): boolean {
   const segundos = duracaoOpusSegundos(bytes);
-  return segundos !== null ? segundos > MAX_SEGUNDOS_AUDIO : bytes.length > MAX_BYTES_AUDIO_SEM_DURACAO;
+  return segundos !== null ? segundos > MAX_SEGUNDOS_AUDIO || bytes.length > MAX_BYTES_AUDIO : bytes.length > MAX_BYTES_AUDIO_SEM_DURACAO;
 }

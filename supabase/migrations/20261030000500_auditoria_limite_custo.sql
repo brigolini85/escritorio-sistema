@@ -7,17 +7,43 @@ alter table public.configuracoes
   add column limite_dia_contato_usd numeric not null default 2 check (limite_dia_contato_usd >= 0),
   add column limite_dia_desconhecido_usd numeric not null default 0.30 check (limite_dia_desconhecido_usd >= 0);
 
--- Gasto de hoje (desde a meia-noite de São Paulo) de todas as conversas com este telefone. Só o trabalhador.
+-- Gasto de hoje (desde a meia-noite de São Paulo) do atendimento automático de todas as conversas com este telefone. Só o
+-- trabalhador. Só conta o que o número provoca (agente, agente do setor, transcrição): a sugestão de resposta e a simulação
+-- são gasto da equipe e não podem tirar o atendimento do cliente (revisão da Task 6).
 create function public.custo_ia_do_telefone_hoje(p_telefone text) returns numeric
 language sql stable security definer set search_path = '' as $$
   select coalesce(sum(u.custo_usd), 0)
   from public.uso_ia u
   join public.conversas c on c.id = u.conversa_id
   where c.telefone = p_telefone
+    and u.funcionalidade in ('agente_clientes', 'especialista_setor', 'transcricao_audio')
     and u.criado_em >= (date_trunc('day', now() at time zone 'America/Sao_Paulo') at time zone 'America/Sao_Paulo')
 $$;
 revoke execute on function public.custo_ia_do_telefone_hoje(text) from public, anon, authenticated;
 grant execute on function public.custo_ia_do_telefone_hoje(text) to service_role;
+
+-- D2: o aviso do limite do dia sai uma vez por dia (São Paulo) por telefone. A chave é o hash do telefone inteiro (o texto do
+-- aviso mostra só o final, e dois números com o mesmo final não podem se juntar). Só o trabalhador.
+create table public.avisos_limite_dia (
+  telefone_hash text not null,
+  dia date not null,
+  primary key (telefone_hash, dia)
+);
+alter table public.avisos_limite_dia enable row level security;
+revoke all on table public.avisos_limite_dia from public, anon, authenticated;
+
+create function public.marcar_aviso_limite_dia(p_telefone text) returns boolean
+language plpgsql volatile security definer set search_path = '' as $$
+declare v_dia date := (now() at time zone 'America/Sao_Paulo')::date; v_linhas int;
+begin
+  -- Guarda só os últimos dias: a tabela não cresce.
+  delete from public.avisos_limite_dia where dia < v_dia - 2;
+  insert into public.avisos_limite_dia (telefone_hash, dia) values (md5(p_telefone), v_dia) on conflict do nothing;
+  get diagnostics v_linhas = row_count;
+  return v_linhas > 0;
+end $$;
+revoke execute on function public.marcar_aviso_limite_dia(text) from public, anon, authenticated;
+grant execute on function public.marcar_aviso_limite_dia(text) to service_role;
 
 -- Auditoria 4.12: quatro vezes terminando juntas mandavam quatro alertas. Só quem conseguiu marcar o mês envia.
 create function public.marcar_alerta_ia80(p_mes text) returns boolean

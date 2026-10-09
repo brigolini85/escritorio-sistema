@@ -519,6 +519,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"avisos_limite_dia": {
+                  Row: {
+                    "dia": string,"telefone_hash": string
+                  }
+                  Insert: {
+                    "dia": string,"telefone_hash": string
+                  }
+                  Update: {
+                    "dia"?: string,"telefone_hash"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"certificado_avisos": {
                   Row: {
                     "chamado_id": string | null,"cliente_id": string,"criado_em": string,"vencimento": string
@@ -2580,6 +2593,9 @@ isOneToOne: false
                            },
 "marcar_arquivos_removidos":
 { Args: { "p_ids": (string)[] }; Returns: number
+                           },
+"marcar_aviso_limite_dia":
+{ Args: { "p_telefone": string }; Returns: boolean
                            },
 "marcar_aviso_radar":
 { Args: { "p_aviso": string,"p_mensagem": string }; Returns: undefined

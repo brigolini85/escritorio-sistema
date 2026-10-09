@@ -2,18 +2,22 @@ import { describe, expect, it, vi } from 'vitest';
 import { audioLongoDemais, cortarTranscricao, criarTranscritor, duracaoOpusSegundos, VOCABULARIO_PADRAO } from '../../src/midia/transcritor';
 
 /** Uma página Ogg: "OggS", versão, tipo, posição (amostras a 48 kHz, int64 LE), série, sequência, CRC, segmentos e o conteúdo. */
-function paginaOgg(posicao: bigint, conteudo: Uint8Array): Uint8Array {
+function paginaOgg(posicao: bigint, conteudo: Uint8Array, tipo = 0, serie = 7): Uint8Array {
   const p = new Uint8Array(27 + 1 + conteudo.length);
   p.set([0x4f, 0x67, 0x67, 0x53]);
-  new DataView(p.buffer).setBigInt64(6, posicao, true);
+  p[5] = tipo;
+  const v = new DataView(p.buffer);
+  v.setBigInt64(6, posicao, true);
+  v.setUint32(14, serie, true);
   p[26] = 1;
   p[27] = conteudo.length;
   p.set(conteudo, 28);
   return p;
 }
-const opusDe = (segundos: number) => {
-  const cabecalho = paginaOgg(0n, new TextEncoder().encode('OpusHead\x01\x01'));
-  const ultima = paginaOgg(BigInt(segundos * 48_000), new Uint8Array(10));
+/** Tipo 4 = fim do fluxo (EOS); 2 = começo (BOS). */
+const opusDe = (segundos: number, o: { fim?: boolean; serieUltima?: number } = {}) => {
+  const cabecalho = paginaOgg(0n, new TextEncoder().encode('OpusHead\x01\x01'), 2);
+  const ultima = paginaOgg(BigInt(segundos * 48_000), new Uint8Array(10), o.fim === false ? 0 : 4, o.serieUltima ?? 7);
   const a = new Uint8Array(cabecalho.length + 50 + ultima.length);
   a.set(cabecalho);
   a.set(ultima, cabecalho.length + 50);
@@ -25,10 +29,14 @@ describe('limites do áudio (auditoria 5.7)', () => {
     expect(duracaoOpusSegundos(opusDe(700))).toBe(700);
     expect(duracaoOpusSegundos(new Uint8Array([1, 2, 3]))).toBeNull();
   });
-  it('mais de 10 min pelo cabeçalho, ou mais de 10 MB sem cabeçalho, é longo demais', () => {
+  it('revisão: sem a marca de fim do fluxo, ou com outro número de série, o cabeçalho não vale', () => {
+    expect(duracaoOpusSegundos(opusDe(5, { fim: false }))).toBeNull();
+    expect(duracaoOpusSegundos(opusDe(5, { serieUltima: 99 }))).toBeNull();
+  });
+  it('mais de 10 min pelo cabeçalho, ou mais de 2 MB sem cabeçalho válido, é longo demais', () => {
     expect(audioLongoDemais(opusDe(601))).toBe(true);
     expect(audioLongoDemais(opusDe(599))).toBe(false);
-    expect(audioLongoDemais(new Uint8Array(10 * 1024 * 1024 + 1))).toBe(true);
+    expect(audioLongoDemais(new Uint8Array(2 * 1024 * 1024 + 1))).toBe(true);
     expect(audioLongoDemais(new Uint8Array(1024))).toBe(false);
   });
   it('transcrição acima de 4.000 caracteres é cortada com o aviso', () => {

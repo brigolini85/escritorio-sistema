@@ -1,6 +1,6 @@
 // Auditoria 4.2, 4.5, 4.11, 4.12, 5.2 e 5.7 (decisão D2): limite diário de IA por telefone, limites do lote e da
 // transcrição, parada entre rodadas e o alerta de 80% do mês uma vez só.
-import { MOTIVOS_PASSAGEM, motivoDaEscalada } from '@escritorio/core';
+import { MOTIVOS_PASSAGEM, mesReferencia, motivoDaEscalada } from '@escritorio/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { limparBanco } from '@escritorio/db/teste';
 import { criarAlertas } from '../src/alertas';
@@ -71,11 +71,36 @@ describe('limite diário de IA por telefone (D2, auditoria 4.2 e 5.2)', () => {
     expect(await repos.mensagensNaoProcessadas(c.id)).toHaveLength(0);
     const aviso = 'O número …7777 passou do limite diário de IA e foi passado à equipe.';
     expect(alertas).toEqual([{ nivel: 'operacional', mensagem: aviso }]);
-    // O alerta usa a tabela de alertas para não repetir no mesmo dia.
-    await repos.registrarAlerta({ nivel: 'operacional', mensagem: aviso });
     await receber(c.id, 'M2', 'alô?');
     expect(await processarConversa(deps(respondeOi()), c.id, false)).toBe('limite');
     expect(alertas).toHaveLength(1);
+  });
+
+  it('revisão: dois números com o mesmo final no mesmo dia geram um aviso cada', async () => {
+    const outro = await repos.obterOuCriarConversa('5531966667777', null);
+    await repos.atualizarConversa(outro.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
+    const c = await conversaDesconhecida();
+    for (const [conv, id] of [[c, 'M1'], [outro, 'M2']] as const) {
+      await gastoHoje(conv.id, 0.31);
+      await receber(conv.id, id, 'oi');
+      expect(await processarConversa(deps(respondeOi()), conv.id, false)).toBe('limite');
+    }
+    expect(alertas).toHaveLength(2);
+  });
+
+  it('revisão: número acima do limite manda áudio; o transcritor não é chamado e o arquivo fica salvo', async () => {
+    const c = await conversaDesconhecida();
+    await gastoHoje(c.id, 0.31);
+    await receber(c.id, 'A1', '', { tipo: 'audio' });
+    await receber(c.id, 'IMG1', '', { tipo: 'imagem', nome: 'foto.jpg' });
+    const transcritor = { modelo: 'w', provedor: 'groq' as const, transcrever: vi.fn().mockResolvedValue({ texto: 'oi', segundos: 3 }) };
+    expect(await processarConversa(deps(respondeOi(), { transcritor }), c.id, false)).toBe('limite');
+    expect(transcritor.transcrever).not.toHaveBeenCalled();
+    const { data } = await db.from('mensagens').select('id_provedor, transcricao, arquivo_path').in('id_provedor', ['A1', 'IMG1']).order('id_provedor');
+    expect(data).toEqual([
+      { id_provedor: 'A1', transcricao: '[áudio não transcrito: limite diário]', arquivo_path: expect.stringMatching(/^conversas\//) },
+      { id_provedor: 'IMG1', transcricao: null, arquivo_path: expect.stringMatching(/^conversas\//) },
+    ]);
   });
 
   it('contato cadastrado com US$ 0,31 hoje: atende (o limite dele é US$ 2,00)', async () => {
@@ -142,7 +167,7 @@ describe('limites do lote (auditoria 4.5 e 5.2)', () => {
     expect(textoDoPedido(ia).match(/\[anexo não aberto: muitos arquivos de uma vez\]/g)).toHaveLength(2);
   });
 
-  it('texto das mensagens novas cortado em 8.000 caracteres', async () => {
+  it('texto das mensagens novas cortado em 8.000 caracteres: fica o fim (a mensagem mais nova)', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
     await receber(conversa.id, 'M1', 'a'.repeat(6000));
@@ -150,8 +175,9 @@ describe('limites do lote (auditoria 4.5 e 5.2)', () => {
     const ia = respondeOi();
     await processarConversa(deps(ia), conversa.id, false);
     const novas = textoDoPedido(ia).split('<mensagens_do_cliente>\n')[1]!.split('\n</mensagens_do_cliente>')[0]!;
-    expect(novas.length).toBeLessThanOrEqual(8000 + '\n[mensagem cortada]'.length);
-    expect(novas.endsWith('[mensagem cortada]')).toBe(true);
+    expect(novas.length).toBe('[início cortado]\n'.length + 8000);
+    expect(novas.startsWith('[início cortado]\n')).toBe(true);
+    expect(novas.endsWith('b'.repeat(6000))).toBe(true);
   });
 
   it('imagem de uma vez anterior não vai de novo ao modelo: no histórico só o nome', async () => {
@@ -210,18 +236,27 @@ describe('alerta de 80% do mês (auditoria 4.12)', () => {
     expect(alertas.filter((a) => a.mensagem.includes('80%'))).toHaveLength(1);
   });
 
-  it('se o WhatsApp e o e-mail falham, a marcação volta (o alerta sai na próxima)', async () => {
+  it('canais falhando: registra no painel uma vez só, tenta de novo depois de 1 h e só então marca o mês', async () => {
     await db.from('configuracoes').update({ teto_ia_usd: 1, email_alertas: 'dono@t.local' }).eq('id', 1);
     await gastoHoje((await conversaDesconhecida()).id, 0.81);
     const email = { enviar: vi.fn().mockRejectedValue(new Error('smtp fora')) };
     const d = deps(respondeOi());
     const reais = criarAlertas({ repos, email, envio: d.envio });
+    const mes = mesReferencia(new Date());
+    const linhas80 = async () => (await db.from('alertas').select('id').like('mensagem', '%80%')).data!.length;
     await conferirAlertaIa80({ ...d, alertas: reais });
-    expect((await repos.obterConfiguracoes()).alertaIa80Mes).toBeNull();
+    expect((await repos.obterConfiguracoes()).alertaIa80Mes).not.toBe(mes);
+    // Logo depois (outro atendimento, outro batimento): nem tenta, nem grava outra linha.
+    await conferirAlertaIa80({ ...d, alertas: reais });
+    expect(email.enviar).toHaveBeenCalledTimes(1);
+    expect(await linhas80()).toBe(1);
+    // Passada 1 h, tenta de novo; o e-mail volta, o mês fica marcado e o painel continua com uma linha.
     email.enviar.mockResolvedValue(undefined);
-    await conferirAlertaIa80({ ...d, alertas: reais });
-    expect((await repos.obterConfiguracoes()).alertaIa80Mes).not.toBeNull();
+    const depois = { ...d, alertas: reais, relogio: () => new Date(Date.now() + 61 * 60_000) };
+    await conferirAlertaIa80(depois);
     expect(email.enviar).toHaveBeenCalledTimes(2);
+    expect((await repos.obterConfiguracoes()).alertaIa80Mes).toBe(mesReferencia(depois.relogio()));
+    expect(await linhas80()).toBe(1);
     await db.from('configuracoes').update({ email_alertas: null }).eq('id', 1);
   });
 });

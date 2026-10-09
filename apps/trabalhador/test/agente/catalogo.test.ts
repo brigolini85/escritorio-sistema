@@ -42,6 +42,7 @@ describe('catálogo de pedidos no prompt do Thiago', () => {
     const s = montarSistema([{ id: 'S1', nome: 'Fiscal', descricao_assuntos: 'guias' }], []);
     expect(s.indexOf('CATÁLOGO DE PEDIDOS (guia')).toBeGreaterThan(s.indexOf('14. Prioridade'));
     expect(s.indexOf('CATÁLOGO DE PEDIDOS (guia')).toBeLessThan(s.indexOf('SETORES:'));
-    expect(s.length).toBeLessThan(32000);
+    // Auditoria 1.1, 1.2 e 5.1 (Tasks 2, 4 e 5): as regras de pagamento e de confirmação do cliente subiram o prompt fixo.
+    expect(s.length).toBeLessThan(34000);
   });
 });

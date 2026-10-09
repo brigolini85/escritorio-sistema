@@ -8,15 +8,16 @@ export interface Alertas {
   /** usuarioId: só aquela pessoa (e o administrador) vê no Início; sem ela, o setor. */
   /**
    * Auditoria 4.12: `entregue` é falso só quando havia e-mail ou WhatsApp configurado e todos falharam (sem nenhum dos dois,
-   * o alerta fica no painel e conta como entregue). Quem não precisa saber pode ignorar o retorno.
+   * o alerta fica no painel e conta como entregue). Quem não precisa saber pode ignorar o retorno. `registrar: false`: só
+   * tenta os canais, sem outra linha no painel (a nova tentativa do alerta de 80%, revisão da Task 6).
    */
-  alertar(a: { nivel: NivelAlerta; mensagem: string; setorId?: string | null; usuarioId?: string | null }): Promise<void | { entregue: boolean }>;
+  alertar(a: { nivel: NivelAlerta; mensagem: string; setorId?: string | null; usuarioId?: string | null; registrar?: boolean }): Promise<void | { entregue: boolean }>;
 }
 
 export function criarAlertas(d: { repos: Repos; email: Email; envio: DepsEnvio }): Alertas {
   return {
     async alertar(a) {
-      await d.repos.registrarAlerta(a);
+      if (a.registrar !== false) await d.repos.registrarAlerta(a);
       if (a.nivel === 'aviso') return { entregue: true };
       const cfg = await d.repos.obterConfiguracoes();
       let tentou = false;

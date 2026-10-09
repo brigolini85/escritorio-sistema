@@ -179,6 +179,9 @@ function checar<T>(r: PostgrestSingleResponse<T>, contexto: string): T {
   return r.data;
 }
 
+/** Revisão da Task 6: alerta_ia_80_mes com uma tentativa que não chegou ("tentativa 2026-10 <ISO>"). */
+export const PREFIXO_TENTATIVA_IA80 = 'tentativa ';
+
 /** Início do mês AAAA-MM em São Paulo (sem horário de verão desde 2019). */
 function inicioDoMes(mes: string): string {
   return `${mes}-01T00:00:00-03:00`;
@@ -585,9 +588,18 @@ export function criarRepos(db: Db) {
       return Boolean(checar(await db.rpc('marcar_alerta_ia80', { p_mes: mes }), 'marcarAlertaIa80'));
     },
 
-    /** O alerta não chegou por nenhum canal: a marcação volta para a próxima conferência tentar de novo. */
-    async desmarcarAlertaIa80(mes: string): Promise<void> {
-      checar(await db.from('configuracoes').update({ alerta_ia_80_mes: null }).eq('id', 1).eq('alerta_ia_80_mes', mes), 'desmarcarAlertaIa80');
+    /**
+     * O alerta não chegou por nenhum canal: a marcação vira "tentativa <mes> <quando>" (diferente do mês, então
+     * marcar_alerta_ia80 deixa marcar de novo), e a conferência espera 1 h antes de tentar (revisão da Task 6).
+     */
+    async adiarAlertaIa80(mes: string, tentativaEm: Date): Promise<void> {
+      checar(await db.from('configuracoes').update({ alerta_ia_80_mes: `${PREFIXO_TENTATIVA_IA80}${mes} ${tentativaEm.toISOString()}` })
+        .eq('id', 1).eq('alerta_ia_80_mes', mes), 'adiarAlertaIa80');
+    },
+
+    /** D2: true só para o primeiro aviso do dia (São Paulo) deste telefone; a chave é o hash do telefone inteiro. */
+    async marcarAvisoLimiteDia(telefone: string): Promise<boolean> {
+      return Boolean(checar(await db.rpc('marcar_aviso_limite_dia', { p_telefone: telefone }), 'marcarAvisoLimiteDia'));
     },
 
     /** Auditoria 4.2 e 5.2 (D2): gasto com IA de hoje (dia de São Paulo) de todas as conversas com este telefone. */

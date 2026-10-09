@@ -1,5 +1,5 @@
 import { MOTIVOS_PASSAGEM, custoTranscricaoUsd, empresaDoUso, mesReferencia, motivoDaEscalada } from '@escritorio/core';
-import type { Conversa, Mensagem } from '@escritorio/db';
+import { PREFIXO_TENTATIVA_IA80, type Conversa, type Mensagem } from '@escritorio/db';
 import type { Alertas } from './alertas';
 import { atenderComAgentes, avisarRespostaAosPedidos } from './agente/atender';
 import { erroTemporarioIa } from './agente/cliente-ia';
@@ -40,7 +40,13 @@ const AVISO_AUDIO_FALHOU = '[áudio não pôde ser transcrito]';
 type DestinoCusto = { conversaId: string | null; clienteId: string | null };
 
 /** Transcreve e grava o custo (spec 7B.2). Falha do fornecedor não é cobrada: só o aviso. Falha ao gravar o custo não perde o áudio. */
-async function transcrever(d: DepsProcessamento, conversa: Conversa, custo: DestinoCusto, bytes: Uint8Array, mime: string, nome: string): Promise<string> {
+/** Revisão da Task 6: número acima do limite do dia (ou mês no teto) não paga transcrição; o áudio fica salvo para a equipe. */
+const AVISO_AUDIO_SEM_VERBA = '[áudio não transcrito: limite diário]';
+
+async function transcrever(
+  d: DepsProcessamento, conversa: Conversa, custo: DestinoCusto, bytes: Uint8Array, mime: string, nome: string, semVerba: boolean,
+): Promise<string> {
+  if (semVerba) return AVISO_AUDIO_SEM_VERBA;
   // Auditoria 5.7: áudio de mais de 10 min nem vai ao fornecedor; o arquivo fica salvo para a equipe ouvir.
   if (audioLongoDemais(bytes)) return AVISO_AUDIO_LONGO;
   let r: Transcricao;
@@ -74,7 +80,9 @@ async function avisarAnexoNaoAberto(d: DepsProcessamento, m: Mensagem): Promise<
   await d.repos.atualizarMensagem(m.id, { conteudo: m.conteudo });
 }
 
-async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: Mensagem[], custo: DestinoCusto): Promise<AnexoParaIa[]> {
+async function prepararMidias(
+  d: DepsProcessamento, conversa: Conversa, novas: Mensagem[], custo: DestinoCusto, semVerba = false,
+): Promise<AnexoParaIa[]> {
   const anexos: AnexoParaIa[] = [];
   const guardar = async (m: Mensagem, anexo: AnexoParaIa | null | undefined) => {
     if (!anexo) return;
@@ -101,7 +109,7 @@ async function prepararMidias(d: DepsProcessamento, conversa: Conversa, novas: M
       const salvo = await d.midia.baixarESalvar(m.midia_url_origem, conversa.id, nome, m.arquivo_mime);
       const patch: Partial<Mensagem> = { arquivo_path: salvo.path, arquivo_mime: salvo.mime };
       if (m.tipo === 'audio') {
-        patch.transcricao = await transcrever(d, conversa, custo, salvo.bytes, salvo.mime.split(';')[0]!, nome);
+        patch.transcricao = await transcrever(d, conversa, custo, salvo.bytes, salvo.mime.split(';')[0]!, nome, semVerba);
         m.transcricao = patch.transcricao;
       }
       await d.repos.atualizarMensagem(m.id, patch);
@@ -191,6 +199,14 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
   }
 }
 
+/** Limite do dia do número (D2) ou teto do mês já atingido. */
+async function passouDaVerba(d: Pick<DepsProcessamento, 'repos' | 'relogio'>, telefone: string, ehContato: boolean): Promise<boolean> {
+  const config = await d.repos.obterConfiguracoes();
+  if ((await d.repos.custoIaDoMes(mesReferencia(d.relogio()))) >= config.tetoIaUsd) return true;
+  const limite = ehContato ? config.limiteDiaContatoUsd : config.limiteDiaDesconhecidoUsd;
+  return (await d.repos.custoIaDoTelefoneHoje(telefone)) >= limite;
+}
+
 /** Erro ao marcar as mensagens depois que o agente já agiu: não vira passagem à equipe (o cliente já foi atendido). */
 class ErroDepoisDoAgente extends Error {
   constructor(readonly causa: unknown) { super('falha depois do agente'); }
@@ -210,7 +226,10 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   const contato = usuario || interno ? null : await d.repos.buscarContato(conversa.telefone);
   const custoAudio: DestinoCusto = usuario || interno ? { conversaId: null, clienteId: null }
     : { conversaId: conversa.id, clienteId: empresaDoUso(conversa.cliente_em_foco, contato?.empresas ?? []) };
-  const anexos = await prepararMidias(d, conversa, novas, custoAudio);
+  // Revisão da Task 6: o limite do dia e o teto do mês valem antes de transcrever (a transcrição também é paga). A equipe e o
+  // telefone interno não têm esse limite.
+  const semVerba = !usuario && !interno && (await passouDaVerba(d, conversa.telefone, contato !== null));
+  const anexos = await prepararMidias(d, conversa, novas, custoAudio, semVerba);
 
   // WhatsApp de alguém da equipe com o assistente ligado: vira pergunta ao assistente interno (pedido do dono, 2026-09-29).
   // `prepararMidias` já preencheu `transcricao` nas linhas em memória (e em nova tentativa ela vem do banco).
@@ -350,41 +369,50 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   return desfecho;
 }
 
-/** Minutos desde a meia-noite de São Paulo, para o "uma vez por dia". */
-function minutosDesdeMeiaNoiteSP(agora: Date): number {
-  const data = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(agora);
-  return Math.max(1, Math.ceil((agora.getTime() - new Date(`${data}T00:00:00-03:00`).getTime()) / 60_000));
-}
-
-/** D2: o dono fica sabendo uma vez por dia por telefone (o texto com o final do número é a chave). Falha não derruba a vez. */
+/** D2: o dono fica sabendo uma vez por dia por telefone. A chave é o hash do telefone inteiro, no banco (revisão da Task 6). */
 async function avisarLimiteDia(d: Pick<DepsProcessamento, 'repos' | 'alertas'>, telefone: string): Promise<void> {
-  const mensagem = `O número …${telefone.slice(-4)} passou do limite diário de IA e foi passado à equipe.`;
   try {
-    // O banco grava o alerta com o relógio dele: o dia conta pelo relógio de verdade, não pelo do job.
-    if (await d.repos.alertaRecente(mensagem, minutosDesdeMeiaNoiteSP(new Date()))) return;
-    await d.alertas.alertar({ nivel: 'operacional', mensagem });
+    if (!(await d.repos.marcarAvisoLimiteDia(telefone))) return;
+    await d.alertas.alertar({ nivel: 'operacional', mensagem: `O número …${telefone.slice(-4)} passou do limite diário de IA e foi passado à equipe.` });
   } catch (e) {
     console.error('[limite do dia] alerta não registrado', telefone.slice(-4), e);
   }
 }
 
+/** Minutos desde o começo do mês em São Paulo (o alerta grava com o relógio do banco). */
+function minutosDesdeInicioDoMesSP(agora: Date): number {
+  return Math.max(1, Math.ceil((agora.getTime() - new Date(`${mesReferencia(agora)}-01T00:00:00-03:00`).getTime()) / 60_000));
+}
+/** Revisão da Task 6: com os canais fora, a nova tentativa espera isto. */
+const ESPERA_NOVA_TENTATIVA_IA80_MS = 60 * 60_000;
+
 /**
  * Auditoria 4.12: alerta de 80% do teto do mês. A soma é de todo o uso_ia (atendimento, especialista, transcrição, assistente,
- * sugestão, tarefas, Radar). Só quem marcou o mês envia; se nenhum canal entregou, a marcação volta para tentar de novo.
- * Roda depois de cada vez de atendimento e no batimento (tarefas.ts), que cobre o gasto fora do atendimento.
+ * sugestão, tarefas, Radar). Só quem marcou o mês envia. Roda depois de cada vez de atendimento e no batimento (tarefas.ts),
+ * que cobre o gasto fora do atendimento.
+ * Revisão da Task 6: se nenhum canal entregou, a marcação vira "tentativa" e a próxima só sai 1 h depois; a linha no painel
+ * é gravada uma vez por mês.
  */
 export async function conferirAlertaIa80(d: Pick<DepsProcessamento, 'repos' | 'alertas' | 'relogio'>): Promise<void> {
   const config = await d.repos.obterConfiguracoes();
-  const mes = mesReferencia(d.relogio());
-  if (config.alertaIa80Mes === mes) return;
+  const agora = d.relogio();
+  const mes = mesReferencia(agora);
+  const marcado = config.alertaIa80Mes ?? '';
+  if (marcado === mes) return;
+  if (marcado.startsWith(`${PREFIXO_TENTATIVA_IA80}${mes} `)) {
+    const ultima = Date.parse(marcado.slice(`${PREFIXO_TENTATIVA_IA80}${mes} `.length));
+    if (Number.isFinite(ultima) && agora.getTime() - ultima < ESPERA_NOVA_TENTATIVA_IA80_MS) return;
+  }
   if ((await d.repos.custoIaDoMes(mes)) < 0.8 * config.tetoIaUsd) return;
   if (!(await d.repos.marcarAlertaIa80(mes))) return;
+  const mensagem = `O gasto com IA do mês passou de 80% do teto (US$ ${config.tetoIaUsd}).`;
   let entregue = false;
   try {
-    const r = await d.alertas.alertar({ nivel: 'operacional', mensagem: `O gasto com IA do mês passou de 80% do teto (US$ ${config.tetoIaUsd}).` });
+    const registrar = !(await d.repos.alertaRecente(mensagem, minutosDesdeInicioDoMesSP(new Date())));
+    const r = await d.alertas.alertar({ nivel: 'operacional', mensagem, registrar });
     entregue = !r || r.entregue;
   } finally {
-    if (!entregue) await d.repos.desmarcarAlertaIa80(mes);
+    if (!entregue) await d.repos.adiarAlertaIa80(mes, agora);
   }
 }
 

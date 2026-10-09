@@ -2,7 +2,7 @@
 -- só pelo administrador; e a marcação do alerta de 80% do mês feita por uma chamada só.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(22);
 
 insert into auth.users (id, email) values
   ('e1240000-0000-0000-0000-00000000000a', 'admin@t124.local'),
@@ -42,6 +42,18 @@ select is(public.custo_ia_do_telefone_hoje('5531999991242'), 1.00::numeric, 'cad
 select is(public.custo_ia_do_telefone_hoje('5531999990000'), 0::numeric, 'telefone sem gasto: zero');
 select ok(not has_function_privilege('anon', 'public.custo_ia_do_telefone_hoje(text)', 'execute'), 'visitante não consulta');
 select ok(not has_function_privilege('authenticated', 'public.custo_ia_do_telefone_hoje(text)', 'execute'), 'o painel não consulta (só o trabalhador)');
+
+-- 18–22 (revisão da Task 6): o gasto da equipe na conversa (sugestão, simulação) não conta no limite do número; o aviso do
+-- dia é marcado pelo telefone inteiro.
+insert into public.uso_ia (funcionalidade, conversa_id, modelo, tokens_entrada, tokens_saida, custo_usd) values
+  ('sugerir_resposta', 'e1240000-0000-0000-0000-0000000000c2', 'claude-sonnet-5', 1, 1, 5),
+  ('testar_agente', 'e1240000-0000-0000-0000-0000000000c2', 'claude-sonnet-5', 1, 1, 5),
+  ('transcricao_audio', 'e1240000-0000-0000-0000-0000000000c2', 'whisper', 0, 0, 0.5);
+select is(public.custo_ia_do_telefone_hoje('5531999991242'), 1.50::numeric, 'sugestão e simulação ficam de fora; transcrição conta');
+select is(public.marcar_aviso_limite_dia('5531999991242'), true, 'primeiro aviso do dia do número');
+select is(public.marcar_aviso_limite_dia('5531999991242'), false, 'segundo aviso do mesmo dia não sai');
+select is(public.marcar_aviso_limite_dia('5531888881242'), true, 'outro número com o mesmo final tem o seu aviso');
+select ok(not has_function_privilege('authenticated', 'public.marcar_aviso_limite_dia(text)', 'execute'), 'o painel não marca o aviso do dia');
 
 -- 10–13: alerta de 80% (4.12): só a primeira chamada do mês marca
 update public.configuracoes set alerta_ia_80_mes = '2026-09' where id = 1;
