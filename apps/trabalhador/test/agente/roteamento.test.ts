@@ -42,6 +42,37 @@ const chamar = (assunto: string, agente = 'fiscal') => ({ nome: 'chamar_agente',
 const nomes = (t: unknown) => (t as { name: string }[]).map((x) => x.name);
 const textoSistema = (p: { system?: unknown }) => (p.system as { text: string }[]).map((b) => b.text).join('\n');
 
+describe('Limite de ações compartilhado com o agente do setor (auditoria 5.6)', () => {
+  const abrir = (i: number) => ({ nome: 'abrir_chamado', entrada: { setor_id: 's', titulo: `P${i}`, resumo: 'x', fora_do_contrato: false } });
+  // O agente do setor não tem abrir_chamado (só o Thiago); a demanda dele é o pedido de nota.
+  const nota = { nome: 'abrir_pedido_nota', entrada: {} };
+  const abertas = (t: ReturnType<typeof montar>) => t.chamadas.filter((c) => c.nome === 'abrir_chamado' || c.nome === 'abrir_pedido_nota');
+
+  it('3 demandas do Thiago e 2 do agente do setor: 4 no total, a 5ª recusada', async () => {
+    const t = montar('mesma_voz', [
+      usarFerramentas(abrir(1), abrir(2), abrir(3), chamar('x')),
+      usarFerramentas(nota, nota),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi' } }), fim(), fim(),
+    ]);
+    await t.rodar();
+    expect(abertas(t)).toHaveLength(4);
+    expect(JSON.stringify(t.ia.recebidos[2]!.messages.at(-1))).toContain('Limite de ações');
+  });
+
+  it('a recusa do agente do setor não conta como insistência do Thiago: ele precisa insistir por conta própria', async () => {
+    const t = montar('mesma_voz', [
+      usarFerramentas(abrir(1), abrir(2), abrir(3), abrir(4), chamar('x')),
+      usarFerramentas(nota),                                       // agente do setor: 1ª recusa dele
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi' } }), fim(),
+      usarFerramentas(abrir(6)),                                   // Thiago: 1ª recusa dele, não escala
+      usarFerramentas(abrir(7)),                                   // Thiago insiste: escala
+    ]);
+    expect(await t.rodar()).toMatchObject({ status: 'escalar', motivo: 'limite de ações' });
+    expect(t.ia.recebidos).toHaveLength(6);
+    expect(abertas(t)).toHaveLength(4);
+  });
+});
+
 describe('Mesma voz (D5)', () => {
   it('o Thiago chama, o agente responde com o prompt e as ferramentas dele; custo por agente; o Thiago não repete', async () => {
     const t = montar('por_tras', [usarFerramentas(chamar('Pedido de nota de venda')), usarFerramentas({ nome: 'responder', entrada: { texto: 'Oi' } }), fim(), fim()]);

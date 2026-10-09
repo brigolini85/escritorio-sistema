@@ -75,6 +75,19 @@ describe('limite de ações por atendimento (auditoria 5.6)', () => {
     expect(rodou).toBe(3);
   });
 
+  it('enviar_documento que volta enviado:false (contato Básico) não conta', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    let rodou = 0;
+    const executor: ExecutorFerramentas = async (_d, estado, nome) => { if (nome === 'responder') { estado.respondeu = true; return ok({}); } rodou++; return ok({ enviado: false }); };
+    const ia = new IaRoteirizada([
+      usarFerramentas(...[1, 2, 3, 4].map((i) => ({ nome: 'enviar_documento', entrada: { documento_id: `d${i}` } }))),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Pronto.' } }),
+      fim(),
+    ]);
+    await executarAgente(deps(ia), await contexto(conversa.id), conteudo, executor);
+    expect(rodou).toBe(4);
+  });
+
   it('12 ferramentas numa rodada: as que passam de 10 são recusadas', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     let rodou = 0;

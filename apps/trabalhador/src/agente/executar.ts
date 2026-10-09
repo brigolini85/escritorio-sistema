@@ -135,7 +135,7 @@ async function despachar(
     return falha(MENSAGEM_LIMITE_ACOES);
   }
   const r = await executor(d, estado, u.name, u.input);
-  if (c && !r.erro) contarAcao(c, u.name);
+  if (c && !r.erro) contarAcao(c, u.name, r.resultado);
   return u.name === 'abrir_chamado' ? avisoForaPeloSistema(d, estado, r) : r;
 }
 
@@ -225,8 +225,8 @@ export async function executarAgente(
     messages.push({ role: 'user', content: resultados });
     // Auditoria 5.6: o limite já tinha sido devolvido numa rodada anterior e o modelo pediu de novo: escala a vez.
     if (estado.limiteNaRodada && estado.contadores) {
-      if (estado.contadores.recusou) return { status: 'escalar', motivo: 'limite de ações', respondeu: estado.respondeu };
-      estado.contadores.recusou = true;
+      if (estado.limiteAvisado) return { status: 'escalar', motivo: 'limite de ações', respondeu: estado.respondeu };
+      estado.limiteAvisado = true;
     }
     const fim = terminou();
     if (fim) return fim;
