@@ -11,7 +11,7 @@ describe('limparRetencao', () => {
   it('apaga mensagens, arquivos e decisões com mais de 1 ano e mantém as recentes', async () => {
     const midia = criarArmazenamento(db, vi.fn().mockResolvedValue(new Response(new Uint8Array([1]))));
     const conversa = await repos.obterOuCriarConversa('5531999990001', null);
-    const salvo = await midia.baixarESalvar('https://x/a.pdf', conversa.id, 'a.pdf', 'application/pdf');
+    const salvo = await midia.baixarESalvar('https://f004.backblazeb2.com/a.pdf', conversa.id, 'a.pdf', 'application/pdf');
     const antigo = '2025-01-01T12:00:00Z';
     // Inserções separadas: num insert em lote, a chave ausente (criado_em) vira null em vez do padrão.
     const velha = await db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'entrada', autor: 'cliente', tipo: 'documento', arquivo_path: salvo.path, criado_em: antigo });

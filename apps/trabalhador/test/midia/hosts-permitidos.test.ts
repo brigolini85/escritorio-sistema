@@ -32,7 +32,7 @@ describe('baixarESalvar', () => {
   it('URL interna ou de host fora da lista: recusa sem chamar fetch', async () => {
     for (const u of ['http://169.254.169.254/x', 'https://exemplo.com/a.pdf', 'https://127.0.0.1/a']) {
       const f = vi.fn();
-      await expect(baixar(u, f)).rejects.toThrow(/não permitid/);
+      await expect(baixar(u, f)).rejects.toThrow(/não permitido: /);
       expect(f).not.toHaveBeenCalled();
     }
   });

@@ -36,6 +36,7 @@ describe('segredo fora do log (3.4)', () => {
     ['GET aberto no navegador', 'GET', `/webhook/zapi/${SEGREDO}`, SEGREDO],
     ['sub-rota desconhecida', 'POST', `/webhook/zapi/${SEGREDO}/received`, SEGREDO],
     ['segredo de 200 caracteres', 'POST', `/webhook/zapi/${'a'.repeat(200)}`, 'a'.repeat(50)],
+    ['barra dupla antes de webhook', 'POST', `//webhook/zapi/${SEGREDO}/`, SEGREDO],
     ['token na query', 'GET', `/outra?token=${SEGREDO}`, SEGREDO],
     ['token na query do /saude', 'GET', `/saude?token=${SEGREDO}`, SEGREDO],
   ])('%s', async (_n, method, url, segredo) => {
@@ -53,6 +54,13 @@ describe('segredo fora do log (3.4)', () => {
     expect(r.body).not.toContain('qualquer-coisa-123');
   });
 
+  it('o 500 loga a causa (err), sem a URL crua', async () => {
+    const { app, linhas } = montar({ canal: { interpretarWebhook: () => { throw new Error('causa-do-erro'); } } as never });
+    const r = await app.inject({ method: 'POST', url: URL_OK, payload: doInstancia });
+    expect(r.statusCode).toBe(500);
+    expect(linhas.join('')).toContain('causa-do-erro');
+    expect(linhas.join('')).not.toContain(SEGREDO);
+  });
   it('o 401 de segredo errado também não loga o segredo tentado', async () => {
     const { app, linhas } = montar();
     await app.inject({ method: 'POST', url: '/webhook/zapi/tentativa-errada-123', payload: doInstancia });
@@ -68,6 +76,18 @@ describe('origem do evento (3.1)', () => {
     expect(gravadas).toHaveLength(0);
     expect(fila.enviados).toHaveLength(0);
     expect(linhas.join('')).toContain('instancia_diferente');
+  });
+  it('3 descartes por instância: um alerta crítico só', async () => {
+    const { app, alertas } = montar();
+    for (let i = 0; i < 3; i++) await app.inject({ method: 'POST', url: URL_OK, payload: { ...f.texto, messageId: 'X' + i, instanceId: 'OUTRA' } });
+    expect(alertas).toHaveLength(1);
+    expect(alertas[0]).toContain('ZAPI_INSTANCIA');
+  });
+  it('compara sem espaço nem maiúscula: "abc " igual a "ABC"', async () => {
+    const { app, gravadas, alertas } = montar({ instancia: 'ABC' });
+    await app.inject({ method: 'POST', url: URL_OK, payload: { ...f.texto, instanceId: 'abc ' } });
+    expect(gravadas).toHaveLength(1);
+    expect(alertas).toHaveLength(0);
   });
   it('instanceId certo grava', async () => {
     const { app, gravadas } = montar();

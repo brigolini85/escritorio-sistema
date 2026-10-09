@@ -28,7 +28,7 @@ const JANELA_DESCARTES_MS = 10 * 60_000;
 
 /** Auditoria 3.4: o segredo (e o token do /saude) nunca vão para o log, em qualquer forma de URL. */
 export function mascararUrl(url: string): string {
-  return url.replace(/^(\/webhook\/).*?(?=[?#]|$)/, '$1***').replace(/([?&]token=)[^&#]*/g, '$1***');
+  return url.replace(/\/(webhook|zapi)\/[^?#]*/g, '/$1/***').replace(/([?&]token=)[^&#]*/g, '$1***');
 }
 
 export const LIMITES_SAUDE = { sinalMs: 3 * 60_000 } as const;
@@ -79,7 +79,7 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
   app.setNotFoundHandler((_req, rep) => rep.code(404).send({ erro: 'não encontrado' }));
   app.setErrorHandler((err: FastifyError, req, rep) => {
     const status = typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 500 ? err.statusCode : 500;
-    req.log.error({ codigo: err.code, status, url: mascararUrl(req.url) }, 'erro na requisição');
+    req.log.error({ err, status, url: mascararUrl(req.url) }, 'erro na requisição');
     return rep.code(status).send({ erro: status === 500 ? 'erro interno' : 'requisição inválida' });
   });
 
@@ -128,8 +128,16 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
       return { ok: true };
     }
     // Auditoria 3.1: evento de outra instância, ou sem instanceId (as capturas reais sempre trazem), não vira nada.
-    if (d.instancia && m.instanciaId !== d.instancia) {
+    const norm = (v: string | null | undefined) => (v ?? '').trim().toLowerCase();
+    if (d.instancia && (!m.instanciaId || norm(m.instanciaId) !== norm(d.instancia))) {
       req.log.warn({ recebida: m.instanciaId ? String(m.instanciaId).slice(0, 40) : null }, 'instancia_diferente');
+      // Se ZAPI_INSTANCIA estiver errada, todas as mensagens somem: o dono precisa ficar sabendo (no máximo 1 por hora).
+      const aviso = 'O WhatsApp está recebendo mensagens de uma instância diferente da configurada (ZAPI_INSTANCIA). Nenhuma mensagem está sendo atendida: confira se ZAPI_INSTANCIA é igual ao id da instância na Z-API.';
+      try {
+        if (!(await d.repos.alertaRecente(aviso, 60))) await d.repos.registrarAlerta({ nivel: 'critico', mensagem: aviso });
+      } catch (e) {
+        req.log.error(e, 'alerta de instância diferente não registrado');
+      }
       return { ok: true };
     }
     if (m.ehGrupo) return { ok: true };

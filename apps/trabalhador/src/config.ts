@@ -6,7 +6,7 @@ export const Config = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   DATABASE_URL: z.string().min(1),
   ANTHROPIC_API_KEY: z.string().min(1),
-  ZAPI_INSTANCIA: z.string().min(1),
+  ZAPI_INSTANCIA: z.string().trim().min(1),
   ZAPI_TOKEN: z.string().min(1),
   ZAPI_CLIENT_TOKEN: z.string().min(1),
   WEBHOOK_SEGREDO: z.string().min(16),

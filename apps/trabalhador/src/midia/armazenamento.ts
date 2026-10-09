@@ -22,6 +22,11 @@ const BUCKET = 'anexos';
 export const MIDIA_HOSTS_PADRAO = ['z-api.io', 'backblazeb2.com', 'storage.googleapis.com'];
 const MAX_SALTOS = 3;
 
+/** Só o host (sem caminho nem consulta) para a mensagem de erro e o log. */
+function hostParaLog(url: string): string {
+  try { return new URL(url).host.slice(0, 100); } catch { return 'inválido'; }
+}
+
 /** Só https, host por nome (nunca IP literal nem localhost) e dentro da lista (o próprio domínio ou subdomínio dele). */
 export function hostPermitido(url: string, hosts: readonly string[] = MIDIA_HOSTS_PADRAO): boolean {
   let u: URL;
@@ -68,13 +73,13 @@ export function criarArmazenamento(db: Db, buscar: typeof fetch = fetch, hosts: 
   async function buscarSeguro(urlInicial: string): Promise<Response> {
     let url = urlInicial;
     for (let salto = 0; salto <= MAX_SALTOS; salto++) {
-      if (!hostPermitido(url, hosts)) throw new Error('endereço da mídia não permitido');
+      if (!hostPermitido(url, hosts)) throw new Error(`endereço da mídia não permitido: ${hostParaLog(url)}`);
       const r = await buscar(url, { signal: AbortSignal.timeout(PRAZO_DOWNLOAD_MS), redirect: 'manual' });
       if (r.status < 300 || r.status >= 400) return r;
       const destino = r.headers.get('location');
       await r.body?.cancel().catch(() => undefined);
       if (!destino) throw new Error('redirecionamento sem destino');
-      try { url = new URL(destino, url).toString(); } catch { throw new Error('endereço da mídia não permitido'); }
+      try { url = new URL(destino, url).toString(); } catch { throw new Error('endereço da mídia não permitido: destino inválido'); }
     }
     throw new Error('redirecionamentos demais no download da mídia');
   }
