@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CanalFalso } from '../../src/canal/falso';
-import { canalComTrava, envioPermitido, type RegraEnvio } from '../../src/canal/trava';
+import { EnvioBloqueadoEmProducao, canalComTrava, envioPermitido, type RegraEnvio } from '../../src/canal/trava';
 import { lerConfig } from '../../src/config';
 
 const HOMOLOG: RegraEnvio = { ambiente: 'homologacao', permitidos: ['5531988887777'] };
@@ -58,6 +58,16 @@ describe('canalComTrava (D1)', () => {
   it('falha ao registrar o bloqueio não derruba o fluxo', async () => {
     const canal = canalComTrava(new CanalFalso(), HOMOLOG, async () => { throw new Error('banco'); });
     await expect(canal.enviarTexto('5531911112222', 'oi')).resolves.toMatchObject({ idProvedor: expect.stringMatching(/^bloqueado-/) });
+  });
+  it('auditoria 4.3: bloqueio em produção (regra futura) lança EnvioBloqueadoEmProducao, não finge sucesso', async () => {
+    const real = new CanalFalso();
+    let registros = 0;
+    const canal = canalComTrava(real, { ambiente: 'producao', permitidos: [] }, async () => { registros++; }, () => false);
+    await expect(canal.enviarTexto('5531911112222', 'oi')).rejects.toBeInstanceOf(EnvioBloqueadoEmProducao);
+    await expect(canal.enviarArquivo('5531911112222', { url: 'data:application/pdf;base64,AA==', nome: 'x.pdf' }))
+      .rejects.toBeInstanceOf(EnvioBloqueadoEmProducao);
+    expect(real.enviados).toHaveLength(0);
+    expect(registros).toBe(2);
   });
 });
 

@@ -5,6 +5,8 @@
 export type Ambiente = Record<string, string | undefined>;
 
 const LOCAIS = new Set(['localhost', '127.0.0.1']);
+/** Os mesmos valores do trabalhador (apps/trabalhador/src/config.ts) e de configuracoes.ambiente. */
+const AMBIENTES = new Set(['producao', 'homologacao', 'local']);
 
 function urlHttp(nome: string, bruto: string | undefined, env: Ambiente, exemplo: string): URL {
   const texto = (bruto ?? '').trim();
@@ -72,6 +74,11 @@ export function problemasDoAmbiente(env: Ambiente): string[] {
     }
   });
   tentar(() => lerPainelUrl(env));
+  // Auditoria 3.13: sem AMBIENTE válido, o painel podia mostrar "HOMOLOGAÇÃO" ligado ao banco da produção (ou o contrário).
+  tentar(() => {
+    const a = (env.AMBIENTE ?? env.NEXT_PUBLIC_AMBIENTE ?? '').trim();
+    if (!AMBIENTES.has(a)) throw new Error('AMBIENTE inválido ou ausente: use producao, homologacao ou local.');
+  });
   return problemas;
 }
 

@@ -32,7 +32,13 @@ export async function limparBanco(): Promise<void> {
     if to_regclass('public.tarefas_guarda') is not null then update public.tarefas_guarda set dias = null, atualizado_por = null; end if;
     if to_regclass('public.travas_trabalhador') is not null then delete from public.travas_trabalhador; end if;
     if to_regclass('public.avisos_limite_dia') is not null then delete from public.avisos_limite_dia; end if;
+    if to_regclass('public.instancias_trabalhador') is not null then delete from public.instancias_trabalhador; end if;
     end $$`);
+  // Auditoria 4.3: o banco de teste volta sem ambiente (a próxima partida, ou o teste, define).
+  await c.query(`do $$ begin
+    if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'configuracoes' and column_name = 'ambiente') then
+      update public.configuracoes set ambiente = null;
+    end if; end $$`);
   await c.query("delete from auth.users where email like '%.local'");
   await c.query(`update public.configuracoes set agente_pausado = false, alerta_ia_80_mes = null, teto_ia_usd = 50, telefone_dono = null,
     limite_dia_contato_usd = 2, limite_dia_desconhecido_usd = 0.30,

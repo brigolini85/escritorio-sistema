@@ -16,6 +16,11 @@ export type DepsServidor = {
   instancia?: string;
   /** Auditoria 3.1: requisições por minuto e por IP. */
   limites?: { webhook: number; saude: number };
+  /**
+   * Auditoria 4.3: o que só o processo sabe (AMBIENTE diferente do banco, outra instância viva). Cada falha entra no /saude;
+   * `instancias` (os hostnames das outras) aparece nos detalhes.
+   */
+  situacaoProcesso?: () => { falhas: FalhaProcesso[]; instancias: string[] };
   /** Só para testes: onde o log é escrito. */
   logStream?: Writable;
 };
@@ -33,7 +38,8 @@ export function mascararUrl(url: string): string {
 
 export const LIMITES_SAUDE = { sinalMs: 3 * 60_000 } as const;
 
-type Falha = 'banco' | 'batimento' | 'whatsapp';
+export type FalhaProcesso = 'ambiente' | 'instancias';
+type Falha = 'banco' | 'batimento' | 'whatsapp' | FalhaProcesso;
 /** Prontidão (D3): o que o monitor externo precisa saber. Sem segredo na resposta. */
 export async function avaliarSaude(repos: Pick<Repos, 'sinaisVida'>, agora: Date) {
   let sinais: Record<string, Date>;
@@ -181,7 +187,10 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
   });
 
   app.get<{ Querystring: { token?: string } }>('/saude', async (req, rep) => {
-    const s = await avaliarSaude(d.repos, d.relogio());
+    const base = await avaliarSaude(d.repos, d.relogio());
+    const p = d.situacaoProcesso?.() ?? { falhas: [], instancias: [] };
+    const falhas = [...base.falhas, ...p.falhas];
+    const s = { ...base, ok: falhas.length === 0, falhas, ...(d.situacaoProcesso ? { instancias: p.instancias } : {}) };
     const cabecalho = req.headers['x-saude-token'];
     const dado = (typeof cabecalho === 'string' ? cabecalho : undefined) ?? req.query.token ?? '';
     // Sem token (ou errado): só o ok, para o monitor público; nada de 401 (o monitor sem token continua funcionando).

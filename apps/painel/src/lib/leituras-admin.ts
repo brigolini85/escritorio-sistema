@@ -31,3 +31,10 @@ export async function lerAgentePausado(sb: Cliente): Promise<boolean | null> {
   if (error || !data) return null;
   return data.agente_pausado;
 }
+
+/** Auditoria 3.13: o ambiente do banco (gravado pelo trabalhador na primeira partida). null sem valor ou sem leitura. */
+export async function lerAmbienteDoBanco(sb: Cliente): Promise<string | null> {
+  const { data, error } = await sb.from('configuracoes').select('ambiente').eq('id', 1).maybeSingle();
+  if (error || !data) return null;
+  return data.ambiente;
+}

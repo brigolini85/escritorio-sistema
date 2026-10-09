@@ -8,6 +8,7 @@ const BOM = {
   NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA: jwt('anon'),
   SUPABASE_SERVICE_ROLE_KEY: jwt('service_role'),
   PAINEL_URL: 'http://localhost:3000',
+  AMBIENTE: 'local',
 };
 
 describe('problemasDoAmbiente', () => {
@@ -33,6 +34,15 @@ describe('problemasDoAmbiente', () => {
     expect(problemasDoAmbiente({ ...BOM, NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY: 'x' })[0]).toContain('NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY');
   });
   it('vários problemas de uma vez', () => {
-    expect(problemasDoAmbiente({})).toHaveLength(4);
+    // Auditoria 3.13: AMBIENTE passou a ser conferido (eram 4).
+    expect(problemasDoAmbiente({})).toHaveLength(5);
+  });
+  it('auditoria 3.13: AMBIENTE só producao, homologacao ou local (NEXT_PUBLIC_AMBIENTE vale na falta dele)', () => {
+    for (const v of ['producao', 'homologacao', 'local']) expect(problemasDoAmbiente({ ...BOM, AMBIENTE: v })).toEqual([]);
+    expect(problemasDoAmbiente({ ...BOM, AMBIENTE: undefined, NEXT_PUBLIC_AMBIENTE: 'homologacao' })).toEqual([]);
+    const p = problemasDoAmbiente({ ...BOM, AMBIENTE: 'prod' });
+    expect(p).toHaveLength(1);
+    expect(p[0]).toContain('AMBIENTE');
+    expect(p[0]).toContain('producao, homologacao ou local');
   });
 });

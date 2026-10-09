@@ -782,13 +782,13 @@ isOneToOne: false
                   ]
                 },"configuracoes": {
                   Row: {
-                    "agente_pausado": boolean,"alerta_ia_80_mes": string | null,"aviso_login": string,"cargos": (string)[],"cotacao_usd_brl": number | null,"custo_minuto_transcricao_usd": number | null,"dados_pagamento": NonNullable<Json>,"dias_uteis": (number)[],"email_alertas": string | null,"espera_ambar_min": number,"espera_verde_min": number,"horario_fim": string,"horario_inicio": string,"id": number,"limite_dia_contato_usd": number,"limite_dia_desconhecido_usd": number,"mensagens": NonNullable<Json>,"minutos_alerta_fila": number,"modelo_conversa": string,"modelo_rapido": string,"prazo_alta_dias": number,"prazo_baixa_dias": number,"prazo_normal_dias": number,"prazo_urgente_dias": number,"precos_modelos": NonNullable<Json>,"telefone_dono": string | null,"teto_ia_usd": number
+                    "agente_pausado": boolean,"alerta_ia_80_mes": string | null,"ambiente": string | null,"aviso_login": string,"cargos": (string)[],"cotacao_usd_brl": number | null,"custo_minuto_transcricao_usd": number | null,"dados_pagamento": NonNullable<Json>,"dias_uteis": (number)[],"email_alertas": string | null,"espera_ambar_min": number,"espera_verde_min": number,"horario_fim": string,"horario_inicio": string,"id": number,"limite_dia_contato_usd": number,"limite_dia_desconhecido_usd": number,"mensagens": NonNullable<Json>,"minutos_alerta_fila": number,"modelo_conversa": string,"modelo_rapido": string,"prazo_alta_dias": number,"prazo_baixa_dias": number,"prazo_normal_dias": number,"prazo_urgente_dias": number,"precos_modelos": NonNullable<Json>,"telefone_dono": string | null,"teto_ia_usd": number
                   }
                   Insert: {
-                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"cargos"?: (string)[],"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dados_pagamento"?: NonNullable<Json>,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"limite_dia_contato_usd"?: number,"limite_dia_desconhecido_usd"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
+                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"ambiente"?: string | null,"aviso_login"?: string,"cargos"?: (string)[],"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dados_pagamento"?: NonNullable<Json>,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"limite_dia_contato_usd"?: number,"limite_dia_desconhecido_usd"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
                   }
                   Update: {
-                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"cargos"?: (string)[],"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dados_pagamento"?: NonNullable<Json>,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"limite_dia_contato_usd"?: number,"limite_dia_desconhecido_usd"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
+                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"ambiente"?: string | null,"aviso_login"?: string,"cargos"?: (string)[],"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dados_pagamento"?: NonNullable<Json>,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"limite_dia_contato_usd"?: number,"limite_dia_desconhecido_usd"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
                   }
                   Relationships: [
                     
@@ -1136,6 +1136,19 @@ isOneToOne: false
                   }
                   Update: {
                     "data"?: string,"descricao"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"instancias_trabalhador": {
+                  Row: {
+                    "ambiente": string,"hostname": string,"id": string,"iniciado_em": string,"versao": string,"visto_em": string
+                  }
+                  Insert: {
+                    "ambiente": string,"hostname": string,"id": string,"iniciado_em"?: string,"versao": string,"visto_em"?: string
+                  }
+                  Update: {
+                    "ambiente"?: string,"hostname"?: string,"id"?: string,"iniciado_em"?: string,"versao"?: string,"visto_em"?: string
                   }
                   Relationships: [
                     
@@ -2171,6 +2184,9 @@ isOneToOne: false
 "alternar_skill":
 { Args: { "p_ativo": boolean,"p_skill": string }; Returns: boolean
                            },
+"ambiente_do_banco":
+{ Args: { "p_ambiente": string }; Returns: string
+                           },
 "anonimizar_contato":
 { Args: { "p_contato": string }; Returns: (string)[]
                            },
@@ -2776,6 +2792,9 @@ isOneToOne: false
                            },
 "registrar_fator_cadastrado":
 { Args: Record<PropertyKey, never>; Returns: number
+                           },
+"registrar_instancia":
+{ Args: { "p_ambiente": string,"p_hostname": string,"p_id": string,"p_versao": string }; Returns: Json
                            },
 "registrar_novidade_radar":
 { Args: { "p_dados": Json,"p_giro": string }; Returns: Json

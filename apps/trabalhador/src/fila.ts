@@ -190,15 +190,23 @@ export async function naVez<T>(
 }
 
 /**
+ * Auditoria 4.1 e 4.3: sai de todas as filas (offWork); as vezes em andamento terminam. Usado no desligamento e quando
+ * outra instância mais nova (versão ou ambiente diferente) está viva.
+ */
+export async function pararDeConsumir(boss: Pick<PgBoss, 'offWork'>): Promise<void> {
+  for (const nome of Object.values(FILAS)) {
+    await boss.offWork(nome).catch((e) => console.error('[fila] fila não parada', nome, e));
+  }
+}
+
+/**
  * Auditoria 4.1: desligamento sem conversa parada. Para de pegar jobs novos, espera as vezes em andamento até `esperaMs`,
  * para o pg-boss e solta as travas das vezes que ainda não terminaram (o processo sai logo depois).
  */
 export async function encerrarComCalma(
   boss: Pick<PgBoss, 'offWork' | 'stop'>, repos: Pick<Repos, 'soltarTravasDoDono'>, opcoes: { esperaMs?: number } = {},
 ): Promise<{ terminaram: boolean; soltas: number }> {
-  for (const nome of Object.values(FILAS)) {
-    await boss.offWork(nome).catch((e) => console.error('[fila] fila não parada', nome, e));
-  }
+  await pararDeConsumir(boss);
   let relogio: ReturnType<typeof setTimeout> | undefined;
   const terminaram = await Promise.race([
     Promise.all([...vezesEmAndamento.values()]).then(() => true),

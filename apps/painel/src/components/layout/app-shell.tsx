@@ -11,7 +11,7 @@ import type { SituacaoSinal } from '@/lib/sinal-vida';
 import { useAoVivo } from './ao-vivo';
 import { AtalhosTeclado } from './atalhos-teclado';
 import { AvisoDaUrl } from './aviso-da-url';
-import { FaixaAmbiente } from './faixa-ambiente';
+import { FaixaAmbiente, FaixaAmbienteDivergente } from './faixa-ambiente';
 import { cookieDoMenu } from './preferencias';
 import type { TamanhoLetra } from './tamanho-letra';
 import { menuRecolhidoVisivel, telaComMenuRecolhido, telaRecolhida } from './menu-tela';
@@ -30,6 +30,7 @@ export function AppShell({
   contadores,
   estadoAgente,
   ambiente,
+  avisoAmbiente = null,
   tema,
   tamanhoLetra,
   whatsapp,
@@ -41,6 +42,8 @@ export function AppShell({
   contadores: Contadores;
   estadoAgente: EstadoAgente | null;
   ambiente: string | null;
+  /** Auditoria 3.13: o AMBIENTE do painel é diferente do banco (só o administrador recebe). */
+  avisoAmbiente?: string | null;
   tema: EscolhaTema;
   tamanhoLetra: TamanhoLetra;
   /** Situação do WhatsApp para o atalho do menu; null para quem não é administrador. */
@@ -115,6 +118,7 @@ export function AppShell({
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header ref={cabecalho} className="sticky top-0 z-40 print:hidden">
+            <FaixaAmbienteDivergente aviso={avisoAmbiente} />
             <FaixaAmbiente rotulo={ambiente} />
             <Topbar estadoAgente={aoVivo.estadoAgente} onAbrirMenu={() => setGaveta(true)} />
           </header>

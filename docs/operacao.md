@@ -28,7 +28,7 @@ Faça tudo primeiro em **homologação**, com o número de teste. Só depois de 
 
 Para cada ambiente (homologação e produção), crie dois apps a partir do repositório do GitHub:
 
-1. **Trabalhador**: em "Build", escolha **Dockerfile** e informe `Dockerfile.trabalhador`. Porta: **3001**.
+1. **Trabalhador**: em "Build", escolha **Dockerfile** e informe `Dockerfile.trabalhador`. Porta: **3001**. Em "Build arguments", informe `VERSAO` com algo que mude a cada publicação (por exemplo, o commit). Com outro trabalhador vivo no mesmo banco, o de versão (ou `AMBIENTE`) diferente mais antigo para de atender; sem `VERSAO`, os dois ficam "dev" e só sai o alerta. Na primeira partida, o trabalhador grava o seu `AMBIENTE` no banco; depois, um trabalhador com `AMBIENTE` diferente daquele banco não atende nada e avisa o dono.
 2. **Painel**: em "Build", escolha **Dockerfile** e informe `Dockerfile.painel`. Porta: **3000**. Em "Build arguments", informe `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA` do projeto Supabase daquele ambiente.
 3. Em cada app, **desligue a publicação automática** ("Auto deploy"). Quem publica é o GitHub, e só depois que os testes passam.
 4. Em cada app, copie a URL de **Deploy webhook**. Ela vai para os segredos do GitHub (passo 2.3).

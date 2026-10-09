@@ -670,6 +670,25 @@ export function criarRepos(db: Db) {
       checar(await db.from('sinais_vida').upsert({ componente, visto_em: new Date().toISOString() }), 'registrarSinalVida');
     },
 
+    /** Auditoria 4.3: o ambiente do banco; sem ele, grava o do processo (a primeira partida define). */
+    async ambienteDoBanco(ambiente: 'producao' | 'homologacao' | 'local'): Promise<string> {
+      return String(checar(await db.rpc('ambiente_do_banco', { p_ambiente: ambiente }), 'ambienteDoBanco'));
+    },
+
+    /** Auditoria 4.3: batimento desta instância; devolve as outras vistas nos últimos 2 min e se esta deve parar de consumir. */
+    async registrarInstancia(i: { id: string; hostname: string; ambiente: string; versao: string }): Promise<{
+      deveParar: boolean; outras: { hostname: string; ambiente: string; versao: string; iniciadoEm: string }[];
+    }> {
+      const r = checar(await db.rpc('registrar_instancia', { p_id: i.id, p_hostname: i.hostname, p_ambiente: i.ambiente, p_versao: i.versao }),
+        'registrarInstancia') as { deve_parar: boolean; outras: { hostname: string; ambiente: string; versao: string; iniciado_em: string }[] };
+      return { deveParar: r.deve_parar, outras: r.outras.map((o) => ({ hostname: o.hostname, ambiente: o.ambiente, versao: o.versao, iniciadoEm: o.iniciado_em })) };
+    },
+
+    /** Auditoria 4.3: no desligamento, a instância sai da lista (a nova não vê a antiga por mais 2 min). */
+    async removerInstancia(id: string): Promise<void> {
+      checar(await db.from('instancias_trabalhador').delete().eq('id', id), 'removerInstancia');
+    },
+
     async sinaisVida(): Promise<Record<string, Date>> {
       const linhas = checar(await db.from('sinais_vida').select('*'), 'sinaisVida');
       return Object.fromEntries(linhas.map((l) => [l.componente, new Date(l.visto_em)]));

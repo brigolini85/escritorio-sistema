@@ -9,6 +9,10 @@ RUN pnpm deploy --filter @escritorio/trabalhador --prod /saida
 FROM node:22-slim
 WORKDIR /app
 ENV NODE_ENV=production
+# Auditoria 4.3: a versão do build (ex.: o commit) entra no registro da instância; outra versão viva no mesmo banco faz a
+# mais antiga parar de consumir. No Easypanel, Build Argument VERSAO; sem ele, "dev".
+ARG VERSAO=dev
+ENV VERSAO=$VERSAO
 COPY --from=build --chown=node:node /saida/node_modules ./node_modules
 COPY --from=build --chown=node:node /repo/apps/trabalhador/dist ./dist
 # Prontidão (D5): sem root; /vivo só diz que o processo responde (WhatsApp fora não reinicia o contêiner em laço).
