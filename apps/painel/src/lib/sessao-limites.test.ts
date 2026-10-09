@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  assinarAtividade, atividadeNova, avaliarSessao, INATIVIDADE_MS, lerAtividade, lerClaims, momentoDoLogin, momentoDoUso, SESSAO_MAXIMA_MS, veioDeLinkRecente,
+  assinarAtividade, atividadeNova, avaliarSessao, INATIVIDADE_MS, lerAtividade, lerClaims, momentoDoLogin, momentoDoUso, SESSAO_MAXIMA_MS, origemDaSessao, veioDeLinkRecente,
 } from './sessao-limites';
 
 // Segurança do login (item 7): sessão de no máximo 12 h e 1 h sem uso, conferidas pelo painel.
@@ -119,5 +119,17 @@ describe('veioDeLinkRecente', () => {
   });
   it('totp depois do link não apaga o link', () => {
     expect(veioDeLinkRecente({ amr: [{ method: 'totp', timestamp: seg(0) }, { method: 'otp', timestamp: seg(5 * 60 * 1000) }] }, agora)).toBe(true);
+  });
+});
+
+// Revisão (M1): sessão do link vencido não pede a senha atual (a pessoa não tem); manda pedir outro link.
+describe('origemDaSessao', () => {
+  const agora = 1_800_000_000_000;
+  const seg = (ms: number) => Math.floor((agora - ms) / 1000);
+  it('link recente, link vencido ou login comum', () => {
+    expect(origemDaSessao({ amr: [{ method: 'otp', timestamp: seg(60 * 1000) }] }, agora)).toBe('link_recente');
+    expect(origemDaSessao({ amr: [{ method: 'recovery', timestamp: seg(16 * 60 * 1000) }] }, agora)).toBe('link_vencido');
+    expect(origemDaSessao({ amr: [{ method: 'password', timestamp: seg(60 * 1000) }] }, agora)).toBe('outra');
+    expect(origemDaSessao(null, agora)).toBe('outra');
   });
 });

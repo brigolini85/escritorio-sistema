@@ -8,15 +8,19 @@ vi.mock('@/lib/supabase/servidor', () => ({ supabaseServidor: async () => ({ aut
 // Dublê de contar_tentativa: a mesma regra do banco, em memória.
 vi.mock('@/lib/supabase/servico', () => ({
   supabaseServico: () => ({
-    rpc: async (_: string, a: { p_chave: string; p_limite: number }) => {
+    rpc: async (nome: string, a: { p_chave: string; p_limite: number }) => {
       const n = falso.contagem.get(a.p_chave) ?? 0;
+      if (nome === 'devolver_tentativa') {
+        falso.contagem.set(a.p_chave, Math.max(n - 1, 0));
+        return { data: null, error: null };
+      }
       if (n >= a.p_limite) return { data: false, error: null };
       falso.contagem.set(a.p_chave, n + 1);
       return { data: true, error: null };
     },
   }),
 }));
-vi.mock('next/headers', () => ({ headers: async () => new Headers({ origin: 'https://malicioso.example', 'x-forwarded-for': falso.ip }) }));
+vi.mock('next/headers', () => ({ headers: async () => new Headers({ origin: 'https://malicioso.example', 'x-forwarded-for': `9.9.9.9, ${falso.ip}` }) }));
 vi.mock('next/navigation', () => ({ redirect: (u: string) => { throw new Error(`REDIRECT:${u}`); } }));
 import { pedirNovaSenha } from './acoes';
 

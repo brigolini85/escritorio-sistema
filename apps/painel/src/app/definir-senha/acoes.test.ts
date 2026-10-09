@@ -16,8 +16,12 @@ vi.mock('next/headers', () => ({ headers: async () => new Headers({ 'x-forwarded
 vi.mock('@/lib/senha-atual', () => ({ senhaAtualConfere: falso.confere }));
 vi.mock('@/lib/supabase/servico', () => ({
   supabaseServico: () => ({
-    rpc: async (_: string, a: { p_chave: string; p_limite: number }) => {
+    rpc: async (nome: string, a: { p_chave: string; p_limite: number }) => {
       const n = falso.contagem.get(a.p_chave) ?? 0;
+      if (nome === 'devolver_tentativa') {
+        falso.contagem.set(a.p_chave, Math.max(n - 1, 0));
+        return { data: null, error: null };
+      }
       if (n >= a.p_limite) return { data: false, error: null };
       falso.contagem.set(a.p_chave, n + 1);
       return { data: true, error: null };
@@ -64,10 +68,17 @@ describe('definirSenha', () => {
     await expect(definirSenha(form({ senha: 'Senha-nova-2026' }))).rejects.toThrow('REDIRECT:/definir-senha?erro=atual');
     expect(falso.updateUser).not.toHaveBeenCalled();
   });
-  it('link de mais de 15 min: pede a senha atual', async () => {
+  // Revisão (M1): quem veio do link não tem senha atual para digitar; link vencido manda pedir outro.
+  it('link de mais de 15 min: recusa e manda pedir outro link (sem pedir a senha atual)', async () => {
     falso.amr = [{ method: 'otp', timestamp: ha(16 * MIN) }];
-    await expect(definirSenha(form({ senha: 'Senha-nova-2026' }))).rejects.toThrow('REDIRECT:/definir-senha?erro=atual');
+    await expect(definirSenha(form({ senha: 'Senha-nova-2026', senha_atual: 'qualquer' }))).rejects.toThrow('REDIRECT:/definir-senha?erro=link_vencido');
     expect(falso.updateUser).not.toHaveBeenCalled();
+    expect(falso.confere).not.toHaveBeenCalled();
+  });
+  it('reautenticação pedida pelo Supabase (secure_password_change): explica e não diz "falha"', async () => {
+    falso.amr = [{ method: 'password', timestamp: ha(2 * MIN) }];
+    falso.updateUser.mockResolvedValue({ error: { code: 'reauthentication_needed', message: 'Password update requires reauthentication' } });
+    await expect(definirSenha(form({ senha: 'Senha-nova-2026', senha_atual: 'senha-forte-123' }))).rejects.toThrow('REDIRECT:/definir-senha?erro=reautenticar');
   });
   it('sessão de login comum com a senha atual errada: recusa sem trocar', async () => {
     falso.amr = [{ method: 'password', timestamp: ha(2 * MIN) }];

@@ -2480,6 +2480,9 @@ isOneToOne: false
 "devolver_ao_agente":
 { Args: { "p_conversa": string }; Returns: undefined
                            },
+"devolver_tentativa":
+{ Args: { "p_chave": string,"p_janela_segundos": number }; Returns: undefined
+                           },
 "dia_util_anterior":
 { Args: { "p_dia": string }; Returns: string
                            },

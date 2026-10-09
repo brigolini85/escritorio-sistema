@@ -5,7 +5,7 @@ vi.mock('server-only', () => ({}));
 const falso = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock('@/lib/supabase/servico', () => ({ supabaseServico: () => ({ rpc: falso.rpc }) }));
 vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
-import { dentroDosLimites, ipDe, LIMITES } from './limite-tentativas';
+import { dentroDosLimites, devolverTentativas, ipDe, LIMITES } from './limite-tentativas';
 
 beforeEach(() => {
   falso.rpc.mockReset();
@@ -14,8 +14,18 @@ beforeEach(() => {
 });
 
 describe('ipDe', () => {
-  it('primeiro valor do x-forwarded-for (o proxy do Easypanel acrescenta os seguintes)', () => {
-    expect(ipDe(new Headers({ 'x-forwarded-for': ' 200.1.2.3 , 10.0.0.1' }))).toBe('200.1.2.3');
+  // Revisão: o primeiro valor é o que o cliente mandou (forjável); o proxy acrescenta o IP real no fim.
+  it('o último valor do x-forwarded-for (o que o proxy do Easypanel acrescentou), não o que o cliente mandou', () => {
+    expect(ipDe(new Headers({ 'x-forwarded-for': ' 1.2.3.4 , 200.1.2.3' }))).toBe('200.1.2.3');
+    expect(ipDe(new Headers({ 'x-forwarded-for': '200.1.2.3' }))).toBe('200.1.2.3');
+  });
+  it('com PAINEL_PROXIES_CONFIAVEIS=2 (um CDN na frente), o segundo da direita', () => {
+    expect(ipDe(new Headers({ 'x-forwarded-for': '1.2.3.4, 200.1.2.3, 172.16.0.9' }), '2')).toBe('200.1.2.3');
+  });
+  it('menos valores que proxies: o mais à esquerda; valor inválido da variável vale 1', () => {
+    expect(ipDe(new Headers({ 'x-forwarded-for': '200.1.2.3' }), '3')).toBe('200.1.2.3');
+    expect(ipDe(new Headers({ 'x-forwarded-for': '1.2.3.4, 200.1.2.3' }), 'abc')).toBe('200.1.2.3');
+    expect(ipDe(new Headers({ 'x-forwarded-for': '1.2.3.4, 200.1.2.3' }), '0')).toBe('200.1.2.3');
   });
   it('sem x-forwarded-for: x-real-ip; sem nada: um valor fixo', () => {
     expect(ipDe(new Headers({ 'x-real-ip': '200.9.9.9' }))).toBe('200.9.9.9');
@@ -46,16 +56,38 @@ describe('dentroDosLimites', () => {
     await dentroDosLimites([[LIMITES.loginEmail, 'ana@x.com']]);
     expect(falso.rpc.mock.calls[0]![1].p_chave).toBe(args.p_chave);
   });
+  it('devolve as chaves contadas (para o acerto devolver depois)', async () => {
+    const r = await dentroDosLimites([[LIMITES.loginIpMinuto, '1.1.1.1'], [LIMITES.loginEmail, 'a@b.c']]);
+    expect(r.ok).toBe(true);
+    expect(r.contadas).toEqual([
+      { chave: expect.stringMatching(/^login-ip-min:/), janelaSegundos: 60 },
+      { chave: expect.stringMatching(/^login-email:/), janelaSegundos: 900 },
+    ]);
+  });
   it('para na primeira regra recusada', async () => {
     falso.rpc.mockResolvedValueOnce({ data: false, error: null });
-    expect(await dentroDosLimites([[LIMITES.loginIpMinuto, '1.1.1.1'], [LIMITES.loginEmail, 'a@b.c']])).toBe(false);
+    expect((await dentroDosLimites([[LIMITES.loginIpMinuto, '1.1.1.1'], [LIMITES.loginEmail, 'a@b.c']])).ok).toBe(false);
     expect(falso.rpc).toHaveBeenCalledTimes(1);
   });
-  it('banco fora: deixa passar (o Auth decide) e registra', async () => {
+  it('banco fora: deixa passar (o Auth decide) e registra; nada contado para devolver', async () => {
     falso.rpc.mockResolvedValue({ data: null, error: { message: 'connection refused' } });
-    expect(await dentroDosLimites([[LIMITES.loginIpMinuto, '1.1.1.1']])).toBe(true);
+    expect(await dentroDosLimites([[LIMITES.loginIpMinuto, '1.1.1.1']])).toEqual({ ok: true, contadas: [] });
     falso.rpc.mockRejectedValue(new Error('fetch failed'));
-    expect(await dentroDosLimites([[LIMITES.loginIpMinuto, '1.1.1.1']])).toBe(true);
+    expect((await dentroDosLimites([[LIMITES.loginIpMinuto, '1.1.1.1']])).ok).toBe(true);
+    expect(console.error).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('devolverTentativas', () => {
+  it('chama devolver_tentativa para cada chave contada', async () => {
+    falso.rpc.mockResolvedValue({ data: null, error: null });
+    await devolverTentativas([{ chave: 'login-ip-min:x', janelaSegundos: 60 }, { chave: 'login-email:y', janelaSegundos: 900 }]);
+    expect(falso.rpc).toHaveBeenCalledWith('devolver_tentativa', { p_chave: 'login-ip-min:x', p_janela_segundos: 60 });
+    expect(falso.rpc).toHaveBeenCalledWith('devolver_tentativa', { p_chave: 'login-email:y', p_janela_segundos: 900 });
+  });
+  it('falha não lança (o login já deu certo); só registra', async () => {
+    falso.rpc.mockResolvedValueOnce({ data: null, error: { message: 'fora' } }).mockRejectedValueOnce(new Error('fetch failed'));
+    await expect(devolverTentativas([{ chave: 'a', janelaSegundos: 60 }, { chave: 'b', janelaSegundos: 60 }])).resolves.toBeUndefined();
     expect(console.error).toHaveBeenCalledTimes(2);
   });
 });

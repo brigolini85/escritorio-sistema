@@ -2,7 +2,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { COOKIE_LETRA, OPCOES_COOKIE_LETRA, tamanhoDoValor } from '@/components/layout/tamanho-letra';
-import { dentroDosLimites, ipDoPedido, LIMITES } from '@/lib/limite-tentativas';
+import { dentroDosLimites, devolverTentativas, ipDoPedido, LIMITES } from '@/lib/limite-tentativas';
 import { TELA_SEGUNDO_FATOR } from '@/lib/segundo-fator';
 import { COOKIE_ATIVIDADE } from '@/lib/sessao-limites';
 import { lerSituacao } from '@/lib/situacao-acesso';
@@ -12,14 +12,20 @@ export async function entrar(formData: FormData) {
   const email = String(formData.get('email') ?? '');
   // Auditoria 2.3: limite próprio antes do Auth (IP 5/min e 20/h, e-mail 5 em 15 min); acima dele, o Auth nem é chamado.
   const ip = await ipDoPedido();
-  const liberado = await dentroDosLimites([[LIMITES.loginIpMinuto, ip], [LIMITES.loginIpHora, ip], [LIMITES.loginEmail, email]]);
-  if (!liberado) redirect('/entrar?erro=tentativas');
+  const limite = await dentroDosLimites([[LIMITES.loginIpMinuto, ip], [LIMITES.loginIpHora, ip], [LIMITES.loginEmail, email]]);
+  if (!limite.ok) {
+    // Só o IP (nunca o e-mail): é por ele que o dono confere se o proxy está passando o IP certo (docs/operacao.md).
+    console.warn('[entrar] muitas tentativas', { ip });
+    redirect('/entrar?erro=tentativas');
+  }
   const sb = await supabaseServidor();
   const { data, error } = await sb.auth.signInWithPassword({
     email,
     password: String(formData.get('senha') ?? ''),
   });
   if (error) redirect('/entrar?erro=credenciais');
+  // Revisão (auditoria 2.3): senha certa devolve a tentativa (IP e e-mail); só os erros enchem o limite.
+  await devolverTentativas(limite.contadas);
   // Arquivada, sem cadastro ou fora do horário não entra; a mesma função do middleware decide (e marca o último acesso).
   const situacao = lerSituacao(await sb.rpc('situacao_acesso'), 'entrar');
   // Erro do banco não é "acesso desativado": pede para tentar de novo e não desloga quem pode estar ativo.

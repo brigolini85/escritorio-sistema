@@ -25,6 +25,10 @@ describe('supabase/config.toml: Auth', () => {
   it('token de acesso de 15 min', () => {
     expect(valor('auth', 'jwt_expiry')).toBe('900');
   });
+  // Auditoria 2.6 (revisão): trocar a senha direto pela API, com sessão velha, exige entrar de novo.
+  it('troca de senha segura ligada', () => {
+    expect(valor('auth.email', 'secure_password_change')).toBe('true');
+  });
   it('senha mínima de 10 caracteres, igual ao painel (item 3)', () => {
     expect(valor('auth', 'minimum_password_length')).toBe('10');
   });

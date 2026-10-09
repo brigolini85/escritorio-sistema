@@ -1,7 +1,7 @@
 'use server';
 import { redirect } from 'next/navigation';
 import { NOME_ESCRITORIO } from '@/lib/escritorio';
-import { dentroDosLimites, LIMITES, MUITAS_TENTATIVAS } from '@/lib/limite-tentativas';
+import { dentroDosLimites, devolverTentativas, LIMITES, MUITAS_TENTATIVAS } from '@/lib/limite-tentativas';
 import { codigoDoFormulario, destinoDepoisDoFator, TELA_SEGUNDO_FATOR } from '@/lib/segundo-fator';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
@@ -18,12 +18,15 @@ async function verificar(factorId: string, formData: FormData, cadastro = false)
   // Auditoria 2.3: 5 códigos por minuto por pessoa, contados antes do Auth (para ele, todos vêm do IP do painel).
   const { data: auth } = await sb.auth.getUser();
   if (!auth.user) redirect('/entrar');
-  if (!(await dentroDosLimites([[LIMITES.fatorUsuario, auth.user.id]]))) return { erro: MUITAS_TENTATIVAS };
+  const limite = await dentroDosLimites([[LIMITES.fatorUsuario, auth.user.id]]);
+  if (!limite.ok) return { erro: MUITAS_TENTATIVAS };
   const { error } = await sb.auth.mfa.challengeAndVerify({ factorId, code: codigo });
   if (error) {
     console.error('[segundo-fator] código recusado', error.message);
     return { erro: CODIGO_ERRADO };
   }
+  // Revisão (auditoria 2.3): código certo devolve a tentativa; só os errados enchem o limite.
+  await devolverTentativas(limite.contadas);
   if (cadastro) {
     // Auditoria 2.5: aplicativo novo vira aviso ao dono e linha na auditoria. Falha aqui não impede a entrada.
     const { error: erroRegistro } = await sb.rpc('registrar_fator_cadastrado');

@@ -44,6 +44,16 @@ export function veioDeLinkRecente(c: Claims | null, agora: number): boolean {
   });
 }
 
+/**
+ * Revisão (M1): de onde veio a sessão, para /definir-senha. Link recente troca direto; link vencido manda pedir outro
+ * (quem veio pelo link de convite não tem senha atual para digitar); o resto (login comum) pede a senha atual.
+ */
+export function origemDaSessao(c: Claims | null, agora: number): 'link_recente' | 'link_vencido' | 'outra' {
+  if (veioDeLinkRecente(c, agora)) return 'link_recente';
+  const amr = Array.isArray(c?.amr) ? c.amr : [];
+  return amr.some((a) => a && METODOS_DO_LINK.has(String(a.method))) ? 'link_vencido' : 'outra';
+}
+
 /** Momento do login em ms, ou null se o token não diz. */
 export function momentoDoLogin(c: Claims): number | null {
   const tempos = (Array.isArray(c.amr) ? c.amr : []).map((a) => a?.timestamp).filter((t): t is number => typeof t === 'number' && Number.isFinite(t));

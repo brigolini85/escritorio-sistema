@@ -13,8 +13,12 @@ const falso = vi.hoisted(() => ({
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/supabase/servico', () => ({
   supabaseServico: () => ({
-    rpc: async (_: string, a: { p_chave: string; p_limite: number }) => {
+    rpc: async (nome: string, a: { p_chave: string; p_limite: number }) => {
       const n = falso.contagem.get(a.p_chave) ?? 0;
+      if (nome === 'devolver_tentativa') {
+        falso.contagem.set(a.p_chave, Math.max(n - 1, 0));
+        return { data: null, error: null };
+      }
       if (n >= a.p_limite) return { data: false, error: null };
       falso.contagem.set(a.p_chave, n + 1);
       return { data: true, error: null };
@@ -24,7 +28,8 @@ vi.mock('@/lib/supabase/servico', () => ({
 vi.mock('next/navigation', () => ({ redirect: (url: string) => { throw new Error(`REDIRECT ${url}`); } }));
 vi.mock('next/headers', () => ({
   cookies: async () => falso.cookies,
-  headers: async () => new Headers({ 'x-forwarded-for': `${falso.ip}, 10.0.0.1` }),
+  // O primeiro valor é o que o cliente mandou (forjável); o proxy acrescenta o IP real no fim.
+  headers: async () => new Headers({ 'x-forwarded-for': `9.9.9.9, ${falso.ip}` }),
 }));
 vi.mock('@/lib/supabase/servidor', () => ({
   supabaseServidor: async () => ({
@@ -54,6 +59,7 @@ beforeEach(() => {
   falso.contagem.clear();
   falso.ip = '200.1.1.1';
   vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 describe('entrar', () => {
@@ -112,5 +118,38 @@ describe('entrar: limite de tentativas', () => {
     zerarMinuto();
     await expect(entrar(form('h21@x.com'))).rejects.toThrow('REDIRECT /entrar?erro=tentativas');
     expect(falso.signIn).toHaveBeenCalledTimes(20);
+  });
+});
+
+// Revisão (auditoria 2.3): o acerto devolve a tentativa; o escritório atrás de um IP só não fica trancado.
+describe('entrar: login certo devolve a tentativa', () => {
+  beforeEach(() => {
+    falso.rpc.mockResolvedValue({ data: { situacao: 'liberado' }, error: null });
+  });
+  it('20 logins certos do mesmo IP na mesma hora (e no mesmo minuto) passam todos', async () => {
+    for (let i = 0; i < 25; i++) await expect(entrar(form(`ok${i}@x.com`))).rejects.toThrow('REDIRECT /inicio');
+    expect(falso.signIn).toHaveBeenCalledTimes(25);
+  });
+  it('5 erros e depois a senha certa: ainda recusado, sem chamar o Auth', async () => {
+    falso.signIn.mockResolvedValue({ data: { user: null }, error: { message: 'Invalid login credentials' } });
+    for (let i = 0; i < 5; i++) await expect(entrar(form('ana@x.com'))).rejects.toThrow('REDIRECT /entrar?erro=credenciais');
+    falso.signIn.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+    await expect(entrar(form('ana@x.com'))).rejects.toThrow('REDIRECT /entrar?erro=tentativas');
+    expect(falso.signIn).toHaveBeenCalledTimes(5);
+  });
+  it('o acerto zera a parte dele: depois de 4 erros e um acerto, os 4 erros continuam contando', async () => {
+    falso.signIn.mockResolvedValue({ data: { user: null }, error: { message: 'Invalid login credentials' } });
+    for (let i = 0; i < 4; i++) await expect(entrar(form('bia@x.com'))).rejects.toThrow('erro=credenciais');
+    falso.signIn.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+    await expect(entrar(form('bia@x.com'))).rejects.toThrow('REDIRECT /inicio');
+    falso.signIn.mockResolvedValue({ data: { user: null }, error: { message: 'Invalid login credentials' } });
+    await expect(entrar(form('bia@x.com'))).rejects.toThrow('erro=credenciais');
+    await expect(entrar(form('bia@x.com'))).rejects.toThrow('erro=tentativas');
+  });
+  it('o IP forjado no começo do x-forwarded-for não muda nada (vale o último valor)', async () => {
+    falso.signIn.mockResolvedValue({ data: { user: null }, error: { message: 'Invalid login credentials' } });
+    for (let i = 0; i < 5; i++) await expect(entrar(form(`f${i}@x.com`))).rejects.toThrow('erro=credenciais');
+    await expect(entrar(form('f6@x.com'))).rejects.toThrow('erro=tentativas');
+    expect(console.warn).toHaveBeenCalledWith('[entrar] muitas tentativas', { ip: '200.1.1.1' });
   });
 });

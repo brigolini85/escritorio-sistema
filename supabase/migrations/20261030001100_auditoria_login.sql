@@ -43,3 +43,23 @@ begin
 end $$;
 revoke execute on function public.contar_tentativa(text, integer, integer) from public, anon, authenticated;
 grant execute on function public.contar_tentativa(text, integer, integer) to service_role;
+
+-- Revisão (auditoria 2.3): o login certo devolve a tentativa contada antes do Auth. Sem isso, o escritório inteiro
+-- atrás de um IP só (20 por hora) era recusado num começo de expediente comum. A contagem continua antes do Auth (sem
+-- corrida); só o acerto desfaz a sua. Mesma janela de contar_tentativa; nunca fica negativo; chave sem linha não faz nada.
+create function public.devolver_tentativa(p_chave text, p_janela_segundos integer) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare
+  v_janela timestamptz;
+begin
+  if p_chave is null or char_length(p_chave) not between 1 and 200 then
+    raise exception 'Chave de tentativa inválida.' using errcode = '22023';
+  end if;
+  if p_janela_segundos is null or p_janela_segundos < 1 then
+    raise exception 'Janela inválida: %', p_janela_segundos using errcode = '22023';
+  end if;
+  v_janela := to_timestamp(floor(extract(epoch from now()) / p_janela_segundos) * p_janela_segundos);
+  update public.tentativas_login set total = greatest(total - 1, 0) where chave = p_chave and janela = v_janela;
+end $$;
+revoke execute on function public.devolver_tentativa(text, integer) from public, anon, authenticated;
+grant execute on function public.devolver_tentativa(text, integer) to service_role;

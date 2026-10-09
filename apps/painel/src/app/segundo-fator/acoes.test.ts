@@ -7,8 +7,12 @@ vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
 // Dublê de contar_tentativa: a mesma regra do banco, em memória.
 vi.mock('@/lib/supabase/servico', () => ({
   supabaseServico: () => ({
-    rpc: async (_: string, a: { p_chave: string; p_limite: number }) => {
+    rpc: async (nome: string, a: { p_chave: string; p_limite: number }) => {
       const n = falso.contagem.get(a.p_chave) ?? 0;
+      if (nome === 'devolver_tentativa') {
+        falso.contagem.set(a.p_chave, Math.max(n - 1, 0));
+        return { data: null, error: null };
+      }
       if (n >= a.p_limite) return { data: false, error: null };
       falso.contagem.set(a.p_chave, n + 1);
       return { data: true, error: null };
@@ -88,6 +92,11 @@ describe('limite de tentativas do código', () => {
     falso.usuario = 'u2';
     expect((await conferirCodigo({ erro: null }, form({ codigo: '123456' }))).erro).toContain('Código incorreto');
     expect(falso.challengeAndVerify).toHaveBeenCalledTimes(6);
+  });
+  // Revisão: código certo devolve a tentativa (quem entra e sai várias vezes no minuto não fica trancado).
+  it('códigos certos devolvem a tentativa: 7 no mesmo minuto passam todos', async () => {
+    for (let i = 0; i < 7; i++) await expect(conferirCodigo({ erro: null }, form({ codigo: '123456' }))).rejects.toThrow('REDIRECT:/inicio');
+    expect(falso.challengeAndVerify).toHaveBeenCalledTimes(7);
   });
   it('sem sessão: volta para a entrada', async () => {
     falso.usuario = '';
