@@ -411,7 +411,9 @@ describe('limpeza diária (auditoria 6.5)', () => {
     expect(r.mensagens).toBe(0);
     const { data: linhas } = await db.from('alertas').select('nivel, mensagem');
     expect(linhas).toEqual([{ nivel: 'operacional',
-      mensagem: 'Limpeza diária feita: mensagens: 0, arquivos: 0, decisoes: 0, assistente: 0, simulacoes: 0, sugestoes: 0.' }]);
+      // Auditoria 6.3 (Task 15): as etapas novas entram na contagem.
+      mensagem: 'Limpeza diária feita: mensagens: 0, arquivos: 0, decisoes: 0, assistente: 0, simulacoes: 0, sugestoes: 0, '
+        + 'conversas: 0, eventosConversa: 0, demandas: 0, alertas: 0, auditoria: 0, foraDoAcesso: 0, radar: 0.' }]);
     expect(criticos).toEqual([]);
   });
 });

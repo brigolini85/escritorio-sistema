@@ -11,6 +11,8 @@ export const FILAS = {
   resumoDiario: 'resumo-diario',
   limpezaRetencao: 'limpeza-retencao',
   removerArquivos: 'remover-arquivos',
+  /** Auditoria 6.4: domingo às 04:00, a varredura dos arquivos sem dono (padrão: só relata). */
+  varreduraOrfaos: 'varredura-orfaos',
   /** Todo dia às 07:00: certificado digital perto de vencer vira demanda no Fiscal (Parte H1). */
   certificados: 'certificados-vencendo',
   assistente: 'assistente',
@@ -85,7 +87,8 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   await garantirFila(boss, FILAS.avisoTarefa, { retryLimit: 2, retryDelay: 30, retryBackoff: true });
   await garantirFila(boss, FILAS.enviarMensagem, { retryLimit: 5, retryDelay: 10, retryBackoff: true });
   await garantirFila(boss, FILAS.removerArquivos, { retryLimit: 10, retryDelay: 60, retryBackoff: true });
-  for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao, FILAS.certificados]) {
+  for (const nome of [FILAS.verificarEnviadaPorMim, FILAS.batimento, FILAS.alertaFila, FILAS.resumoDiario, FILAS.limpezaRetencao, FILAS.certificados,
+    FILAS.varreduraOrfaos]) {
     await garantirFila(boss, nome, { retryLimit: 2 });
   }
   // Parte I5: um ciclo por vez ("stately" sem chave: um esperando e um rodando); o giro pode levar até 40 min (D8).

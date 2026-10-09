@@ -6,13 +6,13 @@ import { processarAssistenteNaVez } from './assistente/processar';
 import type { CanalWhatsApp, MensagemRecebida } from './canal/tipos';
 import { enviarMensagemDoPainel, tratarEnviadaPorMim, type DepsEnvio } from './envio';
 import {
-  FILAS, filaDe, type JobAssistente, type JobAviso, type JobPastaDrive, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa,
+  FILAS, filaDe, naVez, type JobAssistente, type JobAviso, type JobPastaDrive, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa,
 } from './fila';
 import type { DriveLeitor } from './drive/leitor';
 import { removerArquivosDoJob } from './midia/remocao';
 import { processarConversaNaVez, type DepsProcessamento } from './processar-conversa';
 import { cicloRadar, enviosRadar } from './radar/ciclo';
-import { limpezaNaVez, limparERegistrar, limparRetencao } from './retencao';
+import { criarStorageVarredura, limpezaNaVez, limparERegistrar, limparRetencao, TRAVA_VARREDURA, varrerERegistrar } from './retencao';
 import { canalDaSugestao } from './sugestao/ferramentas';
 import { processarSugestao } from './sugestao/processar';
 import type { GuardarArquivo, RemoverArquivos } from './tarefa/armazenamento';
@@ -120,6 +120,14 @@ export async function ligarConsumidores(boss: Pick<PgBoss, 'work' | 'schedule'>,
     });
   });
   await boss.schedule(FILAS.limpezaRetencao, '0 3 * * *', {}, FUSO);
+  // Auditoria 6.4: domingo às 04:00 (depois da limpeza), a varredura dos arquivos sem dono. Padrão: só relata em alertas;
+  // apaga (até 500 por semana) só com Configurações › varredura_orfaos_apagar ligada pelo dono.
+  await boss.work(FILAS.varreduraOrfaos, async () => {
+    await naVez(c.repos, TRAVA_VARREDURA.chave, TRAVA_VARREDURA.segundos,
+      () => varrerERegistrar({ db: c.db, storage: criarStorageVarredura(c.db), repos: c.repos, alertas: c.depsTarefas.alertas }),
+      async () => { console.log('[varredura] outra varredura em andamento; esta sai'); });
+  });
+  await boss.schedule(FILAS.varreduraOrfaos, '0 4 * * 0', {}, FUSO);
   // Todo dia às 07:00: certificado digital perto de vencer vira demanda no Fiscal (Parte H1).
   await boss.work(FILAS.certificados, async () => { await demandasDeCertificado(c.depsTarefas); });
   await boss.schedule(FILAS.certificados, '0 7 * * *', {}, FUSO);
