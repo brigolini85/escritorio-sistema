@@ -146,6 +146,29 @@ async function foraDoEscopo(d: DepsAssistente, e: EscopoSugestao, nome: string, 
   return podeFluxoNota(e.acesso, e.fiscalId) ? null : falha(SEM_ACESSO_NOTA);
 }
 
+/** Eventos que dizem só o andamento (sem texto nem quem fez): nota interna, transferência, responsável etc. ficam de fora. */
+const EVENTOS_PUBLICOS: Record<string, string> = { criacao: 'aberta', status_alterado: 'andamento atualizado', conclusao: 'concluída', reaberto: 'reaberta' };
+
+/**
+ * Revisão 2 da Task 16 (auditoria 5.10): na sugestão, o detalhe da demanda é o que o contato poderia saber, não o da equipe.
+ * Sem notas internas nem textos de eventos; sem "Ver valores", título e resumo sem valores e sem o pedido (itens e total).
+ * O assistente da equipe continua com o ver_demanda completo.
+ */
+async function verDemandaDaSugestao(d: DepsAssistente, estado: EstadoSugestao, entrada: unknown): Promise<Resultado> {
+  const r = await executarConsultaAssistente(d, estado, 'ver_demanda', entrada);
+  if (r.erro) return r;
+  const x = JSON.parse(r.resultado) as { numero: number; titulo: string; status: string; setor: string; empresa: string | null; criada_em: string; resumo: string; pedido: object | null };
+  const comValores = estado.escopo.acesso.verValores;
+  const semValor = (t: string) => (comValores ? t : tituloSemValores(t));
+  const c = await d.repos.chamadoPorNumero(x.numero);
+  const eventos = c ? (await d.repos.eventosDoChamado(c.id, 10)).flatMap((e) => (EVENTOS_PUBLICOS[e.tipo] ? [`${diaMes(e.criado_em)}: ${EVENTOS_PUBLICOS[e.tipo]}`] : [])) : [];
+  return {
+    ...ok({ numero: x.numero, titulo: semValor(x.titulo), status: x.status, setor: x.setor, empresa: x.empresa, criada_em: x.criada_em,
+      resumo: semValor(x.resumo), eventos, pedido: comValores ? x.pedido : null }),
+    ...(r.registro ? { registro: r.registro } : {}),
+  };
+}
+
 /** Só as leituras da lista e a entrega do rascunho; o resto volta erro para a IA, sem executar nada. */
 export async function executarLeituraSugestao(d: DepsAssistente, estado: EstadoSugestao, nome: string, entrada: unknown): Promise<Resultado> {
   if (nome === ENTREGAR_RASCUNHO.name) {
@@ -175,5 +198,5 @@ export async function executarLeituraSugestao(d: DepsAssistente, estado: EstadoS
     console.error('[sugestão] conferência do escopo', nome, e);
     return falha('Não consegui consultar agora; tente de novo.');
   }
-  return executarConsultaAssistente(d, estado, nome, entrada);
+  return nome === 'ver_demanda' ? verDemandaDaSugestao(d, estado, entrada) : executarConsultaAssistente(d, estado, nome, entrada);
 }

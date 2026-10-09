@@ -437,3 +437,47 @@ describe('Sugerir resposta: demandas do contato (auditoria 5.10, revisão)', () 
     }
   });
 });
+
+// Revisão 2 da Task 16: o ver_demanda da sugestão mostra só o que o contato poderia saber (Ver valores, sem notas internas).
+describe('Sugerir resposta: ver_demanda pelo acesso do contato (auditoria 5.10, revisão 2)', () => {
+  const carregar = async () => {
+    const usuario = (await repos.obterUsuarioAssistente(ana))!;
+    const ctx = await carregarContextoAssistente(repos, usuario, 'site', conversaId, new Date());
+    return { ...novoEstado(ctx), rascunho: null, escopo: await escopoDaSugestao(repos, ctx) };
+  };
+  const d = () => ({ repos, ia: new IaRoteirizada([]), canal });
+  const contatoA = async () => (await repos.obterConversa(conversaId)).contato_id!;
+  const PEDIDO = {
+    unidade_id: null, texto_destinatario: 'Supermercado Brasil', data: '2026-09-28',
+    itens: [{ produto: 'Costela', sku: null, un: 'PAC', quantidade: 2, valor_unitario: 9.5 }],
+    data_prevista: null, forma_pagamento: null, valor_frete: null, tipo_frete: null,
+  };
+  let numero: number;
+  beforeEach(async () => {
+    await db.from('usuarios').update({ papel: 'admin' }).eq('id', ana); // a pessoa vê pedidos: o que muda é só o acesso do contato
+    const ch = await repos.abrirChamado({ clienteId, conversaId, setorId: await setorId('Fiscal'), responsavelId: null, titulo: 'Boleto de R$ 1.500,00', resumo: 'Cliente pediu o boleto de R$ 1.500,00 do mês.', foraDoContrato: false, origem: 'agente' });
+    numero = ch.numero;
+    await db.from('chamados').update({ pedido_venda: PEDIDO }).eq('id', ch.id);
+    await repos.registrarNotaInterna(ch.id, clienteId, ana, 'Nota secreta da equipe: cliente devendo R$ 3.000,00');
+  });
+
+  it('sem "Ver valores": título e resumo mascarados, sem notas internas e sem o pedido', async () => {
+    await definirAcessoTeste(await contatoA(), clienteId, { setores: 'todos', verValores: false, podePedirNota: true });
+    const r = await executarLeituraSugestao(d(), await carregar(), 'ver_demanda', { numero });
+    expect(r.erro).toBe(false);
+    expect(r.resultado).toContain('Boleto de R$ …');
+    expect(r.resultado).not.toContain('1.500');
+    expect(r.resultado).not.toContain('Nota secreta');
+    expect(r.resultado).not.toContain('3.000');
+    expect(r.resultado).not.toContain('Costela');
+    expect(JSON.parse(r.resultado).pedido).toBeNull();
+  });
+
+  it('com "Ver valores": valores e pedido aparecem, e as notas internas continuam de fora', async () => {
+    await definirAcessoTeste(await contatoA(), clienteId, { setores: 'todos', verValores: true, podePedirNota: true });
+    const r = await executarLeituraSugestao(d(), await carregar(), 'ver_demanda', { numero });
+    expect(r.resultado).toContain('Boleto de R$ 1.500,00');
+    expect(r.resultado).toContain('Costela');
+    expect(r.resultado).not.toContain('Nota secreta');
+  });
+});
