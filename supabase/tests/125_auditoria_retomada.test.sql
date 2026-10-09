@@ -1,7 +1,7 @@
 -- Auditoria 4.1 e 4.4: retomada da vez interrompida sem repetir resposta nem demanda; trava renovada e solta no desligamento.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(26);
 
 insert into public.conversas (id, telefone) values ('e1250000-0000-0000-0000-0000000000c1', '5531999991251');
 -- m1 e m2: lote do turno t1 (que agiu); m3: lote do turno t2 (que não fez nada); m4: chegou no meio (sem turno).
@@ -68,6 +68,39 @@ select ok(not public.renovar_trava('conversa:t125', 'e1250000-0000-0000-0000-000
 select ok(public.pegar_trava('conversa:t125b', 'e1250000-0000-0000-0000-0000000000d2', 600), 'outra trava, outro dono');
 select is(public.soltar_travas_do_dono(array['e1250000-0000-0000-0000-0000000000d1']::uuid[]), 1, 'solta a trava do dono pedido');
 select is((select array_agg(chave) from public.travas_trabalhador where chave like 'conversa:t125%'), array['conversa:t125b'], 'a trava do outro dono fica');
+
+-- 21–26 (revisão): a queda entre o insert da demanda e o registro da decisão. A demanda do agente (ou a Triagem que ele
+-- complementou) depois que o turno pegou a mensagem conta como ação; demanda de antes, ou do sistema, não conta.
+insert into public.conversas (id, telefone) values
+  ('e1250000-0000-0000-0000-0000000000c2', '5531999991252'),
+  ('e1250000-0000-0000-0000-0000000000c3', '5531999991253');
+insert into public.mensagens (id, conversa_id, direcao, autor, tipo, conteudo) values
+  ('e1250000-0000-0000-0000-0000000000b1', 'e1250000-0000-0000-0000-0000000000c2', 'entrada', 'cliente', 'texto', 'preciso da guia'),
+  ('e1250000-0000-0000-0000-0000000000b2', 'e1250000-0000-0000-0000-0000000000c3', 'entrada', 'cliente', 'texto', 'oi');
+-- Demandas de antes do turno (agente) e do sistema (Triagem da passagem) não contam.
+insert into public.chamados (conversa_id, titulo, origem, criado_em) values
+  ('e1250000-0000-0000-0000-0000000000c2', 'Antiga', 'agente', now() - interval '1 hour');
+select is(public.pegar_lote_do_turno('e1250000-0000-0000-0000-0000000000c2', array['e1250000-0000-0000-0000-0000000000b1']::uuid[],
+  'e1250000-0000-0000-0000-0000000000f9') -> 'interrompidas', '[]'::jsonb, 'demanda de antes do turno não conta');
+select ok((select turno_agente_entrada_em is not null from public.mensagens where id = 'e1250000-0000-0000-0000-0000000000b1'),
+  'o turno grava quando pegou a mensagem');
+insert into public.chamados (conversa_id, titulo, origem) values ('e1250000-0000-0000-0000-0000000000c2', 'Triagem', 'sistema');
+select is(public.pegar_lote_do_turno('e1250000-0000-0000-0000-0000000000c2', array['e1250000-0000-0000-0000-0000000000b1']::uuid[],
+  'e1250000-0000-0000-0000-0000000000fa') -> 'interrompidas', '[]'::jsonb, 'Triagem do sistema não conta');
+-- O agente abriu a demanda e caiu antes de registrar a decisão.
+insert into public.chamados (conversa_id, titulo, origem) values ('e1250000-0000-0000-0000-0000000000c2', 'Guia', 'agente');
+select is(public.pegar_lote_do_turno('e1250000-0000-0000-0000-0000000000c2', array['e1250000-0000-0000-0000-0000000000b1']::uuid[],
+  'e1250000-0000-0000-0000-0000000000fb'), '{"interrompidas": ["e1250000-0000-0000-0000-0000000000b1"], "respondeu": false}'::jsonb,
+  'demanda do agente depois do turno, sem decisão gravada: o turno agiu');
+-- Triagem já aberta antes, complementada pelo agente depois do turno (nota sem pessoa).
+insert into public.chamados (id, conversa_id, titulo, origem, criado_em) values
+  ('e1250000-0000-0000-0000-0000000000e1', 'e1250000-0000-0000-0000-0000000000c3', 'Triagem', 'agente', now() - interval '1 hour');
+select is(public.pegar_lote_do_turno('e1250000-0000-0000-0000-0000000000c3', array['e1250000-0000-0000-0000-0000000000b2']::uuid[],
+  'e1250000-0000-0000-0000-0000000000fc') -> 'interrompidas', '[]'::jsonb, 'Triagem antiga sem complemento: não agiu');
+insert into public.chamado_eventos (chamado_id, tipo, texto) values ('e1250000-0000-0000-0000-0000000000e1', 'nota_interna', 'mais isto');
+select is(public.pegar_lote_do_turno('e1250000-0000-0000-0000-0000000000c3', array['e1250000-0000-0000-0000-0000000000b2']::uuid[],
+  'e1250000-0000-0000-0000-0000000000fd') -> 'interrompidas', '["e1250000-0000-0000-0000-0000000000b2"]'::jsonb,
+  'Triagem complementada pelo agente depois do turno: o turno agiu');
 
 select * from finish();
 rollback;

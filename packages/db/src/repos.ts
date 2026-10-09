@@ -355,6 +355,14 @@ export function criarRepos(db: Db) {
       return { interrompidas: r?.interrompidas ?? [], respondeu: r?.respondeu === true };
     },
 
+    /** Revisão da Task 7: alguma resposta deste turno do agente já foi gravada (e, portanto, enviada ou na fila de envio). */
+    async respondeuNoTurno(conversaId: string, turno: string): Promise<boolean> {
+      const r = await db.from('mensagens').select('id', { count: 'exact', head: true })
+        .eq('conversa_id', conversaId).eq('direcao', 'saida').eq('turno_agente', turno);
+      if (r.error) throw new Error(`respondeuNoTurno: ${r.error.message}`);
+      return (r.count ?? 0) > 0;
+    },
+
     async soltarTrava(chave: string, dono: string): Promise<void> {
       checar(await db.rpc('soltar_trava', { p_chave: chave, p_dono: dono }), 'soltarTrava');
     },

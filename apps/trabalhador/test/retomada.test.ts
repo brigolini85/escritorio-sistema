@@ -4,7 +4,11 @@ import { MOTIVOS_PASSAGEM } from '@escritorio/core';
 import type Anthropic from '@anthropic-ai/sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { limparBanco } from '@escritorio/db/teste';
+import type { Repos } from '@escritorio/db';
 import type { ParametrosIa } from '../src/agente/cliente-ia';
+import { executarAgente } from '../src/agente/executar';
+import type { ExecutorFerramentas } from '../src/agente/ferramentas';
+import { montarConteudoUsuario } from '../src/agente/prompt';
 import { CanalFalso } from '../src/canal/falso';
 import { LimitadorEnvio } from '../src/envio';
 import { FILAS, encerrarComCalma, naVez } from '../src/fila';
@@ -16,6 +20,7 @@ import { contatoComEmpresas, db, repos, setorId } from './apoio/cenario';
 import { EmailFalso } from './apoio/email-falso';
 import { FilaFalsa } from './apoio/fila-falsa';
 import { IaRoteirizada, fim, usarFerramentas } from './apoio/ia-roteirizada';
+import { CASOS_RETRATO } from './apoio/retrato';
 
 let canal: CanalFalso;
 const AVISO_IA = 'Recebemos sua mensagem, já vamos te atender.';
@@ -254,5 +259,69 @@ describe('limpeza de retenção (auditoria 4.17)', () => {
     const [a, b] = await Promise.all([limpezaNaVez(repos, limpar), limpezaNaVez(repos, limpar)]);
     expect([a, b].sort()).toEqual(['limpou', 'ocupada']);
     expect(rodadas).toBe(1);
+  });
+});
+
+describe('revisão da Task 7', () => {
+  it('a vez que perdeu a trava não escala, não avisa, não abre Triagem e não marca: a retomada seguinte cuida do lote', async () => {
+    const conversa = await conversaPronta();
+    await receber(conversa.id, 'M1', 'oi');
+    const controle = new AbortController();
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'consultar_chamados', entrada: {} }), fim()]);
+    const criar = ia.criar.bind(ia);
+    ia.criar = async (p) => { const r = await criar(p); controle.abort(); return r; };
+    expect(await processarConversa(deps(ia, { sinalVez: controle.signal }), conversa.id, false)).toBe('trava-perdida');
+    expect(ia.recebidos).toHaveLength(1);
+    expect(canal.enviados).toHaveLength(0);
+    expect(await repos.chamadosAbertosDaConversa(conversa.id)).toHaveLength(0);
+    expect((await repos.obterConversa(conversa.id)).aguardando_pessoa_desde).toBeNull();
+    expect(await repos.mensagensNaoProcessadas(conversa.id)).toHaveLength(1);
+    // A próxima vez vê que o turno agiu (consultou) e passa à equipe sem chamar a IA.
+    const ia2 = new IaRoteirizada([fim()]);
+    expect(await processarConversa(deps(ia2), conversa.id, false)).toBe('escalado');
+    expect(ia2.recebidos).toHaveLength(0);
+  });
+
+  it('caiu entre abrir a demanda e gravar a decisão: a nova execução vê a demanda e não abre outra', async () => {
+    const conversa = await conversaPronta();
+    await receber(conversa.id, 'M1', 'preciso da guia do DAS');
+    const fiscal = await setorId('Fiscal');
+    const ia1 = new IaRoteirizada([usarFerramentas({ nome: 'abrir_chamado', entrada: { setor_id: fiscal, titulo: 'Guia DAS', resumo: 'x', fora_do_contrato: false } })]);
+    let caiu = false;
+    const registrarDecisao: typeof repos.registrarDecisao = async (x) => {
+      if (x.etapa === 'abrir_chamado') { caiu = true; return new Promise(() => {}); }
+      return repos.registrarDecisao(x);
+    };
+    const d1 = deps(ia1, { repos: { ...repos, registrarDecisao } });
+    void processarConversa(d1, conversa.id, false);
+    await ate(() => caiu);
+    expect(await repos.chamadosAbertosDaConversa(conversa.id)).toHaveLength(1);
+
+    const ia2 = new IaRoteirizada([usarFerramentas({ nome: 'abrir_chamado', entrada: { setor_id: fiscal, titulo: 'Guia DAS', resumo: 'x', fora_do_contrato: false } }), fim()]);
+    expect(await processarConversa(deps(ia2), conversa.id, false)).toBe('escalado');
+    expect(ia2.recebidos).toHaveLength(0);
+    expect(await repos.chamadosAbertosDaConversa(conversa.id)).toHaveLength(1);
+  });
+
+  it('a IA quebra depois de responder: passa à equipe sem o aviso "IA indisponível"', async () => {
+    const conversa = await conversaPronta();
+    await receber(conversa.id, 'M1', 'oi');
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Olá!' } }), new Error('quebrou')]);
+    expect(await processarConversa(deps(ia), conversa.id, false)).toBe('escalado');
+    expect(canal.enviados.map((e) => e.texto)).toEqual(['Olá!']);
+    expect(await repos.chamadosAbertosDaConversa(conversa.id)).toHaveLength(1);
+    expect(await repos.mensagensNaoProcessadas(conversa.id)).toHaveLength(0);
+  });
+
+  it('executarAgente com a IA roteirizada: sinal abortado entre as rodadas para depois da primeira', async () => {
+    const ctx = CASOS_RETRATO['contato-uma-empresa']!();
+    const reposFalso = { registrarUsoIa: async () => {}, ultimasOrientacoesCortadas: async () => null, obterConversa: async () => ctx.conversa,
+      registrarDecisao: async () => {} } as unknown as Repos;
+    const controle = new AbortController();
+    const executor: ExecutorFerramentas = async () => { controle.abort(); return { resultado: '{"ok":true}', erro: false }; };
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'consultar_chamados', entrada: {} }), usarFerramentas({ nome: 'consultar_chamados', entrada: {} }), fim()]);
+    const r = await executarAgente({ repos: reposFalso, ia, envio: {} as never, sinalVez: controle.signal }, ctx, montarConteudoUsuario(ctx, [], [], []), executor);
+    expect(ia.recebidos).toHaveLength(1);
+    expect(r.status).toBe('escalar');
   });
 });

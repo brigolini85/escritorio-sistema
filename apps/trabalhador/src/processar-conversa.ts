@@ -13,7 +13,9 @@ import { ArquivoGrandeDemais, type ArmazenamentoMidia } from './midia/armazename
 import { AVISO_AUDIO_LONGO, audioLongoDemais, cortarTranscricao, type Transcricao, type Transcritor } from './midia/transcritor';
 
 export type DepsProcessamento = DepsAgente & { transcritor: Transcritor; midia: ArmazenamentoMidia; alertas: Alertas; relogio: () => Date; fila: Fila };
-export type DesfechoProcessamento = 'sem-mensagens' | 'assistente' | 'interno' | 'humano' | 'pausado' | 'teto' | 'limite' | 'agente' | 'escalado' | 'volume';
+export type DesfechoProcessamento = 'sem-mensagens' | 'assistente' | 'interno' | 'humano' | 'pausado' | 'teto' | 'limite' | 'agente' | 'escalado' | 'volume'
+  /** Revisão da Task 7: a vez perdeu a trava (outra pode estar rodando); não escreve mais nada, a retomada cuida do lote. */
+  | 'trava-perdida';
 
 const TAMANHO_HISTORICO = 20;
 /** Revisão geral I2: a vez do agente para de abrir rodadas depois disto (bem abaixo do prazo do job, EXPIRA_CONVERSA_SEGUNDOS). */
@@ -212,6 +214,9 @@ async function retomarInterrompida(
     await d.repos.marcarProcessadas(ids);
     return 'humano';
   }
+  // Heurística: demanda aberta depois da primeira mensagem interrompida é a do turno que caiu, e então não abre Triagem.
+  // Limites: uma demanda aberta por uma pessoa no painel nesse intervalo também conta (a conversa fica sem Triagem, mas
+  // "esperando pessoa" e com a demanda); uma Triagem complementada pelo turno não é nova e a Triagem segue existindo.
   const desde = Math.min(...interrompidas.map((m) => Date.parse(m.criado_em)));
   const demandaDoTurno = (await d.repos.chamadosAbertosDaConversa(conversaId)).some((c) => Date.parse(c.criado_em) >= desde);
   const aviso = respondeu ? null : await d.repos.obterConfiguracoes().then((c) => c.mensagens.ia_indisponivel ?? null)
@@ -226,6 +231,8 @@ export async function processarConversa(d: DepsProcessamento, conversaId: string
   try {
     return await processarConversaSemProtecao(d, conversaId, ultimaTentativa);
   } catch (e) {
+    // Auditoria 4.1: ErroDepoisDoAgente relança para a fila; a nova tentativa cai na retomada (o turno agiu) e passa à
+    // equipe, sem refazer o lote nem chamar a IA de novo.
     // Revisão geral C1: na última tentativa, a falha ANTES do agente (banco, mídia, contexto) passa a conversa à equipe em vez
     // de deixar a mensagem sem resposta. Falha ao marcar depois do agente segue como antes (o cliente já foi atendido).
     if (e instanceof ErroDepoisDoAgente) throw e.causa;
@@ -384,11 +391,19 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   // Só as mensagens deste lote (já com transcrição): as que chegarem durante o processamento ficam para o próximo job.
   let desfecho: DesfechoProcessamento = 'agente';
   let agenteAgiu = false;
+  // Revisão da Task 7: sem a trava, outra vez pode estar com a conversa. Nada de passar à equipe, avisar ou marcar: as
+  // mensagens ficam com o turno desta vez, e a próxima execução retoma (se o turno agiu) ou atende (se não agiu).
+  const travaPerdida = (): DesfechoProcessamento => {
+    console.error('[agente] vez sem trava: para sem escrever; a próxima execução retoma o lote', conversaId);
+    return 'trava-perdida';
+  };
+  if (d.sinalVez?.aborted) return travaPerdida();
   try {
     // Auditoria 4.11: a vez para entre as rodadas se o gasto dela passar do limite do número ou do teto do mês.
     const orcamento = { telefoneAntes: custoTelefone, limiteDia, mesAntes: custoMes, tetoMes: config.tetoIaUsd, gastoNaVez: 0 };
     const r = await atenderComAgentes({ ...d, prazoVez, orcamento, turno }, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
     agenteAgiu = true;
+    if (d.sinalVez?.aborted) return travaPerdida();
     if (r.status === 'escalar') {
       if (await assumidaPorHumano(d, conversaId)) {
         desfecho = 'humano';
@@ -403,11 +418,15 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
     // Só relança (nova tentativa) se a IA falhou antes de qualquer ação; depois disso, relançar repetiria ferramentas.
     if (!agenteAgiu && erroTemporarioIa(e) && !ultimaTentativa && (await d.repos.contarDecisoesDesde(conversaId, novas[0]!.criado_em)) === 0) throw e;
     console.error('[agente] falha', e);
+    if (d.sinalVez?.aborted) return travaPerdida();
     try {
       if (await assumidaPorHumano(d, conversaId)) {
         desfecho = 'humano';
       } else {
-        await encaminharParaHumano(d, conversa, 'Falha no agente de IA', config.mensagens.ia_indisponivel ?? null);
+        // Revisão da Task 7: o aviso "IA indisponível" nunca vem depois de uma resposta do agente neste turno. Sem saber
+        // (falha ao consultar), sem aviso: a equipe recebe a conversa de qualquer jeito.
+        const respondeu = await d.repos.respondeuNoTurno(conversaId, turno).catch(() => true);
+        await encaminharParaHumano(d, conversa, 'Falha no agente de IA', respondeu ? null : config.mensagens.ia_indisponivel ?? null);
         await marcarPassagem(d, conversa.id, MOTIVOS_PASSAGEM.falha);
         desfecho = 'escalado';
       }
@@ -424,6 +443,8 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   try {
     await d.repos.marcarProcessadas(ids);
   } catch (e) {
+    // Auditoria 4.1: a nova tentativa que vem deste erro não refaz o lote: as mensagens têm o turno desta vez, que agiu,
+    // e a retomada passa à equipe sem chamar a IA.
     throw new ErroDepoisDoAgente(e);
   }
   // O batimento confere de novo a cada poucos minutos: falha aqui não derruba a vez.
