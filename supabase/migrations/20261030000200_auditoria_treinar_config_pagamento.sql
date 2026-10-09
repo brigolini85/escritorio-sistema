@@ -183,12 +183,20 @@ create trigger avisa_dono after insert or update on public.orientacoes_agente
   for each row execute function public.orientacao_geral_avisa_dono();
 
 -- ---------- Dados de pagamento do escritório (D3) ----------
--- Chaves conhecidas, todas texto e opcionais. A checagem segura também a escrita direta do administrador pela API.
+-- Chaves conhecidas, todas texto e opcionais, com os mesmos limites de salvar_dados_pagamento (120; a observação, 500).
+-- A checagem segura também a escrita direta do administrador pela API.
+create function public.dados_pagamento_validos(p jsonb) returns boolean
+language sql immutable set search_path = '' as $$
+  select jsonb_typeof(p) = 'object'
+     and not exists (select 1 from jsonb_each(p) e
+                     where e.key not in ('pix', 'banco', 'agencia', 'conta', 'favorecido', 'observacao')
+                        or jsonb_typeof(e.value) <> 'string'
+                        or char_length(e.value #>> '{}') > case when e.key = 'observacao' then 500 else 120 end)
+$$;
+revoke execute on function public.dados_pagamento_validos(jsonb) from public, anon;
+grant execute on function public.dados_pagamento_validos(jsonb) to authenticated, service_role;
 alter table public.configuracoes add column dados_pagamento jsonb not null default '{}'
-  constraint dados_pagamento_validos check (
-    jsonb_typeof(dados_pagamento) = 'object'
-    and dados_pagamento - array['pix', 'banco', 'agencia', 'conta', 'favorecido', 'observacao'] = '{}'::jsonb
-    and not jsonb_path_exists(dados_pagamento, '$.* ? (@.type() != "string")'));
+  constraint dados_pagamento_validos check (public.dados_pagamento_validos(dados_pagamento));
 
 -- Só o administrador com o segundo fator. Apara cada campo e tira os vazios; o aviso ao dono sai pelo gatilho.
 create function public.salvar_dados_pagamento(p jsonb) returns void

@@ -206,7 +206,7 @@ export async function salvarDadosPagamento(formData: FormData): Promise<Resultad
   return ok('Dados de pagamento salvos.');
 }
 
-const COLUNAS_PRAZO ='prazo_urgente_dias, prazo_alta_dias, prazo_normal_dias, prazo_baixa_dias';
+const COLUNAS_PRAZO = 'prazo_urgente_dias, prazo_alta_dias, prazo_normal_dias, prazo_baixa_dias';
 
 /** Impacto de cada prioridade mudada nas demandas abertas, sem gravar (simular_mudanca_prazo é stable). */
 export async function simularPrazos(formData: FormData): Promise<{ ok: true; impactos: ImpactoPrazo[]; semImpacto?: true } | { ok: false; erro: string }> {

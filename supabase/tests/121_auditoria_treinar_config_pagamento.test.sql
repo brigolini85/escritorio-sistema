@@ -3,7 +3,7 @@
 -- e ligar orientação geral avisam o dono. Também: o administrador que não é o dono não muda o horário do dono.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(46);
 
 insert into auth.users (id, email) values
   ('e1310000-0000-0000-0000-00000000000a', 'admin@t121.local'),
@@ -43,6 +43,11 @@ select ok(not has_function_privilege('anon', 'public.salvar_dados_pagamento(json
 select is((select dados_pagamento from public.configuracoes where id = 1), '{}'::jsonb, 'começa vazio');
 select throws_ok($$ update public.configuracoes set dados_pagamento = '{"pix": 123}' where id = 1 $$, '23514', null,
   'a coluna só aceita as chaves conhecidas, em texto');
+select throws_ok($$ update public.configuracoes set dados_pagamento = jsonb_build_object('pix', repeat('x', 121)) where id = 1 $$, '23514', null,
+  'a coluna tem os mesmos limites da função (revisão da Task 2)');
+select lives_ok($$ update public.configuracoes set dados_pagamento = jsonb_build_object('observacao', repeat('x', 500)) where id = 1 $$,
+  'observação até 500');
+update public.configuracoes set dados_pagamento = '{}' where id = 1;
 
 set local role authenticated;
 
