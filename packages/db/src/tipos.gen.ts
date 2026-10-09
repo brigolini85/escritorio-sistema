@@ -769,13 +769,13 @@ isOneToOne: false
                   ]
                 },"configuracoes": {
                   Row: {
-                    "agente_pausado": boolean,"alerta_ia_80_mes": string | null,"aviso_login": string,"cargos": (string)[],"cotacao_usd_brl": number | null,"custo_minuto_transcricao_usd": number | null,"dias_uteis": (number)[],"email_alertas": string | null,"espera_ambar_min": number,"espera_verde_min": number,"horario_fim": string,"horario_inicio": string,"id": number,"mensagens": NonNullable<Json>,"minutos_alerta_fila": number,"modelo_conversa": string,"modelo_rapido": string,"prazo_alta_dias": number,"prazo_baixa_dias": number,"prazo_normal_dias": number,"prazo_urgente_dias": number,"precos_modelos": NonNullable<Json>,"telefone_dono": string | null,"teto_ia_usd": number
+                    "agente_pausado": boolean,"alerta_ia_80_mes": string | null,"aviso_login": string,"cargos": (string)[],"cotacao_usd_brl": number | null,"custo_minuto_transcricao_usd": number | null,"dados_pagamento": NonNullable<Json>,"dias_uteis": (number)[],"email_alertas": string | null,"espera_ambar_min": number,"espera_verde_min": number,"horario_fim": string,"horario_inicio": string,"id": number,"mensagens": NonNullable<Json>,"minutos_alerta_fila": number,"modelo_conversa": string,"modelo_rapido": string,"prazo_alta_dias": number,"prazo_baixa_dias": number,"prazo_normal_dias": number,"prazo_urgente_dias": number,"precos_modelos": NonNullable<Json>,"telefone_dono": string | null,"teto_ia_usd": number
                   }
                   Insert: {
-                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"cargos"?: (string)[],"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
+                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"cargos"?: (string)[],"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dados_pagamento"?: NonNullable<Json>,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
                   }
                   Update: {
-                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"cargos"?: (string)[],"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
+                    "agente_pausado"?: boolean,"alerta_ia_80_mes"?: string | null,"aviso_login"?: string,"cargos"?: (string)[],"cotacao_usd_brl"?: number | null,"custo_minuto_transcricao_usd"?: number | null,"dados_pagamento"?: NonNullable<Json>,"dias_uteis"?: (number)[],"email_alertas"?: string | null,"espera_ambar_min"?: number,"espera_verde_min"?: number,"horario_fim"?: string,"horario_inicio"?: string,"id"?: number,"mensagens"?: NonNullable<Json>,"minutos_alerta_fila"?: number,"modelo_conversa"?: string,"modelo_rapido"?: string,"prazo_alta_dias"?: number,"prazo_baixa_dias"?: number,"prazo_normal_dias"?: number,"prazo_urgente_dias"?: number,"precos_modelos"?: NonNullable<Json>,"telefone_dono"?: string | null,"teto_ia_usd"?: number
                   }
                   Relationships: [
                     
@@ -2714,6 +2714,9 @@ isOneToOne: false
                            },
 "salvar_config_radar":
 { Args: { "p_dados": Json }; Returns: undefined
+                           },
+"salvar_dados_pagamento":
+{ Args: { "p": Json }; Returns: undefined
                            },
 "salvar_ficha_cliente":
 { Args: { "p_dados": Json,"p_id": string }; Returns: string

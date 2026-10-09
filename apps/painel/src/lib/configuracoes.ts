@@ -3,7 +3,7 @@
 import { ROTULO_PRIORIDADE, type Prioridade } from './demandas';
 import { FUSO } from './formatos';
 
-export type IdSecao = 'expediente' | 'prazos' | 'feriados' | 'mensagens' | 'respostas' | 'espera' | 'ia' | 'setores' | 'servicos' | 'cargos' | 'integracoes';
+export type IdSecao = 'expediente' | 'prazos' | 'feriados' | 'mensagens' | 'pagamento' | 'respostas' | 'espera' | 'ia' | 'setores' | 'servicos' | 'cargos' | 'integracoes';
 export type GrupoSecao = 'Escritório' | 'Agente e atendimento' | 'Cadastros' | 'Sistema';
 export type SecaoConfig = { id: IdSecao; rotulo: string; grupo: GrupoSecao; soAdmin: boolean };
 
@@ -14,7 +14,9 @@ export const SECOES_CONFIG: SecaoConfig[] = [
   { id: 'expediente', rotulo: 'Expediente', grupo: 'Escritório', soAdmin: false },
   { id: 'prazos', rotulo: 'Prazos', grupo: 'Escritório', soAdmin: false },
   { id: 'feriados', rotulo: 'Feriados', grupo: 'Escritório', soAdmin: false },
-  { id: 'mensagens', rotulo: 'Mensagens', grupo: 'Agente e atendimento', soAdmin: false },
+  // Auditoria 6.7 e D3: o que sai para os clientes e os dados de pagamento são só do administrador (o banco também segura).
+  { id: 'mensagens', rotulo: 'Mensagens', grupo: 'Agente e atendimento', soAdmin: true },
+  { id: 'pagamento', rotulo: 'Dados de pagamento', grupo: 'Agente e atendimento', soAdmin: true },
   { id: 'respostas', rotulo: 'Respostas prontas', grupo: 'Agente e atendimento', soAdmin: false },
   { id: 'espera', rotulo: 'Limites de espera', grupo: 'Agente e atendimento', soAdmin: false },
   { id: 'ia', rotulo: 'Teto e modelos de IA', grupo: 'Agente e atendimento', soAdmin: true },
@@ -109,6 +111,8 @@ export type DadosResumo = {
     horario_inicio: string; horario_fim: string; dias_uteis: number[];
     prazo_urgente_dias: number; prazo_alta_dias: number; prazo_normal_dias: number; prazo_baixa_dias: number;
     espera_verde_min: number; espera_ambar_min: number; aviso_login: string; teto_ia_usd: number; cargos: string[];
+    /** Banco sem a coluna (antes da migração da auditoria): nenhum dado. */
+    dados_pagamento?: unknown;
   };
   feriados: { data: string }[];
   respostas: { ativo: boolean }[];
@@ -133,11 +137,16 @@ export function resumosDasSecoes(d: DadosResumo): Record<IdSecao, ResumoSecao> {
   const inativos = d.setores.length - ativos;
   const semSetor = d.servicos.filter((s) => !s.setor_id).length;
   const teto = `teto ${usd(Number(c.teto_ia_usd))}`;
+  // Só quantos campos e se tem Pix: o valor nunca aparece no menu.
+  const pagamento = Object.entries((c.dados_pagamento ?? {}) as Record<string, string>).filter(([, v]) => v.trim());
   return {
     expediente: { resumo: `${textoDiasUteis(c.dias_uteis)} ${horaResumo(c.horario_inicio)}–${horaResumo(c.horario_fim)}` },
     prazos: { resumo: `urgente ${curto(c.prazo_urgente_dias)} · alta ${curto(c.prazo_alta_dias)} · normal ${curto(c.prazo_normal_dias)} · baixa ${curto(c.prazo_baixa_dias)}` },
     feriados: { contagem: d.feriados.length, resumo: proximo ? `próximo: ${proximo.slice(8, 10)}/${proximo.slice(5, 7)}` : 'nenhum à frente' },
     mensagens: { contagem: 4, resumo: c.aviso_login.trim() ? 'aviso do login ligado' : 'aviso do login desligado' },
+    pagamento: pagamento.length
+      ? { contagem: pagamento.length, resumo: pagamento.some(([k]) => k === 'pix') ? 'Pix cadastrado' : 'sem Pix' }
+      : { resumo: 'nenhum cadastrado' },
     respostas: { contagem: d.respostas.length, resumo: pl(d.respostas.filter((r) => r.ativo).length, 'ativa', 'ativas') },
     espera: { resumo: `verde até ${c.espera_verde_min} · âmbar até ${c.espera_ambar_min} min` },
     ia: { resumo: d.fracaoTeto === null ? teto : `${teto} · ${Number.isFinite(d.fracaoTeto) ? `${Math.round(d.fracaoTeto * 100)}%` : 'teto atingido'}`, atencao: (d.fracaoTeto ?? 0) >= 0.8 },

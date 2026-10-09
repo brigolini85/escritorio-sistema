@@ -20,6 +20,8 @@ const FALHA_SALVAR = 'Não foi possível salvar a orientação. Tente de novo em
 const FALHA_CRIAR = 'Não foi possível criar a orientação. Tente de novo em alguns minutos.';
 const FALHA_ALTERNAR = 'Não foi possível mudar a orientação. Tente de novo em alguns minutos.';
 const FALHA_RESTAURAR = 'Não foi possível restaurar a versão. Tente de novo em alguns minutos.';
+/** O texto de exigir_segundo_fator() no banco (42501). */
+const AVISO_SEGUNDO_FATOR = 'Confirme o código do aplicativo autenticador para continuar.';
 
 /** Erro com texto já pensado para a pessoa (permissão, validação do banco). Os outros viram uma mensagem padrão. */
 class AvisoTreinar extends Error {}
@@ -30,6 +32,8 @@ class AvisoTreinar extends Error {}
  */
 function avisoDoBanco(error: { code?: string; message: string }, log: string, padrao: string): AvisoTreinar {
   if (error.code === 'P0001') return new AvisoTreinar(mensagemDoBanco(error.message));
+  // Auditoria 5.1: treinar pede o segundo fator; sessão sem o código confirmado lê o motivo, não a mensagem padrão.
+  if (error.code === '42501' && error.message === AVISO_SEGUNDO_FATOR) return new AvisoTreinar(AVISO_SEGUNDO_FATOR);
   console.error(`[treinar-agente] ${log}`, error);
   return new AvisoTreinar(padrao);
 }

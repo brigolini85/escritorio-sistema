@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  BriefcaseBusiness, CalendarOff, Clock, Cpu, ExternalLink, Hourglass, IdCard, MessageSquareText, MessagesSquare, Network, Plug, Timer, Users,
+  BriefcaseBusiness, CalendarOff, Clock, Cpu, ExternalLink, Hourglass, IdCard, Landmark, MessageSquareText, MessagesSquare, Network, Plug, Timer, Users,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -14,7 +14,7 @@ import { GRUPOS_CONFIG, hrefSecao, secaoDoHash, type GrupoSecao, type IdSecao } 
 export type ItemMenuConfig = { id: IdSecao; rotulo: string; grupo: GrupoSecao; contagem?: number; resumo: string; atencao?: boolean };
 
 const ICONE: Record<IdSecao, LucideIcon> = {
-  expediente: Clock, prazos: Hourglass, feriados: CalendarOff, mensagens: MessageSquareText, respostas: MessagesSquare,
+  expediente: Clock, prazos: Hourglass, feriados: CalendarOff, mensagens: MessageSquareText, pagamento: Landmark, respostas: MessagesSquare,
   espera: Timer, ia: Cpu, setores: Network, servicos: BriefcaseBusiness, cargos: IdCard, integracoes: Plug,
 };
 const ITEM = 'flex items-start gap-3 border-l-2 px-4 py-2 text-base text-foreground transition-colors duration-150 ease-out hover:bg-surface-muted';

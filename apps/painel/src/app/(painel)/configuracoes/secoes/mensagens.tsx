@@ -14,7 +14,7 @@ const MENSAGENS = [
 ];
 const resumir = (t: string) => (t.length > 70 ? `${t.slice(0, 70).trimEnd()}…` : t || '(vazio)');
 
-/** Mensagens automáticas ao cliente e o aviso da tela de entrada (spec 7C.4 e 4.4). Configurações: Sim. */
+/** Mensagens automáticas ao cliente e o aviso da tela de entrada (spec 7C.4 e 4.4). Só o administrador (auditoria 6.7). */
 export function SecaoMensagens({ cfg }: { cfg: Config }) {
   const mensagens = (cfg.mensagens ?? {}) as Record<string, string>;
   return (

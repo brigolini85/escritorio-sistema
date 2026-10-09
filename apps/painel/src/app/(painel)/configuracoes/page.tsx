@@ -19,6 +19,7 @@ import { SecaoFeriados } from './secoes/feriados';
 import { SecaoIa } from './secoes/ia';
 import { SecaoIntegracoes } from './secoes/integracoes';
 import { SecaoMensagens } from './secoes/mensagens';
+import { SecaoPagamento } from './secoes/pagamento';
 import { SecaoPrazos } from './secoes/prazos';
 import { SecaoRespostas } from './secoes/respostas';
 import { SecaoServicos } from './secoes/servicos';
@@ -28,7 +29,8 @@ import { SecaoSetores } from './secoes/setores';
 export default async function Configuracoes({ searchParams }: { searchParams: Promise<{ secao?: string | string[] }> }) {
   const { secao: pedida } = await searchParams;
   const u = await exigirConfiguracoes();
-  // "Configurações: Sim" (P12 da Parte D): teto e modelos de IA, integrações e usuários continuam só do administrador.
+  // "Configurações: Sim" (P12 da Parte D): teto e modelos de IA, integrações e usuários continuam só do administrador;
+  // mensagens automáticas e dados de pagamento também (auditoria 6.7, D3).
   const admin = u.papel === 'admin';
   const secao = secaoDaUrl(pedida, admin);
   // A URL sempre diz o que está na tela (D12): seção pedida que não vale para a pessoa vira Expediente.
@@ -66,6 +68,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
     prazos: () => <SecaoPrazos cfg={cfg} feriados={feriados ?? []} hoje={hoje} admin={admin} agora={agora} />,
     feriados: () => <SecaoFeriados feriados={feriados ?? []} hoje={hoje} />,
     mensagens: () => <SecaoMensagens cfg={cfg} />,
+    pagamento: () => <SecaoPagamento cfg={cfg} />,
     respostas: () => <SecaoRespostas respostas={respostas ?? []} />,
     espera: () => <SecaoEspera cfg={cfg} />,
     ia: () => <SecaoIa cfg={cfg} teto={teto} />,

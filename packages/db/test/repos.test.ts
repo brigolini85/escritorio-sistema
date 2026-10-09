@@ -84,6 +84,16 @@ describe('obterConfiguracoes', () => {
     expect(cfg.expediente.feriados).toContain('2026-10-12');
     expect(cfg.modeloConversa).toBe('claude-sonnet-5');
   });
+
+  it('traz os dados de pagamento do escritório (auditoria 5.1, D3)', async () => {
+    expect((await repos.obterConfiguracoes()).dadosPagamento).toEqual({});
+    await db.from('configuracoes').update({ dados_pagamento: { pix: 'chave-teste', banco: 'Banco Teste' } }).eq('id', 1);
+    try {
+      expect((await repos.obterConfiguracoes()).dadosPagamento).toEqual({ pix: 'chave-teste', banco: 'Banco Teste' });
+    } finally {
+      await db.from('configuracoes').update({ dados_pagamento: {} }).eq('id', 1);
+    }
+  });
 });
 
 describe('ehTelefoneInterno', () => {

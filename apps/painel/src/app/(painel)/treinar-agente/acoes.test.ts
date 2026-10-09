@@ -157,3 +157,10 @@ describe('restaurarVersao', () => {
     expect(falso.rpc).not.toHaveBeenCalled();
   });
 });
+
+describe('auditoria 5.1: treinar pede o segundo fator', () => {
+  it('ao ligar sem o código confirmado, a pessoa lê o motivo (não a mensagem padrão)', async () => {
+    falso.rpc.mockResolvedValueOnce({ data: null, error: { code: '42501', message: 'Confirme o código do aplicativo autenticador para continuar.' } });
+    expect(await alternarOrientacao(NOVA, true)).toEqual({ erro: 'Confirme o código do aplicativo autenticador para continuar.' });
+  });
+});

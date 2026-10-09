@@ -99,3 +99,11 @@ export const CargosForm = z.object({ cargos: z.string() })
   .transform(({ cargos }) => cargos.replace(/\r\n/g, '\n').split('\n').map((c) => c.trim()).filter(Boolean))
   .pipe(z.array(z.string().max(60, 'Cada cargo tem até 60 letras.')).max(30, 'Até 30 cargos.')
     .refine((l) => new Set(l.map((c) => c.toLocaleLowerCase('pt-BR'))).size === l.length, 'Há cargo repetido na lista.'));
+
+/** Dados de pagamento do escritório (só o administrador; auditoria 5.1, D3). As mesmas regras de salvar_dados_pagamento. */
+export const CAMPOS_PAGAMENTO = ['pix', 'banco', 'agencia', 'conta', 'favorecido', 'observacao'] as const;
+const campoPagamento = z.string().trim().max(120, 'Até 120 letras.');
+export const DadosPagamentoForm = z.object({
+  pix: campoPagamento, banco: campoPagamento, agencia: campoPagamento, conta: campoPagamento, favorecido: campoPagamento,
+  observacao: z.string().transform((v) => v.replace(/\r\n/g, '\n')).pipe(z.string().trim().max(500, 'A observação tem até 500 letras.')),
+});

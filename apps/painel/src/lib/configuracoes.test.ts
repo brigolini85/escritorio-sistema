@@ -6,9 +6,18 @@ import {
 
 describe('seções (spec 7C.4, D8, D12)', () => {
   it('quatro grupos; quem não é administrador não vê Teto e modelos de IA nem Integrações', () => {
-    expect(secoesDe(true).map((s) => s.id)).toEqual(['expediente', 'prazos', 'feriados', 'mensagens', 'respostas', 'espera', 'ia', 'setores', 'servicos', 'cargos', 'integracoes']);
+    // Auditoria 5.1 (D3): a seção Dados de pagamento entrou depois de Mensagens.
+    expect(secoesDe(true).map((s) => s.id)).toEqual(['expediente', 'prazos', 'feriados', 'mensagens', 'pagamento', 'respostas', 'espera', 'ia', 'setores', 'servicos', 'cargos', 'integracoes']);
     expect(secoesDe(false).map((s) => s.id)).not.toContain('ia');
     expect(secoesDe(false).map((s) => s.id)).not.toContain('integracoes');
+  });
+  it('auditoria 6.7 e D3: Mensagens e Dados de pagamento são só do administrador', () => {
+    expect(secoesDe(false).map((s) => s.id)).not.toContain('mensagens');
+    expect(secoesDe(false).map((s) => s.id)).not.toContain('pagamento');
+    expect(secaoDaUrl('pagamento', false).id).toBe('expediente');
+    expect(secaoDaUrl('pagamento', true).id).toBe('pagamento');
+    expect(secaoDaUrl('aviso-login', false).id).toBe('expediente');
+    expect(rotuloDaSecao('pagamento')).toBe('Dados de pagamento');
   });
   it('?secao=: vazia, desconhecida ou proibida → Expediente; âncoras antigas valem', () => {
     expect(secaoDaUrl(undefined, true).id).toBe('expediente');
@@ -97,6 +106,13 @@ describe('resumosDasSecoes (menu, imagem A + resumos da B)', () => {
     expect(r.ia).toEqual({ resumo: 'teto US$ 100', atencao: false });
     expect(r.integracoes.resumo).toBe('');
     expect(resumosDasSecoes({ ...base, fracaoTeto: 0.85 }).ia.atencao).toBe(true);
+  });
+  it('dados de pagamento: quantos campos e se tem Pix (sem mostrar o valor)', () => {
+    expect(resumosDasSecoes(base).pagamento).toEqual({ resumo: 'nenhum cadastrado' });
+    const r = resumosDasSecoes({ ...base, cfg: { ...base.cfg, dados_pagamento: { pix: 'chave-secreta', banco: 'Banco X' } } });
+    expect(r.pagamento).toEqual({ contagem: 2, resumo: 'Pix cadastrado' });
+    expect(resumosDasSecoes({ ...base, cfg: { ...base.cfg, dados_pagamento: { banco: 'Banco X' } } }).pagamento)
+      .toEqual({ contagem: 1, resumo: 'sem Pix' });
   });
 });
 

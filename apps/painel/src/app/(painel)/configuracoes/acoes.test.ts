@@ -7,11 +7,13 @@ const falso = vi.hoisted(() => ({
   setor: vi.fn(),       // update de setores (.select('id'))
   rpc: vi.fn(),         // sb.rpc(...)
   feriado: vi.fn(),     // delete de feriados
+  admin: vi.fn(async () => ({})),          // exigirAdmin
+  configuracoes: vi.fn(async () => ({})),  // exigirConfiguracoes
 }));
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
-vi.mock('@/lib/sessao', () => ({ exigirAdmin: async () => ({}), exigirConfiguracoes: async () => ({}) }));
+vi.mock('@/lib/sessao', () => ({ exigirAdmin: falso.admin, exigirConfiguracoes: falso.configuracoes }));
 vi.mock('@/lib/supabase/servico', () => ({ supabaseServico: () => ({}) }));
 vi.mock('@/lib/supabase/servidor', () => ({
   supabaseServidor: async () => ({
@@ -24,7 +26,9 @@ vi.mock('@/lib/supabase/servidor', () => ({
   }),
 }));
 
-import { removerFeriado, salvarModelos, salvarResposta, salvarSetor, simularPrazos } from './acoes';
+import {
+  removerFeriado, salvarAvisoLogin, salvarDadosPagamento, salvarMensagens, salvarModelos, salvarResposta, salvarSetor, simularPrazos,
+} from './acoes';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 function form(campos: Record<string, string>) {
@@ -92,5 +96,30 @@ describe('removerFeriado', () => {
   it('erro do banco vira frase segura, não a mensagem crua do Postgres', async () => {
     falso.feriado.mockResolvedValue({ error: { message: 'relation "x" secret detail', code: '42P01' } });
     await expect(removerFeriado('2026-12-25')).rejects.toThrow('Não consegui remover. Tente de novo.');
+  });
+});
+
+describe('auditoria 6.7 e D3: mensagens, aviso do login e dados de pagamento só do administrador', () => {
+  beforeEach(() => { falso.admin.mockClear(); falso.configuracoes.mockClear(); });
+  it('mensagens automáticas e aviso do login pedem administrador', async () => {
+    expect((await salvarMensagens(form({ aviso_lgpd: 'a', fora_do_horario: 'b', ia_indisponivel: 'c' }))).ok).toBe(true);
+    expect((await salvarAvisoLogin(form({ aviso_login: 'Recado' }))).ok).toBe(true);
+    expect(falso.admin).toHaveBeenCalledTimes(2);
+    expect(falso.configuracoes).not.toHaveBeenCalled();
+  });
+  it('dados de pagamento: administrador, pela função do banco, com os seis campos', async () => {
+    falso.rpc.mockResolvedValue({ data: null, error: null });
+    const r = await salvarDadosPagamento(form({ pix: ' chave ', banco: 'Banco X', agencia: '', conta: '1-2', favorecido: 'Escritório', observacao: 'Mande o comprovante.' }));
+    expect(r).toEqual({ ok: true, mensagem: 'Dados de pagamento salvos.' });
+    expect(falso.admin).toHaveBeenCalledTimes(1);
+    expect(falso.rpc).toHaveBeenCalledWith('salvar_dados_pagamento', {
+      p: { pix: 'chave', banco: 'Banco X', agencia: '', conta: '1-2', favorecido: 'Escritório', observacao: 'Mande o comprovante.' },
+    });
+  });
+  it('dados de pagamento: campo longo é recusado antes do banco; erro do banco vira frase', async () => {
+    expect(await salvarDadosPagamento(form({ pix: 'x'.repeat(121) }))).toEqual({ ok: false, erro: 'Até 120 letras.' });
+    expect(falso.rpc).not.toHaveBeenCalled();
+    falso.rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'Só o administrador muda os dados de pagamento.' } });
+    expect(await salvarDadosPagamento(form({ pix: 'chave' }))).toEqual({ ok: false, erro: 'Só o administrador muda os dados de pagamento.' });
   });
 });

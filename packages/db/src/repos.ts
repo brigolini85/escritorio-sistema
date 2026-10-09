@@ -26,7 +26,10 @@ export type Configuracoes = {
   precosModelos: Record<string, PrecoModelo>;
   custoMinutoTranscricaoUsd: number | null;
   mensagens: Record<string, string>;
+  /** Auditoria 5.1 (D3): a única fonte de Pix e dados bancários que o agente informa. Só o administrador muda. */
+  dadosPagamento: DadosPagamento;
 };
+export type DadosPagamento = Partial<Record<'pix' | 'banco' | 'agencia' | 'conta' | 'favorecido' | 'observacao', string>>;
 export type NovaMensagemEntrada = {
   conversaId: string; clienteId: string | null; idProvedor: string; tipo: TipoMensagem;
   conteudo?: string | null; midiaUrlOrigem?: string | null; arquivoNome?: string | null; arquivoMime?: string | null;
@@ -521,6 +524,8 @@ export function criarRepos(db: Db) {
         precosModelos: c.precos_modelos as Record<string, PrecoModelo>,
         custoMinutoTranscricaoUsd: c.custo_minuto_transcricao_usd === null ? null : Number(c.custo_minuto_transcricao_usd),
         mensagens: c.mensagens as Record<string, string>,
+        // Banco sem a coluna (antes da migração 20261030000200): nenhum dado cadastrado.
+        dadosPagamento: (c.dados_pagamento ?? {}) as DadosPagamento,
       };
     },
 

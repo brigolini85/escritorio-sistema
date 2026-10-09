@@ -16,7 +16,7 @@ nova as (
 Endereço: (a preencher)
 WhatsApp, telefone e e-mail oficiais: (a preencher)
 Horário de atendimento e plantão para urgências: (a preencher)
-Pix e dados bancários oficiais para honorários: (a preencher)
+Pix e dados bancários: ficam em Configurações › Dados de pagamento, não aqui
 Prazo de retorno que pode ser prometido (urgente, alta, normal): (a preencher)
 Dia-limite para mandar a folha e os documentos do mês: (a preencher)
 Serviços cobrados à parte da mensalidade: (a preencher)

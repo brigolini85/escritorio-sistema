@@ -7,7 +7,7 @@ import { supabaseServidor } from '@/lib/supabase/servidor';
 import { z } from 'zod';
 import { COLUNA_PRAZO, PRIORIDADES, type ImpactoPrazo, type Resultado } from '@/lib/configuracoes';
 import { ROTULO_PRIORIDADE } from '@/lib/demandas';
-import { CargosForm, CotacaoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, RespostaForm, ServicoForm, SetorForm, TetoAlertasForm } from './esquemas';
+import { CAMPOS_PAGAMENTO, CargosForm, CotacaoForm, DadosPagamentoForm, EsperaForm, esquemaAvisoLogin, ExpedienteForm, FeriadoForm, modelosForm, PrazosForm, RespostaForm, ServicoForm, SetorForm, TetoAlertasForm } from './esquemas';
 
 // Respostas dos cartões (D21): nada de redirect com ?erro=; o cartão mostra o erro e mantém o que foi digitado.
 const ok = (mensagem: string): Resultado => ({ ok: true, mensagem });
@@ -169,8 +169,9 @@ export async function removerFeriado(data: string) {
   recarregar();
 }
 
+/** Auditoria 6.7: o que sai sozinho para os clientes é só do administrador (o gatilho configuracoes_so_admin recusa de novo). */
 export async function salvarMensagens(formData: FormData): Promise<Resultado> {
-  await exigirConfiguracoes();
+  await exigirAdmin();
   // Com o agente pausado nada é enviado ao cliente (decisão do dono, 2026-09-28): não há mensagem de pausa.
   const chaves = ['aviso_lgpd', 'fora_do_horario', 'ia_indisponivel'];
   const mensagens = Object.fromEntries(chaves.map((k) => [k, String(formData.get(k) ?? '').trim()]));
@@ -180,8 +181,9 @@ export async function salvarMensagens(formData: FormData): Promise<Resultado> {
   return ok('Mensagens salvas.');
 }
 
+/** Auditoria 6.7: o aviso da tela de entrada também é só do administrador. */
 export async function salvarAvisoLogin(formData: FormData): Promise<Resultado> {
-  await exigirConfiguracoes();
+  await exigirAdmin();
   const v = esquemaAvisoLogin.safeParse({ aviso_login: String(formData.get('aviso_login') ?? '') });
   if (!v.success) return primeiroErro(v.error);
   const { error } = await (await supabaseServidor()).from('configuracoes').update({ aviso_login: v.data.aviso_login }).eq('id', 1);
@@ -190,7 +192,21 @@ export async function salvarAvisoLogin(formData: FormData): Promise<Resultado> {
   return ok('Aviso do login salvo.');
 }
 
-const COLUNAS_PRAZO = 'prazo_urgente_dias, prazo_alta_dias, prazo_normal_dias, prazo_baixa_dias';
+/**
+ * Dados de pagamento do escritório (auditoria 5.1, D3): a única fonte de Pix e dados bancários que o agente informa.
+ * Só o administrador com o segundo fator; salvar_dados_pagamento confere de novo, apara, tira os vazios e avisa o dono.
+ */
+export async function salvarDadosPagamento(formData: FormData): Promise<Resultado> {
+  await exigirAdmin();
+  const v = DadosPagamentoForm.safeParse(Object.fromEntries(CAMPOS_PAGAMENTO.map((k) => [k, String(formData.get(k) ?? '')])));
+  if (!v.success) return primeiroErro(v.error);
+  const { error } = await (await supabaseServidor()).rpc('salvar_dados_pagamento', { p: v.data });
+  if (error) return doBanco(error);
+  recarregar();
+  return ok('Dados de pagamento salvos.');
+}
+
+const COLUNAS_PRAZO ='prazo_urgente_dias, prazo_alta_dias, prazo_normal_dias, prazo_baixa_dias';
 
 /** Impacto de cada prioridade mudada nas demandas abertas, sem gravar (simular_mudanca_prazo é stable). */
 export async function simularPrazos(formData: FormData): Promise<{ ok: true; impactos: ImpactoPrazo[]; semImpacto?: true } | { ok: false; erro: string }> {

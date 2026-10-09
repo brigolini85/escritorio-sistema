@@ -99,3 +99,38 @@ test('Configurações "Sim" chamando a ação salvarModelos direto: recusada (ex
     await db.from('configuracoes').update({ modelo_rapido: original }).eq('id', 1);
   }
 });
+
+test('Dados de pagamento (auditoria 5.1, D3): o administrador grava, o aviso aparece e o dono fica sabendo sem ver a chave', async ({ page }) => {
+  const antes = (await db.from('configuracoes').select('dados_pagamento').eq('id', 1).single()).data!.dados_pagamento;
+  await criarUsuarioTeste({ email: 'admin-pix@e2e.local', senha: SENHA, nome: 'Admin Pix', papel: 'admin' });
+  try {
+    await entrar(page, 'admin-pix@e2e.local', SENHA);
+    await abrirSecao(page, 'pagamento');
+    const cartao = page.getByRole('region', { name: 'Dados de pagamento do escritório' });
+    await expect(cartao.getByText('O agente só informa estes dados; orientação não muda isso')).toBeVisible({ timeout: 30_000 });
+    await cartao.getByLabel('Chave Pix').fill('chave-e2e-pix');
+    await cartao.getByLabel('Banco').fill('Banco e2e');
+    await cartao.getByRole('button', { name: 'Salvar dados de pagamento' }).click();
+    await expect(page.getByText('Dados de pagamento salvos.')).toBeVisible();
+    await expect.poll(async () => (await db.from('configuracoes').select('dados_pagamento').eq('id', 1).single()).data?.dados_pagamento)
+      .toMatchObject({ pix: 'chave-e2e-pix', banco: 'Banco e2e' });
+    const { data: avisos } = await db.from('alertas').select('mensagem').like('mensagem', '%por Admin Pix (dados de pagamento do escritório)');
+    expect(avisos?.length).toBeGreaterThan(0);
+    expect(JSON.stringify(avisos)).not.toContain('chave-e2e-pix');
+  } finally {
+    await db.from('configuracoes').update({ dados_pagamento: antes }).eq('id', 1);
+    await db.from('alertas').delete().like('mensagem', '%por Admin Pix (dados de pagamento do escritório)');
+  }
+});
+
+test('Configurações "Sim" (auditoria 6.7): sem Mensagens nem Dados de pagamento; pedir pela URL abre o Expediente', async ({ page }) => {
+  const ana = await criarUsuarioTeste({ email: 'ana-msg@e2e.local', senha: SENHA, nome: 'Ana Msg', papel: 'atendente', setores: ['Fiscal'] });
+  await db.from('usuario_permissoes').update({ nivel: 'sim' }).eq('usuario_id', ana).eq('modulo', 'configuracoes');
+  await entrar(page, 'ana-msg@e2e.local', SENHA);
+  for (const secao of ['mensagens', 'pagamento']) {
+    await abrirSecao(page, secao);
+    await expect(page).toHaveURL(/secao=expediente/, { timeout: 30_000 });
+  }
+  const menu = page.getByRole('navigation', { name: 'Seções das configurações' });
+  for (const nome of [/^Mensagens/, /^Dados de pagamento/]) await expect(menu.getByRole('link', { name: nome })).toHaveCount(0);
+});

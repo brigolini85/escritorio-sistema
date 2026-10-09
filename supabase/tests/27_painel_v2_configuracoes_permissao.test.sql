@@ -17,7 +17,10 @@ update public.usuarios set horario_acesso = '{"semana":null,"sabado":null,"domin
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"d2700000-0000-0000-0000-00000000000b","role":"authenticated"}', true);
 select is((select count(*)::int from public.configuracoes), 1, 'Configurações Sim: lê');
-select lives_ok($$ update public.configuracoes set aviso_login = 'Recado C' where id = 1 $$, 'Configurações Sim: muda o aviso do login');
+-- Auditoria 6.7: o aviso do login passou a ser só do administrador (antes "Configurações: Sim" mudava).
+select throws_ok($$ update public.configuracoes set aviso_login = 'Recado C' where id = 1 $$,
+  'P0001', 'Só o administrador muda as mensagens automáticas, o aviso do login e os dados de pagamento.',
+  'Configurações Sim: não muda o aviso do login');
 select throws_ok($$ update public.configuracoes set teto_ia_usd = 999 where id = 1 $$,
   'P0001', 'Só o administrador muda o teto de IA, os alertas e a pausa do agente.', 'não muda o teto (P12)');
 select throws_ok($$ update public.configuracoes set agente_pausado = true where id = 1 $$,
@@ -35,7 +38,8 @@ select lives_ok($$ update public.configuracoes set teto_ia_usd = 999 where id = 
 select set_config('request.jwt.claims', '{"sub":"d2700000-0000-0000-0000-00000000000d","role":"authenticated"}', true);
 select lives_ok($$ update public.configuracoes set aviso_login = 'Fora do horário C' where id = 1 $$, 'fora do horário a alteração não acha a linha');
 reset role;
-select is((select aviso_login from public.configuracoes where id = 1), 'Recado C', 'fora do horário nada mudou');
+-- Auditoria 6.7: o "Recado C" de cima não grava mais; a afirmação fica só no que importa aqui.
+select isnt((select aviso_login from public.configuracoes where id = 1), 'Fora do horário C', 'fora do horário nada mudou');
 
 select * from finish();
 rollback;
