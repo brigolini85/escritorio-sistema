@@ -1,7 +1,8 @@
 -- Auditoria 4.8, 4.9, 4.13 e 4.15: monitoramento que mostra o que importa.
 --   * indicadores_saude: o /saude passa a medir mensagens de cliente atrasadas (mais de 5 min e menos de 24 h), envios com
---     falha na última hora e, para o alerta diário, as mensagens esquecidas há mais de 24 h. Conversa com pessoa (atendente
---     assumiu ou esperando pessoa) fica de fora: ali a demora é da equipe, não do sistema.
+--     falha na última hora (em conversas distintas) e, para o alerta diário, as mensagens esquecidas há mais de 24 h.
+--     Conversa com pessoa (atendente assumiu ou esperando pessoa) fica de fora: ali a demora é da equipe, não do sistema.
+--   * marcar_aviso_janela: alerta no máximo uma vez por janela móvel (a marca é desfeita se o alerta não sair).
 --   * ia_falhas_seguidas + registrar_resultado_ia: 3 falhas seguidas da IA, de conversas diferentes, em 10 min = falha
 --     geral. Contada no banco para valer entre processos; um sucesso no meio zera.
 --   * uso_ia.turno: liga a chamada ao modelo à vez (decisões e saídas já têm o turno).
@@ -57,7 +58,8 @@ begin
    where m.direcao = 'entrada' and m.processada_em is null and m.criado_em <= now() - interval '24 hours'
      and c.estado = 'agente' and c.aguardando_pessoa_desde is null;
 
-  select count(*) into v_falhas
+  -- Revisão: conversas, não mensagens (um número ruim com novas tentativas não segura o 503 por horas).
+  select count(distinct m.conversa_id) into v_falhas
     from public.mensagens m
    where m.direcao = 'saida' and m.status_envio in ('falhou', 'incerto') and m.criado_em > now() - interval '1 hour';
 
@@ -69,3 +71,20 @@ grant execute on function public.indicadores_saude() to service_role;
 -- As saídas com falha da última hora (o índice de entrada não processada já existe: mensagens_entrada_nao_processada_idx).
 create index if not exists mensagens_saida_falha_idx on public.mensagens (criado_em)
   where direcao = 'saida' and status_envio in ('falhou', 'incerto');
+
+-- Revisão: alerta no máximo uma vez a cada p_minutos (janela móvel, não a hora do relógio). Marca e devolve true se a chave
+-- não existe ou foi marcada há mais de p_minutos; o trabalhador apaga a marca se o alerta não sair. Só o trabalhador.
+create function public.marcar_aviso_janela(p_chave text, p_minutos int) returns boolean
+language plpgsql volatile security definer set search_path = '' as $$
+declare v_linhas int;
+begin
+  if p_chave is null or char_length(p_chave) = 0 or p_minutos is null or p_minutos < 1 then
+    raise exception 'Chave ou janela inválida' using errcode = '22023';
+  end if;
+  insert into public.avisos_unicos as a (chave) values (p_chave)
+  on conflict (chave) do update set criado_em = now() where a.criado_em < now() - make_interval(mins => p_minutos);
+  get diagnostics v_linhas = row_count;
+  return v_linhas > 0;
+end $$;
+revoke execute on function public.marcar_aviso_janela(text, int) from public, anon, authenticated;
+grant execute on function public.marcar_aviso_janela(text, int) to service_role;

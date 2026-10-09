@@ -2677,6 +2677,9 @@ isOneToOne: false
 "marcar_arquivos_removidos":
 { Args: { "p_ids": (string)[] }; Returns: number
                            },
+"marcar_aviso_janela":
+{ Args: { "p_chave": string,"p_minutos": number }; Returns: boolean
+                           },
 "marcar_aviso_limite_dia":
 { Args: { "p_telefone": string }; Returns: boolean
                            },

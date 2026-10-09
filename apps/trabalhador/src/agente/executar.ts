@@ -177,6 +177,7 @@ export async function executarAgente(
     // A cada rodada: selecionar_empresa pode ter trocado a empresa em foco (e com ela as orientações da empresa).
     const { pedido, cortadas } = montarPedido(ctx, messages, papel);
     const r = await d.ia.criar(pedido);
+    d.aoResponderModelo?.();
     await registrarUso(d, ctx, r, papel, estado.turno);
     // Só depois de a IA responder: o registro não pode contar como "o agente já agiu" numa falha temporária antes disso.
     if (cortadas.length && !cortesVerificados) {

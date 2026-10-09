@@ -78,21 +78,36 @@ export async function alertaEntradasEsquecidas(d: Pick<DepsTarefas, 'repos' | 'a
   const { entradasEsquecidas: n } = await d.repos.indicadoresSaude();
   if (n === 0) return 0;
   const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d.relogio());
-  if (!(await d.repos.marcarAvisoUnico(`entradas-esquecidas:${dia}`))) return n;
+  const chave = `entradas-esquecidas:${dia}`;
+  if (!(await d.repos.marcarAvisoUnico(chave))) return n;
   const quantas = n === 1 ? '1 mensagem de cliente está' : `${n} mensagens de cliente estão`;
-  await d.alertas.alertar({ nivel: 'operacional',
-    mensagem: `${quantas} sem resposta há mais de 24 h. Abra o Atendimento e assuma essas conversas.` });
+  try {
+    await d.alertas.alertar({ nivel: 'operacional',
+      mensagem: `${quantas} sem resposta há mais de 24 h. Abra o Atendimento e assuma essas conversas.` });
+  } catch (e) {
+    // Revisão: o alerta não saiu; sem a marca, a próxima rodada (5 min) tenta de novo.
+    await d.repos.desmarcarAvisoUnico(chave).catch((e2) => console.error('[esquecidas] marca não desfeita', e2));
+    throw e;
+  }
   return n;
 }
 
 /**
  * Revisão da Task 9 (auditoria 3.2): mensagem do agente ou do sistema "incerto" (a Z-API pode ter entregado) que nenhum
  * eco confirmou em 10 min: a equipe confere no WhatsApp. Uma vez por mensagem (marca no banco); só os 4 últimos dígitos.
+ * Revisão da Task 14: aviso que não saiu desfaz as marcas daquela conversa (o próximo batimento avisa); as outras seguem.
  */
 export async function avisarIncertosAntigos(d: Pick<DepsTarefas, 'repos' | 'alertas'>): Promise<void> {
+  let erro: unknown;
   for (const c of await d.repos.marcarIncertosAntigos()) {
-    await d.alertas.alertar({ nivel: 'aviso', mensagem: `Mensagem para …${c.telefone.slice(-4)} não confirmada há 10 min; confira no WhatsApp` });
+    try {
+      await d.alertas.alertar({ nivel: 'aviso', mensagem: `Mensagem para …${c.telefone.slice(-4)} não confirmada há 10 min; confira no WhatsApp` });
+    } catch (e) {
+      erro ??= e;
+      await d.repos.desmarcarIncertosDaConversa(c.conversaId).catch((e2) => console.error('[incerto] marca não desfeita', c.conversaId, e2));
+    }
   }
+  if (erro) throw erro;
 }
 
 export async function alertaFila(d: DepsTarefas): Promise<number> {

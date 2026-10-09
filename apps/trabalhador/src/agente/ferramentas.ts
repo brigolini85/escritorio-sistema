@@ -24,6 +24,8 @@ import { lerReferenciaDoPerfil, lerSkillDoPerfil } from './skills';
  */
 export type DepsAgente = {
   repos: Repos; envio: DepsEnvio; ia: ClienteIa; prazoVez?: number; orcamento?: OrcamentoVez; turno?: string; sinalVez?: AbortSignal;
+  /** Auditoria 4.8 (revisão): chamado depois de cada resposta do modelo (a vez sabe que a IA respondeu de verdade). */
+  aoResponderModelo?: () => void;
 };
 /**
  * Auditoria 4.11 e D2: o gasto do telefone hoje e do mês antes desta vez, os limites e o que esta vez já gastou (somado a cada

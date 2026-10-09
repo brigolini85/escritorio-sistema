@@ -2,7 +2,7 @@
 -- IA (3 conversas diferentes seguidas em 10 min) é contada no banco; uso_ia guarda o turno.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(26);
 
 -- O banco local é compartilhado com os testes do trabalhador: começa sem mensagens nem falhas (o rollback devolve).
 delete from public.mensagens;
@@ -53,14 +53,16 @@ insert into public.mensagens (conversa_id, direcao, autor, tipo, conteudo, criad
   ('e1310000-0000-0000-0000-0000000000c1', 'entrada', 'cliente', 'texto', 'esquecida 2', now() - interval '40 hours');
 select is((public.indicadores_saude() ->> 'entradas_esquecidas')::int, 2, 'conta mensagens, de todas as conversas');
 
--- 16–17: envios com falha na última hora (falhou e incerto)
+-- 16–17: envios com falha na última hora (falhou e incerto), contados por conversa (revisão: um número ruim não basta)
 insert into public.mensagens (conversa_id, direcao, autor, tipo, conteudo, status_envio, criado_em) values
   ('e1310000-0000-0000-0000-0000000000c1', 'saida', 'agente', 'texto', 'a', 'falhou', now() - interval '10 minutes'),
-  ('e1310000-0000-0000-0000-0000000000c1', 'saida', 'agente', 'texto', 'b', 'incerto', now() - interval '20 minutes'),
-  ('e1310000-0000-0000-0000-0000000000c1', 'saida', 'atendente', 'texto', 'c', 'falhou', now() - interval '30 minutes'),
-  ('e1310000-0000-0000-0000-0000000000c1', 'saida', 'agente', 'texto', 'd', 'falhou', now() - interval '2 hours'),
-  ('e1310000-0000-0000-0000-0000000000c1', 'saida', 'agente', 'texto', 'e', 'enviada', now() - interval '5 minutes');
-select is((public.indicadores_saude() ->> 'envios_com_falha')::int, 3, 'falhou e incerto da última hora; a de 2 h e a enviada não contam');
+  ('e1310000-0000-0000-0000-0000000000c1', 'saida', 'agente', 'texto', 'a2', 'falhou', now() - interval '9 minutes'),
+  ('e1310000-0000-0000-0000-0000000000c2', 'saida', 'agente', 'texto', 'b', 'incerto', now() - interval '20 minutes'),
+  ('e1310000-0000-0000-0000-0000000000c3', 'saida', 'atendente', 'texto', 'c', 'falhou', now() - interval '30 minutes'),
+  ('e1310000-0000-0000-0000-0000000000c4', 'saida', 'agente', 'texto', 'd', 'falhou', now() - interval '2 hours'),
+  ('e1310000-0000-0000-0000-0000000000c4', 'saida', 'agente', 'texto', 'e', 'enviada', now() - interval '5 minutes');
+select is((public.indicadores_saude() ->> 'envios_com_falha')::int, 3,
+  'conversas com falhou ou incerto na última hora (duas falhas da mesma contam uma); a de 2 h e a enviada não contam');
 select is(public.indicadores_saude() ?& array['conversas_atrasadas', 'envios_com_falha', 'entradas_esquecidas'], true, 'as três chaves');
 
 -- 18–22: falha geral da IA: 3 falhas seguidas de conversas diferentes em 10 min; um sucesso no meio zera
@@ -74,6 +76,13 @@ update public.ia_falhas_seguidas set criado_em = now() - interval '11 minutes' w
 select public.registrar_resultado_ia('e1310000-0000-0000-0000-0000000000c2', false);
 select is(public.registrar_resultado_ia('e1310000-0000-0000-0000-0000000000c4', false), true,
   'c1, c2 e c4 nos últimos 10 min (a de 11 min saiu): falha geral');
+
+-- 23–26: alerta numa janela móvel (revisão: não a hora do relógio)
+select ok(not has_function_privilege('authenticated', 'public.marcar_aviso_janela(text, integer)', 'execute'), 'o painel não marca aviso na janela');
+select is(public.marcar_aviso_janela('teste-131', 60), true, 'a primeira marca');
+select is(public.marcar_aviso_janela('teste-131', 60), false, 'dentro da janela: não marca de novo');
+update public.avisos_unicos set criado_em = now() - interval '61 minutes' where chave = 'teste-131';
+select is(public.marcar_aviso_janela('teste-131', 60), true, 'passada a janela: marca de novo');
 
 select * from finish();
 rollback;

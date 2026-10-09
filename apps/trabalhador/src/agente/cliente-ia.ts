@@ -17,16 +17,34 @@ export function erroDaIa(e: unknown): boolean {
   return e instanceof Anthropic.APIError;
 }
 
+/** O `type` do corpo do erro da API ({ type: 'error', error: { type } }). */
+function tipoDoErro(e: InstanceType<typeof Anthropic.APIError>): string | undefined {
+  const corpo = e.error as { type?: unknown; error?: { type?: unknown } } | undefined;
+  const t = corpo?.error?.type ?? corpo?.type;
+  return typeof t === 'string' ? t : undefined;
+}
+
 /**
- * Auditoria 4.8: erro que vale para todas as conversas (chave recusada, conta sem permissão, limite de gasto da conta), e
- * não só para esta. Devolve o motivo curto para o alerta ao dono, ou null.
+ * Auditoria 4.8: erro que vale para todas as conversas (chave recusada, conta sem permissão, cobrança ou limite de gasto da
+ * conta), e não só para esta. Devolve o motivo curto para o alerta ao dono, ou null.
+ * Revisão: a cobrança pode vir como 402 ou `billing_error`, e o limite de uso em outro status (não só 400).
  */
 export function falhaGeralIa(e: unknown): string | null {
   if (!(e instanceof Anthropic.APIError)) return null;
   if (e.status === 401) return 'chave da API recusada';
   if (e.status === 403) return 'sem permissão na conta da API';
-  if (e.status === 400 && /credit balance|usage limits?|spend(ing)? limit/i.test(e.message)) return 'limite de gasto da conta atingido';
+  if (e.status === 402 || tipoDoErro(e) === 'billing_error' || /credit balance|usage limits?|spend(ing)? limit/i.test(e.message)) {
+    return 'limite de gasto da conta atingido';
+  }
   return null;
+}
+
+/**
+ * Auditoria 4.8 (revisão): só a falha que não depende da conversa (rede, 429, 5xx) entra na sequência de "3 conversas
+ * seguidas". Um 400 próprio da conversa (imagem ruim, prompt longo) não; chave e cobrança já avisam sozinhas.
+ */
+export function falhaQueContaNaSequencia(e: unknown): boolean {
+  return erroTemporarioIa(e) && falhaGeralIa(e) === null;
 }
 
 /** Erros em que vale tentar de novo mais tarde (rede, limite de taxa, instabilidade). */

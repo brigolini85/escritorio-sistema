@@ -485,6 +485,23 @@ export function criarRepos(db: Db) {
       return Boolean(checar(await db.rpc('marcar_aviso_unico', { p_chave: chave }), 'marcarAvisoUnico'));
     },
 
+    /** Revisão da Task 14: true se a chave não foi marcada nos últimos `minutos` (janela móvel); marca agora. */
+    async marcarAvisoJanela(chave: string, minutos: number): Promise<boolean> {
+      return Boolean(checar(await db.rpc('marcar_aviso_janela', { p_chave: chave, p_minutos: minutos }), 'marcarAvisoJanela'));
+    },
+
+    /** Revisão da Task 14: o alerta não saiu; a marca some e a próxima rodada tenta de novo. */
+    async desmarcarAvisoUnico(chave: string): Promise<void> {
+      checar(await db.from('avisos_unicos').delete().eq('chave', chave), 'desmarcarAvisoUnico');
+    },
+
+    /** Revisão da Task 14: o aviso das incertas desta conversa não saiu; as marcas delas somem (o próximo batimento avisa). */
+    async desmarcarIncertosDaConversa(conversaId: string): Promise<void> {
+      const ids = checar(await db.from('mensagens').select('id').eq('conversa_id', conversaId).eq('direcao', 'saida')
+        .eq('status_envio', 'incerto'), 'desmarcarIncertosDaConversa').map((m) => `incerto:${m.id}`);
+      if (ids.length) checar(await db.from('avisos_unicos').delete().in('chave', ids), 'desmarcarIncertosDaConversa');
+    },
+
     /** Revisão da Task 9: conversas com mensagem do agente ou do sistema "incerto" há mais de 10 min, cada uma avisada uma vez. */
     async marcarIncertosAntigos(): Promise<{ conversaId: string; telefone: string }[]> {
       const linhas = checar(await db.rpc('marcar_incertos_antigos'), 'marcarIncertosAntigos') ?? [];

@@ -11,9 +11,10 @@ import { LimitadorEnvio } from '../src/envio';
 import { FILAS } from '../src/fila';
 import { criarArmazenamento } from '../src/midia/armazenamento';
 import { MSG_IA_RECUSANDO, processarConversa, type DepsProcessamento } from '../src/processar-conversa';
+import { falhaGeralIa } from '../src/agente/cliente-ia';
 import { limparERegistrar } from '../src/retencao';
 import { criarServidor } from '../src/servidor';
-import { alertaEntradasEsquecidas, alertasPeriodicos, batimento, type DepsTarefas } from '../src/tarefas';
+import { alertaEntradasEsquecidas, alertasPeriodicos, avisarIncertosAntigos, batimento, type DepsTarefas } from '../src/tarefas';
 import { contatoComEmpresas, db, repos } from './apoio/cenario';
 import { EmailFalso } from './apoio/email-falso';
 import { FilaFalsa } from './apoio/fila-falsa';
@@ -56,6 +57,9 @@ const erro401 = () => new Anthropic.AuthenticationError(401, { type: 'error', er
 const erroCredito = () => new Anthropic.BadRequestError(400,
   { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API.' } }, undefined, new Headers());
 const semRede = () => new Anthropic.APIConnectionError({ message: 'sem rede' });
+const erroImagem = () => new Anthropic.BadRequestError(400,
+  { type: 'error', error: { type: 'invalid_request_error', message: 'messages.0.content.1.image.source.base64: image exceeds 5 MB maximum' } },
+  undefined, new Headers());
 const calar = () => vi.spyOn(console, 'error').mockImplementation(() => {});
 
 beforeEach(async () => {
@@ -134,6 +138,104 @@ describe('falha geral da IA (auditoria 4.8)', () => {
       { nivel: 'critico', mensagem: MSG_IA_RECUSANDO('falhas seguidas em conversas diferentes') }]);
     expect(Object.keys(await repos.sinaisVida())).toContain('ia_falha');
   });
+
+  // Revisão (fix round 1): só rede, 429 e 5xx contam na sequência; um 400 de uma conversa (imagem ruim, prompt longo) não.
+  it('400 próprio de cada conversa em 3 conversas: não é falha geral', async () => {
+    const erro = calar();
+    for (const [i, t] of ['5531999990001', '5531999990002', '5531999990003'].entries()) {
+      const c = await repos.obterOuCriarConversa(t, null);
+      await entrada(c.id, `I${i}`);
+      await processarConversa(depsProc(new IaRoteirizada([erroImagem()])), c.id, true);
+    }
+    erro.mockRestore();
+    expect(alertados.filter((a) => a.nivel === 'critico')).toEqual([]);
+    expect(Object.keys(await repos.sinaisVida())).not.toContain('ia_falha');
+  });
+
+  it('vez que para antes de chamar o modelo (tempo esgotado) não zera a sequência', async () => {
+    const erro = calar();
+    const falhar = async (t: string, p: string) => {
+      const c = await repos.obterOuCriarConversa(t, null);
+      await entrada(c.id, p);
+      await processarConversa(depsProc(new IaRoteirizada([semRede()])), c.id, true);
+    };
+    await falhar('5531999990001', 'X1');
+    await falhar('5531999990002', 'X2');
+    // A vez passa do prazo logo depois de registrar o começo: o agente para sem chamar o modelo.
+    const real = Date.now.bind(Date);
+    let adiantar = false;
+    const relogio = vi.spyOn(Date, 'now').mockImplementation(() => real() + (adiantar ? 8 * 60_000 : 0));
+    const r = { ...repos, registrarDecisao: async (x: Parameters<Repos['registrarDecisao']>[0]) => {
+      if (x.etapa === 'inicio_vez') adiantar = true;
+      return repos.registrarDecisao(x);
+    } } as Repos;
+    const c = await repos.obterOuCriarConversa('5531999990004', null);
+    await entrada(c.id, 'T1');
+    const ia = new IaRoteirizada([]);
+    expect(await processarConversa(depsProc(ia, { repos: r }), c.id, false)).toBe('escalado');
+    relogio.mockRestore();
+    expect(ia.recebidos).toHaveLength(0);
+    await falhar('5531999990003', 'X3');
+    erro.mockRestore();
+    expect(alertados.filter((a) => a.nivel === 'critico').map((a) => a.mensagem)).toEqual([
+      MSG_IA_RECUSANDO('falhas seguidas em conversas diferentes')]);
+  });
+
+  it('cobrança: 402, billing_error e limite de uso em outro status também são falha geral', () => {
+    expect(falhaGeralIa(new Anthropic.APIError(402, { type: 'error', error: { type: 'billing_error', message: 'pagamento' } }, undefined, new Headers())))
+      .toBe('limite de gasto da conta atingido');
+    expect(falhaGeralIa(new Anthropic.BadRequestError(400, { type: 'error', error: { type: 'billing_error', message: 'x' } }, undefined, new Headers())))
+      .toBe('limite de gasto da conta atingido');
+    expect(falhaGeralIa(new Anthropic.RateLimitError(429,
+      { type: 'error', error: { type: 'rate_limit_error', message: 'You have reached your specified workspace API usage limits.' } }, undefined, new Headers())))
+      .toBe('limite de gasto da conta atingido');
+    expect(falhaGeralIa(erroImagem())).toBeNull();
+    expect(falhaGeralIa(semRede())).toBeNull();
+  });
+
+  it('402 numa conversa: alerta crítico', async () => {
+    const c = await repos.obterOuCriarConversa('5531999990001', null);
+    await entrada(c.id, 'B1');
+    const erro = calar();
+    await processarConversa(depsProc(new IaRoteirizada([
+      new Anthropic.APIError(402, { type: 'error', error: { type: 'billing_error', message: 'pagamento' } }, undefined, new Headers())])), c.id, false);
+    erro.mockRestore();
+    expect(alertados).toEqual([{ nivel: 'critico', mensagem: MSG_IA_RECUSANDO('limite de gasto da conta atingido') }]);
+  });
+
+  it('janela de 60 min (não a hora do relógio): 59 min depois não repete; 61 min depois, sim', async () => {
+    const erro = calar();
+    const falhar401 = async (t: string, p: string) => {
+      const c = await repos.obterOuCriarConversa(t, null);
+      await entrada(c.id, p);
+      await processarConversa(depsProc(new IaRoteirizada([erro401()])), c.id, false);
+    };
+    await falhar401('5531999990001', 'K1');
+    await db.from('avisos_unicos').update({ criado_em: minutosAtras(59) }).like('chave', 'ia-falha%');
+    await falhar401('5531999990002', 'K2');
+    expect(alertados).toHaveLength(1);
+    await db.from('avisos_unicos').update({ criado_em: minutosAtras(61) }).like('chave', 'ia-falha%');
+    await falhar401('5531999990003', 'K3');
+    erro.mockRestore();
+    expect(alertados).toHaveLength(2);
+  });
+
+  it('o alerta falhou: a marca é desfeita e a próxima falha avisa', async () => {
+    const erro = calar();
+    let falhaAlerta = true;
+    const alertas = { alertar: async (a: { nivel: 'critico' | 'operacional' | 'aviso'; mensagem: string }) => {
+      if (falhaAlerta) throw new Error('e-mail fora');
+      alertados.push(a);
+    } };
+    for (const [i, t] of ['5531999990001', '5531999990002'].entries()) {
+      const c = await repos.obterOuCriarConversa(t, null);
+      await entrada(c.id, `L${i}`);
+      await processarConversa(depsProc(new IaRoteirizada([erro401()]), { alertas }), c.id, false);
+      falhaAlerta = false;
+    }
+    erro.mockRestore();
+    expect(alertados).toEqual([{ nivel: 'critico', mensagem: MSG_IA_RECUSANDO('chave da API recusada') }]);
+  });
 });
 
 describe('/saude (auditoria 4.9)', () => {
@@ -171,17 +273,32 @@ describe('/saude (auditoria 4.9)', () => {
     expect((await detalhe()).status).toBe(200);
   });
 
-  it('mais de 5 envios com falha ou incertos na última hora: 503 com envios_com_falha', async () => {
-    const conversa = await repos.obterOuCriarConversa('5531999990009', null);
-    const saida = (status: 'falhou' | 'incerto') => db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'saida', autor: 'agente',
-      tipo: 'texto', conteudo: 'x', status_envio: status }).then((r) => expect(r.error).toBeNull());
-    for (let i = 0; i < 3; i++) await saida('falhou');
-    for (let i = 0; i < 2; i++) await saida('incerto');
+  // Revisão (fix round 1): conta conversas, não mensagens: um número ruim com novas tentativas não segura o 503 por horas.
+  it('envios com falha ou incertos na última hora em mais de 5 conversas: 503 com envios_com_falha', async () => {
+    const saida = async (telefone: string, status: 'falhou' | 'incerto') => {
+      const conversa = await repos.obterOuCriarConversa(telefone, null);
+      const r = await db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'saida', autor: 'agente', tipo: 'texto', conteudo: 'x', status_envio: status });
+      expect(r.error).toBeNull();
+    };
+    for (let i = 0; i < 3; i++) await saida(`553199999001${i}`, 'falhou');
+    for (let i = 3; i < 5; i++) await saida(`553199999001${i}`, 'incerto');
     expect((await detalhe()).status).toBe(200);
-    await saida('falhou');
+    await saida('5531999990015', 'falhou');
     const r = await detalhe();
     expect(r.status).toBe(503);
     expect(r.corpo.falhas).toEqual(['envios_com_falha']);
+    expect(r.corpo.indicadores.envios_com_falha).toBe(6);
+  });
+
+  it('6 falhas numa conversa só: 200', async () => {
+    const conversa = await repos.obterOuCriarConversa('5531999990009', null);
+    for (let i = 0; i < 6; i++) {
+      const r = await db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'saida', autor: 'agente', tipo: 'texto', conteudo: 'x', status_envio: 'falhou' });
+      expect(r.error).toBeNull();
+    }
+    const r = await detalhe();
+    expect(r.status).toBe(200);
+    expect(r.corpo.indicadores.envios_com_falha).toBe(1);
   });
 
   it('IA com falha geral nos últimos 15 min: 503 com ia', async () => {
@@ -204,6 +321,18 @@ describe('mensagem esquecida há mais de 24 h (auditoria 4.13)', () => {
     expect(alertados).toEqual([{ nivel: 'operacional',
       mensagem: '2 mensagens de cliente estão sem resposta há mais de 24 h. Abra o Atendimento e assuma essas conversas.' }]);
   });
+  it('o alerta falhou: a marca do dia é desfeita e a próxima rodada avisa', async () => {
+    const { conversa } = await contatoComEmpresas(['Indústria X']);
+    await entrada(conversa.id, 'E1', 25 * 60);
+    const d = depsTarefas();
+    const alertar = d.alertas.alertar;
+    d.alertas = { alertar: async () => { throw new Error('e-mail fora'); } };
+    await expect(alertaEntradasEsquecidas(d)).rejects.toThrow('e-mail fora');
+    d.alertas = { alertar };
+    await alertaEntradasEsquecidas(d);
+    expect(alertados).toHaveLength(1);
+  });
+
   it('sem mensagem esquecida: nada', async () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await entrada(conversa.id, 'E1', 60);
@@ -259,6 +388,22 @@ describe('limpeza diária (auditoria 6.5)', () => {
     expect(criticos[0]).toContain('limpeza diária');
   });
 
+  it('o alerta crítico falhou: a marca do dia é desfeita e a nova tentativa do job avisa', async () => {
+    let falhaAlerta = true;
+    const criticos: string[] = [];
+    const alertas = { alertar: async (a: { nivel: string; mensagem: string }) => {
+      if (falhaAlerta) throw new Error('e-mail fora');
+      if (a.nivel === 'critico') criticos.push(a.mensagem);
+    } };
+    const erro = calar();
+    const agora = new Date('2026-09-29T12:00:00Z');
+    await expect(limparERegistrar({ db: dbComFalhaNasDecisoes(), midia: criarArmazenamento(db), repos, alertas }, agora)).rejects.toThrow();
+    falhaAlerta = false;
+    await expect(limparERegistrar({ db: dbComFalhaNasDecisoes(), midia: criarArmazenamento(db), repos, alertas }, agora)).rejects.toThrow();
+    erro.mockRestore();
+    expect(criticos).toHaveLength(1);
+  });
+
   it('tudo certo: o resultado com as contagens fica em alertas (operacional), sem alerta crítico', async () => {
     const criticos: string[] = [];
     const alertas = { alertar: async (a: { nivel: string; mensagem: string }) => { if (a.nivel === 'critico') criticos.push(a.mensagem); } };
@@ -268,5 +413,20 @@ describe('limpeza diária (auditoria 6.5)', () => {
     expect(linhas).toEqual([{ nivel: 'operacional',
       mensagem: 'Limpeza diária feita: mensagens: 0, arquivos: 0, decisoes: 0, assistente: 0, simulacoes: 0, sugestoes: 0.' }]);
     expect(criticos).toEqual([]);
+  });
+});
+
+describe('mensagem incerta sem eco (Task 9, revisão desta task)', () => {
+  it('o aviso falhou: a marca é desfeita e o próximo batimento avisa', async () => {
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    await db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'saida', autor: 'agente', tipo: 'texto', conteudo: 'Segue',
+      status_envio: 'incerto', criado_em: minutosAtras(15) });
+    const erro = calar();
+    await expect(avisarIncertosAntigos({ repos, alertas: { alertar: async () => { throw new Error('painel fora'); } } })).rejects.toThrow('painel fora');
+    erro.mockRestore();
+    const avisos: string[] = [];
+    await avisarIncertosAntigos({ repos, alertas: { alertar: async (a) => { avisos.push(a.mensagem); } } });
+    await avisarIncertosAntigos({ repos, alertas: { alertar: async (a) => { avisos.push(a.mensagem); } } });
+    expect(avisos).toEqual(['Mensagem para …0001 não confirmada há 10 min; confira no WhatsApp']);
   });
 });

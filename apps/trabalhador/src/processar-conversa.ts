@@ -3,7 +3,7 @@ import { MOTIVOS_PASSAGEM, custoTranscricaoUsd, empresaDoUso, mesReferencia, mot
 import { PREFIXO_TENTATIVA_IA80, type Conversa, type Mensagem } from '@escritorio/db';
 import type { Alertas } from './alertas';
 import { atenderComAgentes, avisarRespostaAosPedidos } from './agente/atender';
-import { erroDaIa, erroTemporarioIa, falhaGeralIa } from './agente/cliente-ia';
+import { erroDaIa, erroTemporarioIa, falhaGeralIa, falhaQueContaNaSequencia } from './agente/cliente-ia';
 import { carregarContexto } from './agente/contexto';
 import type { DepsAgente } from './agente/ferramentas';
 import { montarConteudoUsuario, type AnexoParaIa } from './agente/prompt';
@@ -450,13 +450,16 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   };
   if (d.sinalVez?.aborted) return travaPerdida();
   await registrarInicioVez(d, conversaId, custoAudio.clienteId, turno);
+  // Auditoria 4.8 (revisão): só uma chamada ao modelo que respondeu zera a sequência de falhas (a vez que para antes de
+  // chamar, por tempo ou limite de custo, não diz nada sobre a IA).
+  let modeloRespondeu = false;
+  const aoResponderModelo = () => { modeloRespondeu = true; };
   try {
     // Auditoria 4.11: a vez para entre as rodadas se o gasto dela passar do limite do número ou do teto do mês.
     const orcamento = { telefoneAntes: custoTelefone, limiteDia, mesAntes: custoMes, tetoMes: config.tetoIaUsd, gastoNaVez: 0 };
-    const r = await atenderComAgentes({ ...d, prazoVez, orcamento, turno }, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
+    const r = await atenderComAgentes({ ...d, prazoVez, orcamento, turno, aoResponderModelo }, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
     agenteAgiu = true;
-    // Auditoria 4.8: a IA respondeu; a conta de falhas seguidas zera (a parada pelo limite de custo não é resposta da IA).
-    if (!(r.status === 'escalar' && r.motivo === 'limite de custo')) await registrarResultadoIa(d, conversaId, null);
+    if (modeloRespondeu) await registrarResultadoIa(d, conversaId, null);
     if (d.sinalVez?.aborted) return travaPerdida();
     if (r.status === 'escalar') {
       if (await assumidaPorHumano(d, conversaId)) {
@@ -524,10 +527,16 @@ async function registrarInicioVez(d: DepsProcessamento, conversaId: string, clie
 /** Auditoria 4.8: o texto do alerta crítico ao dono quando a IA recusa os pedidos de todas as conversas. */
 export const MSG_IA_RECUSANDO = (motivo: string) => `A IA está recusando os pedidos: ${motivo}. As conversas estão indo para a equipe.`;
 
+/** Auditoria 4.8 (revisão): no máximo um alerta de falha geral da IA nesta janela móvel (não a hora do relógio). */
+const JANELA_ALERTA_IA_MIN = 60;
+const CHAVE_ALERTA_IA = 'ia-falha';
+
 /**
- * Auditoria 4.8: `erro` null = a IA respondeu (zera a conta). Com erro: falha geral (401/403, limite de gasto da conta, ou 3
- * conversas diferentes seguidas em 10 min, contadas no banco) grava o sinal ia_falha (o /saude mostra) e avisa o dono com
- * alerta crítico no máximo uma vez por hora (a marca no banco vale entre processos). Nunca derruba a vez.
+ * Auditoria 4.8: `erro` null = o modelo respondeu (zera a conta). Com erro: falha geral (401/403, cobrança ou limite de gasto
+ * da conta, ou 3 conversas diferentes seguidas em 10 min com falha de rede, 429 ou 5xx, contadas no banco) grava o sinal
+ * ia_falha (o /saude mostra) e avisa o dono com alerta crítico no máximo uma vez a cada 60 min (a marca no banco vale entre
+ * processos; se o alerta não sai, a marca é desfeita e a próxima falha tenta de novo). Um 400 próprio da conversa não conta.
+ * Nunca derruba a vez.
  */
 async function registrarResultadoIa(d: Pick<DepsProcessamento, 'repos' | 'alertas'>, conversaId: string, erro: unknown): Promise<void> {
   try {
@@ -536,13 +545,20 @@ async function registrarResultadoIa(d: Pick<DepsProcessamento, 'repos' | 'alerta
       return;
     }
     let motivo = falhaGeralIa(erro);
-    const seguidas = await d.repos.registrarResultadoIa(conversaId, false)
-      .catch((e) => { console.error('[ia] falha não contada', conversaId, e); return false; });
-    if (!motivo && seguidas) motivo = 'falhas seguidas em conversas diferentes';
+    if (!motivo && falhaQueContaNaSequencia(erro)) {
+      const seguidas = await d.repos.registrarResultadoIa(conversaId, false)
+        .catch((e) => { console.error('[ia] falha não contada', conversaId, e); return false; });
+      if (seguidas) motivo = 'falhas seguidas em conversas diferentes';
+    }
     if (!motivo) return;
     await d.repos.registrarSinalVida('ia_falha');
-    if (!(await d.repos.marcarAvisoUnico(`ia-falha:${new Date().toISOString().slice(0, 13)}`))) return;
-    await d.alertas.alertar({ nivel: 'critico', mensagem: MSG_IA_RECUSANDO(motivo) });
+    if (!(await d.repos.marcarAvisoJanela(CHAVE_ALERTA_IA, JANELA_ALERTA_IA_MIN))) return;
+    try {
+      await d.alertas.alertar({ nivel: 'critico', mensagem: MSG_IA_RECUSANDO(motivo) });
+    } catch (e) {
+      await d.repos.desmarcarAvisoUnico(CHAVE_ALERTA_IA).catch((e2) => console.error('[ia] marca do alerta não desfeita', e2));
+      throw e;
+    }
   } catch (e) {
     console.error('[ia] resultado da IA não registrado', conversaId, e);
   }

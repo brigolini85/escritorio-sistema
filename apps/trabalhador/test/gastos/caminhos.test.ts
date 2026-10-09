@@ -95,13 +95,12 @@ describe('uso_ia por caminho', () => {
     return { ana, conversa, empresas, ia };
   };
 
-  it('Sugerir resposta com várias empresas e nenhuma em foco: sem empresa no gasto (o prompt continua igual)', async () => {
+  it('Sugerir resposta com várias empresas e nenhuma em foco: sem empresa no gasto nem no prompt', async () => {
     const { ana, conversa, empresas, ia } = await sugerirSemFoco(['Empresa Z', 'Empresa W'], 'ana4@gastos.local', '5531999990005');
     expect(await usos()).toEqual([expect.objectContaining({ funcionalidade: 'sugerir_resposta', usuario_id: ana, conversa_id: conversa.id, cliente_id: null })]);
-    // O texto do prompt não muda: continua citando UMA empresa do contato (a "primeira" que buscarContato devolver:
-    // o embed contato_clientes não tem ORDER BY, então a ordem não é a de criação e não dá para exigir empresas[0]).
+    // Auditoria 1.4 (revisão, 02c794f): várias empresas sem foco não viram a primeira da lista; o prompt não cita nenhuma.
     const prompt = JSON.stringify(ia.recebidos[0]!.system);
-    expect(empresas.filter((e) => prompt.includes(`id ${e.id}`))).toHaveLength(1);
+    expect(empresas.filter((e) => prompt.includes(`id ${e.id}`))).toHaveLength(0);
   });
 
   it('Sugerir resposta com uma empresa só e nenhuma em foco: essa empresa', async () => {

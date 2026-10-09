@@ -92,7 +92,7 @@ const contagens = (r: ResultadoLimpeza) => Object.entries(r).map(([k, v]) => `${
  * e o erro segue para o job constar como falho.
  */
 export async function limparERegistrar(
-  d: { db: Db; midia: ArmazenamentoMidia; repos: Pick<Repos, 'registrarAlerta' | 'marcarAvisoUnico'>; alertas: Pick<Alertas, 'alertar'> },
+  d: { db: Db; midia: ArmazenamentoMidia; repos: Pick<Repos, 'registrarAlerta' | 'marcarAvisoUnico' | 'desmarcarAvisoUnico'>; alertas: Pick<Alertas, 'alertar'> },
   agora = new Date(),
 ): Promise<ResultadoLimpeza> {
   const registrar = (mensagem: string) => d.repos.registrarAlerta({ nivel: 'operacional', mensagem })
@@ -104,11 +104,17 @@ export async function limparERegistrar(
     const falhas = e instanceof ErroLimpeza ? e.falhas : [{ etapa: 'mensagens' as const, erro: e instanceof Error ? e.message : String(e) }];
     const parcial = e instanceof ErroLimpeza ? `; apagado: ${contagens(e.parcial)}` : '';
     await registrar(`Limpeza diária com falha em ${falhas.map((f) => `${f.etapa} (${f.erro})`).join('; ')}${parcial}.`);
+    const chave = `limpeza-falhou:${new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(agora)}`;
     try {
-      const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(agora);
-      if (await d.repos.marcarAvisoUnico(`limpeza-falhou:${dia}`)) {
-        await d.alertas.alertar({ nivel: 'critico',
-          mensagem: `A limpeza diária dos dados antigos falhou (${falhas.map((f) => f.etapa).join(', ')}). Veja os alertas do painel.` });
+      if (await d.repos.marcarAvisoUnico(chave)) {
+        try {
+          await d.alertas.alertar({ nivel: 'critico',
+            mensagem: `A limpeza diária dos dados antigos falhou (${falhas.map((f) => f.etapa).join(', ')}). Veja os alertas do painel.` });
+        } catch (e3) {
+          // Revisão: o alerta não saiu; sem a marca, a nova tentativa do job avisa.
+          await d.repos.desmarcarAvisoUnico(chave).catch((e4) => console.error('[retenção] marca do alerta não desfeita', e4));
+          throw e3;
+        }
       }
     } catch (e2) {
       console.error('[retenção] alerta de falha não enviado', e2);
