@@ -1,4 +1,4 @@
-import { caminhoDaEmpresa, telefoneDoWhatsApp } from '@escritorio/core';
+import { caminhoDaEmpresa, empresaDoUso, telefoneDoWhatsApp } from '@escritorio/core';
 import type { DocumentoEmpresa, Repos } from '@escritorio/db';
 import { EnvioIncerto, type CanalWhatsApp, type MensagemRecebida } from './canal/tipos';
 import { FILAS, type Fila } from './fila';
@@ -242,7 +242,11 @@ export async function verificarEnviadaPorMim(d: DepsEnvio, m: MensagemRecebida, 
   if (await d.repos.casarEcoSaida(conversa.id, m.texto, arquivoNome, m.idProvedor, ehArquivo)) return 'do-sistema';
   // Só eco sem texto (arquivo): o sistema e o painel mandam arquivo sem legenda; texto digitado no celular não espera.
   if (podeEsperar && m.tipo !== 'texto' && (await d.repos.temSaidaPendenteRecente(conversa.id, 10))) return 'aguardar';
-  await d.repos.inserirSaidaExterna({ conversaId: conversa.id, clienteId: conversa.cliente_em_foco, idProvedor: m.idProvedor, conteudo: m.texto });
+  // Auditoria 1.4: o foco gravado só vale se a empresa ainda é do contato.
+  const contato = await d.repos.buscarContato(telefone);
+  await d.repos.inserirSaidaExterna({
+    conversaId: conversa.id, clienteId: empresaDoUso(conversa.cliente_em_foco, contato?.empresas ?? []), idProvedor: m.idProvedor, conteudo: m.texto,
+  });
   // Como assumir pelo painel: limpa a espera e grava o marco "assumida" (sem pessoa: o celular não diz quem respondeu).
   if (await d.repos.assumirPeloCelular(conversa.id)) await alertarRespostaPeloCelular(d, conversa.id, telefone);
   return 'humano';

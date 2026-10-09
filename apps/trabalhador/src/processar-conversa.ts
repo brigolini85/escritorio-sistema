@@ -18,6 +18,14 @@ export type DesfechoProcessamento = 'sem-mensagens' | 'assistente' | 'interno' |
   | 'trava-perdida';
 
 const TAMANHO_HISTORICO = 20;
+/** Auditoria 1.10: até quantos dias de histórico vão ao modelo quando o número é desconhecido. */
+const DIAS_HISTORICO_DESCONHECIDO = 30;
+
+/** O mais recente entre 30 dias atrás e a última troca de contato da conversa. */
+function inicioDoHistoricoDesconhecido(conversa: Conversa, agora: number): string {
+  const troca = conversa.contato_trocado_em ? Date.parse(conversa.contato_trocado_em) : 0;
+  return new Date(Math.max(agora - DIAS_HISTORICO_DESCONHECIDO * 86_400_000, troca)).toISOString();
+}
 /** Revisão geral I2: a vez do agente para de abrir rodadas depois disto (bem abaixo do prazo do job, EXPIRA_CONVERSA_SEGUNDOS). */
 export const PRAZO_VEZ_CONVERSA_MS = 7 * 60_000;
 /** Revisão geral I4: mais que isto de mensagens do agente na conversa nos últimos minutos = laço com resposta automática. */
@@ -142,13 +150,28 @@ async function prepararMidias(
   return anexos;
 }
 
+/**
+ * Auditoria 1.4 e 3.9: a empresa gravada na conversa só vale se ainda é do contato (empresaDoUso), também fora do motor.
+ * Sem conseguir ler o contato, nenhuma: melhor uma demanda sem empresa que na empresa errada.
+ */
+async function empresaDaConversa(d: Pick<DepsProcessamento, 'repos'>, conversa: Conversa): Promise<string | null> {
+  try {
+    const contato = await d.repos.buscarContato(conversa.telefone);
+    return empresaDoUso(conversa.cliente_em_foco, contato?.empresas ?? []);
+  } catch (e) {
+    console.error('[encaminhar] contato não lido; demanda sem empresa', conversa.id, e);
+    return null;
+  }
+}
+
 async function encaminharParaHumano(
   d: Pick<DepsProcessamento, 'repos' | 'envio'>, conversa: Conversa, motivo: string, textoCliente: string | null, abrirTriagem = true,
 ): Promise<void> {
+  const clienteId = await empresaDaConversa(d, conversa);
   const abertos = abrirTriagem ? await d.repos.chamadosAbertosDaConversa(conversa.id) : [];
   if (abrirTriagem && !abertos.some((c) => c.setor_id === null)) {
     await d.repos.abrirChamado({
-      clienteId: conversa.cliente_em_foco, conversaId: conversa.id, setorId: null, responsavelId: null,
+      clienteId, conversaId: conversa.id, setorId: null, responsavelId: null,
       titulo: motivo, resumo: 'Atendimento encaminhado automaticamente para a equipe.', foraDoContrato: false, origem: 'sistema',
     });
   }
@@ -157,7 +180,7 @@ async function encaminharParaHumano(
     const jaAvisado = ultimas.some((m) => m.direcao === 'saida' && m.conteudo === textoCliente);
     if (!jaAvisado) {
       // Falha de envio aqui não relança o job: relançar repetiria ferramentas já executadas (chamado duplicado).
-      await enviarDoSistema(d.envio, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: conversa.cliente_em_foco, autor: 'sistema', texto: textoCliente })
+      await enviarDoSistema(d.envio, { conversaId: conversa.id, telefone: conversa.telefone, clienteId, autor: 'sistema', texto: textoCliente })
         .catch((e) => console.error('[encaminhar] aviso ao cliente não enviado', e));
     }
   }
@@ -167,15 +190,18 @@ async function encaminharParaHumano(
  * Auditoria 3.12 e 4.16: o aviso de privacidade sai uma vez. Marca antes e envia depois; só quem marcou envia (duas vezes
  * ao mesmo tempo na conversa nova mandam um só). Resultado incerto conta como enviado (melhor perder um aviso numa falha
  * rara que mandar dois). Falha certa (não saiu): desmarca e o erro segue, para a nova tentativa mandar.
+ * `clienteId`: a empresa da regra única (empresaDoUso), nunca o foco gravado sem conferir (auditoria 1.4).
  */
-export async function enviarAvisoLgpd(d: Pick<DepsProcessamento, 'repos' | 'envio'>, conversa: Conversa, aviso: string): Promise<void> {
+export async function enviarAvisoLgpd(
+  d: Pick<DepsProcessamento, 'repos' | 'envio'>, conversa: Conversa, aviso: string, clienteId: string | null = null,
+): Promise<void> {
   if (conversa.aviso_lgpd_enviado_em) return;
   if (!(await d.repos.marcarAvisoLgpd(conversa.id))) return;
   const texto = aviso.trim();
   if (!texto) return;
   try {
     // Revisão da Task 9: fora do limite de avisos (um por conversa): sai na hora, antes da resposta, e nunca fica na fila.
-    await enviarDoSistema(d.envio, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: conversa.cliente_em_foco, autor: 'sistema', texto,
+    await enviarDoSistema(d.envio, { conversaId: conversa.id, telefone: conversa.telefone, clienteId, autor: 'sistema', texto,
       semLimite: true });
   } catch (e) {
     // Falha certa: a mensagem ficou "falhou" (não saiu); desmarca para a nova tentativa mandar.
@@ -345,7 +371,7 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   const config = await d.repos.obterConfiguracoes();
 
   // O texto é do dono (Configurações → Mensagens automáticas); vazio = não enviar aviso.
-  await enviarAvisoLgpd(d, conversa, config.mensagens.aviso_lgpd ?? '');
+  await enviarAvisoLgpd(d, conversa, config.mensagens.aviso_lgpd ?? '', custoAudio.clienteId);
 
   const ctx = await carregarContexto(d.repos, conversa, contato, config, d.relogio());
   conversa = ctx.conversa = await d.repos.obterConversa(conversaId);
@@ -404,7 +430,12 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
     return 'volume';
   }
 
-  const historico = (await d.repos.historico(conversaId, TAMANHO_HISTORICO + novas.length)).filter((m) => !ids.includes(m.id)).slice(-TAMANHO_HISTORICO);
+  // Auditoria 1.10: número desconhecido (reciclado pela operadora, contato arquivado) não recebe no modelo a conversa do dono
+  // anterior: só os últimos 30 dias e depois da última troca de contato da conversa.
+  const desconhecido = !contato || contato.empresas.length === 0;
+  const desdeHistorico = desconhecido ? inicioDoHistoricoDesconhecido(conversa, Date.now()) : undefined;
+  const historico = (await d.repos.historico(conversaId, TAMANHO_HISTORICO + novas.length, desdeHistorico))
+    .filter((m) => !ids.includes(m.id)).slice(-TAMANHO_HISTORICO);
   // Só as mensagens deste lote (já com transcrição): as que chegarem durante o processamento ficam para o próximo job.
   let desfecho: DesfechoProcessamento = 'agente';
   let agenteAgiu = false;

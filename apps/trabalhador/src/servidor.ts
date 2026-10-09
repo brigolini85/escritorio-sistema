@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { Writable } from 'node:stream';
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
-import { telefoneDoWhatsApp } from '@escritorio/core';
+import { empresaDoUso, telefoneDoWhatsApp } from '@escritorio/core';
 import type { Repos } from '@escritorio/db';
 import type { CanalWhatsApp } from './canal/tipos';
 import { FILAS, agendarProcessamento, type Fila } from './fila';
@@ -187,7 +187,8 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
     const conversa = await d.repos.obterOuCriarConversa(telefone, contato?.id ?? null);
     const { duplicada } = await d.repos.inserirMensagemEntrada({
       conversaId: conversa.id,
-      clienteId: conversa.cliente_em_foco,
+      // Auditoria 1.4 e 3.9: o foco gravado só vale se a empresa ainda é do contato.
+      clienteId: empresaDoUso(conversa.cliente_em_foco, contato?.empresas ?? []),
       idProvedor: m.idProvedor,
       tipo: m.tipo === 'outro' ? 'texto' : m.tipo,
       conteudo: m.tipo === 'outro' ? '[mensagem de tipo não suportado]' : m.texto,

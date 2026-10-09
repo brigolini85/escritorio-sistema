@@ -6,8 +6,11 @@ const TEL_A = '5531999990501';
 const TEL_B = '5531999990502';
 const CNPJ = '22333444000181';
 
+// O TEL_A sem o nono dígito: o mesmo WhatsApp (auditoria 3.8).
+const TEL_A_SEM_9 = '553199990501';
+
 test.beforeEach(async () => {
-  await db.from('contatos').delete().in('telefone', [TEL_A, TEL_B]);
+  await db.from('contatos').delete().in('telefone', [TEL_A, TEL_B, TEL_A_SEM_9]);
   await db.from('clientes').delete().eq('cnpj', CNPJ);
 });
 
@@ -49,4 +52,19 @@ test('na ficha da empresa, vincula um contato já cadastrado', async ({ page }) 
   await expect(page.getByRole('row').filter({ hasText: 'Zé Sem Empresa' })).toContainText('pede nota'); // Parte H2 (D22)
   const { data } = await db.from('contato_clientes').select('pode_pedir_nota').eq('contato_id', ze!.id).eq('cliente_id', empresa!.id).single();
   expect(data).toEqual({ pode_pedir_nota: true });
+});
+
+// Auditoria 3.8: o mesmo número sem o nono dígito não vira um segundo contato; a tela mostra a frase do banco.
+test('cadastrar o telefone de um contato ativo sem o nono dígito: a tela mostra a mensagem e nada é gravado', async ({ page }) => {
+  await db.from('contatos').insert({ nome: 'Maria Contato', telefone: TEL_A });
+  await criarUsuarioTeste({ email: 'admin@teste.com', senha: 'senha-forte-123', nome: 'Admin', papel: 'admin' });
+  await entrar(page, 'admin@teste.com', 'senha-forte-123');
+
+  await page.getByRole('link', { name: 'Contatos', exact: true }).click();
+  await page.getByPlaceholder('Nome', { exact: true }).fill('Outra Pessoa');
+  await page.getByPlaceholder('Telefone (com DDD)').fill('(31) 9999-0501');
+  await page.getByRole('button', { name: 'Cadastrar contato' }).click();
+  await expect(page.getByText('Este telefone já é de outro contato (com ou sem o nono dígito).')).toBeVisible();
+  const { data } = await db.from('contatos').select('nome').in('telefone', [TEL_A, TEL_A_SEM_9]);
+  expect(data).toEqual([{ nome: 'Maria Contato' }]);
 });

@@ -1012,13 +1012,13 @@ isOneToOne: false
                   ]
                 },"conversas": {
                   Row: {
-                    "agente_conduzindo_id": string | null,"aguardando_pessoa_desde": string | null,"atendente_id": string | null,"atualizado_em": string,"aviso_lgpd_enviado_em": string | null,"cliente_em_foco": string | null,"concluida_em": string | null,"conduzindo_desde": string | null,"contato_id": string | null,"criado_em": string,"estado": Database["public"]['Enums']["estado_conversa"],"id": string,"motivo_pessoa": string | null,"telefone": string,"tentativas_nao_entendido": number
+                    "agente_conduzindo_id": string | null,"aguardando_pessoa_desde": string | null,"atendente_id": string | null,"atualizado_em": string,"aviso_lgpd_enviado_em": string | null,"cliente_em_foco": string | null,"concluida_em": string | null,"conduzindo_desde": string | null,"contato_id": string | null,"contato_trocado_em": string | null,"criado_em": string,"estado": Database["public"]['Enums']["estado_conversa"],"id": string,"motivo_pessoa": string | null,"telefone": string,"tentativas_nao_entendido": number
                   }
                   Insert: {
-                    "agente_conduzindo_id"?: string | null,"aguardando_pessoa_desde"?: string | null,"atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"concluida_em"?: string | null,"conduzindo_desde"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"motivo_pessoa"?: string | null,"telefone": string,"tentativas_nao_entendido"?: number
+                    "agente_conduzindo_id"?: string | null,"aguardando_pessoa_desde"?: string | null,"atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"concluida_em"?: string | null,"conduzindo_desde"?: string | null,"contato_id"?: string | null,"contato_trocado_em"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"motivo_pessoa"?: string | null,"telefone": string,"tentativas_nao_entendido"?: number
                   }
                   Update: {
-                    "agente_conduzindo_id"?: string | null,"aguardando_pessoa_desde"?: string | null,"atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"concluida_em"?: string | null,"conduzindo_desde"?: string | null,"contato_id"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"motivo_pessoa"?: string | null,"telefone"?: string,"tentativas_nao_entendido"?: number
+                    "agente_conduzindo_id"?: string | null,"aguardando_pessoa_desde"?: string | null,"atendente_id"?: string | null,"atualizado_em"?: string,"aviso_lgpd_enviado_em"?: string | null,"cliente_em_foco"?: string | null,"concluida_em"?: string | null,"conduzindo_desde"?: string | null,"contato_id"?: string | null,"contato_trocado_em"?: string | null,"criado_em"?: string,"estado"?: Database["public"]['Enums']["estado_conversa"],"id"?: string,"motivo_pessoa"?: string | null,"telefone"?: string,"tentativas_nao_entendido"?: number
                   }
                   Relationships: [
                     {
@@ -2308,6 +2308,9 @@ isOneToOne: false
 "contato_arquivado_do_telefone":
 { Args: { "p_telefone": string }; Returns: Json
                            },
+"contato_ativo_do_telefone":
+{ Args: { "p_telefone": string }; Returns: string
+                           },
 "contato_da_empresa":
 { Args: { "p_cliente": string,"p_contato": string }; Returns: boolean
                            },
@@ -2760,6 +2763,9 @@ isOneToOne: false
 { Args: { "p_usuario": string }; Returns: {
               "agente": string,"detalhe": string,"empresa": string,"numero": number,"opcoes": (string)[],"pergunta": string,"tarefa_id": string,"tarefa_numero": number
             }[]
+                           },
+"perfil_das_marcas":
+{ Args: { "p_cliente": string,"p_dados": Json }; Returns: string
                            },
 "permissoes_dos_niveis":
 { Args: { "n": Json }; Returns: (string)[]

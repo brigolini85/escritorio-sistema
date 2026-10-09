@@ -233,9 +233,13 @@ export const RESERVA_ENVIO_MINUTOS = 5;
 export function criarRepos(db: Db) {
   return {
     async buscarContato(telefone: string): Promise<ContatoEncontrado | null> {
+      // Auditoria 3.8: pelo telefone canônico (com ou sem o nono dígito), no banco, onde um índice único garante um contato
+      // ativo por número; mais de um é erro, nunca "o primeiro de vários".
+      const id = checar(await db.rpc('contato_ativo_do_telefone', { p_telefone: telefone }), 'buscarContato');
+      if (!id) return null;
       const r = await db.from('contatos')
         .select('id, nome, agente_pausado, contato_clientes(pode_pedir_nota, clientes(id, razao_social, nome_fantasia, ativo, agente_pausado))')
-        .in('telefone', variantesTelefone(telefone)).eq('ativo', true).limit(1).maybeSingle();
+        .eq('id', id).eq('ativo', true).maybeSingle();
       const c = checar(r, 'buscarContato');
       if (!c) return null;
       const empresas = (c.contato_clientes ?? [])
@@ -262,7 +266,11 @@ export function criarRepos(db: Db) {
       const existente = checar(await db.from('conversas').select('*').in('telefone', variantesTelefone(telefone)).limit(1).maybeSingle(), 'conversa');
       if (existente) {
         if (contatoId && existente.contato_id !== contatoId) {
-          return checar(await db.from('conversas').update({ contato_id: contatoId }).eq('id', existente.id).select().single(), 'conversa');
+          // Auditoria 1.4 e 1.10: outro contato no mesmo telefone não herda a empresa em foco do anterior, e a hora da troca
+          // corta o histórico que vai ao modelo (o gatilho troca_de_contato faz o mesmo nos caminhos do painel).
+          return checar(await db.from('conversas')
+            .update({ contato_id: contatoId, cliente_em_foco: null, contato_trocado_em: new Date().toISOString() })
+            .eq('id', existente.id).select().single(), 'conversa');
         }
         return existente;
       }
@@ -392,9 +400,11 @@ export function criarRepos(db: Db) {
       checar(await db.rpc('marcar_reenfileirada', { p_conversa: conversaId }), 'marcarReenfileirada');
     },
 
-    async historico(conversaId: string, limite: number): Promise<Mensagem[]> {
-      const linhas = checar(await db.from('mensagens').select('*').eq('conversa_id', conversaId)
-        .order('criado_em', { ascending: false }).limit(limite), 'historico');
+    /** `desde` (auditoria 1.10): só mensagens a partir desta hora (número desconhecido não vê a conversa do dono anterior). */
+    async historico(conversaId: string, limite: number, desde?: string): Promise<Mensagem[]> {
+      let q = db.from('mensagens').select('*').eq('conversa_id', conversaId);
+      if (desde) q = q.gte('criado_em', desde);
+      const linhas = checar(await q.order('criado_em', { ascending: false }).limit(limite), 'historico');
       return linhas.reverse();
     },
 

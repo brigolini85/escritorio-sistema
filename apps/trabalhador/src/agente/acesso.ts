@@ -25,8 +25,12 @@ export function acessoTotal(setores: readonly { id: string; nome: string }[]): A
 
 export const ehBasico = (a: AcessoContato) => a.perfil === 'basico';
 export const trataSetor = (a: AcessoContato, setorId: string) => !ehBasico(a) && a.setores.some((s) => s.id === setorId);
-/** Nota, preço e cadastros dos parceiros: com "Pode pedir nota" ou com o Fiscal marcado (D10). */
-export const podeFluxoNota = (a: AcessoContato, fiscalId: string | null) => a.podePedirNota || (fiscalId !== null && trataSetor(a, fiscalId));
+/**
+ * Nota, preço e cadastros dos parceiros: com "Pode pedir nota" ou com o Fiscal marcado (D10). Básico nunca, mesmo com a
+ * marcação antiga (auditoria 1.8, decisão D1 do dono): até alguém definir o acesso, o pedido vira demanda no Fiscal.
+ */
+export const podeFluxoNota = (a: AcessoContato, fiscalId: string | null) =>
+  !ehBasico(a) && (a.podePedirNota || (fiscalId !== null && trataSetor(a, fiscalId)));
 
 /** Linhas que vão no resumo da demanda, para a equipe saber o que pode responder a este contato (D12, D16). */
 export function observacoesDeAcesso(a: AcessoContato): string[] {

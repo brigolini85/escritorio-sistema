@@ -232,18 +232,18 @@ describe('Básico nunca dispara recusa nem aviso (D16)', () => {
     expect(data!.resumo).toContain('Contato com acesso ainda não definido (Básico)');
     expect((await db.from('pedidos_fora_do_acesso').select('id')).data).toEqual([]);
   });
-  it('com "Pode pedir nota": buscar_produtos e resumir_pedido_nota funcionam', async () => {
+  // Decisão D1 do dono (auditoria 1.8): Básico não pede nota nem consulta preços e cadastros pelo WhatsApp até alguém
+  // definir o acesso, mesmo com a marcação antiga "Pode pedir nota". Antes este teste afirmava que funcionava.
+  it('com "Pode pedir nota": buscar_produtos e resumir_pedido_nota viram a instrução de abrir demanda no Fiscal (D1)', async () => {
     const cad = await criarCadastrosExemplo(rede);
     const b = await usar('buscar_produtos', { textos: ['costela'] });
-    expect(b.instrucao).toBeUndefined();
-    expect(b.resultados[0].candidatos[0].id).toBe(cad.costela);
+    expect(b).toEqual({ instrucao: AVISOS.semFluxoNota });
     const r = await usar('resumir_pedido_nota', {
       tipo: 'venda', unidade_id: cad.brasilEfigenia, texto_destinatario: 'Brasil Santa Efigênia',
       itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 20, unidade: 'PAC' }],
     });
-    expect(r).toMatchObject({ enviado: true });
-    expect(paraCarla()).toHaveLength(1);
-    expect(paraCarla()[0]).toContain('Costela com Requeijão');
+    expect(r).toEqual({ instrucao: AVISOS.semFluxoNota });
+    expect(paraCarla()).toEqual([]);
   });
 });
 

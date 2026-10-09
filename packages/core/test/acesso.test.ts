@@ -124,11 +124,13 @@ describe('previaDoAgente (spec 7D.2, D26)', () => {
     expect(previaDoAgente({ marcas: { ...soFiscal, podeAtualizarPreco: true }, disponiveis: REDE, socios: [] }).pode)
       .toBe('Abre e consulta demandas do Fiscal, pede nota, ajusta preços e produtos.');
   });
-  it('Básico: preço só com "Pode pedir nota" junto', () => {
+  // Decisão D1 do dono (auditoria 1.8): Básico não pede nota nem muda preço pelo WhatsApp, mesmo com as marcações antigas.
+  // Antes a prévia prometia "pede nota, ajusta preços e produtos" para o Básico com as duas marcadas.
+  it('Básico: nem nota nem preço, mesmo com as marcações (D1)', () => {
     const b = marcasBasicas();
     expect(previaDoAgente({ marcas: { ...b, podeAtualizarPreco: true }, disponiveis: REDE, socios: [] }).pode).toBe('Conversa e abre demandas para a equipe.');
     expect(previaDoAgente({ marcas: { ...b, podePedirNota: true, podeAtualizarPreco: true }, disponiveis: REDE, socios: [] }).pode)
-      .toBe('Conversa e abre demandas para a equipe, pede nota, ajusta preços e produtos.');
+      .toBe('Conversa e abre demandas para a equipe.');
   });
 });
 

@@ -163,7 +163,8 @@ describe('Sugerir resposta (spec 7A.1): só lê, nunca envia nem grava', () => {
       'nomesDasRedes', 'servicosDoCliente', 'documentosDaEmpresa', 'respostasProntas', 'chamadosAbertosDoCliente',
     ]);
     // E o código de cada método liberado não grava: nada de insert/update/upsert/delete, e rpc só das funções de leitura.
-    const RPC_DE_LEITURA = ['custo_ia_periodo', 'horario_permite'];
+    // contato_ativo_do_telefone (auditoria 3.8, buscarContato) é "stable": o Postgres recusa escrita dentro dela.
+    const RPC_DE_LEITURA = ['custo_ia_periodo', 'horario_permite', 'contato_ativo_do_telefone'];
     // A conferência pelo código enxerga gravações de verdade (senão passaria à toa).
     expect(String(repos.registrarAuditoria)).toMatch(/\.insert\(/);
     expect(String(repos.concluirSugestao)).toMatch(/\.update\(/);

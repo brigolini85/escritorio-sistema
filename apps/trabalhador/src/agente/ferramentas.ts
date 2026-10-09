@@ -515,6 +515,8 @@ export const textoConfirmacaoPreco = (p: { produto: string; rede: string; antigo
 export const textoConfirmacaoProduto = (p: { codigo: string; descricao: string; unidade: string }) =>
   `Confirma o cadastro: código ${p.codigo}, ${p.descricao}, unidade ${p.unidade}? Responda SIM para confirmar.`;
 
+const ehBasicoNaEmpresa = async (d: DepsAgente, estado: EstadoExecucao, clienteId: string) => ehBasico(await acessoNaEmpresa(d, estado, clienteId));
+
 /** D1: Básico não muda preço nem cadastra produto, mesmo com a marcação antiga (o banco também confere). */
 async function podeMudarPreco(d: DepsAgente, estado: EstadoExecucao, clienteId: string): Promise<boolean> {
   const acesso = await acessoNaEmpresa(d, estado, clienteId);
@@ -589,6 +591,9 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     case 'selecionar_empresa': {
       const empresa = ctx.contato?.empresas.find((e) => e.id === entrada.cliente_id);
       if (!empresa) return falha(AVISOS.empresaAlheia);
+      // Auditoria 1.6: a lista é do começo da vez; o vínculo é relido agora (apagado ou arquivado no meio, a empresa é alheia).
+      // Simulação: o contato é fictício e o acesso é fixo (D9).
+      if (!ctx.acessoFixo && (await d.repos.acessoDoContato(ctx.contato!.id, empresa.id)) === null) return falha(AVISOS.empresaAlheia);
       await d.repos.atualizarConversa(ctx.conversa.id, { cliente_em_foco: empresa.id });
       ctx.empresaEmFoco = empresa;
       ctx.servicosContratados = await d.repos.servicosDoCliente(empresa.id);
@@ -628,9 +633,10 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
         resumo = [entrada.resumo, ...observacoesDeAcesso(acesso)].join('\n\n');
       }
       const responsavelId = clienteId ? escolherResponsavel(setorId, await d.repos.responsaveisDoCliente(clienteId)) : null;
-      // Triagem já aberta nesta conversa: acrescenta as informações novas em vez de abrir outra.
+      // Triagem já aberta nesta conversa e desta empresa: acrescenta as informações novas em vez de abrir outra. Triagem de
+      // outra empresa do contato não recebe o pedido (auditoria 1.5).
       const triagemAberta = setorId === null
-        ? (await d.repos.chamadosAbertosDaConversa(ctx.conversa.id)).find((c) => c.setor_id === null)
+        ? (await d.repos.chamadosAbertosDaConversa(ctx.conversa.id)).find((c) => c.setor_id === null && c.cliente_id === clienteId)
         : undefined;
       let numero: number;
       if (triagemAberta) {
@@ -842,6 +848,8 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     case 'alterar_preco': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
+      // D1 (Task 5): Básico recebe a recusa de permissão, antes da instrução do fluxo de nota e também com a confirmação já pedida.
+      if (await ehBasicoNaEmpresa(d, estado, e.clienteId)) return falha(AVISOS.precoSemPermissao);
       const semNota = await exigirFluxoNota(d, estado, e.clienteId);
       if (semNota) return semNota;
       if (entrada.confirmacao_id) return usarConfirmacaoDoCliente(d, estado, entrada.confirmacao_id, 'preco');
@@ -858,6 +866,8 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
     case 'cadastrar_produto': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
+      // D1 (Task 5): Básico recebe a recusa de permissão, antes da instrução do fluxo de nota e também com a confirmação já pedida.
+      if (await ehBasicoNaEmpresa(d, estado, e.clienteId)) return falha(AVISOS.produtoSemPermissao);
       const semNota = await exigirFluxoNota(d, estado, e.clienteId);
       if (semNota) return semNota;
       if (entrada.confirmacao_id) return usarConfirmacaoDoCliente(d, estado, entrada.confirmacao_id, 'produto');

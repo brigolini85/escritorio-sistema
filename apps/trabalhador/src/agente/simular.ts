@@ -453,7 +453,7 @@ async function simular(
   const conversa = {
     id: sim.id, telefone: TELEFONE_FICTICIO, contato_id: null, cliente_em_foco: empresa?.id ?? null, estado: 'agente',
     atendente_id: null, aviso_lgpd_enviado_em: agoraIso, tentativas_nao_entendido: 0, criado_em: agoraIso, atualizado_em: agoraIso,
-    aguardando_pessoa_desde: null, motivo_pessoa: null, concluida_em: null, agente_conduzindo_id: null, conduzindo_desde: null,
+    aguardando_pessoa_desde: null, motivo_pessoa: null, concluida_em: null, agente_conduzindo_id: null, conduzindo_desde: null, contato_trocado_em: null,
   } satisfies Conversa;
   const repos = reposDaSimulacao(d.repos, conversa, await d.repos.obterUsuarioAssistente(sim.usuario_id), sim.usuario_id);
   const deps: DepsAgente = {

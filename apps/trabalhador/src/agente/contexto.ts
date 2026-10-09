@@ -37,8 +37,12 @@ export async function carregarContexto(
   // A mesma regra da empresa do gasto (empresaDoUso): foco do contato, senão a única empresa, senão nenhuma.
   const idEmFoco = empresaDoUso(conversa.cliente_em_foco, empresas);
   const empresaEmFoco = empresas.find((e) => e.id === idEmFoco) ?? null;
-  if (empresaEmFoco && empresaEmFoco.id !== conversa.cliente_em_foco) {
-    await repos.atualizarConversa(conversa.id, { cliente_em_foco: empresaEmFoco.id });
+  // Auditoria 1.4 e 3.9: o foco gravado de uma empresa que não é mais do contato (desvinculado, arquivado, número de outra
+  // pessoa) é limpo, para não marcar as mensagens e as demandas seguintes com ela.
+  const focoValido = empresaEmFoco?.id ?? null;
+  if (focoValido !== conversa.cliente_em_foco) {
+    await repos.atualizarConversa(conversa.id, { cliente_em_foco: focoValido });
+    conversa = { ...conversa, cliente_em_foco: focoValido };
   }
   const agente = await carregarPerfil(repos, SLUG_ATENDIMENTO);
   // Parte I2 (D2): só contato com empresa tem agente do setor; número desconhecido fica com o Thiago.

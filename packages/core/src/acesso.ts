@@ -150,10 +150,11 @@ export type Previa = { pode: string; recusa: string | null; procurado: string | 
 /** "O que o agente vai fazer com <nome>" (D26): a mesma regra das ferramentas do agente, em palavras. */
 export function previaDoAgente(p: { marcas: MarcasAcesso; disponiveis: readonly SetorDisponivel[]; socios: readonly string[] }): Previa {
   const m = p.marcas;
-  // A mesma regra de podeFluxoNota no trabalhador: nota, preço e produtos com "Pode pedir nota" OU o Fiscal marcado (Básico
-  // não trata setor); ajustar preço e cadastrar produto ainda pedem "Pode mudar preço" (o banco confere). Nunca promete mais.
+  // A mesma regra de podeFluxoNota no trabalhador: nota, preço e produtos com "Pode pedir nota" OU o Fiscal marcado; Básico
+  // nunca, mesmo com a marcação antiga (auditoria 1.8, decisão D1). Ajustar preço e cadastrar produto ainda pedem "Pode mudar
+  // preço" (o banco confere). Nunca promete mais.
   const fiscal = p.disponiveis.find((s) => s.nome === 'Fiscal');
-  const pedeNota = m.podePedirNota || (!semAcesso(m) && fiscal !== undefined && m.setores.some((s) => s.setorId === fiscal.id));
+  const pedeNota = !semAcesso(m) && (m.podePedirNota || (fiscal !== undefined && m.setores.some((s) => s.setorId === fiscal.id)));
   const notaEPreco = [...(pedeNota ? ['pede nota'] : []), ...(pedeNota && m.podeAtualizarPreco ? ['ajusta preços e produtos'] : [])];
   if (semAcesso(m)) {
     return {
