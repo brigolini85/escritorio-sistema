@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { TIPO_GENERICO, TIPOS_ANEXOS, TIPOS_DOCUMENTOS } from '@escritorio/core';
 import { criarClienteServico } from '@escritorio/db';
 import { criarArmazenamento } from '../../src/midia/armazenamento';
 
@@ -27,9 +28,26 @@ describe('armazenamento', () => {
     await a.remover([salvo.path]);
   });
 
-  it('auditoria 6.9: tipo que o navegador executa (svg) é recusado pelo compartimento', async () => {
-    const baixar = vi.fn().mockResolvedValue(new Response('<svg/>', { headers: { 'content-type': 'image/svg+xml' } }));
-    const a = criarArmazenamento(db, baixar);
-    await expect(a.baixarESalvar('https://f004.backblazeb2.com/x.svg', crypto.randomUUID(), 'x.svg', null)).rejects.toThrow(/upload falhou/);
+  it('revisão da Task 10: tipo fora da lista (.pfx, .rar, svg) sobe como application/octet-stream e a mensagem guarda o original', async () => {
+    for (const [nome, tipo] of [['certificado.pfx', 'application/x-pkcs12'], ['notas.rar', 'application/vnd.rar'], ['x.svg', 'image/svg+xml'],
+      ['dados.bin', 'binary/octet-stream']] as const) {
+      const baixar = vi.fn().mockResolvedValue(new Response(new Uint8Array([4, 5, 6])));
+      const a = criarArmazenamento(db, baixar);
+      const salvo = await a.baixarESalvar(`https://f004.backblazeb2.com/${nome}`, crypto.randomUUID(), nome, tipo);
+      expect(salvo.mime).toBe(tipo);
+      expect([...(await a.ler(salvo.path))]).toEqual([4, 5, 6]);
+      const pasta = salvo.path.slice(0, salvo.path.lastIndexOf('/'));
+      const { data } = await db.storage.from('anexos').list(pasta);
+      expect(data?.[0]?.metadata?.mimetype).toBe(TIPO_GENERICO);
+      await a.remover([salvo.path]);
+    }
+  });
+
+  it('a lista de tipos do código é a mesma dos compartimentos no Storage', async () => {
+    for (const [bucket, lista] of [['anexos', TIPOS_ANEXOS], ['documentos', TIPOS_DOCUMENTOS]] as const) {
+      const { data, error } = await db.storage.getBucket(bucket);
+      expect(error).toBeNull();
+      expect([...(data!.allowed_mime_types ?? [])].sort()).toEqual([...lista].sort());
+    }
   });
 });

@@ -1,6 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { prepararAnexoResposta } from '@/lib/arquivo-envio';
 import { comAvisoNaUrl } from '@/lib/avisos';
 import { cadastrarContatoPeloTelefone, lerManter } from '@/lib/cadastro-contato';
 import { enfileirarEnvio, enfileirarSugestao } from '@/lib/fila';
@@ -56,10 +57,11 @@ export async function responder(conversaId: string, formData: FormData) {
   let mime: string | null = null;
   if (arquivo instanceof File && arquivo.size > 0) {
     const sb = await supabaseServidor();
-    nome = arquivo.name;
-    mime = arquivo.type || 'application/octet-stream';
-    path = `conversas/${conversaId}/${Date.now()}-${nome.replace(/[^\w.-]+/g, '_')}`;
-    const { error } = await sb.storage.from('anexos').upload(path, arquivo, { contentType: mime });
+    // Auditoria 6.9: tipo fora da lista do compartimento sobe como application/octet-stream; a mensagem guarda o original.
+    const anexo = prepararAnexoResposta(conversaId, arquivo.name, arquivo.type);
+    ({ nome, mime, path } = anexo);
+    // Os bytes, não o File: com File o Storage usa o tipo do navegador e ignora o contentType.
+    const { error } = await sb.storage.from('anexos').upload(path, await arquivo.arrayBuffer(), { contentType: anexo.contentType });
     if (error) throw new Error(`Falha ao enviar o arquivo: ${error.message}`);
   }
   if (!texto && !path) return;

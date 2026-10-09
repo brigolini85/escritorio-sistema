@@ -27,7 +27,7 @@ describe('repositório da Parte E', () => {
     const c = await conversa();
     const { data: cliente } = await db.from('clientes').insert({ razao_social: 'Doc Ltda', cnpj: '11222333000181' }).select().single();
     const { data: doc } = await db.from('documentos_empresa')
-      .insert({ cliente_id: cliente!.id, nome: 'Contrato social', arquivo_path: 'x/contrato.pdf', arquivo_nome: 'contrato.pdf' }).select().single();
+      .insert({ cliente_id: cliente!.id, nome: 'Contrato social', arquivo_path: `clientes/${cliente!.id}/contrato.pdf`, arquivo_nome: 'contrato.pdf' }).select().single();
     const turno = '11111111-1111-4111-8111-111111111111';
     const id = await repos.criarSaidaPendente({ conversaId: c.id, clienteId: cliente!.id, autor: 'agente', conteudo: 'Contrato social', turnoAgente: turno, documentoId: doc!.id });
     await repos.registrarDecisao({ conversaId: c.id, clienteId: null, etapa: 'enviar_documento', entrada: {}, saida: {}, turno });

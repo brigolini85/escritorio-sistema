@@ -5,6 +5,8 @@ import { temNivel } from '@/lib/permissoes';
 import { exigirAdmin, obterUsuario } from '@/lib/sessao';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { supabaseServidor } from '@/lib/supabase/servidor';
+import { supabaseServico } from '@/lib/supabase/servico';
+import { prepararDocumentoEmpresa } from '@/lib/arquivo-envio';
 import { GrupoForm, PrecoForm, ProdutoForm, UnidadeForm } from './cadastros-esquemas';
 import { lerSetorDoDocumento, lerSetoresDeDocumento, setoresEscolhiveis } from './documento-setor';
 
@@ -76,12 +78,21 @@ export async function enviarDocumento(clienteId: string, formData: FormData) {
     // Setor e "Tem valores" (H2, D11) só vêm quando o banco tem a migração (o formulário mostra o campo).
     const extra = lerSetorDoDocumento(formData, await setoresDeDocumento(sb, formData));
     if (extra && 'erro' in extra) throw new Error(extra.erro);
-    const arquivoNome = arquivo.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_');
-    const path = `clientes/${clienteId}/${Date.now()}-${arquivoNome}`;
-    const mime = arquivo.type || 'application/pdf';
-    const up = await sb.storage.from('documentos').upload(path, arquivo, { contentType: mime });
+    // Auditoria 1.3 e 6.9 (revisão da Task 10): confere nome, caminho, tipo e tamanho antes de subir, para a linha
+    // recusada não deixar arquivo sem dono no Storage.
+    const doc = prepararDocumentoEmpresa(clienteId, arquivo.name, arquivo.type, arquivo.size);
+    if ('erro' in doc) throw new Error(doc.erro);
+    const { path, arquivoNome, mime } = doc;
+    // Os bytes, não o File: com File o Storage usa o tipo do navegador e ignora o contentType.
+    const up = await sb.storage.from('documentos').upload(path, await arquivo.arrayBuffer(), { contentType: mime });
     if (up.error) throw new Error(`Falha ao enviar o arquivo: ${up.error.message}`);
-    checar(await sb.from('documentos_empresa').insert({ cliente_id: clienteId, nome, arquivo_path: path, arquivo_nome: arquivoNome, arquivo_mime: mime, enviado_por: u.id, ...(extra ?? {}) }));
+    const ins = await sb.from('documentos_empresa').insert({ cliente_id: clienteId, nome, arquivo_path: path, arquivo_nome: arquivoNome, arquivo_mime: mime, enviado_por: u.id, ...(extra ?? {}) });
+    if (ins.error) {
+      // A exclusão no compartimento é só do administrador: a limpeza do arquivo que esta ação acabou de subir usa o serviço.
+      const { error } = await supabaseServico().storage.from('documentos').remove([path]).catch((e: unknown) => ({ error: e }));
+      if (error) console.error('[documentos] arquivo sem linha não foi removido', path, error);
+    }
+    checar(ins);
   });
   revalidatePath(`/clientes/${clienteId}`);
 }

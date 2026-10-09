@@ -1,3 +1,4 @@
+import { TIPOS_ANEXOS, tipoParaArmazenar } from '@escritorio/core';
 import type { Db } from '@escritorio/db';
 
 export interface ArmazenamentoMidia {
@@ -92,9 +93,10 @@ export function criarArmazenamento(db: Db, buscar: typeof fetch = fetch, hosts: 
       const bytes = await lerComLimite(r);
       const tipo = mime ?? r.headers.get('content-type') ?? 'application/octet-stream';
       const path = `conversas/${conversaId}/${Date.now()}-${nomeSeguro(nomeArquivo)}`;
-      // Auditoria 6.9: o compartimento só aceita os tipos da lista, comparados por inteiro; sobe sem parâmetros
-      // ("audio/ogg; codecs=opus" vira "audio/ogg"). A mensagem guarda o tipo como veio.
-      const { error } = await db.storage.from(BUCKET).upload(path, bytes, { contentType: tipo.split(';')[0]!.trim().toLowerCase() });
+      // Auditoria 6.9: o compartimento só aceita os tipos da lista, comparados por inteiro. Sobe sem parâmetros ("audio/ogg;
+      // codecs=opus" vira "audio/ogg") e, fora da lista (.pfx, .rar...), como application/octet-stream, para o arquivo do
+      // cliente não se perder. A mensagem guarda o tipo como veio.
+      const { error } = await db.storage.from(BUCKET).upload(path, bytes, { contentType: tipoParaArmazenar(tipo, TIPOS_ANEXOS) });
       if (error) throw new Error(`upload falhou: ${error.message}`);
       return { path, bytes, mime: tipo };
     },

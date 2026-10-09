@@ -115,13 +115,17 @@ export async function enviarDocumentoDoSistema(
   // Auditoria 6.9: grande demais não é lido (o tamanho vem do Storage, sem baixar).
   const tamanho = await d.midia.tamanho(p.documento.arquivoPath, 'documentos').catch(() => null);
   if (tamanho !== null && tamanho > LIMITE_DOCUMENTO_BYTES) throw new DocumentoGrandeDemais();
+  // Sem o tamanho do Storage: lê antes de criar a mensagem, para o grande não deixar um "📎" falhou na conversa (revisão).
+  // A leitura que falha aqui é repetida abaixo e marca a mensagem como antes.
+  let bytes = tamanho === null ? await d.midia.ler(p.documento.arquivoPath, 'documentos').catch(() => null) : null;
+  if (bytes && bytes.length > LIMITE_DOCUMENTO_BYTES) throw new DocumentoGrandeDemais();
   // O painel mostra o documento com link (download auditado pelo id), não só o nome.
   const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: 'agente', conteudo: `📎 ${p.documento.nome}`,
     turnoAgente: p.turnoAgente ?? null, documentoId: p.documento.id });
   let url: string;
   try {
-    const bytes = await d.midia.ler(p.documento.arquivoPath, 'documentos');
-    // Segunda conferência antes de montar o Base64 (o Storage pode não ter informado o tamanho).
+    bytes ??= await d.midia.ler(p.documento.arquivoPath, 'documentos');
+    // Segunda conferência antes de montar o Base64 (o arquivo pode ter mudado depois do tamanho lido).
     if (bytes.length > LIMITE_DOCUMENTO_BYTES) throw new DocumentoGrandeDemais();
     url = `data:${p.documento.arquivoMime.split(';')[0]};base64,${Buffer.from(bytes).toString('base64')}`;
   } catch (e) {

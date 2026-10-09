@@ -17,9 +17,9 @@ export function validarCnpj(entrada: string): boolean {
 }
 
 /**
- * Auditoria 1.3 e 6.10: o arquivo do documento fica na pasta da própria empresa (clientes/<cliente_id>/), sem "..".
+ * Auditoria 1.3 e 6.10: o arquivo do documento fica na pasta da própria empresa (clientes/<cliente_id>/), sem ".." como pasta ("Relatorio..pdf" é um nome válido).
  * O banco já confere (caminho_da_empresa); o trabalhador antes de enviar e o painel antes de apagar conferem de novo.
  */
 export function caminhoDaEmpresa(clienteId: string, caminho: string): boolean {
-  return clienteId.length > 0 && caminho.startsWith(`clientes/${clienteId}/`) && !caminho.includes('..');
+  return clienteId.length > 0 && caminho.startsWith(`clientes/${clienteId}/`) && !caminho.split('/').includes('..');
 }

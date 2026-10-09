@@ -17,3 +17,4 @@ export * from './drive';
 export * from './planilha';
 export * from './pedir';
 export * from './radar';
+export * from './tipos-arquivo';

@@ -22,7 +22,7 @@ async function cenario() {
   const { data: ch } = await db.from('chamados').insert({ conversa_id: c!.id, cliente_id: um!.id, setor_id: setor!.id, titulo: 'Nota de venda e2e' })
     .select('id, numero').single();
   const { data: doc } = await db.from('documentos_empresa')
-    .insert({ cliente_id: um!.id, nome: 'Contrato social', arquivo_path: 'e2e/contrato.pdf', arquivo_nome: 'contrato.pdf', ia_pode_enviar: true }).select().single();
+    .insert({ cliente_id: um!.id, nome: 'Contrato social', arquivo_path: `clientes/${um!.id}/contrato.pdf`, arquivo_nome: 'contrato.pdf', ia_pode_enviar: true }).select().single();
   const t = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
   await db.from('mensagens').insert([
     { conversa_id: c!.id, direcao: 'entrada', autor: 'cliente', conteudo: 'Preciso de uma nota pra Unidade Centro', criado_em: t(30), processada_em: t(30) },

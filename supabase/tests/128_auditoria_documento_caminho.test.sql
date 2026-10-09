@@ -2,7 +2,7 @@
 -- empresa nem de arquivo depois de criado, e os compartimentos "anexos" e "documentos" têm limite de tamanho e de tipo.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(21);
 
 insert into auth.users (id, email) values ('e1280000-0000-0000-0000-00000000000a', 'admin128@pgtap.local');
 insert into public.usuarios (id, nome, email, papel) values ('e1280000-0000-0000-0000-00000000000a', 'Admin 128', 'admin128@pgtap.local', 'admin');
@@ -23,6 +23,13 @@ select throws_ok($$ insert into public.documentos_empresa (cliente_id, nome, arq
 select throws_ok($$ insert into public.documentos_empresa (cliente_id, nome, arquivo_path, arquivo_nome) values
   ('e1280000-0000-0000-0000-0000000000a1', 'Contrato', 'clientes/e1280000-0000-0000-0000-0000000000a1x/contrato.pdf', 'contrato.pdf') $$,
   '23514', null, 'id da empresa com sobra (prefixo de outro id): recusado');
+select throws_ok($$ insert into public.documentos_empresa (cliente_id, nome, arquivo_path, arquivo_nome) values
+  ('e1280000-0000-0000-0000-0000000000a1', 'Contrato', 'clientes/e1280000-0000-0000-0000-0000000000a1/..', 'contrato.pdf') $$,
+  '23514', null, '".." como última pasta: recusado');
+-- Revisão da Task 10: ".." só conta como pasta; dois pontos no nome do arquivo são válidos.
+select lives_ok($$ insert into public.documentos_empresa (cliente_id, nome, arquivo_path, arquivo_nome) values
+  ('e1280000-0000-0000-0000-0000000000a1', 'Relatório', 'clientes/e1280000-0000-0000-0000-0000000000a1/1700000000-Relatorio..pdf', 'Relatorio..pdf') $$,
+  'nome com dois pontos seguidos: aceito');
 select lives_ok($$ insert into public.documentos_empresa (id, cliente_id, nome, arquivo_path, arquivo_nome) values
   ('e1280000-0000-0000-0000-0000000000d1', 'e1280000-0000-0000-0000-0000000000a1', 'Contrato', 'clientes/e1280000-0000-0000-0000-0000000000a1/1700000000-contrato.pdf', 'contrato.pdf') $$,
   'caminho na pasta da própria empresa: aceito');
@@ -70,6 +77,8 @@ select ok((select array['application/pdf', 'image/jpeg', 'image/png', 'audio/ogg
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword']
   <@ allowed_mime_types from storage.buckets where id = 'documentos'), 'os tipos usuais (pdf, imagem, áudio, planilha, Word, XML de nota) continuam aceitos');
+select ok((select array['image/tiff', 'image/bmp', 'application/zip', 'application/x-zip-compressed']
+  <@ allowed_mime_types from storage.buckets where id = 'documentos'), 'documentos: tiff, bmp e zip aceitos (revisão da Task 10)');
 
 select * from finish();
 rollback;

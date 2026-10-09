@@ -171,6 +171,20 @@ describe('auditoria 1.3 e 6.9: documento da empresa só da pasta dela e no taman
     expect(canal.arquivosEnviados).toEqual([]);
     await db.storage.from('documentos').remove([path]);
   });
+
+  it('revisão da Task 10: sem tamanho do Storage, o grande é recusado antes de criar a mensagem (nenhum "📎" falhou)', async () => {
+    const { data: cli } = await db.from('clientes').insert({ razao_social: 'Indústria X', cnpj: '11222333000181' }).select().single();
+    const path = `clientes/${cli!.id}/grande.pdf`;
+    await db.storage.from('documentos').upload(path, new Uint8Array(15 * 1024 * 1024 + 1), { contentType: 'application/pdf', upsert: true });
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    d.midia = { ...criarArmazenamento(db), tamanho: async () => null };
+    await expect(enviarDocumentoDoSistema(d, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: cli!.id,
+      documento: docDe('00000000-0000-4000-8000-000000000003', path) })).rejects.toThrow('documento grande demais para o WhatsApp; abra uma demanda');
+    const { count } = await db.from('mensagens').select('*', { count: 'exact', head: true }).eq('conversa_id', conversa.id);
+    expect(count).toBe(0);
+    expect(canal.arquivosEnviados).toEqual([]);
+    await db.storage.from('documentos').remove([path]);
+  });
 });
 
 describe('verificarEnviadaPorMim', () => {

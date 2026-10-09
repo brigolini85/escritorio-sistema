@@ -50,6 +50,23 @@ test('Enter envia e Shift+Enter quebra a linha', async ({ page }) => {
   await expect(page.getByRole('log', { name: 'Histórico da conversa' }).getByText(/Linha um\s+Linha dois/)).toBeVisible(LONGO);
 });
 
+test('auditoria 6.9 (revisão da Task 10): resposta com .rar sobe como octet-stream e a mensagem guarda o tipo original', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'ana-comp@e2e.local', senha: SENHA, nome: 'Ana Comp', papel: 'atendente', setores: ['Fiscal'] });
+  const conversa = await cenario();
+  await entrar(page, 'ana-comp@e2e.local', SENHA);
+  await abrir(page, conversa);
+  await page.locator('input[name="arquivo"]').setInputFiles({ name: 'notas.rar', mimeType: 'application/vnd.rar', buffer: Buffer.from('Rar!teste') });
+  await page.getByLabel('Resposta para o cliente').fill('Segue o arquivo');
+  await page.getByRole('tabpanel', { name: 'Responder ao cliente' }).getByRole('button', { name: 'Enviar' }).click();
+  await expect.poll(async () => (await db.from('mensagens').select('arquivo_path').eq('conversa_id', conversa).not('arquivo_path', 'is', null)).data?.length, LONGO).toBe(1);
+  const { data: m } = await db.from('mensagens').select('arquivo_path, arquivo_nome, arquivo_mime').eq('conversa_id', conversa).not('arquivo_path', 'is', null).single();
+  expect(m).toMatchObject({ arquivo_nome: 'notas.rar', arquivo_mime: 'application/vnd.rar' });
+  const pasta = m!.arquivo_path!.slice(0, m!.arquivo_path!.lastIndexOf('/'));
+  const { data: objetos } = await db.storage.from('anexos').list(pasta);
+  expect(objetos?.map((o) => o.metadata?.mimetype)).toEqual(['application/octet-stream']);
+  await db.storage.from('anexos').remove([m!.arquivo_path!]);
+});
+
 test('Enter duas vezes seguidas manda a resposta e a nota uma vez só', async ({ page }) => {
   await criarUsuarioTeste({ email: 'ana-comp@e2e.local', senha: SENHA, nome: 'Ana Comp', papel: 'atendente', setores: ['Fiscal'] });
   const conversa = await cenario();
