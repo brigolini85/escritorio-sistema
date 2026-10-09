@@ -18,7 +18,13 @@ import type { ContextoAgente } from './contexto';
 import { lerReferenciaDoPerfil, lerSkillDoPerfil } from './skills';
 
 /** prazoVez (revisão geral I2): hora (Date.now) a partir da qual a vez não abre outra rodada; sem ele, sem prazo (simulação, cenários). */
-export type DepsAgente = { repos: Repos; envio: DepsEnvio; ia: ClienteIa; prazoVez?: number; orcamento?: OrcamentoVez };
+/**
+ * Auditoria 4.1: `turno` = o turno que pegou o lote (mensagens.turno_agente_entrada); decisões e saídas desta vez levam o
+ * mesmo, e a retomada sabe se ele já agiu. `sinalVez`: abortado quando a vez perdeu a trava (não abre rodada nova).
+ */
+export type DepsAgente = {
+  repos: Repos; envio: DepsEnvio; ia: ClienteIa; prazoVez?: number; orcamento?: OrcamentoVez; turno?: string; sinalVez?: AbortSignal;
+};
 /**
  * Auditoria 4.11 e D2: o gasto do telefone hoje e do mês antes desta vez, os limites e o que esta vez já gastou (somado a cada
  * rodada). Passou de um dos dois, a vez não abre rodada nova. Sem ele, sem limite (simulação, cenários).

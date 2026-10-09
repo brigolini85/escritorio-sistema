@@ -334,6 +334,27 @@ export function criarRepos(db: Db) {
       return Boolean(checar(await db.rpc('pegar_trava', { p_chave: chave, p_dono: dono, p_segundos: segundos }), 'pegarTrava'));
     },
 
+    /** Auditoria 4.1: renova a trava só se ela ainda for deste dono; false = perdeu a trava. */
+    async renovarTrava(chave: string, dono: string, segundos: number): Promise<boolean> {
+      return Boolean(checar(await db.rpc('renovar_trava', { p_chave: chave, p_dono: dono, p_segundos: segundos }), 'renovarTrava'));
+    },
+
+    /** Auditoria 4.1: no desligamento, solta as travas das vezes deste processo que ainda não terminaram. */
+    async soltarTravasDoDono(donos: string[]): Promise<number> {
+      if (donos.length === 0) return 0;
+      return Number(checar(await db.rpc('soltar_travas_do_dono', { p_donos: donos }), 'soltarTravasDoDono') ?? 0);
+    },
+
+    /**
+     * Auditoria 4.1: grava o turno desta vez no lote. As mensagens de um turno anterior que já agiu (decisão ou saída) voltam
+     * em `interrompidas` e ficam com o turno antigo; `respondeu`: alguma resposta daquele turno saiu.
+     */
+    async pegarLoteDoTurno(conversaId: string, ids: string[], turno: string): Promise<{ interrompidas: string[]; respondeu: boolean }> {
+      const r = checar(await db.rpc('pegar_lote_do_turno', { p_conversa: conversaId, p_ids: ids, p_turno: turno }), 'pegarLoteDoTurno') as
+        { interrompidas?: string[]; respondeu?: boolean } | null;
+      return { interrompidas: r?.interrompidas ?? [], respondeu: r?.respondeu === true };
+    },
+
     async soltarTrava(chave: string, dono: string): Promise<void> {
       checar(await db.rpc('soltar_trava', { p_chave: chave, p_dono: dono }), 'soltarTrava');
     },

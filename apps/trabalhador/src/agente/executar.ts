@@ -143,7 +143,7 @@ export async function executarAgente(
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: conteudo }];
   // Um turno por vez do Thiago; o agente do setor chamado nele usa o mesmo (o "por quê?" junta os dois).
   const estado: EstadoExecucao = {
-    ctx, respondeu: false, turno: opcoes.turno ?? randomUUID(), conteudo,
+    ctx, respondeu: false, turno: opcoes.turno ?? d.turno ?? randomUUID(), conteudo,
     ...(especialista ? { agenteSetor: especialista.agente, modo: especialista.modo } : {}),
     ...(especialista && opcoes.acessoConferido ? { acessoSetorConferido: true } : {}),
   };
@@ -159,7 +159,8 @@ export async function executarAgente(
 
   for (let i = 0; i < MAX_ITERACOES; i++) {
     // Revisão geral I2: passado o prazo da vez, não abre outra rodada (a fila repetiria o job com esta vez ainda rodando).
-    if (d.prazoVez !== undefined && Date.now() >= d.prazoVez) {
+    // Auditoria 4.1: a vez que perdeu a trava (renovação recusada) também para aqui.
+    if ((d.prazoVez !== undefined && Date.now() >= d.prazoVez) || d.sinalVez?.aborted) {
       return estado.respondeu ? terminou() ?? okFinal() : { status: 'escalar', motivo: 'tempo esgotado', respondeu: false };
     }
     // Auditoria 4.11: o limite era conferido só na entrada; agora também antes de cada rodada (do Thiago e do agente do setor).

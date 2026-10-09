@@ -42,7 +42,8 @@ Para cada ambiente (homologação e produção), crie dois apps a partir do repo
    - `PAINEL_URL`: o endereço do painel, por exemplo `https://painel.seuescritorio.com.br`.
    - `ACESSOS_PORTAIS_CHAVE` (só no app **Painel**): a chave das senhas de portais da ficha do cliente. Gere uma por ambiente com o comando do `.env.example` (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`: sai um texto de 44 caracteres terminado em `=`) e guarde uma cópia num lugar seguro (gerenciador de senhas). Sem ela, as senhas não abrem; trocar ou perder a chave obriga a cadastrar as senhas de novo.
      **Painel de teste no computador** (o que liga na porta 3002 apontando para a homologação): ele não lê o Easypanel, e sim o arquivo de variáveis da homologação na pasta do projeto (o mesmo que leva o endereço e as chaves do Supabase de homologação para o painel de teste). Coloque nesse arquivo uma linha `ACESSOS_PORTAIS_CHAVE=` com **a mesma chave da homologação** cadastrada no Easypanel (não gere outra: senhas guardadas com uma chave não abrem com outra). Sem essa linha, o bloco "Acessos de portais" da ficha mostra o aviso de que falta a chave e não deixa cadastrar, ver nem copiar senhas.
-6. Em "Domains", configure o domínio do painel (ex.: `painel.seuescritorio.com.br`) e o do trabalhador (ex.: `robo.seuescritorio.com.br`).
+6. No app **Trabalhador**, em "Advanced" (ou "Deploy"), ponha o **tempo de parada** ("stop grace period") em **120 segundos**. Numa publicação ou reinício, o trabalhador para de pegar mensagens novas e espera até 90 segundos o atendimento que está em andamento terminar; com o padrão (10 segundos), o Easypanel desliga antes e a conversa pode ficar parada alguns minutos.
+7. Em "Domains", configure o domínio do painel (ex.: `painel.seuescritorio.com.br`) e o do trabalhador (ex.: `robo.seuescritorio.com.br`).
 
 ### 2.3 GitHub
 

@@ -4,7 +4,9 @@ import type { Alertas } from './alertas';
 import type { CanalWhatsApp } from './canal/tipos';
 import type { Email } from './email';
 import { enviarDoSistema, type DepsEnvio } from './envio';
-import { FILAS, agendarAssistente, agendarAviso, agendarPedidoPendencia, agendarProcessamento, agendarTarefa, type Fila } from './fila';
+import {
+  FILAS, TRAVA_VEZ_SEGUNDOS, agendarAssistente, agendarAviso, agendarPedidoPendencia, agendarProcessamento, agendarTarefa, naVez, type Fila,
+} from './fila';
 import { conferirAlertaIa80, passarAEquipeSemResposta } from './processar-conversa';
 
 export type DepsTarefas = { repos: Repos; canal: CanalWhatsApp; alertas: Alertas; envio: DepsEnvio; email: Email; fila: Fila; relogio: () => Date };
@@ -136,7 +138,11 @@ export async function mensagensParadas(d: DepsTarefas): Promise<{ devolvidas: nu
         continue;
       }
       if (desdeUltima < PARADA.antesDaEquipeMin * 60_000) continue;
-      if ((await passarAEquipeSemResposta(d, p.conversaId, 'Mensagem do cliente sem resposta do agente', MOTIVOS_PASSAGEM.semResposta)) !== 'escalado') continue;
+      // Auditoria 4.10: dentro da vez da conversa (a mesma trava do agente). Uma vez começou depois da consulta: pula; ela
+      // atende as mensagens, e a próxima batida confere de novo.
+      const r = await naVez(d.repos, `conversa:${p.conversaId}`, TRAVA_VEZ_SEGUNDOS,
+        () => passarAEquipeSemResposta(d, p.conversaId, 'Mensagem do cliente sem resposta do agente', MOTIVOS_PASSAGEM.semResposta), async () => {});
+      if (r !== 'escalado') continue;
       aEquipe++;
       const c = await d.repos.obterConversa(p.conversaId);
       await d.alertas.alertar({ nivel: 'aviso', mensagem: `A mensagem de ${c.telefone} ficou sem resposta do agente e passou para a equipe (Triagem).` })

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { MOTIVOS_PASSAGEM, custoTranscricaoUsd, empresaDoUso, mesReferencia, motivoDaEscalada } from '@escritorio/core';
 import { PREFIXO_TENTATIVA_IA80, type Conversa, type Mensagem } from '@escritorio/db';
 import type { Alertas } from './alertas';
@@ -73,6 +74,15 @@ async function transcrever(
 export const MAX_ANEXOS_POR_VEZ = 5;
 const AVISO_MUITOS_ANEXOS = '[anexo não aberto: muitos arquivos de uma vez]';
 
+/** Auditoria 4.4: passado o prazo da vez, a mídia que falta nem é baixada; o agente (ou a equipe) sabe que ela veio. */
+const AVISO_ANEXO_TEMPO = '[anexo não aberto: tempo]';
+
+async function avisarSemTempo(d: DepsProcessamento, m: Mensagem): Promise<void> {
+  if (m.conteudo?.includes(AVISO_ANEXO_TEMPO)) return;
+  m.conteudo = `${m.conteudo ?? ''} ${AVISO_ANEXO_TEMPO}`.trim();
+  await d.repos.atualizarMensagem(m.id, { conteudo: m.conteudo });
+}
+
 /** O anexo que passou do limite fica salvo e o agente sabe que ele veio. O aviso não se repete numa nova tentativa. */
 async function avisarAnexoNaoAberto(d: DepsProcessamento, m: Mensagem): Promise<void> {
   if (m.conteudo?.includes(AVISO_MUITOS_ANEXOS)) return;
@@ -81,7 +91,7 @@ async function avisarAnexoNaoAberto(d: DepsProcessamento, m: Mensagem): Promise<
 }
 
 async function prepararMidias(
-  d: DepsProcessamento, conversa: Conversa, novas: Mensagem[], custo: DestinoCusto, semVerba = false,
+  d: DepsProcessamento, conversa: Conversa, novas: Mensagem[], custo: DestinoCusto, semVerba = false, prazo = Number.POSITIVE_INFINITY,
 ): Promise<AnexoParaIa[]> {
   const anexos: AnexoParaIa[] = [];
   const guardar = async (m: Mensagem, anexo: AnexoParaIa | null | undefined) => {
@@ -105,6 +115,11 @@ async function prepararMidias(
       continue;
     }
     if (!m.midia_url_origem) continue;
+    // Auditoria 4.4: o download e a transcrição contam no prazo da vez (antes, só as rodadas do agente contavam).
+    if (Date.now() >= prazo || d.sinalVez?.aborted) {
+      await avisarSemTempo(d, m);
+      continue;
+    }
     try {
       const salvo = await d.midia.baixarESalvar(m.midia_url_origem, conversa.id, nome, m.arquivo_mime);
       const patch: Partial<Mensagem> = { arquivo_path: salvo.path, arquivo_mime: salvo.mime };
@@ -125,9 +140,11 @@ async function prepararMidias(
   return anexos;
 }
 
-async function encaminharParaHumano(d: Pick<DepsProcessamento, 'repos' | 'envio'>, conversa: Conversa, motivo: string, textoCliente: string | null): Promise<void> {
-  const abertos = await d.repos.chamadosAbertosDaConversa(conversa.id);
-  if (!abertos.some((c) => c.setor_id === null)) {
+async function encaminharParaHumano(
+  d: Pick<DepsProcessamento, 'repos' | 'envio'>, conversa: Conversa, motivo: string, textoCliente: string | null, abrirTriagem = true,
+): Promise<void> {
+  const abertos = abrirTriagem ? await d.repos.chamadosAbertosDaConversa(conversa.id) : [];
+  if (abrirTriagem && !abertos.some((c) => c.setor_id === null)) {
     await d.repos.abrirChamado({
       clienteId: conversa.cliente_em_foco, conversaId: conversa.id, setorId: null, responsavelId: null,
       titulo: motivo, resumo: 'Atendimento encaminhado automaticamente para a equipe.', foraDoContrato: false, origem: 'sistema',
@@ -180,6 +197,31 @@ export async function passarAEquipeSemResposta(
   return 'escalado';
 }
 
+/**
+ * Auditoria 4.1: o lote de um turno que caiu depois de agir (decisão ou resposta gravada). A IA não é chamada de novo: o
+ * resultado da vez é incerto e uma pessoa confere. A demanda que o turno já abriu basta; sem nenhuma, a Triagem. O aviso
+ * "IA indisponível" só sai se nenhuma resposta daquele turno saiu.
+ */
+async function retomarInterrompida(
+  d: DepsProcessamento, conversaId: string, interrompidas: Mensagem[], respondeu: boolean,
+): Promise<DesfechoProcessamento> {
+  const ids = interrompidas.map((m) => m.id);
+  console.warn('[agente] vez interrompida: retomada sem chamar a IA de novo', conversaId, ids.length);
+  const conversa = await d.repos.obterConversa(conversaId);
+  if (conversa.estado === 'humano') {
+    await d.repos.marcarProcessadas(ids);
+    return 'humano';
+  }
+  const desde = Math.min(...interrompidas.map((m) => Date.parse(m.criado_em)));
+  const demandaDoTurno = (await d.repos.chamadosAbertosDaConversa(conversaId)).some((c) => Date.parse(c.criado_em) >= desde);
+  const aviso = respondeu ? null : await d.repos.obterConfiguracoes().then((c) => c.mensagens.ia_indisponivel ?? null)
+    .catch((e) => { console.error('[agente] configurações não lidas; passa à equipe sem aviso', conversaId, e); return null; });
+  await encaminharParaHumano(d, conversa, 'Atendimento interrompido (reinício)', aviso, !demandaDoTurno);
+  await marcarPassagem(d, conversaId, MOTIVOS_PASSAGEM.interrompido);
+  await d.repos.marcarProcessadas(ids);
+  return 'escalado';
+}
+
 export async function processarConversa(d: DepsProcessamento, conversaId: string, ultimaTentativa: boolean): Promise<DesfechoProcessamento> {
   try {
     return await processarConversaSemProtecao(d, conversaId, ultimaTentativa);
@@ -215,8 +257,17 @@ class ErroDepoisDoAgente extends Error {
 async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: string, ultimaTentativa: boolean): Promise<DesfechoProcessamento> {
   // O prazo conta do começo do job (baixar mídia e transcrever também gastam o tempo do job).
   const inicio = Date.now();
-  const novas = await d.repos.mensagensNaoProcessadas(conversaId);
+  let novas = await d.repos.mensagensNaoProcessadas(conversaId);
   if (novas.length === 0) return 'sem-mensagens';
+  // Auditoria 4.1: o lote ganha o turno desta vez. Mensagens de um turno que caiu depois de agir (implantação, queda) não
+  // vão de novo à IA: a retomada passa à equipe. As que chegaram no meio (sem turno) seguem nesta vez.
+  const turno = randomUUID();
+  const lote = await d.repos.pegarLoteDoTurno(conversaId, novas.map((m) => m.id), turno);
+  if (lote.interrompidas.length > 0) {
+    const desfechoRetomada = await retomarInterrompida(d, conversaId, novas.filter((m) => lote.interrompidas.includes(m.id)), lote.respondeu);
+    novas = novas.filter((m) => !lote.interrompidas.includes(m.id));
+    if (novas.length === 0) return desfechoRetomada;
+  }
   const ids = novas.map((m) => m.id);
   let conversa = await d.repos.obterConversa(conversaId);
   // Quem fala decide o custo da transcrição (revisão final, I1/I3): áudio da equipe ou de telefone interno entra só no total
@@ -229,7 +280,8 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   // Revisão da Task 6: o limite do dia e o teto do mês valem antes de transcrever (a transcrição também é paga). A equipe e o
   // telefone interno não têm esse limite.
   const semVerba = !usuario && !interno && (await passouDaVerba(d, conversa.telefone, contato !== null));
-  const anexos = await prepararMidias(d, conversa, novas, custoAudio, semVerba);
+  const prazoVez = inicio + PRAZO_VEZ_CONVERSA_MS;
+  const anexos = await prepararMidias(d, conversa, novas, custoAudio, semVerba, prazoVez);
 
   // WhatsApp de alguém da equipe com o assistente ligado: vira pergunta ao assistente interno (pedido do dono, 2026-09-29).
   // `prepararMidias` já preencheu `transcricao` nas linhas em memória (e em nova tentativa ela vem do banco).
@@ -335,7 +387,7 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   try {
     // Auditoria 4.11: a vez para entre as rodadas se o gasto dela passar do limite do número ou do teto do mês.
     const orcamento = { telefoneAntes: custoTelefone, limiteDia, mesAntes: custoMes, tetoMes: config.tetoIaUsd, gastoNaVez: 0 };
-    const r = await atenderComAgentes({ ...d, prazoVez: inicio + PRAZO_VEZ_CONVERSA_MS, orcamento }, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
+    const r = await atenderComAgentes({ ...d, prazoVez, orcamento, turno }, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
     agenteAgiu = true;
     if (r.status === 'escalar') {
       if (await assumidaPorHumano(d, conversaId)) {
@@ -351,10 +403,20 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
     // Só relança (nova tentativa) se a IA falhou antes de qualquer ação; depois disso, relançar repetiria ferramentas.
     if (!agenteAgiu && erroTemporarioIa(e) && !ultimaTentativa && (await d.repos.contarDecisoesDesde(conversaId, novas[0]!.criado_em)) === 0) throw e;
     console.error('[agente] falha', e);
-    if (await assumidaPorHumano(d, conversaId)) {
-      desfecho = 'humano';
-    } else {
-      await encaminharParaHumano(d, conversa, 'Falha no agente de IA', config.mensagens.ia_indisponivel ?? null);
+    try {
+      if (await assumidaPorHumano(d, conversaId)) {
+        desfecho = 'humano';
+      } else {
+        await encaminharParaHumano(d, conversa, 'Falha no agente de IA', config.mensagens.ia_indisponivel ?? null);
+        await marcarPassagem(d, conversa.id, MOTIVOS_PASSAGEM.falha);
+        desfecho = 'escalado';
+      }
+    } catch (e2) {
+      // Auditoria 4.6: depois que o agente agiu, relançar refaria o lote (segunda resposta, segunda demanda). Fica escalado
+      // com o registro; antes de o agente agir, o erro segue como antes (nova tentativa ou passagem na última).
+      if (!agenteAgiu && (await d.repos.contarDecisoesDesde(conversaId, novas[0]!.criado_em).catch(() => 1)) === 0) throw e2;
+      console.error('[agente] passagem à equipe falhou depois de o agente agir; não relança', conversaId, e2);
+      // Ao menos "esperando pessoa" (melhor esforço: marcarPassagem não lança).
       await marcarPassagem(d, conversa.id, MOTIVOS_PASSAGEM.falha);
       desfecho = 'escalado';
     }
@@ -418,6 +480,6 @@ export async function conferirAlertaIa80(d: Pick<DepsProcessamento, 'repos' | 'a
 
 /** Revisão geral I1: uma vez por conversa (trava no banco, a mesma chave que o batimento confere); ocupada, volta para a fila mais tarde. */
 export async function processarConversaNaVez(d: DepsProcessamento, conversaId: string, ultimaTentativa: boolean) {
-  return naVez(d.repos, `conversa:${conversaId}`, TRAVA_VEZ_SEGUNDOS, () => processarConversa(d, conversaId, ultimaTentativa),
+  return naVez(d.repos, `conversa:${conversaId}`, TRAVA_VEZ_SEGUNDOS, (sinalVez) => processarConversa({ ...d, sinalVez }, conversaId, ultimaTentativa),
     () => d.fila.enviar(FILAS.processarConversa, { conversaId }, { singletonKey: conversaId, startAfter: ESPERA_OCUPADA_SEGUNDOS }));
 }

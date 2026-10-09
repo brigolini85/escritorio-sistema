@@ -14,6 +14,8 @@ export const MOTIVOS_PASSAGEM = {
   volume: 'muitas mensagens seguidas (possível resposta automática)',
   // Auditoria 4.2 e 5.2 (D2): o número passou do limite diário de gasto com IA.
   limiteDia: 'limite diário de gasto com IA deste número atingido',
+  // Auditoria 4.1: a vez caiu (implantação, reinício) depois de o agente agir; a retomada não chama a IA de novo.
+  interrompido: 'atendimento interrompido (reinício)',
 } as const;
 
 const ESCALADAS: Record<string, string> = {

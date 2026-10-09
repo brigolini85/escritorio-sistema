@@ -12,13 +12,13 @@ import { criarEmail } from './email';
 import { LimitadorEnvio, enviarMensagemDoPainel, tratarEnviadaPorMim } from './envio';
 import { processarAssistenteNaVez } from './assistente/processar';
 import {
-  FILAS, criarBoss, filaDe, type JobAssistente, type JobAviso, type JobPastaDrive, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa,
+  FILAS, criarBoss, encerrarComCalma, filaDe, type JobAssistente, type JobAviso, type JobPastaDrive, type JobPendencia, type JobSimulacao, type JobSugestao, type JobTarefa,
 } from './fila';
 import { criarArmazenamento } from './midia/armazenamento';
 import { removerArquivosDoJob } from './midia/remocao';
 import { criarTranscritor } from './midia/transcritor';
 import { processarConversaNaVez } from './processar-conversa';
-import { limparRetencao } from './retencao';
+import { limpezaNaVez, limparRetencao } from './retencao';
 import { canalDaSugestao } from './sugestao/ferramentas';
 import { processarSugestao } from './sugestao/processar';
 import { cicloRadar, enviosRadar } from './radar/ciclo';
@@ -122,12 +122,15 @@ async function principal() {
   await boss.schedule(FILAS.batimento, '* * * * *');
   await boss.schedule(FILAS.alertaFila, '*/5 * * * *');
   await boss.schedule(FILAS.resumoDiario, '0 18 * * 1-6', {}, FUSO);
+  // Auditoria 4.17: uma limpeza por vez (trava de 2 h, renovada enquanto roda); a segunda sai sem limpar.
   await boss.work(FILAS.limpezaRetencao, async () => {
-    await limparRetencao(db, midia);
-    // Parte I3b (D14): a guarda dos arquivos das tarefas; uma falha aqui não desfaz a limpeza das conversas.
-    await limparArquivosDasTarefas(repos, remover)
-      .then((n) => { if (n > 0) console.log(`[guarda] ${n} arquivo(s) das tarefas apagado(s)`); })
-      .catch((e) => console.error('[guarda] arquivos das tarefas', e));
+    await limpezaNaVez(repos, async () => {
+      await limparRetencao(db, midia);
+      // Parte I3b (D14): a guarda dos arquivos das tarefas; uma falha aqui não desfaz a limpeza das conversas.
+      await limparArquivosDasTarefas(repos, remover)
+        .then((n) => { if (n > 0) console.log(`[guarda] ${n} arquivo(s) das tarefas apagado(s)`); })
+        .catch((e) => console.error('[guarda] arquivos das tarefas', e));
+    });
   });
   await boss.schedule(FILAS.limpezaRetencao, '0 3 * * *', {}, FUSO);
   // Todo dia às 07:00: certificado digital perto de vencer vira demanda no Fiscal (Parte H1).
@@ -151,7 +154,10 @@ async function principal() {
     encerrando = true;
     app.log.info('Encerrando com calma: termina o que está em andamento e para de pegar tarefas novas.');
     await app.close();
-    await boss.stop({ graceful: true, timeout: 30_000 });
+    // Auditoria 4.1: espera as vezes em andamento (até 90 s) e solta as travas que ficarem; sem isso, a conversa ficava
+    // parada até a trava vencer. O "stop grace period" do Easypanel precisa ser de 120 s (docs/operacao.md).
+    const r = await encerrarComCalma(boss, repos);
+    if (!r.terminaram) console.warn(`[fila] desligou com vez em andamento; ${r.soltas} trava(s) solta(s).`);
     process.exit(0);
   };
   process.on('SIGTERM', encerrar);

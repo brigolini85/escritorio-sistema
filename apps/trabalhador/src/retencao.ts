@@ -1,7 +1,18 @@
-import type { Db } from '@escritorio/db';
+import type { Db, Repos } from '@escritorio/db';
+import { naVez } from './fila';
 import type { ArmazenamentoMidia } from './midia/armazenamento';
 
 const LOTE = 500;
+
+/** Auditoria 4.17: a limpeza tem trava própria de 2 h; uma segunda limpeza (nova tentativa do pg-boss) sai sem limpar. */
+export const TRAVA_LIMPEZA = { chave: 'limpeza-retencao', segundos: 2 * 60 * 60 } as const;
+
+export async function limpezaNaVez<T>(
+  repos: Pick<Repos, 'pegarTrava' | 'soltarTrava' | 'renovarTrava'>, limpar: () => Promise<T>,
+): Promise<T | 'ocupada'> {
+  return naVez(repos, TRAVA_LIMPEZA.chave, TRAVA_LIMPEZA.segundos, limpar,
+    async () => { console.log('[retenção] outra limpeza em andamento; esta sai'); });
+}
 
 /**
  * Conversas, anexos e decisões do agente e as conversas com o assistente interno ficam guardados por 1 ano (spec, seção 9);

@@ -141,22 +141,74 @@ export async function agendarAviso(fila: Fila, avisoId: string): Promise<void> {
   await fila.enviar(FILAS.avisoTarefa, { avisoId } satisfies JobAviso, { singletonKey: avisoId });
 }
 
+/** Auditoria 4.1: a vez renova a trava a cada minuto enquanto roda (a trava não vence no meio de uma vez longa). */
+export const RENOVAR_TRAVA_MS = 60_000;
+/** Auditoria 4.1: no desligamento, quanto esperar as vezes em andamento (o Easypanel manda SIGKILL depois do stop grace period). */
+export const ESPERA_DESLIGAR_MS = 90_000;
+
+/** As vezes deste processo que ainda rodam (dono da trava → fim); o desligamento espera por elas e solta as que sobrarem. */
+const vezesEmAndamento = new Map<string, Promise<unknown>>();
+
 /**
  * Revisão geral I1: uma execução por chave (conversa, pergunta do assistente) por uma trava no banco, no lugar da política
  * "stately" (que no pg-boss 10.4.2 travava a fila inteira). Ocupada: `ocupada` (em geral, enfileirar de novo mais tarde).
+ * Auditoria 4.1: enquanto `fazer` roda, a trava é renovada; se a renovação disser que ela foi perdida, `sinal` é abortado
+ * e a vez não abre rodada nova.
  */
 export async function naVez<T>(
-  repos: Pick<Repos, 'pegarTrava' | 'soltarTrava'>, chave: string, segundos: number, fazer: () => Promise<T>, ocupada: () => Promise<void>,
+  repos: Pick<Repos, 'pegarTrava' | 'soltarTrava' | 'renovarTrava'>, chave: string, segundos: number,
+  fazer: (sinal: AbortSignal) => Promise<T>, ocupada: () => Promise<void>, opcoes: { renovarCadaMs?: number } = {},
 ): Promise<T | 'ocupada'> {
   const dono = randomUUID();
   if (!(await repos.pegarTrava(chave, dono, segundos))) {
     await ocupada();
     return 'ocupada';
   }
-  try {
-    return await fazer();
-  } finally {
-    // Falha ao soltar: a trava vence sozinha em `segundos`.
-    await repos.soltarTrava(chave, dono).catch((e) => console.error('[fila] trava não solta', chave, e));
+  const controle = new AbortController();
+  let renovando = false;
+  const renovar = setInterval(() => {
+    if (renovando) return;
+    renovando = true;
+    repos.renovarTrava(chave, dono, segundos)
+      .then((ok) => { if (!ok) { console.error('[fila] trava perdida; a vez para antes da próxima rodada', chave); controle.abort(); } })
+      // Falha de rede não é perda: a próxima renovação tenta de novo (a trava ainda vale por `segundos`).
+      .catch((e) => console.error('[fila] trava não renovada', chave, e))
+      .finally(() => { renovando = false; });
+  }, opcoes.renovarCadaMs ?? RENOVAR_TRAVA_MS);
+  const vez = (async () => {
+    try {
+      return await fazer(controle.signal);
+    } finally {
+      clearInterval(renovar);
+      // Falha ao soltar: a trava vence sozinha em `segundos`.
+      await repos.soltarTrava(chave, dono).catch((e) => console.error('[fila] trava não solta', chave, e));
+      vezesEmAndamento.delete(dono);
+    }
+  })();
+  vezesEmAndamento.set(dono, vez.catch(() => undefined));
+  return vez;
+}
+
+/**
+ * Auditoria 4.1: desligamento sem conversa parada. Para de pegar jobs novos, espera as vezes em andamento até `esperaMs`,
+ * para o pg-boss e solta as travas das vezes que ainda não terminaram (o processo sai logo depois).
+ */
+export async function encerrarComCalma(
+  boss: Pick<PgBoss, 'offWork' | 'stop'>, repos: Pick<Repos, 'soltarTravasDoDono'>, opcoes: { esperaMs?: number } = {},
+): Promise<{ terminaram: boolean; soltas: number }> {
+  for (const nome of Object.values(FILAS)) {
+    await boss.offWork(nome).catch((e) => console.error('[fila] fila não parada', nome, e));
   }
+  let relogio: ReturnType<typeof setTimeout> | undefined;
+  const terminaram = await Promise.race([
+    Promise.all([...vezesEmAndamento.values()]).then(() => true),
+    new Promise<boolean>((r) => { relogio = setTimeout(() => r(false), opcoes.esperaMs ?? ESPERA_DESLIGAR_MS); }),
+  ]);
+  clearTimeout(relogio);
+  // O que não é vez (Radar, tarefas) tem mais um pouco; depois o pg-boss devolve à fila o que ficou.
+  await boss.stop({ graceful: true, timeout: 15_000 }).catch((e) => console.error('[fila] pg-boss não parou', e));
+  const donos = [...vezesEmAndamento.keys()];
+  const soltas = donos.length === 0 ? 0
+    : await repos.soltarTravasDoDono(donos).catch((e) => { console.error('[fila] travas não soltas', e); return 0; });
+  return { terminaram, soltas };
 }

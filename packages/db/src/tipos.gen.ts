@@ -1142,13 +1142,13 @@ isOneToOne: false
                   ]
                 },"mensagens": {
                   Row: {
-                    "arquivo_mime": string | null,"arquivo_nome": string | null,"arquivo_path": string | null,"atendente_id": string | null,"autor": Database["public"]['Enums']["autor_mensagem"],"cliente_id": string | null,"conteudo": string | null,"conversa_id": string,"criado_em": string,"direcao": Database["public"]['Enums']["direcao_mensagem"],"documento_id": string | null,"envio_reservado_em": string | null,"id": string,"id_provedor": string | null,"midia_url_origem": string | null,"processada_em": string | null,"reenfileirada": number,"reenfileirada_em": string | null,"status_envio": Database["public"]['Enums']["status_envio"] | null,"tipo": Database["public"]['Enums']["tipo_mensagem"],"transcricao": string | null,"turno_agente": string | null
+                    "arquivo_mime": string | null,"arquivo_nome": string | null,"arquivo_path": string | null,"atendente_id": string | null,"autor": Database["public"]['Enums']["autor_mensagem"],"cliente_id": string | null,"conteudo": string | null,"conversa_id": string,"criado_em": string,"direcao": Database["public"]['Enums']["direcao_mensagem"],"documento_id": string | null,"envio_reservado_em": string | null,"id": string,"id_provedor": string | null,"midia_url_origem": string | null,"processada_em": string | null,"reenfileirada": number,"reenfileirada_em": string | null,"status_envio": Database["public"]['Enums']["status_envio"] | null,"tipo": Database["public"]['Enums']["tipo_mensagem"],"transcricao": string | null,"turno_agente": string | null,"turno_agente_entrada": string | null
                   }
                   Insert: {
-                    "arquivo_mime"?: string | null,"arquivo_nome"?: string | null,"arquivo_path"?: string | null,"atendente_id"?: string | null,"autor": Database["public"]['Enums']["autor_mensagem"],"cliente_id"?: string | null,"conteudo"?: string | null,"conversa_id": string,"criado_em"?: string,"direcao": Database["public"]['Enums']["direcao_mensagem"],"documento_id"?: string | null,"envio_reservado_em"?: string | null,"id"?: string,"id_provedor"?: string | null,"midia_url_origem"?: string | null,"processada_em"?: string | null,"reenfileirada"?: number,"reenfileirada_em"?: string | null,"status_envio"?: Database["public"]['Enums']["status_envio"] | null,"tipo"?: Database["public"]['Enums']["tipo_mensagem"],"transcricao"?: string | null,"turno_agente"?: string | null
+                    "arquivo_mime"?: string | null,"arquivo_nome"?: string | null,"arquivo_path"?: string | null,"atendente_id"?: string | null,"autor": Database["public"]['Enums']["autor_mensagem"],"cliente_id"?: string | null,"conteudo"?: string | null,"conversa_id": string,"criado_em"?: string,"direcao": Database["public"]['Enums']["direcao_mensagem"],"documento_id"?: string | null,"envio_reservado_em"?: string | null,"id"?: string,"id_provedor"?: string | null,"midia_url_origem"?: string | null,"processada_em"?: string | null,"reenfileirada"?: number,"reenfileirada_em"?: string | null,"status_envio"?: Database["public"]['Enums']["status_envio"] | null,"tipo"?: Database["public"]['Enums']["tipo_mensagem"],"transcricao"?: string | null,"turno_agente"?: string | null,"turno_agente_entrada"?: string | null
                   }
                   Update: {
-                    "arquivo_mime"?: string | null,"arquivo_nome"?: string | null,"arquivo_path"?: string | null,"atendente_id"?: string | null,"autor"?: Database["public"]['Enums']["autor_mensagem"],"cliente_id"?: string | null,"conteudo"?: string | null,"conversa_id"?: string,"criado_em"?: string,"direcao"?: Database["public"]['Enums']["direcao_mensagem"],"documento_id"?: string | null,"envio_reservado_em"?: string | null,"id"?: string,"id_provedor"?: string | null,"midia_url_origem"?: string | null,"processada_em"?: string | null,"reenfileirada"?: number,"reenfileirada_em"?: string | null,"status_envio"?: Database["public"]['Enums']["status_envio"] | null,"tipo"?: Database["public"]['Enums']["tipo_mensagem"],"transcricao"?: string | null,"turno_agente"?: string | null
+                    "arquivo_mime"?: string | null,"arquivo_nome"?: string | null,"arquivo_path"?: string | null,"atendente_id"?: string | null,"autor"?: Database["public"]['Enums']["autor_mensagem"],"cliente_id"?: string | null,"conteudo"?: string | null,"conversa_id"?: string,"criado_em"?: string,"direcao"?: Database["public"]['Enums']["direcao_mensagem"],"documento_id"?: string | null,"envio_reservado_em"?: string | null,"id"?: string,"id_provedor"?: string | null,"midia_url_origem"?: string | null,"processada_em"?: string | null,"reenfileirada"?: number,"reenfileirada_em"?: string | null,"status_envio"?: Database["public"]['Enums']["status_envio"] | null,"tipo"?: Database["public"]['Enums']["tipo_mensagem"],"transcricao"?: string | null,"turno_agente"?: string | null,"turno_agente_entrada"?: string | null
                   }
                   Relationships: [
                     {
@@ -2689,6 +2689,9 @@ isOneToOne: false
 "pegar_giro_radar":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"pegar_lote_do_turno":
+{ Args: { "p_conversa": string,"p_ids": (string)[],"p_turno": string }; Returns: Json
+                           },
 "pegar_trava":
 { Args: { "p_chave": string,"p_dono": string,"p_segundos": number }; Returns: boolean
                            },
@@ -2791,6 +2794,9 @@ isOneToOne: false
                            },
 "remover_fonte_radar":
 { Args: { "p_id": string }; Returns: undefined
+                           },
+"renovar_trava":
+{ Args: { "p_chave": string,"p_dono": string,"p_segundos": number }; Returns: boolean
                            },
 "reservar_aviso_tarefa":
 { Args: { "p_id": string }; Returns: Json
@@ -2916,6 +2922,9 @@ isOneToOne: false
                            },
 "soltar_trava":
 { Args: { "p_chave": string,"p_dono": string }; Returns: undefined
+                           },
+"soltar_travas_do_dono":
+{ Args: { "p_donos": (string)[] }; Returns: number
                            },
 "somar_custo_giro":
 { Args: { "p_giro": string,"p_usd": number }; Returns: undefined
