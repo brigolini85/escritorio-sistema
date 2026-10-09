@@ -18,8 +18,17 @@ export const obterUsuario = cache(async (): Promise<UsuarioPainel> => {
   const sb = await supabaseServidor();
   const { data: auth } = await sb.auth.getUser();
   if (!auth.user) redirect('/entrar');
+  // Segurança do login (item 8): redirecionamento de ação de servidor não passa pelo middleware; aqui vale para toda tela.
+  // Auditoria 2.1: o banco esconde a própria linha de quem precisa do fator e está em aal1, então a pergunta vem antes da
+  // leitura (exige_segundo_fator é security definer). Erro na pergunta não tranca: o banco segue recusando sem o fator.
+  const { data: exige, error: erroFator } = await sb.rpc('exige_segundo_fator');
+  if (erroFator) console.error('[sessao] segundo fator', erroFator.message);
+  if (exige === true) {
+    const { data: nivel } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (nivel?.currentLevel !== 'aal2') redirect(TELA_SEGUNDO_FATOR);
+  }
   const { data: u, error: erroLinha } = await sb.from('usuarios')
-    .select('id, nome, papel, ativo, tamanho_letra, ver_acessos_portais, usuario_setores(setor_id), usuario_permissoes(modulo, nivel)')
+    .select('id, nome, papel, ativo, tamanho_letra, usuario_setores(setor_id), usuario_permissoes(modulo, nivel)')
     .eq('id', auth.user.id).maybeSingle();
   if (!u || !u.ativo) {
     // Fora do horário a RLS também esconde a própria linha: a situação diz qual dos dois casos é.
@@ -27,11 +36,6 @@ export const obterUsuario = cache(async (): Promise<UsuarioPainel> => {
     if (erroLinha) console.error('[sessao] leitura do usuário', erroLinha.message);
     const situacao = lerSituacao(await sb.rpc('situacao_acesso'), 'sessao');
     redirect(erroLinha && situacao !== 'fora_do_horario' ? '/entrar?erro=indisponivel' : destinoSemAcesso(situacao));
-  }
-  // Segurança do login (item 8): redirecionamento de ação de servidor não passa pelo middleware; aqui vale para toda tela.
-  if (u.papel === 'admin' || u.ver_acessos_portais) {
-    const { data: nivel } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (nivel?.currentLevel !== 'aal2') redirect(TELA_SEGUNDO_FATOR);
   }
   return {
     id: u.id, nome: u.nome, papel: u.papel,

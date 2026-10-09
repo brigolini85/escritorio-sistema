@@ -23,10 +23,15 @@ async function axeSemGraves(page: Page) {
   expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
 }
 
-test.afterAll(async () => { await apagarPessoas(['admin-fator@e2e.local', 'bia-fator@e2e.local', 'admin-api@e2e.local']); });
+const AVISO_FATOR = 'Admin Fator cadastrou um aplicativo de código';
+test.afterAll(async () => {
+  await apagarPessoas(['admin-fator@e2e.local', 'bia-fator@e2e.local', 'admin-api@e2e.local']);
+  await db.from('alertas').delete().eq('mensagem', AVISO_FATOR);
+});
 
 test('administrador no primeiro login cadastra o aplicativo; no seguinte só digita o código', async ({ page }) => {
   await criarUsuarioTeste({ email: ADMIN, senha: SENHA, nome: 'Admin Fator', papel: 'admin' });
+  await db.from('alertas').delete().eq('mensagem', AVISO_FATOR);
   await soASenha(page, ADMIN);
   await page.waitForURL('**/segundo-fator');
   await expect(page.getByRole('heading', { name: 'Proteja seu acesso com o celular' })).toBeVisible();
@@ -54,6 +59,8 @@ test('administrador no primeiro login cadastra o aplicativo; no seguinte só dig
   await page.getByLabel('Código do aplicativo').fill(codigoTotp(segredoNovo));
   await page.getByRole('button', { name: 'Ativar e entrar' }).click();
   await page.waitForURL('**/inicio');
+  // Auditoria 2.5: o cadastro do aplicativo vira aviso (ao dono; sem dono marcado, aos administradores).
+  await expect.poll(async () => (await db.from('alertas').select('id').eq('mensagem', AVISO_FATOR)).data?.length).toBe(1);
   await page.goto('/usuarios');
   await expect(page).toHaveURL(/\/usuarios/);
 
@@ -90,6 +97,17 @@ test('o banco recusa as ações sensíveis de quem só usou a senha (chamada dir
   expect((await sb.rpc('definir_ver_acessos', { p_usuario: id, p_pode: true })).error?.message).toBe(MSG);
   expect((await sb.rpc('arquivar_cadastro', { p_tipo: 'usuario', p_id: id })).error?.message).toBe(MSG);
   expect((await db.from('usuarios').select('nome, ativo').eq('id', id).single()).data).toEqual({ nome: 'Admin API', ativo: true });
+});
+
+// Auditoria 2.1 e 2.8: com só a senha, a escrita direta na tabela também não passa (nem leitura da própria linha).
+test('administrador em aal1 chama update direto em usuarios pela API: nada muda', async () => {
+  const id = await criarUsuarioTeste({ email: 'admin-api@e2e.local', senha: SENHA, nome: 'Admin API', papel: 'admin' });
+  exigirBancoLocal(process.env.NEXT_PUBLIC_SUPABASE_URL, 'NEXT_PUBLIC_SUPABASE_URL');
+  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA!, { auth: { persistSession: false } });
+  expect((await sb.auth.signInWithPassword({ email: 'admin-api@e2e.local', password: SENHA })).error).toBeNull();
+  await sb.from('usuarios').update({ nome: 'X' }).eq('id', id);
+  expect((await sb.from('usuarios').select('id').eq('id', id)).data ?? []).toEqual([]);
+  expect((await db.from('usuarios').select('nome').eq('id', id).single()).data).toEqual({ nome: 'Admin API' });
 });
 
 test('celular perdido: o SQL de recuperação apaga o fator e o próximo login cadastra de novo', async ({ page }) => {

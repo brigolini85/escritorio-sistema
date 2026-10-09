@@ -49,7 +49,8 @@ select is(public.segundo_fator_ok(), true, 'e passa com aal1');
 
 -- 9–15: administrador em aal1 é barrado nas ações sensíveis, mas continua vendo o que via
 select pg_temp.como('e9800000-0000-0000-0000-00000000000a', 'aal1');
-select is(public.eh_admin(), true, 'aal1: continua administrador para a visibilidade');
+-- Auditoria 2.1: com só a senha deixa de ser administrador também para a visibilidade (o banco, não só a tela).
+select is(public.eh_admin(), false, 'aal1: não é administrador até confirmar o código');
 select throws_ok($$ select public.revelar_acesso('e9820000-0000-0000-0000-000000000001') $$, '42501',
   'Confirme o código do aplicativo autenticador para continuar.', 'aal1: não revela senha de portal');
 select throws_ok($$ select public.salvar_acesso(null, 'e9810000-0000-0000-0000-00000000000a', 'Prefeitura', 'x', '') $$, '42501',

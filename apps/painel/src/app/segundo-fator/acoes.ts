@@ -10,7 +10,7 @@ const CODIGO_INVALIDO = 'Digite os 6 números que aparecem no aplicativo.';
 const CODIGO_ERRADO = 'Código incorreto ou vencido. Confira se a hora do celular está certa e digite o código novo.';
 
 /** Confere o código no Supabase; certo, a sessão sobe para aal2 (cookies novos) e segue para o destino fixo. */
-async function verificar(factorId: string, formData: FormData): Promise<EstadoFator> {
+async function verificar(factorId: string, formData: FormData, cadastro = false): Promise<EstadoFator> {
   const codigo = codigoDoFormulario(formData.get('codigo'));
   if (!codigo) return { erro: CODIGO_INVALIDO };
   const sb = await supabaseServidor();
@@ -19,6 +19,11 @@ async function verificar(factorId: string, formData: FormData): Promise<EstadoFa
     console.error('[segundo-fator] código recusado', error.message);
     return { erro: CODIGO_ERRADO };
   }
+  if (cadastro) {
+    // Auditoria 2.5: aplicativo novo vira aviso ao dono e linha na auditoria. Falha aqui não impede a entrada.
+    const { error: erroRegistro } = await sb.rpc('registrar_fator_cadastrado');
+    if (erroRegistro) console.error('[segundo-fator] registro do cadastro', erroRegistro.message);
+  }
   redirect(destinoDepoisDoFator(formData.get('depois')));
 }
 
@@ -26,7 +31,7 @@ async function verificar(factorId: string, formData: FormData): Promise<EstadoFa
 export async function cadastrarAplicativo(_: EstadoFator, formData: FormData): Promise<EstadoFator> {
   const fator = String(formData.get('fator') ?? '');
   if (!fator) redirect(TELA_SEGUNDO_FATOR);
-  return verificar(fator, formData);
+  return verificar(fator, formData, true);
 }
 
 /** Login de quem já tem o aplicativo: confere com o fator cadastrado da própria pessoa. */

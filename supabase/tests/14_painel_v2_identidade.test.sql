@@ -33,9 +33,9 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000d1","role":"authenticated"}', true);
 select lives_ok($$ select public.definir_tamanho_letra('grande') $$, 'pessoa muda o próprio tamanho');
 select throws_ok($$ select public.definir_tamanho_letra('enorme') $$, 'P0001', 'Tamanho de letra inválido.', 'valor desconhecido é recusado');
--- A RLS filtra o update sem dar erro: roda sem falhar e a linha da outra pessoa fica como estava (conferido abaixo).
-select lives_ok($$ update public.usuarios set tamanho_letra = 'maior' where id = '00000000-0000-0000-0000-0000000000d2' $$,
-  'atendente não grava direto em usuarios (filtrado pela RLS)');
+-- Auditoria 2.8: escrita direta em usuarios saiu da API (só pelas funções); a linha da outra pessoa fica como estava.
+select throws_ok($$ update public.usuarios set tamanho_letra = 'maior' where id = '00000000-0000-0000-0000-0000000000d2' $$,
+  '42501', null, 'atendente não grava direto em usuarios');
 reset role;
 select is((select tamanho_letra from public.usuarios where id = '00000000-0000-0000-0000-0000000000d1'), 'grande', 'gravou na própria linha');
 select is((select tamanho_letra from public.usuarios where id = '00000000-0000-0000-0000-0000000000d2'), 'normal', 'a outra pessoa não mudou');

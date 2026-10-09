@@ -206,6 +206,8 @@ describe('Sugerir resposta (spec 7A.1): só lê, nunca envia nem grava', () => {
     const ia1 = new IaRoteirizada([usarFerramentas({ nome: 'entregar_rascunho', entrada: { texto: 'Oi.' } })]);
     expect(await processarSugestao({ repos, ia: ia1, canal }, id1, true)).toBe('pronta');
     const telefone = (await repos.obterConversa(conversaId)).telefone;
+    // Auditoria 5.3: o número de um contato ativo não entra na ficha da equipe; o contato é arquivado antes.
+    await db.from('contatos').update({ ativo: false }).eq('telefone', telefone);
     await criarUsuarioTeste({ email: 'colega@sugestao.local', nome: 'Colega', papel: 'atendente', permissoes: ['assistente_whatsapp'], telefone });
     const id2 = await novaSugestao(todas);
     const ia2 = new IaRoteirizada([]);

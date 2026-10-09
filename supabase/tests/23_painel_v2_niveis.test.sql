@@ -60,7 +60,8 @@ select throws_ok($$ insert into public.usuario_permissoes (usuario_id, modulo, n
   '42501', null, 'atendente não muda nível');
 
 select set_config('request.jwt.claims', '{"sub":"d1100000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
-select lives_ok($$ update public.usuario_permissoes set nivel = 'todas' where usuario_id = 'd1100000-0000-0000-0000-00000000000b' and modulo = 'demandas' $$,
+-- Auditoria 2.8: o nível muda só por salvar_usuario (a escrita direta em usuario_permissoes saiu da API).
+select lives_ok($$ select public.salvar_usuario('d1100000-0000-0000-0000-00000000000b', '{"nome":"Bia N","papel":"atendente","niveis":{"demandas":"todas"}}'::jsonb) $$,
   'administrador muda o nível');
 select ok(not public.tem_nivel('assistente', 'site'), 'tem_nivel: administrador sem a marcação do assistente não usa o assistente (como hoje)');
 select ok(public.tem_permissao('assistente', 'site'), 'tem_permissao: administrador passa');

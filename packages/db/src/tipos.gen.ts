@@ -2345,6 +2345,9 @@ isOneToOne: false
 "exige_segundo_fator":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"exige_segundo_fator_de":
+{ Args: { "p_usuario": string }; Returns: boolean
+                           },
 "exigir_acesso":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
@@ -2630,6 +2633,9 @@ isOneToOne: false
 "registrar_avisos_da_tarefa":
 { Args: { "p_tarefa": string }; Returns: string[]
                            },
+"registrar_fator_cadastrado":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
 "registrar_novidade_radar":
 { Args: { "p_dados": Json,"p_giro": string }; Returns: Json
                            },
@@ -2790,6 +2796,9 @@ isOneToOne: false
                            },
 "tarefas_paradas":
 { Args: { "p_minutos": number }; Returns: string[]
+                           },
+"telefone_canonico":
+{ Args: { "p": string }; Returns: string
                            },
 "tem_nivel":
 { Args: { "p_minimo": string,"p_modulo": string }; Returns: boolean
