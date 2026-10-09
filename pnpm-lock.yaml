@@ -167,6 +167,25 @@ importers:
         specifier: ^8.13.0
         version: 8.23.0
 
+  scripts/copia:
+    dependencies:
+      pg:
+        specifier: ^8.13.0
+        version: 8.23.0
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.15
+    devDependencies:
+      '@escritorio/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@types/pg':
+        specifier: ^8.11.0
+        version: 8.23.1
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
+
 packages:
 
   '@alloc/quick-lru@5.3.0':

@@ -15,7 +15,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - run: pnpm -r --filter '!@escritorio/db' --filter '!@escritorio/trabalhador' test
+      - run: pnpm -r --filter '!@escritorio/db' --filter '!@escritorio/trabalhador' --filter '!@escritorio/copia' test
   banco:
     runs-on: ubuntu-latest
     steps:
@@ -34,5 +34,9 @@ jobs:
       - run: bash scripts/env-local.sh
       - run: pnpm --filter @escritorio/db test
       - run: pnpm --filter @escritorio/trabalhador test
+      # Auditoria 6.2: ensaio de cópia e restauração (pg_dump/psql 17 do contêiner do Supabase local).
+      - run: pnpm --filter @escritorio/copia test
+        env:
+          COPIA_PG_DOCKER: supabase_db_AGENTESDEIA
       - run: pnpm --filter @escritorio/painel exec playwright install --with-deps chromium
       - run: pnpm --filter @escritorio/painel e2e

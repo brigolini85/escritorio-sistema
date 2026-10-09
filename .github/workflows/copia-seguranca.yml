@@ -1,0 +1,72 @@
+# Auditoria 6.2: cópia semanal cifrada do banco e dos arquivos da produção, guardada fora do Supabase (artefato, 60 dias).
+# Procedimento de restauração: docs/operacao.md, "Cópia de segurança e restauração".
+# Falha: o GitHub manda e-mail a quem mexeu por último no agendamento (o dono), se as notificações de Actions estiverem ligadas.
+name: Cópia de segurança
+on:
+  schedule:
+    - cron: '0 7 * * 0' # domingo, 04:00 de Brasília
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: copia-seguranca
+  cancel-in-progress: false
+
+jobs:
+  copia:
+    runs-on: ubuntu-latest
+    environment: producao
+    timeout-minutes: 90
+    env:
+      # Conta gratuita com repositório privado: ~500 MB de armazenamento de Actions no total. Com 60 dias, ficam ~9 cópias
+      # guardadas ao mesmo tempo: 50 MB cada. Acima disso o job falha (nada é cortado) e é hora do bucket externo.
+      LIMITE_MB: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cliente do PostgreSQL 17 (mesma versão do Supabase)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: Esconder a senha do banco no log
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        # O segredo inteiro já é escondido pelo GitHub; a senha sozinha (dentro da URL) não. Só o comando add-mask sai.
+        run: |
+          node -e 'const u = new URL(process.env.DATABASE_URL); if (u.password) console.log("::add-mask::" + decodeURIComponent(u.password))'
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Fazer a cópia
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          COPIA_CHAVE: ${{ secrets.COPIA_CHAVE }}
+        run: pnpm copia:fazer --saida "$RUNNER_TEMP/copia/copia-$(date -u +%Y-%m-%d).enc"
+      - name: Conferir o tamanho
+        run: |
+          arquivo=$(ls "$RUNNER_TEMP"/copia/*.enc)
+          bytes=$(stat -c %s "$arquivo")
+          echo "Tamanho da cópia: $((bytes / 1024 / 1024)) MB"
+          if [ "$bytes" -gt $((LIMITE_MB * 1024 * 1024)) ]; then
+            echo "::error::A cópia tem $((bytes / 1024 / 1024)) MB, acima do limite de ${LIMITE_MB} MB por cópia (cerca de 9 cópias de 60 dias cabem nos 500 MB de artefatos). Nada foi guardado. Veja docs/operacao.md (Cópia de segurança: guardar num bucket externo)."
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: copia-seguranca-${{ github.run_number }}
+          path: ${{ runner.temp }}/copia/*.enc
+          retention-days: 60
+          # Já está cifrado: comprimir não ajuda.
+          compression-level: 0
+          if-no-files-found: error

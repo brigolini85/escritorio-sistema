@@ -7,7 +7,9 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "db:test": "supabase test db",
-    "db:tipos": "supabase gen types typescript --local > packages/db/src/tipos.gen.ts"
+    "db:tipos": "supabase gen types typescript --local > packages/db/src/tipos.gen.ts",
+    "copia:fazer": "pnpm --filter @escritorio/copia fazer",
+    "copia:restaurar": "pnpm --filter @escritorio/copia restaurar"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
