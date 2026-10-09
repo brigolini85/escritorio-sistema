@@ -160,3 +160,33 @@ test('auditoria 3.3: resposta sem confirmação mostra "Não confirmada" e só a
   await expect.poll(async () => (await db.from('mensagens').select('status_envio').eq('id', daEquipe).single()).data?.status_envio).toBe('pendente');
   await expect(log.getByRole('button', { name: 'Enviar de novo' })).toHaveCount(0);
 });
+
+// Auditoria 6.6: o PostgREST corta em 1000 linhas; a conversa abre nas mais novas e "Ver anteriores" traz as de antes.
+test('conversa com 1.200 mensagens: a última aparece e "Ver anteriores" chega à primeira', async ({ page }) => {
+  test.setTimeout(120_000);
+  await criarUsuarioTeste({ email: 'ana-longa@e2e.local', senha: SENHA, nome: 'Ana Longa', papel: 'admin' });
+  const tel = '5531970020099';
+  await db.from('conversas').delete().eq('telefone', tel);
+  const { data: c } = await db.from('conversas').insert({ telefone: tel }).select().single();
+  const inicio = Date.now() - 2 * 24 * 60 * 60_000;
+  const linhas = Array.from({ length: 1200 }, (_, i) => ({
+    conversa_id: c!.id, direcao: 'entrada' as const, autor: 'cliente' as const, conteudo: `Mensagem longa ${String(i + 1).padStart(4, '0')}`,
+    criado_em: new Date(inicio + i * 60_000).toISOString(), processada_em: new Date(inicio + i * 60_000).toISOString(),
+  }));
+  const { error } = await db.from('mensagens').insert(linhas);
+  expect(error).toBeNull();
+  await entrar(page, 'ana-longa@e2e.local', SENHA);
+  await page.goto(`/atendimento/${c!.id}`);
+  const log = page.getByRole('log', { name: 'Histórico da conversa' });
+  await expect(log.getByText('Mensagem longa 1200', { exact: true })).toBeVisible();
+  await expect(log.getByText('Mensagem longa 1000', { exact: true })).toHaveCount(0);
+  await expect(page.locator('body')).toHaveAttribute(HIDRATADA, '', { timeout: 30_000 });
+  for (let i = 0; i < 6 && await log.getByRole('link', { name: 'Ver anteriores' }).count(); i++) {
+    await log.getByRole('link', { name: 'Ver anteriores' }).click();
+    await expect(page).toHaveURL(/anteriores=/, { timeout: 30_000 });
+    await expect(log.getByText(`Mensagem longa ${String(1000 - i * 200).padStart(4, '0')}`, { exact: true })).toHaveCount(1, { timeout: 30_000 });
+  }
+  await expect(log.getByRole('link', { name: 'Ver anteriores' })).toHaveCount(0);
+  await expect(log.getByText('Mensagem longa 0001', { exact: true })).toHaveCount(1);
+  await expect(log.getByText('Mensagem longa 1200', { exact: true })).toHaveCount(1);
+});

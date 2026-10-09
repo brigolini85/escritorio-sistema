@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { diaMes } from '../../src/agente/ferramentas';
-import { montarBlocosSistema, montarConteudoUsuario, montarSistema } from '../../src/agente/prompt';
+import { FECHO_PAGAMENTO, FECHO_PRECEDENCIA_EMPRESA, montarBlocosSistema, montarConteudoUsuario, montarOrientacoesEmpresa, montarSistema } from '../../src/agente/prompt';
 
 describe('montarSistema', () => {
   it('lista setores com id e as respostas prontas', () => {
@@ -84,6 +84,15 @@ describe('orientações no prompt de sistema', () => {
     expect(a[1]!.cache_control).toBeUndefined();
     expect(b[1]!.text).not.toContain('A empresa A entrega');
     expect(nenhuma).toHaveLength(1);
+  });
+
+  // Auditoria 5.9: orientação da empresa não passa à frente das regras gerais; a precedência é repetida no fim do bloco dela.
+  it('o bloco da empresa repete a precedência no fim; a linha de pagamento continua a última', () => {
+    const a = montarBlocosSistema(ctx({ id: 'A', nome: 'Indústria A' }, todas)).system;
+    expect(a[1]!.text.endsWith(`\n${FECHO_PRECEDENCIA_EMPRESA}\n${FECHO_PAGAMENTO}`)).toBe(true);
+    const tarefa = montarOrientacoesEmpresa('Indústria A', todas.filter((o) => o.clienteId === 'A'))!;
+    expect(tarefa.endsWith(`\n${FECHO_PRECEDENCIA_EMPRESA}`)).toBe(true);
+    expect(FECHO_PRECEDENCIA_EMPRESA).toMatch(/regras/);
   });
 });
 

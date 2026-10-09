@@ -41,9 +41,26 @@ export function linhaOrientacao(o: Pick<OrientacaoAgente, 'tipo' | 'titulo' | 't
 const maisRecentes = (a: OrientacaoAgente, b: OrientacaoAgente) => b.atualizadoEm.getTime() - a.atualizadoEm.getTime();
 
 /**
+ * Orçamento das orientações (espelhado no medidor do painel): percorre na ordem de prioridade e põe cada uma que ainda cabe.
+ * Auditoria 5.9: a que não cabe fica de fora e a seguinte ainda tenta (antes, depois do primeiro corte todas saíam).
+ */
+export function cortarNoLimite<T>(emOrdem: readonly T[], tamanho: (o: T) => number, limite: number): { entram: T[]; cortadas: T[] } {
+  let total = 0;
+  const entram: T[] = [];
+  const cortadas: T[] = [];
+  for (const o of emOrdem) {
+    const t = tamanho(o);
+    if (total + t > limite) { cortadas.push(o); continue; }
+    total += t;
+    entram.push(o);
+  }
+  return { entram, cortadas };
+}
+
+/**
  * Orientações que valem numa conversa: gerais (sem empresa nem setor), de setor (setores ativos) e só as da empresa em foco
- * (sem empresa em foco, nenhuma de empresa). Se passar do limite, entram primeiro as da empresa, depois as de setor, depois
- * as gerais, das mais recentes para as mais antigas; o resto fica de fora (em `cortadas`).
+ * (sem empresa em foco, nenhuma de empresa). Se passar do limite, a prioridade é: as da empresa, depois as de setor, depois
+ * as gerais, das mais recentes para as mais antigas; entra cada uma que ainda couber e o resto fica de fora (em `cortadas`).
  */
 export function orientacoesDaConversa(
   todas: OrientacaoAgente[],
@@ -58,21 +75,15 @@ export function orientacoesDaConversa(
   // Orçamento único (spec §4): a empresa vem primeiro. Custo aceito: acima do limite, o que cabe no bloco 1 (gerais e setor)
   // depende da empresa em foco, e o cache do bloco 1 deixa de valer entre empresas. Abaixo do limite o bloco 1 é idêntico;
   // o medidor do painel existe para não chegar lá.
-  let total = 0;
-  const cortadas: string[] = [];
-  const cabem = (lista: OrientacaoAgente[]) => lista.filter((o) => {
-    if (cortadas.length) { cortadas.push(o.id); return false; }
-    const tamanho = linhaOrientacao(o).length + 1;
-    if (total + tamanho > limite) { cortadas.push(o.id); return false; }
-    total += tamanho;
-    return true;
-  });
-  const empresaOk = cabem(daEmpresa);
-  const setorOk = cabem(deSetor);
-  const geraisOk = cabem(gerais);
+  // A segurança não depende disto: as regras fixas ficam fora do orçamento, e o bloco da empresa repete a precedência delas.
+  const { entram, cortadas } = cortarNoLimite([...daEmpresa, ...deSetor, ...gerais], (o) => linhaOrientacao(o).length + 1, limite);
+  const ok = new Set(entram);
+  const empresaOk = daEmpresa.filter((o) => ok.has(o));
+  const setorOk = deSetor.filter((o) => ok.has(o));
+  const geraisOk = gerais.filter((o) => ok.has(o));
 
   const porSetor = alvo.setores
     .map((s) => ({ setor: s.nome, orientacoes: setorOk.filter((o) => o.setorId === s.id) }))
     .filter((g) => g.orientacoes.length > 0);
-  return { gerais: geraisOk, porSetor, daEmpresa: empresaOk, cortadas };
+  return { gerais: geraisOk, porSetor, daEmpresa: empresaOk, cortadas: cortadas.map((o) => o.id) };
 }

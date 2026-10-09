@@ -68,6 +68,32 @@ describe('orientacoesDaConversa', () => {
     expect(uma.cortadas).toEqual([setor.id, geralNova.id, geralVelha.id]);
   });
 
+  // Auditoria 5.9: o corte deixa de ser "tudo ou nada": a que não cabe sai, e as seguintes ainda tentam entrar.
+  it('corte parcial: 3 orientações e limite para 2: entram as 2 mais prioritárias e a 3ª fica cortada', () => {
+    const texto = 'x'.repeat(60);
+    const empresa = o({ texto, clienteId: 'A' });
+    const setor = o({ texto, setorId: 'S-FIS' });
+    const geral = o({ texto });
+    const tamanho = linhaOrientacao(empresa).length + 1;
+    const r = orientacoesDaConversa([geral, setor, empresa], { clienteId: 'A', setores: SETORES }, tamanho * 2);
+    expect(ids(r.daEmpresa)).toEqual([empresa.id]);
+    expect(r.porSetor.flatMap((g) => ids(g.orientacoes))).toEqual([setor.id]);
+    expect(r.gerais).toEqual([]);
+    expect(r.cortadas).toEqual([geral.id]);
+  });
+
+  it('uma orientação grande que não cabe não tira as menores que vêm depois', () => {
+    const grande = o({ texto: 'g'.repeat(500), clienteId: 'A' });
+    const setor = o({ texto: 'curta', setorId: 'S-FIS' });
+    const geral = o({ texto: 'curta' });
+    const limite = linhaOrientacao(setor).length + 1 + linhaOrientacao(geral).length + 1 + 10;
+    const r = orientacoesDaConversa([grande, setor, geral], { clienteId: 'A', setores: SETORES }, limite);
+    expect(r.daEmpresa).toEqual([]);
+    expect(r.porSetor.flatMap((g) => ids(g.orientacoes))).toEqual([setor.id]);
+    expect(ids(r.gerais)).toEqual([geral.id]);
+    expect(r.cortadas).toEqual([grande.id]);
+  });
+
   it('o limite padrão é 12.000 caracteres das linhas montadas', () => {
     const grandes = Array.from({ length: 10 }, () => o({ texto: 'y'.repeat(2000) }));
     const r = orientacoesDaConversa(grandes, { clienteId: null, setores: [] });

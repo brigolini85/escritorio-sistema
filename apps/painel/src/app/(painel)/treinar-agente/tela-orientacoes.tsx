@@ -25,7 +25,7 @@ import { Simulador } from './simulador';
 import { contarSituacao, ehEnsinada, linhasHistorico } from './tela';
 import type { AcaoVersao, Versao } from './versoes';
 
-type Linha = ItemLista & { criadaEm: string; criadaPor: string | null };
+type Linha = ItemLista & { criadaEm: string; criadaPor: string | null; atualizadoEm: string };
 
 /** Sem permissão para treinar o agente: diz quem pode liberar. */
 export function SemPermissao({ descricao = 'Quem libera é o administrador: na tela Usuários, ele escolhe "Sim" em "Treinar o agente" no seu cadastro.' }: { descricao?: string }) {
@@ -102,7 +102,7 @@ export async function TelaOrientacoes({ params, base, agenteId, comSimulador, ag
     ensinada: ehEnsinada(textoDaCriacao.get(o.id) ?? o.texto),
     empresa: o.clientes ? { nome: nomeEmpresa(o.clientes), ativa: o.clientes.ativo } : null,
     setor: o.setores ? { nome: o.setores.nome, ativo: o.setores.ativo } : null,
-    criadaEm: o.criado_em, criadaPor: o.criador?.nome ?? null,
+    criadaEm: o.criado_em, criadaPor: o.criador?.nome ?? null, atualizadoEm: o.atualizado_em,
   }));
 
   const opcoesSetor: SetorOpcao[] = setores ?? [];

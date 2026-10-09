@@ -1,4 +1,5 @@
 import type { CompradorCadastrado, PedidoVendaSalvo } from '@escritorio/core';
+import type { Database } from '@escritorio/db';
 import { ArrowLeft } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -7,7 +8,7 @@ import { AgentStateIndicator } from '@/components/patterns/agent-state-indicator
 import { estadoDaConversa } from '@/components/patterns/estado-agente';
 import { HistoricoRolante } from '@/components/patterns/historico-rolante';
 import { MessageBubble, type AutorMensagem } from '@/components/patterns/message-bubble';
-import { Button } from '@/components/ui/button';
+import { Button, variantesBotao } from '@/components/ui/button';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { iniciais } from '@/lib/atendimento';
 import { consultaCaixa } from '@/lib/caixa';
@@ -16,6 +17,7 @@ import { cn } from '@/lib/cn';
 import { envioBloqueado } from '@/lib/envio-bloqueado';
 import { mascararTelefone } from '@/lib/formatos';
 import { linhaDoTempo } from '@/lib/historico';
+import { inicioDoDiaSaoPaulo, lerMensagensDaConversa } from '@/lib/mensagens-conversa';
 import { AVISO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
 import type { Prioridade } from '@/lib/demandas';
 import { temNivel, usaAssistente } from '@/lib/permissoes';
@@ -51,12 +53,13 @@ type ItemHistorico =
   | { id: string; criado_em: string; tipo: 'marco'; texto: string };
 
 export type Empresa = { id: string; nome: string };
+type MensagemDaTela = Database['public']['Tables']['mensagens']['Row'] & { usuarios: { nome: string } | null };
 
 /**
  * Centro (cabeçalho, histórico, compositor) e painel da direita da conversa aberta. Fica num Suspense na página:
  * enquanto carrega aparece o esqueleto no formato da conversa; a lista ao lado não pisca.
  */
-export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pausaGeral, dataAlvo = null }: {
+export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pausaGeral, dataAlvo = null, anteriores = null }: {
   id: string;
   u: UsuarioPainel;
   filtroNaUrl: string | null;
@@ -66,14 +69,18 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   pausaGeral: boolean | null;
   /** Dia pedido em ?data= (o "abrir" de Gastos com IA): o histórico abre rolado até ele, realçado. */
   dataAlvo?: string | null;
+  /** ?anteriores= (auditoria 6.6): o "Ver anteriores" traz as 200 de antes deste instante, e todas depois dele. */
+  anteriores?: string | null;
 }) {
   const sb = await supabaseServidor();
   const { data: conversa } = await sb.from('conversas')
     .select('*, contatos(id, nome, agente_pausado), clientes:cliente_em_foco(id, razao_social, nome_fantasia, cnpj, agente_pausado, ativo)')
     .eq('id', id).maybeSingle();
   if (!conversa) notFound();
-  const [{ data: mensagens }, { data: chamados }, { data: notas }, { data: decisoes }, { data: setores }, { data: respostas }, { data: vinculos }, { data: eventosConversa }, { data: todasDemandas }, { data: transferencias }] = await Promise.all([
-    sb.from('mensagens').select('*, usuarios(nome)').eq('conversa_id', id).order('criado_em'),
+  // Auditoria 6.6: as mensagens mais novas (de 200 em 200, "Ver anteriores" por criado_em < x); o ?data= abre a partir do dia pedido.
+  const antes = anteriores ?? (dataAlvo ? inicioDoDiaSaoPaulo(dataAlvo) : null);
+  const [leitura, { data: chamados }, { data: notas }, { data: decisoes }, { data: setores }, { data: respostas }, { data: vinculos }, { data: eventosConversa }, { data: todasDemandas }, { data: transferencias }] = await Promise.all([
+    lerMensagensDaConversa<MensagemDaTela>(sb, id, { antes, colunas: '*, usuarios(nome)' }),
     sb.from('chamados').select('*, setores(nome), usuarios(nome), chamado_eventos(tipo, texto, criado_em, usuarios(nome))')
       .eq('conversa_id', id).neq('status', 'concluido').order('numero').order('criado_em', { referencedTable: 'chamado_eventos' }),
     // Notas internas de todas as demandas da conversa (também as já concluídas) entram no histórico.
@@ -92,6 +99,10 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     sb.from('chamados').select('id, numero, prioridade, criado_em, concluido_em, setores(nome)').eq('conversa_id', id),
     sb.from('chamado_eventos').select('id, criado_em, texto, chamados!inner(numero, conversa_id)').eq('chamados.conversa_id', id).eq('tipo', 'transferencia'),
   ]);
+  if (leitura.erro) console.error('[atendimento] falha ao ler as mensagens', leitura.erro);
+  const mensagens = leitura.mensagens;
+  // Com mensagens mais antigas fora da tela, os outros itens (cartões, marcos, notas) começam no mesmo ponto.
+  const corteHistorico = leitura.anteriores;
   const minha = conversa.atendente_id === u.id;
   const nomeDe = new Map(pessoas.map((p) => [p.id, p.nome]));
   const abertas = chamados ?? [];
@@ -100,14 +111,14 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   const oculto = (c: { titulo: string | null; pedido_venda: unknown } | null | undefined) => !verPedidos && Boolean(c) && ehPedidoDeNota(c!);
   // Sem acesso a pedidos, o conteúdo do pedido sai das decisões ANTES de virar "por quê?", cartão ou aba AGENTE (P11).
   const decisoesTela = ocultarPedidoDasDecisoes((decisoes ?? []).map((d) => ({ ...d, justificativa: d.justificativa ?? null })), verPedidos);
-  const porQue = porQueDasMensagens(mensagens ?? [], decisoesTela);
+  const porQue = porQueDasMensagens(mensagens, decisoesTela);
   const marcos = marcosDaConversa({
     eventos: (eventosConversa ?? []).map((e) => ({ id: e.id, tipo: e.tipo, texto: e.texto, criado_em: e.criado_em, usuario: e.usuarios?.nome ?? null })),
     demandas: (todasDemandas ?? []).map((c) => ({ id: c.id, numero: c.numero, setor: c.setores?.nome ?? null, prioridade: c.prioridade, criado_em: c.criado_em, concluido_em: c.concluido_em })),
     transferencias: (transferencias ?? []).map((t) => ({ id: t.id, numero: t.chamados.numero, setor: t.texto, criado_em: t.criado_em })),
   });
-  const turnoDoBotao = turnoDaPassagem(decisoesTela, mensagens ?? [], conversa.aguardando_pessoa_desde);
-  const ultimaMensagemEm = (mensagens ?? []).at(-1)?.criado_em ?? null;
+  const turnoDoBotao = turnoDaPassagem(decisoesTela, mensagens, conversa.aguardando_pessoa_desde);
+  const ultimaMensagemEm = mensagens.at(-1)?.criado_em ?? null;
 
   // Cadastro da unidade compradora dos pedidos de nota (o mesmo que o CSV do Bling usa).
   const unidades = [...new Set(abertas.filter((c) => !oculto(c)).flatMap((c) => {
@@ -119,7 +130,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     : { data: [] };
 
   // Link do documento que a IA mandou: só se for da empresa da conversa (ou de outra empresa ativa do contato) e a pessoa puder abri-lo (RLS).
-  const idsDocumentos = [...new Set((mensagens ?? []).flatMap((m) => (m.documento_id ? [m.documento_id] : [])))];
+  const idsDocumentos = [...new Set(mensagens.flatMap((m) => (m.documento_id ? [m.documento_id] : [])))];
   const { data: documentosVisiveis } = idsDocumentos.length
     ? await sb.from('documentos_empresa').select('id, cliente_id').in('id', idsDocumentos)
     : { data: [] as { id: string; cliente_id: string }[] };
@@ -166,7 +177,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   });
 
   const itens: ItemHistorico[] = [
-    ...(mensagens ?? []).map((m): ItemHistorico => ({
+    ...mensagens.map((m): ItemHistorico => ({
       id: m.id, criado_em: m.criado_em, tipo: 'mensagem', autor: AUTOR[m.autor] ?? 'sistema',
       nome: m.autor === 'atendente' ? m.usuarios?.nome ?? null : null, propria: m.atendente_id === u.id,
       // Documento que a IA mandou: o nome vira link (download auditado em /api/documentos); sem acesso, fica o texto.
@@ -186,7 +197,11 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
       id: n.id, criado_em: n.criado_em, tipo: 'nota', nome: n.usuarios?.nome ?? null, propria: n.usuario_id === u.id, conteudo: oculto(n.chamados) ? AVISO_SEM_ACESSO_PEDIDO : n.texto, demanda: n.chamados?.numero ?? null,
     })),
   ];
-  const historico = linhaDoTempo(itens);
+  const temCorte = corteHistorico !== null;
+  const historico = linhaDoTempo(temCorte ? itens.filter((x) => Date.parse(x.criado_em) >= Date.parse(corteHistorico!)) : itens);
+  const hrefAnteriores = corteHistorico
+    ? `/atendimento/${id}${consultaCaixa({ filtro: filtroNaUrl, q })}${filtroNaUrl || q.trim() ? '&' : '?'}anteriores=${encodeURIComponent(corteHistorico)}`
+    : null;
 
   const demandasAcoes: AcoesDaDemanda[] = abertas.map((c) => ({
     id: c.id, numero: c.numero, titulo: c.titulo, setorId: c.setor_id, status: c.status as StatusDemanda,
@@ -294,7 +309,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
           >
             {podeTreinar && (
               <EnsinarAgente
-                situacao={situacaoDasMensagens((mensagens ?? []).filter((m) => m.autor === 'cliente').map((m) => m.conteudo || m.transcricao))}
+                situacao={situacaoDasMensagens(mensagens.filter((m) => m.autor === 'cliente').map((m) => m.conteudo || m.transcricao))}
                 empresa={empresa ? { id: empresa.id, nome: empresa.nome, ativa: conversa.clientes?.ativo ?? false } : null}
               />
             )}
@@ -318,6 +333,11 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
           )}
           <div className="p-4">
             <Realce chave={`historico-${id}`} lembrar={false} className="flex flex-col gap-2">
+              {hrefAnteriores && (
+                <div className="flex justify-center">
+                  <Link href={hrefAnteriores} scroll={false} className={variantesBotao({ variant: 'outline', size: 'sm' })}>Ver anteriores</Link>
+                </div>
+              )}
               {historico.length === 0 && <p className="py-10 text-center text-sm text-muted">Nenhuma mensagem nesta conversa ainda.</p>}
               {historico.map((h) => {
                 if (h.tipo === 'dia') {

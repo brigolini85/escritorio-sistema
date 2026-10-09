@@ -4,6 +4,8 @@ import { TITULO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, podeVerChamado, podeVerConver
 
 export type ConversaDoContexto = {
   telefone: string; contato: string | null; empresa: { id: string; nome: string } | null;
+  /** O contato cadastrado do telefone (a sugestão lê o acesso dele na empresa, auditoria 5.10). */
+  contatoId?: string | null;
   /** Empresa do gasto com IA (empresaDoUso); a mesma de `empresa`, que vai no texto do prompt. */
   empresaIdentificadaId?: string | null;
   demandas: { numero: number; titulo: string; status: string }[]; mensagens: string[];
@@ -42,7 +44,7 @@ export async function carregarContextoAssistente(
     const abertas = (await repos.chamadosAbertosDaConversa(conversaId)).filter((x) => podeVerChamado(usuario, x));
     const mensagens = (await repos.historico(conversaId, 20)).map((m) => `${m.autor === 'cliente' ? 'Cliente' : 'Escritório'}: ${m.conteudo ?? m.transcricao ?? `[${m.tipo}]`}`);
     conversa = {
-      telefone: c.telefone, contato: contato?.nome ?? null, empresa: empresa ? { id: empresa.id, nome: empresa.nome } : null,
+      telefone: c.telefone, contato: contato?.nome ?? null, contatoId: contato?.id ?? null, empresa: empresa ? { id: empresa.id, nome: empresa.nome } : null,
       empresaIdentificadaId: idEmpresa,
       demandas: abertas.map((x) => ({ numero: Number(x.numero), titulo: !podeVerPedidos(usuario) && ehPedidoDeNota(x) ? TITULO_SEM_ACESSO_PEDIDO : x.titulo, status: x.status })), mensagens,
     };

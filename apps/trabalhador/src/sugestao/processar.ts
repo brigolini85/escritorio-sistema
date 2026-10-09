@@ -4,7 +4,7 @@ import { erroTemporarioIa } from '../agente/cliente-ia';
 import { carregarContextoAssistente, podeVerConversa } from '../assistente/contexto';
 import { novoEstado, type DepsAssistente } from '../assistente/ferramentas';
 import { usaAssistentePor } from '../assistente/visibilidade';
-import { ENTREGAR_RASCUNHO, FERRAMENTAS_SUGESTAO, canalDaSugestao, executarLeituraSugestao, reposDaSugestao, type EstadoSugestao } from './ferramentas';
+import { ENTREGAR_RASCUNHO, FERRAMENTAS_SUGESTAO, canalDaSugestao, escopoDaSugestao, executarLeituraSugestao, reposDaSugestao, type EstadoSugestao } from './ferramentas';
 import { montarSistemaSugestao } from './prompt';
 
 export const SUGESTAO_SEM_ASSISTENTE = 'Sugerir resposta usa o assistente: peça acesso ao administrador.';
@@ -49,8 +49,10 @@ export async function processarSugestao(d: DepsAssistente, sugestaoId: string, u
   try {
     const ctx = await carregarContextoAssistente(repos, usuario, 'site', s.conversa_id, new Date());
     if (!ctx.conversa) return falhar(SUGESTAO_SEM_ACESSO);
-    const estado: EstadoSugestao = { ...novoEstado(ctx), rascunho: null };
-    const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: montarSistemaSugestao(ctx), cache_control: { type: 'ephemeral' } }];
+    // Auditoria 5.10: o mesmo recorte do agente (empresa da conversa e acesso do contato) nas consultas e no prompt.
+    const escopo = await escopoDaSugestao(repos, ctx);
+    const estado: EstadoSugestao = { ...novoEstado(ctx), rascunho: null, escopo };
+    const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: montarSistemaSugestao(ctx, escopo), cache_control: { type: 'ephemeral' } }];
     const messages: Anthropic.MessageParam[] = [{ role: 'user', content: 'Sugira a próxima resposta da equipe a este cliente.' }];
     const preco = config.precosModelos[config.modeloConversa] ?? { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
 

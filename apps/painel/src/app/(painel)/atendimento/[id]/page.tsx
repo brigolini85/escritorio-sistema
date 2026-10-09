@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { lerFiltroCaixa, lerPaginasCaixa } from '@/lib/caixa';
 import { lerAgentePausado } from '@/lib/leituras-admin';
 import { lerDataAlvo } from '@/lib/historico';
+import { lerCursorAnteriores } from '@/lib/mensagens-conversa';
 import { temNivel, usaAssistente } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -18,7 +19,7 @@ import { ConversaAberta } from './conversa-aberta';
  */
 export default async function Conversa({ params, searchParams }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ erro?: string; filtro?: string; q?: string; data?: string; mais?: string }>;
+  searchParams: Promise<{ erro?: string; filtro?: string; q?: string; data?: string; mais?: string; anteriores?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -53,7 +54,7 @@ export default async function Conversa({ params, searchParams }: {
         className="hidden w-lista-conversas shrink-0 border-r border-border xl:flex"
       />
       <Suspense fallback={<EsqueletoConversa />}>
-        <ConversaAberta id={id} u={u} filtroNaUrl={sp.filtro ?? null} q={q} erro={sp.erro} pessoas={pessoas} pausaGeral={pausaGeral} dataAlvo={lerDataAlvo(sp.data)} />
+        <ConversaAberta id={id} u={u} filtroNaUrl={sp.filtro ?? null} q={q} erro={sp.erro} pessoas={pessoas} pausaGeral={pausaGeral} dataAlvo={lerDataAlvo(sp.data)} anteriores={lerCursorAnteriores(sp.anteriores)} />
       </Suspense>
     </div>
   );

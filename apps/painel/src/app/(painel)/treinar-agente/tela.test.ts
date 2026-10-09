@@ -47,10 +47,14 @@ describe('textoMedidor', () => {
       valor: '9.940 / 12.000', percentual: '83%', descricao: '9.940 de 12.000 caracteres', aviso: 'Perto do limite (conta com Rede Bom Preço)',
     });
   });
-  it('passou do limite: o percentual passa de 100 no texto', () => {
-    expect(textoMedidor({ total: 12500, nivel: 'excesso' }, null)).toMatchObject({
-      percentual: '104%', aviso: 'Passou do limite: as orientações para todos mais antigas ficam de fora.',
+  // Auditoria 5.9: o corte é parcial (não são mais "as gerais mais antigas"); o aviso diz quais ficam de fora.
+  it('passou do limite: o percentual passa de 100 no texto e o aviso diz quais ficam de fora', () => {
+    expect(textoMedidor({ total: 12500, nivel: 'excesso', cortadas: [{ titulo: 'Boleto' }, { titulo: 'Férias' }] }, null)).toMatchObject({
+      percentual: '104%', aviso: 'Passou do limite: ficam de fora "Boleto" e "Férias".',
     });
+    expect(textoMedidor({ total: 12500, nivel: 'excesso', cortadas: [{ titulo: 'Boleto' }] }, 'Rede Bom Preço').aviso)
+      .toBe('Passou do limite (conta com Rede Bom Preço): fica de fora "Boleto".');
+    expect(textoMedidor({ total: 12000, nivel: 'excesso', cortadas: [] }, null).aviso).toBe('No limite: a próxima orientação ligada pode ficar de fora.');
   });
 });
 

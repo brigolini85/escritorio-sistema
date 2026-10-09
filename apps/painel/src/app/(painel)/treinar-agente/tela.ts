@@ -29,14 +29,21 @@ export function contarSituacao(linhas: readonly { ativo: boolean }[]) {
 }
 
 /** Medidor compacto: "9.940 / 12.000", "83%", a frase para leitor de tela e o aviso de uma linha (a partir de 80%). */
-export function textoMedidor(m: Pick<Medidor, 'total' | 'nivel'>, empresa: string | null, limite = LIMITE_ORIENTACOES) {
+export function textoMedidor(m: Pick<Medidor, 'total' | 'nivel'> & { cortadas?: Medidor['cortadas'] }, empresa: string | null, limite = LIMITE_ORIENTACOES) {
   const conta = empresa ? ` (conta com ${empresa})` : '';
+  // Auditoria 5.9: o corte é parcial; o aviso nomeia as que ficam de fora (as mesmas que o trabalhador corta).
+  const cortadas = m.cortadas ?? [];
+  const titulos = cortadas.slice(0, 5).map((c) => `"${c.titulo}"`);
+  if (cortadas.length > 5) titulos.push(`mais ${cortadas.length - 5}`);
+  const lista = titulos.length > 1 ? `${titulos.slice(0, -1).join(', ')} e ${titulos.at(-1)}` : titulos.join('');
   return {
     valor: `${numero(m.total)} / ${numero(limite)}`,
     percentual: `${Math.round((m.total / limite) * 100)}%`,
     descricao: `${numero(m.total)} de ${numero(limite)} caracteres`,
     aviso: m.nivel === 'excesso'
-      ? `Passou do limite${conta}: as orientações para todos mais antigas ficam de fora.`
+      ? cortadas.length
+        ? `Passou do limite${conta}: ${cortadas.length > 1 ? 'ficam' : 'fica'} de fora ${lista}.`
+        : `No limite${conta}: a próxima orientação ligada pode ficar de fora.`
       : m.nivel === 'aviso' ? `Perto do limite${conta}` : null,
   };
 }

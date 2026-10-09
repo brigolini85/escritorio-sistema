@@ -1,12 +1,18 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import type { FuncionalidadeGravavel } from '@escritorio/core';
+import type { AcessoContato, FuncionalidadeGravavel } from '@escritorio/core';
 import type { Repos, SugestaoResposta } from '@escritorio/db';
+import { ACESSO_BASICO, ehBasico, podeFluxoNota } from '../agente/acesso';
+import type { ContextoAssistente } from '../assistente/contexto';
 import type { CanalWhatsApp } from '../canal/tipos';
 import { FERRAMENTAS_ASSISTENTE, executarConsultaAssistente, falha, objeto, ok, type DepsAssistente, type EstadoAssistente, type Resultado } from '../assistente/ferramentas';
 
-/** As únicas ferramentas do assistente que a sugestão usa: todas só leem (spec 7A.1, decisão 7). */
+/**
+ * As únicas ferramentas do assistente que a sugestão usa: todas só leem (spec 7A.1, decisão 7).
+ * Auditoria 5.10: buscar_empresas, resumo_vendas e listar_demandas saíram (alcançavam outras empresas); as que ficam
+ * valem só para a empresa desta conversa e para as demandas dela (escopoDaSugestao).
+ */
 export const LEITURAS_SUGESTAO = [
-  'listar_demandas', 'ver_demanda', 'buscar_empresas', 'buscar_parceiros', 'buscar_produtos', 'consultar_preco', 'dados_cadastro', 'resumo_vendas',
+  'ver_demanda', 'buscar_parceiros', 'buscar_produtos', 'consultar_preco', 'dados_cadastro',
 ] as const;
 
 /** Pseudo-ferramenta: só guarda o rascunho na memória. Não envia nada. */
@@ -26,7 +32,7 @@ export const LEITURAS_REPOS_SUGESTAO = [
   'obterConfiguracoes', 'custoIaDoMes', 'setoresAtivos', 'obterConversa', 'buscarContato', 'historico', 'chamadosAbertosDaConversa',
   'chamadosDaConversaParaVisibilidade', 'usuarioDoAssistente', 'obterUsuarioAssistente', 'horarioPermite', 'chamadosRecentes', 'chamadoPorNumero',
   'eventosDoChamado', 'buscarEmpresas', 'unidadesDaEmpresa', 'produtosDaEmpresa', 'precosVigentes', 'dadosDaEmpresa', 'pedidosVendaParaBling',
-  'nomesDasRedes', 'servicosDoCliente', 'documentosDaEmpresa', 'respostasProntas', 'chamadosAbertosDoCliente',
+  'nomesDasRedes', 'servicosDoCliente', 'documentosDaEmpresa', 'respostasProntas', 'chamadosAbertosDoCliente', 'acessoDoContato',
 ] as const satisfies readonly (keyof Repos)[];
 
 export class BloqueadoNaSugestao extends Error {
@@ -63,17 +69,68 @@ export function reposDaSugestao(repos: Repos, s: Pick<SugestaoResposta, 'usuario
   }) as unknown as Repos;
 }
 
-export type EstadoSugestao = EstadoAssistente & { rascunho: string | null };
+/**
+ * Auditoria 5.10: o mesmo recorte do agente para esta conversa. A empresa é a do contexto (empresaDoUso, como o agente:
+ * várias sem foco = nenhuma) e o acesso é o do contato nela (acessoDoContato; sem contato ou sem leitura, Básico).
+ */
+export type EscopoSugestao = { conversaId: string | null; clienteId: string | null; acesso: AcessoContato; fiscalId: string | null };
+
+export async function escopoDaSugestao(repos: Repos, ctx: ContextoAssistente): Promise<EscopoSugestao> {
+  const clienteId = ctx.conversa?.empresa?.id ?? null;
+  const contatoId = ctx.conversa?.contatoId ?? null;
+  let acesso = ACESSO_BASICO;
+  if (clienteId && contatoId) {
+    try {
+      acesso = (await repos.acessoDoContato(contatoId, clienteId)) ?? ACESSO_BASICO;
+    } catch (erro) {
+      // Como no agente: sem conseguir ler o acesso, Básico (nunca acesso total).
+      console.error('[sugestão] acesso não lido; tratado como Básico', contatoId, clienteId, erro);
+    }
+  }
+  return { conversaId: ctx.conversaId, clienteId, acesso, fiscalId: ctx.setores.find((s) => s.nome === 'Fiscal')?.id ?? null };
+}
+
+export type EstadoSugestao = EstadoAssistente & { rascunho: string | null; escopo: EscopoSugestao };
+
+const FORA_DA_EMPRESA = 'Na sugestão só se consultam dados da empresa desta conversa, nunca de outra empresa. Escreva que a equipe vai verificar.';
+const SEM_EMPRESA = 'Esta conversa não tem empresa definida: não consulte dados de empresa. Escreva que a equipe vai verificar.';
+const DEMANDA_DE_FORA = 'Na sugestão só se consultam as demandas desta conversa.';
+const SEM_ACESSO_DADOS = 'Este contato ainda não recebe dados pelo WhatsApp (acesso Básico): não traga cadastro, preço nem produto no rascunho; diga que a equipe vai verificar.';
+const SEM_ACESSO_NOTA = 'Este contato não pede nota nem consulta preços e cadastros de clientes e fornecedores: não traga esses dados no rascunho; diga que a equipe vai verificar.';
+
+/** Confere a empresa e o acesso antes da consulta; null = pode seguir. */
+async function foraDoEscopo(d: DepsAssistente, e: EscopoSugestao, nome: string, entrada: unknown): Promise<Resultado | null> {
+  const x = (entrada ?? {}) as { cliente_id?: unknown; unidade_id?: unknown; numero?: unknown };
+  if (nome === 'ver_demanda') {
+    if (!e.conversaId || typeof x.numero !== 'number') return null; // entrada inválida: a validação de sempre responde
+    const c = await d.repos.chamadoPorNumero(x.numero);
+    const daConversa = new Set((await d.repos.chamadosDaConversaParaVisibilidade(e.conversaId)).map((y) => y.id));
+    return c && daConversa.has(c.id) ? null : falha(DEMANDA_DE_FORA);
+  }
+  if (!e.clienteId) return falha(SEM_EMPRESA);
+  if (x.cliente_id !== e.clienteId) return falha(FORA_DA_EMPRESA);
+  if (ehBasico(e.acesso)) return falha(SEM_ACESSO_DADOS);
+  // O cadastro da própria empresa vale para todo contato que não é Básico; o resto é do fluxo de nota (como no agente).
+  if (nome === 'dados_cadastro' && x.unidade_id === undefined) return null;
+  return podeFluxoNota(e.acesso, e.fiscalId) ? null : falha(SEM_ACESSO_NOTA);
+}
 
 /** Só as leituras da lista e a entrega do rascunho; o resto volta erro para a IA, sem executar nada. */
-export async function executarLeituraSugestao(d: DepsAssistente, estado: EstadoSugestao | EstadoAssistente, nome: string, entrada: unknown): Promise<Resultado> {
+export async function executarLeituraSugestao(d: DepsAssistente, estado: EstadoSugestao, nome: string, entrada: unknown): Promise<Resultado> {
   if (nome === ENTREGAR_RASCUNHO.name) {
     const texto = typeof (entrada as { texto?: unknown } | null)?.texto === 'string' ? (entrada as { texto: string }).texto.trim() : '';
     if (!texto) return falha('Rascunho vazio: escreva o texto da resposta.');
     if (texto.length > 4000) return falha('Rascunho longo demais: até 4000 caracteres.');
-    (estado as EstadoSugestao).rascunho = texto;
+    estado.rascunho = texto;
     return ok({ entregue: true });
   }
   if (!(LEITURAS_SUGESTAO as readonly string[]).includes(nome)) return falha(`A ferramenta ${nome} não está disponível na sugestão: aqui só se consulta.`);
+  try {
+    const recusa = await foraDoEscopo(d, estado.escopo, nome, entrada);
+    if (recusa) return recusa;
+  } catch (e) {
+    console.error('[sugestão] conferência do escopo', nome, e);
+    return falha('Não consegui consultar agora; tente de novo.');
+  }
   return executarConsultaAssistente(d, estado, nome, entrada);
 }

@@ -2,7 +2,7 @@
  * Orientações do agente no painel (tela Treinar o agente): rótulos, a linha que vai para o prompt e o medidor.
  *
  * ESPELHO de apps/trabalhador/src/agente/orientacoes.ts (LIMITE_ORIENTACOES, ROTULO_TIPO, limparTextoOrientacao,
- * linhaOrientacao e a conta do orçamento de orientacoesDaConversa: `linhaOrientacao(o).length + 1` por orientação).
+ * linhaOrientacao, cortarNoLimite e a conta do orçamento de orientacoesDaConversa: `linhaOrientacao(o).length + 1` por orientação).
  * O painel não importa do trabalhador; se a conta mudar lá, mude aqui também. O teste (orientacoes.test.ts) usa os
  * mesmos exemplos do teste do trabalhador (apps/trabalhador/test/agente/orientacoes.test.ts) para os dois não se afastarem.
  */
@@ -43,7 +43,31 @@ export function tamanhoOrientacao(o: { tipo: TipoOrientacao; titulo: string; tex
   return linhaOrientacao(o).length + 1;
 }
 
-export type OrientacaoMedida = { tipo: TipoOrientacao; titulo: string; texto: string; ativo: boolean; clienteId: string | null; setorId: string | null };
+export type OrientacaoMedida = {
+  tipo: TipoOrientacao; titulo: string; texto: string; ativo: boolean; clienteId: string | null; setorId: string | null;
+  id?: string;
+  /** Ordem do corte, como no trabalhador (a mais recente primeiro). Sem ela, vale a ordem da lista. */
+  atualizadoEm?: string;
+};
+
+/**
+ * Espelho de cortarNoLimite do trabalhador. Auditoria 5.9: percorre na ordem de prioridade e põe cada uma que ainda cabe;
+ * a que não cabe fica de fora e a seguinte ainda tenta.
+ */
+export function cortarNoLimite<T>(emOrdem: readonly T[], tamanho: (o: T) => number, limite: number): { entram: T[]; cortadas: T[] } {
+  let total = 0;
+  const entram: T[] = [];
+  const cortadas: T[] = [];
+  for (const o of emOrdem) {
+    const t = tamanho(o);
+    if (total + t > limite) { cortadas.push(o); continue; }
+    total += t;
+    entram.push(o);
+  }
+  return { entram, cortadas };
+}
+
+const maisRecentes = (a: OrientacaoMedida, b: OrientacaoMedida) => (b.atualizadoEm ?? '').localeCompare(a.atualizadoEm ?? '');
 
 export type Medidor = {
   /** Caracteres da conversa mais pesada: gerais + de setor (setores ativos) + a empresa com mais texto. */
@@ -55,11 +79,14 @@ export type Medidor = {
   nivel: 'ok' | 'aviso' | 'excesso';
   /** 0 a 100 (para a barra; passa de 100 só no texto). */
   percentual: number;
+  /** Auditoria 5.9: as que ficam de fora na conversa mais pesada (na ordem do corte do trabalhador). */
+  cortadas: { id?: string; titulo: string }[];
 };
 
 /**
  * Medidor da tela: numa conversa entram as gerais, as de setor (setores ativos) e só as da empresa da conversa.
- * O pior caso é a empresa com mais texto; é ele que chega primeiro no limite (e aí as gerais mais antigas ficam de fora).
+ * O pior caso é a empresa com mais texto; é ele que chega primeiro no limite. As que ficam de fora nele vêm em `cortadas`
+ * (o mesmo corte do trabalhador: empresa, setor e gerais, das mais recentes para as mais antigas).
  */
 export function medirOrientacoes(orientacoes: OrientacaoMedida[], setoresAtivos: Iterable<string>, limite = LIMITE_ORIENTACOES): Medidor {
   const ativos = new Set(setoresAtivos);
@@ -77,5 +104,13 @@ export function medirOrientacoes(orientacoes: OrientacaoMedida[], setoresAtivos:
   for (const [id, total] of porEmpresa) if (!empresa || total > empresa.total) empresa = { id, total };
   const total = gerais + setores + (empresa?.total ?? 0);
   const nivel = total >= limite ? 'excesso' : total >= limite * AVISO_MEDIDOR ? 'aviso' : 'ok';
-  return { total, gerais, setores, empresa, nivel, percentual: Math.min(100, Math.round((total / limite) * 100)) };
+
+  const ligadas = orientacoes.filter((o) => o.ativo);
+  const emOrdem = [
+    ...ligadas.filter((o) => empresa && o.clienteId === empresa.id).sort(maisRecentes),
+    ...ligadas.filter((o) => !o.clienteId && o.setorId && ativos.has(o.setorId)).sort(maisRecentes),
+    ...ligadas.filter((o) => !o.clienteId && !o.setorId).sort(maisRecentes),
+  ];
+  const cortadas = cortarNoLimite(emOrdem, tamanhoOrientacao, limite).cortadas.map((o) => ({ id: o.id, titulo: o.titulo }));
+  return { total, gerais, setores, empresa, nivel, percentual: Math.min(100, Math.round((total / limite) * 100)), cortadas };
 }

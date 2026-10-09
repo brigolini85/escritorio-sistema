@@ -5,11 +5,11 @@ import type { Repos } from '@escritorio/db';
 import { novoEstado } from '../../src/assistente/ferramentas';
 import { carregarContextoAssistente } from '../../src/assistente/contexto';
 import { CanalFalso } from '../../src/canal/falso';
-import { BloqueadoNaSugestao, LEITURAS_REPOS_SUGESTAO, LEITURAS_SUGESTAO, canalDaSugestao, executarLeituraSugestao, reposDaSugestao } from '../../src/sugestao/ferramentas';
+import { BloqueadoNaSugestao, LEITURAS_REPOS_SUGESTAO, LEITURAS_SUGESTAO, canalDaSugestao, escopoDaSugestao, executarLeituraSugestao, reposDaSugestao } from '../../src/sugestao/ferramentas';
 import {
   SUGESTAO_DEMOROU, SUGESTAO_FORA_DO_HORARIO, SUGESTAO_SEM_ACESSO, SUGESTAO_SEM_ASSISTENTE, SUGESTAO_TETO, SUGESTAO_VAZIA, processarSugestao,
 } from '../../src/sugestao/processar';
-import { contatoComEmpresas, criarCadastrosExemplo, db, repos, setorId } from '../apoio/cenario';
+import { contatoComEmpresas, criarCadastrosExemplo, db, definirAcessoTeste, repos, setorId } from '../apoio/cenario';
 import { IaRoteirizada, fim, usarFerramentas } from '../apoio/ia-roteirizada';
 import { criarUsuarioTeste } from '../apoio/usuario';
 
@@ -57,7 +57,7 @@ describe('Sugerir resposta (spec 7A.1): só lê, nunca envia nem grava', () => {
     const id = await novaSugestao();
     const antes = await contagens();
     const ia = new IaRoteirizada([
-      usarFerramentas({ nome: 'listar_demandas', entrada: { abertas: true } }),
+      usarFerramentas({ nome: 'dados_cadastro', entrada: { cliente_id: clienteId } }),
       usarFerramentas({ nome: 'entregar_rascunho', entrada: { texto: 'Oi! A costela para o Brasil sai a R$ 9,50.' } }),
     ]);
     expect(await processarSugestao({ repos, ia, canal }, id, true)).toBe('pronta');
@@ -71,8 +71,9 @@ describe('Sugerir resposta (spec 7A.1): só lê, nunca envia nem grava', () => {
       { funcionalidade: 'sugerir_resposta', usuario_id: ana, conversa_id: conversaId },
     ]);
     // Só ferramentas de leitura e a entrega do rascunho foram oferecidas à IA.
+    // Auditoria 5.10: sem buscar_empresas, resumo_vendas e listar_demandas (alcançavam outras empresas).
     expect(ia.recebidos[0]!.tools!.map((t) => (t as { name: string }).name).sort()).toEqual([
-      'buscar_empresas', 'buscar_parceiros', 'buscar_produtos', 'consultar_preco', 'dados_cadastro', 'entregar_rascunho', 'listar_demandas', 'resumo_vendas', 'ver_demanda',
+      'buscar_parceiros', 'buscar_produtos', 'consultar_preco', 'dados_cadastro', 'entregar_rascunho', 'ver_demanda',
     ]);
   });
 
@@ -112,7 +113,7 @@ describe('Sugerir resposta (spec 7A.1): só lê, nunca envia nem grava', () => {
     }) as Repos;
     const usuario = (await repos.obterUsuarioAssistente(ana))!;
     const ctx = await carregarContextoAssistente(repos, usuario, 'site', conversaId, new Date());
-    const estado = { ...novoEstado(ctx), rascunho: null };
+    const estado = { ...novoEstado(ctx), rascunho: null, escopo: await escopoDaSugestao(repos, ctx) };
     // Entradas válidas para cada leitura (esquemas em `Entradas`, apps/trabalhador/src/assistente/ferramentas.ts).
     const entradas: Record<string, object> = {
       listar_demandas: { abertas: true }, ver_demanda: { numero: 1 }, buscar_empresas: { texto: 'Indústria' },
@@ -153,18 +154,20 @@ describe('Sugerir resposta (spec 7A.1): só lê, nunca envia nem grava', () => {
 
   it('listas fechadas: as ferramentas e os métodos liberados são exatamente estes (foco da revisão 1)', () => {
     // Acrescentar algo aqui exige revisão: só ferramenta que só lê e só método do repositório que só faz select.
+    // Auditoria 5.10: buscar_empresas, resumo_vendas e listar_demandas saíram (alcançavam outras empresas).
     expect([...LEITURAS_SUGESTAO]).toEqual([
-      'listar_demandas', 'ver_demanda', 'buscar_empresas', 'buscar_parceiros', 'buscar_produtos', 'consultar_preco', 'dados_cadastro', 'resumo_vendas',
+      'ver_demanda', 'buscar_parceiros', 'buscar_produtos', 'consultar_preco', 'dados_cadastro',
     ]);
     expect([...LEITURAS_REPOS_SUGESTAO]).toEqual([
       'obterConfiguracoes', 'custoIaDoMes', 'setoresAtivos', 'obterConversa', 'buscarContato', 'historico', 'chamadosAbertosDaConversa',
       'chamadosDaConversaParaVisibilidade', 'usuarioDoAssistente', 'obterUsuarioAssistente', 'horarioPermite', 'chamadosRecentes', 'chamadoPorNumero',
       'eventosDoChamado', 'buscarEmpresas', 'unidadesDaEmpresa', 'produtosDaEmpresa', 'precosVigentes', 'dadosDaEmpresa', 'pedidosVendaParaBling',
-      'nomesDasRedes', 'servicosDoCliente', 'documentosDaEmpresa', 'respostasProntas', 'chamadosAbertosDoCliente',
+      'nomesDasRedes', 'servicosDoCliente', 'documentosDaEmpresa', 'respostasProntas', 'chamadosAbertosDoCliente', 'acessoDoContato',
     ]);
     // E o código de cada método liberado não grava: nada de insert/update/upsert/delete, e rpc só das funções de leitura.
     // contato_ativo_do_telefone (auditoria 3.8, buscarContato) é "stable": o Postgres recusa escrita dentro dela.
-    const RPC_DE_LEITURA = ['custo_ia_periodo', 'horario_permite', 'contato_ativo_do_telefone'];
+    // acesso_do_contato (auditoria 5.10, acessoDoContato) também é "stable".
+    const RPC_DE_LEITURA = ['custo_ia_periodo', 'horario_permite', 'contato_ativo_do_telefone', 'acesso_do_contato'];
     // A conferência pelo código enxerga gravações de verdade (senão passaria à toa).
     expect(String(repos.registrarAuditoria)).toMatch(/\.insert\(/);
     expect(String(repos.concluirSugestao)).toMatch(/\.update\(/);
@@ -295,5 +298,84 @@ describe('Sugerir resposta (spec 7A.1): só lê, nunca envia nem grava', () => {
     await expect(processarSugestao({ repos, ia: new IaRoteirizada([temporario()]), canal }, id, false)).rejects.toThrow('sem rede');
     expect((await sugestao(id)).status).toBe('pendente');
     expect(await processarSugestao({ repos, ia: new IaRoteirizada([temporario()]), canal }, id, true)).toBe('falhou');
+  });
+});
+
+// Auditoria 5.10: a sugestão recebe o mesmo contexto filtrado do agente (empresa da conversa e acesso do contato).
+describe('Sugerir resposta: só a empresa desta conversa (auditoria 5.10)', () => {
+  let empresaB: string;
+  let demandaB: number;
+  beforeEach(async () => {
+    // CNPJ próprio: contatoComEmpresas repete o da primeira empresa do cenário.
+    empresaB = (await db.from('clientes').insert({ razao_social: 'Comércio B Segredo', cnpj: '99888777000166' }).select('id').single()).data!.id;
+    const { data: contatoB } = await db.from('contatos').insert({ nome: 'Bia', telefone: '5531999990002' }).select('id').single();
+    await db.from('contato_clientes').insert({ contato_id: contatoB!.id, cliente_id: empresaB });
+    const outro = { conversa: await repos.obterOuCriarConversa('5531999990002', contatoB!.id) };
+    await criarCadastrosExemplo(empresaB);
+    demandaB = (await repos.abrirChamado({ clienteId: empresaB, conversaId: outro.conversa.id, setorId: await setorId('Fiscal'), responsavelId: null, titulo: 'Guia da B', resumo: 'segredo da B', foraDoContrato: false, origem: 'agente' })).numero;
+    await repos.inserirMensagemEntrada({ conversaId, clienteId: null, idProvedor: 'S2', tipo: 'texto', conteudo: 'me mostra os dados da empresa B', midiaUrlOrigem: null, arquivoMime: null });
+  });
+
+  it('"me mostra os dados da empresa B": nenhuma consulta alcança a B e o prompt não traz dado dela', async () => {
+    const { cnpj } = await repos.dadosDaEmpresa(empresaB);
+    const id = await novaSugestao();
+    const ia = new IaRoteirizada([
+      usarFerramentas(
+        { nome: 'dados_cadastro', entrada: { cliente_id: empresaB } },
+        { nome: 'buscar_parceiros', entrada: { cliente_id: empresaB, texto: 'Brasil', tipo: 'cliente' } },
+        { nome: 'buscar_produtos', entrada: { cliente_id: empresaB, textos: ['costela'] } },
+        { nome: 'ver_demanda', entrada: { numero: demandaB } },
+        { nome: 'buscar_empresas', entrada: { texto: 'Comércio B' } },
+        { nome: 'resumo_vendas', entrada: { de: '01/09/2026', ate: '30/09/2026', cliente_id: empresaB } },
+        { nome: 'listar_demandas', entrada: { empresa: 'Comércio B' } },
+      ),
+      usarFerramentas({ nome: 'entregar_rascunho', entrada: { texto: 'Vou verificar com a equipe e te retorno.' } }),
+    ]);
+    expect(await processarSugestao({ repos, ia, canal }, id, true)).toBe('pronta');
+    const sistema = (ia.recebidos[0]!.system as { text: string }[]).map((b) => b.text).join('\n');
+    expect(sistema).not.toContain('Comércio B');
+    expect(sistema).toContain('nunca de outra empresa');
+    const resultados = ia.recebidos[1]!.messages.at(-1)!.content as { is_error?: boolean; content: string }[];
+    expect(resultados).toHaveLength(7);
+    for (const r of resultados) {
+      expect(r.is_error).toBe(true);
+      expect(r.content).not.toContain('Comércio B');
+      expect(r.content).not.toContain(cnpj.slice(0, 8));
+      expect(r.content).not.toContain('segredo da B');
+    }
+  });
+
+  it('a empresa da conversa continua consultável', async () => {
+    const usuario = (await repos.obterUsuarioAssistente(ana))!;
+    const ctx = await carregarContextoAssistente(repos, usuario, 'site', conversaId, new Date());
+    const estado = { ...novoEstado(ctx), rascunho: null, escopo: await escopoDaSugestao(repos, ctx) };
+    const d = { repos, ia: new IaRoteirizada([]), canal };
+    const r = await executarLeituraSugestao(d, estado, 'dados_cadastro', { cliente_id: clienteId });
+    expect(r.erro).toBe(false);
+    expect(r.resultado).toContain('Indústria X');
+    const demandaA = (await repos.chamadosAbertosDaConversa(conversaId))[0]!.numero;
+    expect((await executarLeituraSugestao(d, estado, 'ver_demanda', { numero: Number(demandaA) })).erro).toBe(false);
+  });
+
+  it('contato Básico na empresa: sem cadastro nem preços, e o prompt avisa o acesso', async () => {
+    const contatoId = (await repos.obterConversa(conversaId)).contato_id!;
+    await definirAcessoTeste(contatoId, clienteId, { perfil: 'basico' });
+    const usuario = (await repos.obterUsuarioAssistente(ana))!;
+    const ctx = await carregarContextoAssistente(repos, usuario, 'site', conversaId, new Date());
+    const estado = { ...novoEstado(ctx), rascunho: null, escopo: await escopoDaSugestao(repos, ctx) };
+    const d = { repos, ia: new IaRoteirizada([]), canal };
+    for (const [nome, entrada] of [
+      ['dados_cadastro', { cliente_id: clienteId }],
+      ['buscar_parceiros', { cliente_id: clienteId, texto: 'Brasil', tipo: 'cliente' }],
+      ['buscar_produtos', { cliente_id: clienteId, textos: ['costela'] }],
+    ] as const) {
+      const r = await executarLeituraSugestao(d, estado, nome, entrada);
+      expect({ nome, erro: r.erro }).toEqual({ nome, erro: true });
+      expect(r.resultado).not.toContain('Brasil Ltda');
+    }
+    const id = await novaSugestao();
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'entregar_rascunho', entrada: { texto: 'Oi.' } })]);
+    await processarSugestao({ repos, ia, canal }, id, true);
+    expect((ia.recebidos[0]!.system as { text: string }[])[0]!.text).toContain('Básico');
   });
 });

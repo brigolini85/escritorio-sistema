@@ -67,6 +67,38 @@ describe('medirOrientacoes', () => {
     expect(m.nivel).toBe('ok');
   });
 
+  // Auditoria 5.9 (os mesmos exemplos do trabalhador): o corte é parcial e o medidor mostra quais ficam de fora.
+  it('corte parcial: 3 orientações e limite para 2: entram as 2 mais prioritárias e a 3ª aparece como cortada', () => {
+    const texto = 'x'.repeat(60);
+    const empresa = o({ texto, clienteId: 'A', titulo: 'Da empresa' });
+    const setor = o({ texto, setorId: 'S-FIS', titulo: 'Do setor' });
+    const geral = o({ texto, titulo: 'Geral' });
+    const m = medirOrientacoes([geral, setor, empresa], ['S-FIS'], tamanhoOrientacao(empresa) * 2);
+    expect(m.cortadas.map((c) => c.titulo)).toEqual(['Geral']);
+    expect(m.nivel).toBe('excesso');
+  });
+
+  it('uma orientação grande que não cabe não tira as menores que vêm depois', () => {
+    const grande = o({ texto: 'g'.repeat(500), clienteId: 'A', titulo: 'Grande' });
+    const setor = o({ texto: 'curta', setorId: 'S-FIS' });
+    const geral = o({ texto: 'curta' });
+    const m = medirOrientacoes([grande, setor, geral], ['S-FIS'], tamanhoOrientacao(setor) + tamanhoOrientacao(geral) + 10);
+    expect(m.cortadas.map((c) => c.titulo)).toEqual(['Grande']);
+  });
+
+  it('cortadas na ordem do trabalhador: empresa, setor e gerais, das mais recentes para as mais antigas', () => {
+    const texto = 'x'.repeat(60);
+    const geralNova = o({ texto, titulo: 'Geral nova', atualizadoEm: '2026-09-10T00:00:00Z' });
+    const geralVelha = o({ texto, titulo: 'Geral velha', atualizadoEm: '2026-01-10T00:00:00Z' });
+    const setor = o({ texto, setorId: 'S-FIS', atualizadoEm: '2026-01-01T00:00:00Z' });
+    const empresa = o({ texto, clienteId: 'A', atualizadoEm: '2025-01-01T00:00:00Z' });
+    const t = tamanhoOrientacao(geralNova);
+    expect(medirOrientacoes([geralVelha, geralNova, setor, empresa], ['S-FIS'], t * 3).cortadas.map((c) => c.titulo)).toEqual(['Geral velha']);
+    expect(medirOrientacoes([geralVelha, geralNova, setor, empresa], ['S-FIS'], t).cortadas.map((c) => c.titulo))
+      .toEqual([setor.titulo, 'Geral nova', 'Geral velha']);
+    expect(medirOrientacoes([geralNova], []).cortadas).toEqual([]);
+  });
+
   it('avisa a partir de 80% e fica em perigo a partir de 100%', () => {
     const uma = o({ texto: 'x'.repeat(60) });
     const t = tamanhoOrientacao(uma);
