@@ -11,7 +11,7 @@ import type { ContextoAgente } from './contexto';
 import { executarAgente, type ResultadoAgente } from './executar';
 import {
   AVISOS, avisoForaDoHorario, consumirResumo, empresaDefinida, executarFerramenta, exigirEmpresa, falha, ok, partesDaResposta,
-  prepararPedido, validarEntrada, type DepsAgente, type EstadoExecucao, type ExecutorFerramentas, type NomeFerramenta, type Resultado,
+  prepararPedido, textoConfirmacaoPreco, textoConfirmacaoProduto, usarConfirmacaoDoCliente, validarEntrada, type DepsAgente, type EstadoExecucao, type ExecutorFerramentas, type NomeFerramenta, type Resultado,
 } from './ferramentas';
 import { orientacoesDaConversa } from './orientacoes';
 import { formatarReais, hashPedidoNota, montarResumoParaCliente } from './pedido-nota';
@@ -91,6 +91,7 @@ export function reposDaSimulacao(repos: Repos, conversa: Conversa, usuario: Usua
     chamadosAbertosDoCliente: async (clienteId: string) =>
       (await repos.chamadosAbertosDoCliente(clienteId)).filter((c) => usuario?.ativo === true && podeVerChamado(usuario, c)),
     ...resumosNaMemoria(),
+    ...confirmacoesNaMemoria(),
   });
   return new Proxy(liberados, {
     get(alvo, nome) {
@@ -125,6 +126,27 @@ function resumosNaMemoria(): Pick<Repos, 'gravarResumoNota' | 'lerResumoNota' | 
       if (r.clienteId !== clienteId) return recusa('outra_empresa');
       if (!turnoAtual || r.turno === turnoAtual) return recusa('mesmo_turno');
       return recusa('sem_resposta');
+    },
+  };
+}
+
+/**
+ * Auditoria 1.2: perguntas de preço e cadastro do teste, na memória, com as regras de usar_confirmacao. A conversa fictícia
+ * não recebe resposta depois da pergunta: fora da mesma vez, a recusa é "sem_resposta"; nada é aplicado.
+ */
+function confirmacoesNaMemoria(): Pick<Repos, 'gravarConfirmacao' | 'usarConfirmacao'> {
+  const confirmacoes = new Map<string, Parameters<Repos['gravarConfirmacao']>[0]>();
+  return {
+    gravarConfirmacao: async (c) => {
+      const id = randomUUID();
+      confirmacoes.set(id, c);
+      return id;
+    },
+    usarConfirmacao: async (id, conversaId, contatoId, turnoAtual) => {
+      const c = confirmacoes.get(id);
+      if (!c || c.conversaId !== conversaId || c.contatoId !== contatoId) return { ok: false, motivo: 'nao_encontrado' };
+      if (!turnoAtual || c.turno === turnoAtual) return { ok: false, motivo: 'mesmo_turno' };
+      return { ok: false, motivo: 'sem_resposta' };
     },
   };
 }
@@ -285,24 +307,40 @@ async function simularGravacao(d: DepsAgente, estado: EstadoExecucao, nome: Nome
       return ok({ enviado: true, documento: doc.nome });
     }
 
+    // Auditoria 1.2: a primeira etapa mostra a pergunta que o sistema mandaria; a segunda passa pela mesma trava do
+    // atendimento (usarConfirmacaoDoCliente) com as confirmações na memória, que nunca aplicam.
     case 'alterar_preco': {
+      if (entrada.confirmacao_id) return segundaEtapa(d, estado, r, nome, entrada.confirmacao_id, 'preco');
       // A consulta de verdade confere a unidade e o produto (só da empresa em foco) e traz o preço atual.
       const consulta = await executarFerramenta(d, estado, 'consultar_preco', { unidade_id: entrada.unidade_id, produto_id: entrada.produto_id });
       if (consulta.erro) return consulta;
-      if (!entrada.confirmado_pelo_cliente) return falha(AVISOS.precoSemConfirmacao);
       const atual = JSON.parse(consulta.resultado) as { rede: string; produto: string; unidade: string; preco: string | null };
-      const depois = formatarReais(entrada.novo_valor);
-      acao(r, nome, `Alteraria o preço de ${atual.produto} para a rede ${atual.rede}: de ${atual.preco ?? 'sem preço'} para ${depois}`);
-      return ok({ rede: atual.rede, produto: atual.produto, unidade: atual.unidade, antes: atual.preco, depois });
+      const unidade = (await d.repos.unidadesDaEmpresa(ctx.empresaEmFoco!.id, 'cliente')).find((u) => u.id === entrada.unidade_id)!;
+      const antigo = (await d.repos.precosVigentes(ctx.empresaEmFoco!.id, unidade.grupoId, [entrada.produto_id]))[entrada.produto_id] ?? null;
+      r.mensagens.push(textoConfirmacaoPreco({ produto: atual.produto, rede: atual.rede, antigo, novo: entrada.novo_valor }));
+      estado.respondeu = true;
+      const id = await d.repos.gravarConfirmacao({
+        conversaId: ctx.conversa.id, contatoId: ctx.contato!.id, clienteId: ctx.empresaEmFoco!.id, tipo: 'preco', dados: {}, valorAntigo: antigo,
+        mensagemPerguntaId: 'simulacao', turno: estado.turno ?? randomUUID(),
+      });
+      acao(r, nome, `Perguntaria ao cliente se confirma o preço de ${atual.produto} para a rede ${atual.rede}: de ${atual.preco ?? 'sem preço'} para ${formatarReais(entrada.novo_valor)}`);
+      return ok({ confirmacao_id: id, aguardando_cliente: true, instrucao: AVISOS.aguardeCliente });
     }
 
     case 'cadastrar_produto': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
-      if (!entrada.confirmado_pelo_cliente) return falha(AVISOS.produtoSemConfirmacao);
-      const unidade = entrada.unidade.toUpperCase() || 'UN';
-      acao(r, nome, `Cadastraria o produto ${entrada.codigo} - ${entrada.descricao} (${unidade})`);
-      return ok({ cadastrado: true, codigo: entrada.codigo, descricao: entrada.descricao, unidade });
+      if (entrada.confirmacao_id) return segundaEtapa(d, estado, r, nome, entrada.confirmacao_id, 'produto');
+      const produto = { codigo: entrada.codigo, descricao: entrada.descricao, unidade: entrada.unidade.toUpperCase() || 'UN' };
+      if ((await d.repos.produtosDaEmpresa(e.clienteId)).some((x) => x.codigo === produto.codigo)) return falha(AVISOS.produtoRepetido);
+      r.mensagens.push(textoConfirmacaoProduto(produto));
+      estado.respondeu = true;
+      const id = await d.repos.gravarConfirmacao({
+        conversaId: ctx.conversa.id, contatoId: ctx.contato!.id, clienteId: e.clienteId, tipo: 'produto', dados: {}, valorAntigo: null,
+        mensagemPerguntaId: 'simulacao', turno: estado.turno ?? randomUUID(),
+      });
+      acao(r, nome, `Perguntaria ao cliente se confirma o cadastro do produto ${produto.codigo} - ${produto.descricao} (${produto.unidade})`);
+      return ok({ confirmacao_id: id, aguardando_cliente: true, instrucao: AVISOS.aguardeCliente });
     }
 
     case 'passar_para_pessoa': {
@@ -328,6 +366,17 @@ async function simularGravacao(d: DepsAgente, estado: EstadoExecucao, nome: Nome
       // Leituras não chegam aqui; uma ferramenta nova sem versão simulada não pode gravar de verdade.
       return falha(`Ferramenta indisponível no teste: ${nome}`);
   }
+}
+
+/** Segunda etapa no teste: a recusa do atendimento; na mesma vez, quem treina vê que o agente esperaria o cliente. */
+async function segundaEtapa(d: DepsAgente, estado: EstadoExecucao, r: Registro, nome: NomeFerramenta, id: string, tipo: 'preco' | 'produto'): Promise<Resultado> {
+  const e = exigirEmpresa(estado);
+  if ('erro' in e) return e;
+  const res = await usarConfirmacaoDoCliente(d, estado, id, tipo);
+  if ((JSON.parse(res.resultado) as { motivo?: string }).motivo === 'mesmo_turno') {
+    acao(r, nome, tipo === 'preco' ? 'Esperaria o cliente confirmar o preço' : 'Esperaria o cliente confirmar o cadastro');
+  }
+  return res;
 }
 
 export function criarExecutorSimulado(r: Registro): ExecutorFerramentas {

@@ -17,6 +17,7 @@ const SEGUNDA_10H = new Date('2026-09-28T13:00:00Z');
 const TABELAS_DE_NEGOCIO = [
   'chamados', 'chamado_eventos', 'mensagens', 'precos', 'produtos', 'decisoes_agente', 'conversas', 'contatos', 'contato_clientes',
   'parceiros_unidades', 'orientacoes_agente', 'orientacoes_agente_versoes', 'auditoria_acessos', 'alertas', 'pedidos_nota_resumo',
+  'confirmacoes_cliente',
 ] as const;
 let canal: CanalFalso;
 let usuarioId: string;
@@ -98,8 +99,8 @@ describe('processarSimulacao', () => {
       usarFerramentas(
         { nome: 'abrir_pedido_nota', entrada: abrirEntrada },
         { nome: 'abrir_chamado', entrada: { setor_id: fiscal, titulo: 'Guia DAS de setembro', resumo: 'Cliente pediu a guia.', fora_do_contrato: false } },
-        { nome: 'alterar_preco', entrada: { unidade_id: c.brasilEfigenia, produto_id: c.costela, novo_valor: 10, confirmado_pelo_cliente: true } },
-        { nome: 'cadastrar_produto', entrada: { codigo: '30', descricao: 'Lasanha Bolonhesa', unidade: 'pac', apelidos: [], confirmado_pelo_cliente: true } },
+        { nome: 'alterar_preco', entrada: { unidade_id: c.brasilEfigenia, produto_id: c.costela, novo_valor: 10 } },
+        { nome: 'cadastrar_produto', entrada: { codigo: '30', descricao: 'Lasanha Bolonhesa', unidade: 'pac', apelidos: [] } },
         { nome: 'enviar_documento', entrada: { documento_id: c.contrato } },
         { nome: 'sinalizar_nao_entendido', entrada: {} },
         { nome: 'selecionar_empresa', entrada: { cliente_id: x.id } },
@@ -119,7 +120,12 @@ describe('processarSimulacao', () => {
     const r = s.respostas!;
     // O resumo que o sistema mandaria vem inteiro, antes das mensagens do agente.
     expect(r.mensagens[0]).toContain('Costela com Requeijão');
-    expect(r.mensagens.slice(1)).toEqual(['[documento] Contrato social', 'Pode deixar, já passei pro Fiscal.', 'Mais alguma coisa?']);
+    // Auditoria 1.2: as perguntas de confirmação que o sistema mandaria também entram, com o texto fixo.
+    expect(r.mensagens.slice(1)).toEqual([
+      'Confirma: Costela com Requeijão, rede Supermercado Brasil, de R$ 9,50 para R$ 10,00? Responda SIM para confirmar.',
+      'Confirma o cadastro: código 30, Lasanha Bolonhesa, unidade PAC? Responda SIM para confirmar.',
+      '[documento] Contrato social', 'Pode deixar, já passei pro Fiscal.', 'Mais alguma coisa?',
+    ]);
     // Auditoria 1.1/5.5: o teste é uma vez só, sem resposta do cliente ao resumo: a nota esperaria a confirmação (mesma vez).
     expect(r.acoes.map((a) => a.ferramenta)).toEqual([
       'resumir_pedido_nota', 'abrir_pedido_nota', 'abrir_chamado', 'alterar_preco', 'cadastrar_produto', 'enviar_documento', 'sinalizar_nao_entendido', 'selecionar_empresa',
@@ -127,8 +133,8 @@ describe('processarSimulacao', () => {
     expect(abrirEntrada.resumo_id).toMatch(/^[0-9a-f-]{36}$/);
     expect(r.acoes[1]!.resumo).toBe('Esperaria o cliente confirmar o resumo');
     expect(r.acoes[2]!.resumo).toBe('Abriria uma demanda no Fiscal: Guia DAS de setembro');
-    expect(r.acoes[3]!.resumo).toBe('Alteraria o preço de Costela com Requeijão para a rede Supermercado Brasil: de R$ 9,50 para R$ 10,00');
-    expect(r.acoes[4]!.resumo).toBe('Cadastraria o produto 30 - Lasanha Bolonhesa (PAC)');
+    expect(r.acoes[3]!.resumo).toBe('Perguntaria ao cliente se confirma o preço de Costela com Requeijão para a rede Supermercado Brasil: de R$ 9,50 para R$ 10,00');
+    expect(r.acoes[4]!.resumo).toBe('Perguntaria ao cliente se confirma o cadastro do produto 30 - Lasanha Bolonhesa (PAC)');
     // Leituras rodaram de verdade (o agente recebeu os candidatos).
     expect(ia.recebidos[1]!.messages.at(-1)!.content).toMatchObject([{ is_error: false }, { is_error: false }]);
     expect(JSON.stringify(ia.recebidos[1]!.messages.at(-1)!.content)).toContain(c.brasilEfigenia);
@@ -138,6 +144,45 @@ describe('processarSimulacao', () => {
     const uso = (await db.from('uso_ia').select('conversa_id')).data!;
     expect(uso).toHaveLength(5);
     expect(uso.every((u) => u.conversa_id === null)).toBe(true);
+  });
+
+  it('auditoria 1.2: preço e produto confirmados na mesma vez do teste não mudam nada; quem treina vê a espera', async () => {
+    const { empresas } = await contatoComEmpresas(['Indústria X']);
+    const c = await criarCadastrosExemplo(empresas[0]!.id);
+    const id = await novaSimulacao({ clienteId: empresas[0]!.id });
+    const antes = await contagens();
+    // O modelo usa o confirmacao_id que a primeira etapa devolveu, na mesma vez (como faria com uma injeção).
+    const segundaPreco: { confirmacao_id?: string } = {};
+    const segundaProduto: { confirmacao_id?: string } = {};
+    class IaQueGuardaConfirmacao extends IaRoteirizada {
+      override async criar(p: Parameters<IaRoteirizada['criar']>[0]) {
+        const r = await super.criar(p);
+        if (this.recebidos.length === 2) {
+          const ids = this.ultimosResultados().map((x) => (JSON.parse(x.content) as { confirmacao_id?: string }).confirmacao_id);
+          segundaPreco.confirmacao_id = ids[0];
+          segundaProduto.confirmacao_id = ids[1];
+        }
+        return r;
+      }
+    }
+    const ia = new IaQueGuardaConfirmacao([
+      usarFerramentas(
+        { nome: 'alterar_preco', entrada: { unidade_id: c.brasilEfigenia, produto_id: c.costela, novo_valor: 10 } },
+        { nome: 'cadastrar_produto', entrada: { codigo: '30', descricao: 'Lasanha Bolonhesa', unidade: 'pac', apelidos: [] } },
+      ),
+      usarFerramentas({ nome: 'alterar_preco', entrada: segundaPreco }, { nome: 'cadastrar_produto', entrada: segundaProduto }),
+      usarFerramentas({ nome: 'responder', entrada: { texto: 'Pronto.' } }),
+      fim(),
+    ]);
+    expect(await processarSimulacao(deps(ia), id, false)).toBe('pronta');
+    expect(segundaPreco.confirmacao_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(canal.enviados).toEqual([]);
+    expect(await contagens()).toEqual(antes);
+    expect(ia.recebidos[2]!.messages.at(-1)!.content).toMatchObject([{ is_error: true }, { is_error: true }]);
+    expect(JSON.stringify(ia.recebidos[2]!.messages.at(-1)!.content)).toContain('mesmo_turno');
+    expect((await simulacao(id)).respostas!.acoes.map((a) => a.resumo).slice(2)).toEqual([
+      'Esperaria o cliente confirmar o preço', 'Esperaria o cliente confirmar o cadastro',
+    ]);
   });
 
   it('pedido de nota sem resumo neste teste é recusado, como no atendimento', async () => {

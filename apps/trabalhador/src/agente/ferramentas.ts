@@ -169,25 +169,26 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
     description: 'Preço de tabela de um produto para uma unidade de cliente da empresa em foco (ache os ids com buscar_parceiros e buscar_produtos). O preço é da rede: só para consultar ou alterar preço, qualquer unidade da rede serve (não pergunte a unidade por causa do preço). Para nota fiscal a unidade importa.',
     input_schema: objeto({ unidade_id: { type: 'string' }, produto_id: { type: 'string' } }, ['unidade_id', 'produto_id']),
   },
+  // Auditoria 1.2 e 5.4: duas etapas. Os dados só fazem o sistema perguntar ao cliente; o confirmacao_id aplica depois do "sim".
   {
     name: 'alterar_preco',
-    description: 'Altera o preço de tabela de um produto para a rede de uma unidade de cliente. Só use depois de o cliente confirmar explicitamente o novo valor (confirmado_pelo_cliente = true). Exige que o contato tenha permissão para mudar preço.',
+    description: 'Muda o preço de tabela de um produto para a rede de uma unidade de cliente, em duas etapas. 1) Com unidade_id, produto_id e novo_valor: o sistema manda ao cliente a pergunta de confirmação (não escreva outra) e devolve confirmacao_id; nada muda ainda. 2) Numa mensagem seguinte, se o cliente responder que sim, chame só com o confirmacao_id. Exige que o contato tenha permissão para mudar preço.',
     input_schema: objeto({
       unidade_id: { type: 'string' }, produto_id: { type: 'string' },
       novo_valor: { type: 'number', description: 'Em reais, ex.: 10.5' },
-      confirmado_pelo_cliente: { type: 'boolean' },
-    }, ['unidade_id', 'produto_id', 'novo_valor', 'confirmado_pelo_cliente']),
+      confirmacao_id: { type: 'string', description: 'Só na segunda etapa: o confirmacao_id que a primeira devolveu, depois do sim do cliente.' },
+    }, []),
   },
   {
     name: 'cadastrar_produto',
-    description: 'Cadastra um produto novo na empresa em foco. Só use depois de o cliente confirmar explicitamente código, descrição e unidade (confirmado_pelo_cliente = true). Exige que o contato tenha permissão para mudar preço. O preço é por rede: depois de cadastrar, use alterar_preco se o cliente informar o valor.',
+    description: 'Cadastra um produto novo na empresa em foco, em duas etapas. 1) Com codigo, descricao, unidade e apelidos: o sistema manda ao cliente a pergunta de confirmação (não escreva outra) e devolve confirmacao_id; nada é cadastrado ainda. 2) Numa mensagem seguinte, se o cliente responder que sim, chame só com o confirmacao_id. Exige que o contato tenha permissão para mudar preço. O preço é por rede: depois de cadastrar, use alterar_preco se o cliente informar o valor.',
     input_schema: objeto({
       codigo: { type: 'string', description: 'Código do produto na empresa, como o cliente informou.' },
       descricao: { type: 'string', description: 'Nome do produto, ex.: "Lasanha Bolonhesa".' },
       unidade: { type: 'string', description: 'PAC, KG, UN, CX…' },
       apelidos: { type: 'array', items: { type: 'string' }, description: 'Outros nomes que o cliente usa para o produto (pode ser vazio).' },
-      confirmado_pelo_cliente: { type: 'boolean' },
-    }, ['codigo', 'descricao', 'unidade', 'apelidos', 'confirmado_pelo_cliente']),
+      confirmacao_id: { type: 'string', description: 'Só na segunda etapa: o confirmacao_id que a primeira devolveu, depois do sim do cliente.' },
+    }, []),
   },
   {
     name: 'responder',
@@ -275,11 +276,17 @@ const Entradas = {
   enviar_documento: z.object({ documento_id: z.string() }),
   consultar_cadastro: z.object({ unidade_id: z.string().optional() }),
   consultar_preco: z.object({ unidade_id: z.string(), produto_id: z.string() }),
-  alterar_preco: z.object({ unidade_id: z.string(), produto_id: z.string(), novo_valor: z.number().positive().max(1_000_000), confirmado_pelo_cliente: z.boolean() }),
+  // Auditoria 1.2: ou os dados (primeira etapa) ou só o confirmacao_id (segunda); sem booleano de confirmação.
+  alterar_preco: z.object({
+    unidade_id: z.string().nullish(), produto_id: z.string().nullish(), novo_valor: z.number().positive().max(1_000_000).nullish(),
+    confirmacao_id: z.string().uuid().nullish(),
+  }).refine((x) => (x.confirmacao_id ? x.unidade_id == null && x.produto_id == null && x.novo_valor == null
+    : x.unidade_id != null && x.produto_id != null && x.novo_valor != null), 'Informe unidade_id, produto_id e novo_valor (para o sistema perguntar ao cliente) ou só o confirmacao_id (depois do sim dele).'),
   cadastrar_produto: z.object({
-    codigo: z.string().trim().min(1).max(40), descricao: z.string().trim().min(1).max(200), unidade: z.string().trim().max(20),
-    apelidos: z.array(z.string().trim().min(1).max(100)).max(10), confirmado_pelo_cliente: z.boolean(),
-  }),
+    codigo: z.string().trim().min(1).max(40).nullish(), descricao: z.string().trim().min(1).max(200).nullish(), unidade: z.string().trim().max(20).nullish(),
+    apelidos: z.array(z.string().trim().min(1).max(100)).max(10).nullish(), confirmacao_id: z.string().uuid().nullish(),
+  }).refine((x) => (x.confirmacao_id ? x.codigo == null && x.descricao == null && x.unidade == null
+    : x.codigo != null && x.descricao != null && x.unidade != null), 'Informe codigo, descricao e unidade (para o sistema perguntar ao cliente) ou só o confirmacao_id (depois do sim dele).'),
   ler_demandas_setor: z.object({}),
   conferir_pedido_nota: z.object({ numero: z.number().int().positive() }),
   nota_interna: z.object({ numero: z.number().int().positive(), texto: z.string().trim().min(1).max(2000) }),
@@ -312,8 +319,16 @@ export const AVISOS = {
   pedidoMudou: 'Os preços ou o cadastro mudaram desde o resumo. Mande um resumo novo com resumir_pedido_nota',
   documentoNaoEncontrado: 'Documento não encontrado nesta empresa. Use listar_documentos.',
   documentoNaoLiberado: 'Este documento não está liberado para envio automático. Abra uma demanda com abrir_chamado para a equipe enviar.',
-  precoSemConfirmacao: 'Antes de alterar, confirme com o cliente o novo valor (produto, rede, de quanto para quanto) e só então chame de novo com confirmado_pelo_cliente = true.',
-  produtoSemConfirmacao: 'Antes de cadastrar, confirme com o cliente o código, a descrição e a unidade do produto e só então chame de novo com confirmado_pelo_cliente = true.',
+  // Auditoria 1.2 e 5.4: instruções das duas etapas de alterar_preco e cadastrar_produto, pelo motivo de usar_confirmacao.
+  aguardeCliente: 'Aguarde a resposta do cliente; não chame de novo nesta vez.',
+  confirmacaoNaoEncontrada: 'Este confirmacao_id não é de uma pergunta mandada nesta conversa. Se o cliente quiser a mudança, chame com os dados para o sistema perguntar a ele.',
+  confirmacaoSemResposta: 'O cliente ainda não respondeu à pergunta de confirmação. Espere a resposta dele; não chame de novo nesta vez.',
+  confirmacaoVencida: 'A pergunta de confirmação tem mais de 30 minutos. Se o cliente ainda quiser, chame com os dados para o sistema perguntar de novo.',
+  confirmacaoUsada: 'Esta confirmação já foi usada e a mudança já foi gravada. Não chame de novo.',
+  precoMudou: 'O preço mudou depois da pergunta. Se o cliente ainda quiser, chame com os dados para o sistema perguntar de novo com o preço de agora.',
+  precoSemPermissao: 'Este contato não tem permissão para mudar preço (sem permissão). Não altere: abra uma demanda com abrir_chamado para a equipe decidir.',
+  produtoSemPermissao: 'Este contato não tem permissão para cadastrar produto (sem permissão). Não cadastre: abra uma demanda com abrir_chamado para a equipe cadastrar.',
+  produtoRepetido: 'Já existe um produto com esse código nesta empresa. Use buscar_produtos e confirme com o cliente.',
   textoVazio: 'Texto vazio: escreva a resposta em palavras, sem emoji.',
   instrucaoExplicarDeNovo: 'Peça gentilmente para o cliente explicar de outra forma.',
   instrucaoEquipeContinua: 'Diga ao cliente que uma pessoa da equipe vai continuar o atendimento.',
@@ -481,6 +496,80 @@ export async function consumirResumo(d: DepsAgente, estado: EstadoExecucao, clie
 /** Como o marcarPassagem de processar-conversa: falha ao marcar a espera só é registrada (não vira uma "Falha no agente" a mais). */
 async function marcarEspera(d: DepsAgente, conversaId: string, motivo: string): Promise<void> {
   await d.repos.marcarAguardandoPessoa(conversaId, motivo).catch((e) => console.error('[passagem] não marcada', conversaId, e));
+}
+
+/** Auditoria 1.2: as perguntas têm texto fixo, montado pelo sistema; o modelo não escreve a confirmação. */
+export const textoConfirmacaoPreco = (p: { produto: string; rede: string; antigo: number | null; novo: number }) =>
+  `Confirma: ${p.produto}, rede ${p.rede}, ${p.antigo === null ? 'sem preço cadastrado,' : `de ${formatarReais(p.antigo)}`} para ${formatarReais(p.novo)}? Responda SIM para confirmar.`;
+export const textoConfirmacaoProduto = (p: { codigo: string; descricao: string; unidade: string }) =>
+  `Confirma o cadastro: código ${p.codigo}, ${p.descricao}, unidade ${p.unidade}? Responda SIM para confirmar.`;
+
+/** D1: Básico não muda preço nem cadastra produto, mesmo com a marcação antiga (o banco também confere). */
+async function podeMudarPreco(d: DepsAgente, estado: EstadoExecucao, clienteId: string): Promise<boolean> {
+  const acesso = await acessoNaEmpresa(d, estado, clienteId);
+  return acesso.podeAtualizarPreco && !ehBasico(acesso);
+}
+
+/** Unidade (cliente) e produto da empresa em foco, com o preço vigente da rede. */
+async function precoDaRede(d: DepsAgente, clienteId: string, unidadeId: string, produtoId: string) {
+  const unidade = (await d.repos.unidadesDaEmpresa(clienteId, 'cliente')).find((u) => u.id === unidadeId);
+  if (!unidade) return falha('Essa unidade não é um cliente cadastrado desta empresa. Use buscar_parceiros.');
+  const produto = (await d.repos.produtosDaEmpresa(clienteId)).find((p) => p.id === produtoId);
+  if (!produto) return falha('Esse produto não é desta empresa. Use buscar_produtos.');
+  const atual = (await d.repos.precosVigentes(clienteId, unidade.grupoId, [produto.id]))[produto.id] ?? null;
+  return { unidade, produto, atual };
+}
+
+/** Primeira etapa (auditoria 1.2): o sistema manda a pergunta e só depois de ela ficar enviada grava a confirmação. */
+async function perguntarAoCliente(d: DepsAgente, estado: EstadoExecucao, c: { clienteId: string; tipo: 'preco' | 'produto'; texto: string;
+  dados: Record<string, unknown>; valorAntigo: number | null }): Promise<Resultado> {
+  const { ctx } = estado;
+  const atual = await d.repos.obterConversa(ctx.conversa.id);
+  if (atual.estado === 'humano') return falha('Um atendente assumiu esta conversa. Não envie nada.');
+  const mensagemId = await enviarDoSistema(d.envio, {
+    conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: c.clienteId, autor: 'agente', texto: c.texto, turnoAgente: estado.turno ?? null,
+  });
+  estado.respondeu = true;
+  const id = await d.repos.gravarConfirmacao({
+    conversaId: ctx.conversa.id, contatoId: ctx.contato!.id, clienteId: c.clienteId, tipo: c.tipo, dados: c.dados,
+    valorAntigo: c.valorAntigo, mensagemPerguntaId: mensagemId, turno: estado.turno ?? randomUUID(),
+  });
+  return ok({ confirmacao_id: id, aguardando_cliente: true, instrucao: AVISOS.aguardeCliente });
+}
+
+const RECUSAS_CONFIRMACAO: Record<string, string> = {
+  nao_encontrado: AVISOS.confirmacaoNaoEncontrada, sem_envio: AVISOS.confirmacaoNaoEncontrada, expirado: AVISOS.confirmacaoVencida,
+  mesmo_turno: AVISOS.confirmacaoSemResposta, sem_resposta: AVISOS.confirmacaoSemResposta, ja_usado: AVISOS.confirmacaoUsada,
+  preco_mudou: AVISOS.precoMudou,
+};
+
+/**
+ * Segunda etapa (auditoria 1.2): usar_confirmacao confere a resposta do cliente (mesmo contato, depois da pergunta, noutra
+ * vez, em 30 min), usa uma vez só e aplica na mesma transação; se a aplicação falhar, o uso é desfeito junto.
+ */
+export async function usarConfirmacaoDoCliente(d: DepsAgente, estado: EstadoExecucao, id: string, tipo: 'preco' | 'produto'): Promise<Resultado> {
+  const { ctx } = estado;
+  let c: Awaited<ReturnType<Repos['usarConfirmacao']>>;
+  try {
+    c = await d.repos.usarConfirmacao(id, ctx.conversa.id, ctx.contato!.id, estado.turno ?? null);
+  } catch (erro) {
+    const msg = erro instanceof Error ? erro.message : '';
+    if (msg.includes('sem permissão')) return falha(tipo === 'preco' ? AVISOS.precoSemPermissao : AVISOS.produtoSemPermissao);
+    if (msg.includes('já cadastrado')) return falha(AVISOS.produtoRepetido);
+    throw erro;
+  }
+  if (!c.ok) return recusa(c.motivo, RECUSAS_CONFIRMACAO[c.motivo] ?? AVISOS.confirmacaoNaoEncontrada);
+  // O que foi aplicado é o que o cliente confirmou (o tipo vem da confirmação, não da ferramenta chamada).
+  const x = c.dados as { rede?: string; produto?: string; codigo?: string; descricao?: string; unidade?: string };
+  if (c.tipo === 'produto') return ok({ cadastrado: true, codigo: x.codigo, descricao: x.descricao, unidade: x.unidade });
+  const antes = c.valorAntigo === null ? null : formatarReais(c.valorAntigo);
+  const depois = formatarReais(c.valorNovo ?? 0);
+  // Variação acima de 30%: a equipe fica sabendo (auditoria 1.2). Falha no alerta não desfaz o preço já gravado.
+  if (c.valorAntigo !== null && c.valorNovo !== null && Math.abs(c.valorNovo - c.valorAntigo) > 0.3 * c.valorAntigo) {
+    await d.repos.registrarAlerta({ nivel: 'aviso', mensagem: `Preço de ${x.produto} (rede ${x.rede}) mudou mais de 30% pelo WhatsApp: ${antes} → ${depois}.` })
+      .catch((e) => console.error('[preço] alerta não registrado', id, e));
+  }
+  return ok({ alterado: true, rede: x.rede, produto: x.produto, antes, depois });
 }
 
 async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: keyof typeof Entradas, entrada: any): Promise<Resultado> {
@@ -722,30 +811,31 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
         cnpj: u.cnpj ? cnpjFormatado(u.cnpj) : null, inscricao_estadual: u.ie, bairro: u.bairro, cidade: u.cidade, uf: u.uf } });
     }
 
-    case 'consultar_preco':
+    case 'consultar_preco': {
+      const e = exigirEmpresa(estado);
+      if ('erro' in e) return e;
+      const semNota = await exigirFluxoNota(d, estado, e.clienteId);
+      if (semNota) return semNota;
+      const p = await precoDaRede(d, e.clienteId, entrada.unidade_id, entrada.produto_id);
+      if ('resultado' in p) return p;
+      return ok({ rede: p.unidade.rede, produto: p.produto.descricao, unidade: p.produto.unidade, preco: p.atual === null ? null : formatarReais(p.atual) });
+    }
+
+    // Auditoria 1.2 e 5.4: os dados só mandam a pergunta; o confirmacao_id aplica depois da resposta do cliente.
     case 'alterar_preco': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
       const semNota = await exigirFluxoNota(d, estado, e.clienteId);
       if (semNota) return semNota;
-      const unidade = (await d.repos.unidadesDaEmpresa(e.clienteId, 'cliente')).find((u) => u.id === entrada.unidade_id);
-      if (!unidade) return falha('Essa unidade não é um cliente cadastrado desta empresa. Use buscar_parceiros.');
-      const produto = (await d.repos.produtosDaEmpresa(e.clienteId)).find((p) => p.id === entrada.produto_id);
-      if (!produto) return falha('Esse produto não é desta empresa. Use buscar_produtos.');
-      const atual = (await d.repos.precosVigentes(e.clienteId, unidade.grupoId, [produto.id]))[produto.id] ?? null;
-      const base = { rede: unidade.rede, produto: produto.descricao, unidade: produto.unidade };
-      if (nome === 'consultar_preco') return ok({ ...base, preco: atual === null ? null : formatarReais(atual) });
-      if (!entrada.confirmado_pelo_cliente) {
-        return falha(AVISOS.precoSemConfirmacao);
-      }
-      try {
-        await d.repos.definirPrecoPeloAgente(unidade.grupoId, produto.id, entrada.novo_valor, ctx.contato!.id);
-      } catch (erro) {
-        const msg = erro instanceof Error ? erro.message : '';
-        if (msg.includes('sem permissão')) return falha('Este contato não tem permissão para mudar preço (sem permissão). Não altere: abra uma demanda com abrir_chamado para a equipe decidir.');
-        throw erro;
-      }
-      return ok({ ...base, antes: atual === null ? null : formatarReais(atual), depois: formatarReais(entrada.novo_valor) });
+      if (entrada.confirmacao_id) return usarConfirmacaoDoCliente(d, estado, entrada.confirmacao_id, 'preco');
+      if (!(await podeMudarPreco(d, estado, e.clienteId))) return falha(AVISOS.precoSemPermissao);
+      const p = await precoDaRede(d, e.clienteId, entrada.unidade_id, entrada.produto_id);
+      if ('resultado' in p) return p;
+      return perguntarAoCliente(d, estado, {
+        clienteId: e.clienteId, tipo: 'preco', valorAntigo: p.atual,
+        texto: textoConfirmacaoPreco({ produto: p.produto.descricao, rede: p.unidade.rede, antigo: p.atual, novo: entrada.novo_valor }),
+        dados: { grupo_id: p.unidade.grupoId, produto_id: p.produto.id, novo_valor: entrada.novo_valor, rede: p.unidade.rede, produto: p.produto.descricao },
+      });
     }
 
     case 'cadastrar_produto': {
@@ -753,19 +843,12 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       if ('erro' in e) return e;
       const semNota = await exigirFluxoNota(d, estado, e.clienteId);
       if (semNota) return semNota;
-      if (!entrada.confirmado_pelo_cliente) {
-        return falha(AVISOS.produtoSemConfirmacao);
-      }
-      const produto = { codigo: entrada.codigo, descricao: entrada.descricao, unidade: entrada.unidade.toUpperCase() || 'UN', apelidos: entrada.apelidos };
-      try {
-        await d.repos.cadastrarProdutoPeloAgente(e.clienteId, produto, ctx.contato!.id);
-      } catch (erro) {
-        const msg = erro instanceof Error ? erro.message : '';
-        if (msg.includes('sem permissão')) return falha('Este contato não tem permissão para cadastrar produto (sem permissão). Não cadastre: abra uma demanda com abrir_chamado para a equipe cadastrar.');
-        if (msg.includes('já cadastrado')) return falha('Já existe um produto com esse código nesta empresa. Use buscar_produtos e confirme com o cliente.');
-        throw erro;
-      }
-      return ok({ cadastrado: true, codigo: produto.codigo, descricao: produto.descricao, unidade: produto.unidade });
+      if (entrada.confirmacao_id) return usarConfirmacaoDoCliente(d, estado, entrada.confirmacao_id, 'produto');
+      if (!(await podeMudarPreco(d, estado, e.clienteId))) return falha(AVISOS.produtoSemPermissao);
+      const produto = { codigo: entrada.codigo, descricao: entrada.descricao, unidade: entrada.unidade.toUpperCase() || 'UN', apelidos: entrada.apelidos ?? [] };
+      // Código repetido: recusa já, sem perguntar ao cliente uma coisa que não vai dar certo.
+      if ((await d.repos.produtosDaEmpresa(e.clienteId)).some((x) => x.codigo === produto.codigo)) return falha(AVISOS.produtoRepetido);
+      return perguntarAoCliente(d, estado, { clienteId: e.clienteId, tipo: 'produto', valorAntigo: null, texto: textoConfirmacaoProduto(produto), dados: produto });
     }
 
     case 'ler_demandas_setor': {

@@ -7,9 +7,10 @@ insert into public.clientes (id, razao_social, cnpj) values ('10000000-0000-0000
 insert into public.contatos (id, nome, telefone) values
   ('40000000-0000-0000-0000-000000000001', 'Luana', '5531999990001'),
   ('40000000-0000-0000-0000-000000000002', 'Sem permissão', '5531999990002');
-insert into public.contato_clientes (contato_id, cliente_id, pode_atualizar_preco) values
-  ('40000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', true),
-  ('40000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', false);
+-- Auditoria 1.7 e D1: Básico não cadastra produto; o contato do teste tem perfil definido.
+insert into public.contato_clientes (contato_id, cliente_id, perfil, pode_atualizar_preco) values
+  ('40000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'personalizado', true),
+  ('40000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'personalizado', false);
 
 select lives_ok($$ select public.cadastrar_produto_agente('10000000-0000-0000-0000-000000000001', ' 30 ', 'Lasanha Bolonhesa', 'pac', array['lasanha'], '40000000-0000-0000-0000-000000000001') $$,
   'contato com "pode mudar preço" cadastra produto pelo agente');

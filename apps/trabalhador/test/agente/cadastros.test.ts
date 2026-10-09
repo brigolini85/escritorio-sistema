@@ -19,6 +19,9 @@ const usar = async (nome: string, entrada: object) => {
   const r = await executarFerramenta(d(), estado, nome, entrada);
   return { ...JSON.parse(r.resultado), _erro: r.erro };
 };
+const clienteEscreve = (texto: string) => repos.inserirMensagemEntrada({
+  conversaId: estado.ctx.conversa.id, clienteId: null, tipo: 'texto', conteudo: texto, idProvedor: `ENT-${randomUUID()}`,
+});
 
 beforeEach(async () => {
   await limparBanco();
@@ -281,20 +284,23 @@ describe('preço pelo WhatsApp (pedido do dono, 2026-09-28)', () => {
     expect(await vigente()).toEqual({ valor: 9.5, origem: 'painel' });
   });
 
+  // Auditoria 1.2: antes, confirmado_pelo_cliente = true gravava direto; agora os dados só perguntam e o confirmacao_id aplica.
   it('alterar_preco só depois de o cliente confirmar', async () => {
     await db.from('contato_clientes').update({ pode_atualizar_preco: true }).eq('contato_id', estado.ctx.contato!.id);
-    const semConfirmar = await usar('alterar_preco', { unidade_id: cad.brasilEfigenia, produto_id: cad.costela, novo_valor: 10, confirmado_pelo_cliente: false });
-    expect(semConfirmar._erro).toBe(true);
+    const pergunta = await usar('alterar_preco', { unidade_id: cad.brasilEfigenia, produto_id: cad.costela, novo_valor: 10 });
+    expect(pergunta).toMatchObject({ _erro: false, aguardando_cliente: true });
     expect(await vigente()).toEqual({ valor: 9.5, origem: 'painel' });
 
-    const r = await usar('alterar_preco', { unidade_id: cad.brasilEfigenia, produto_id: cad.costela, novo_valor: 10, confirmado_pelo_cliente: true });
+    await clienteEscreve('sim');
+    estado.turno = randomUUID();
+    const r = await usar('alterar_preco', { confirmacao_id: pergunta.confirmacao_id });
     expect(r).toMatchObject({ _erro: false, antes: 'R$ 9,50', depois: 'R$ 10,00' });
     expect(await vigente()).toEqual({ valor: 10, origem: 'agente' });
   });
 });
 
 describe('produto pelo WhatsApp (pedido do dono, 2026-09-29)', () => {
-  const lasanha = { codigo: '30', descricao: 'Lasanha Bolonhesa', unidade: 'pac', apelidos: ['lasanha'], confirmado_pelo_cliente: true };
+  const lasanha = { codigo: '30', descricao: 'Lasanha Bolonhesa', unidade: 'pac', apelidos: ['lasanha'] };
   const gravado = async () => (await db.from('produtos').select('codigo, descricao, unidade, apelidos').eq('codigo', '30').maybeSingle()).data;
 
   it('sem a marcação "pode mudar preço" é recusado', async () => {
@@ -304,12 +310,16 @@ describe('produto pelo WhatsApp (pedido do dono, 2026-09-29)', () => {
     expect(await gravado()).toBeNull();
   });
 
+  // Auditoria 1.2: os dados só perguntam ao cliente; o confirmacao_id cadastra depois da resposta dele.
   it('só cadastra depois de o cliente confirmar; depois a busca já acha', async () => {
     await db.from('contato_clientes').update({ pode_atualizar_preco: true }).eq('contato_id', estado.ctx.contato!.id);
-    expect((await usar('cadastrar_produto', { ...lasanha, confirmado_pelo_cliente: false }))._erro).toBe(true);
+    const pergunta = await usar('cadastrar_produto', lasanha);
+    expect(pergunta).toMatchObject({ _erro: false, aguardando_cliente: true });
     expect(await gravado()).toBeNull();
 
-    const r = await usar('cadastrar_produto', lasanha);
+    await clienteEscreve('sim');
+    estado.turno = randomUUID();
+    const r = await usar('cadastrar_produto', { confirmacao_id: pergunta.confirmacao_id });
     expect(r).toMatchObject({ _erro: false, codigo: '30', descricao: 'Lasanha Bolonhesa', unidade: 'PAC' });
     expect(await gravado()).toEqual({ codigo: '30', descricao: 'Lasanha Bolonhesa', unidade: 'PAC', apelidos: ['lasanha'] });
     expect((await usar('buscar_produtos', { textos: ['lasanha'] })).resultados[0].candidatos[0].codigo).toBe('30');

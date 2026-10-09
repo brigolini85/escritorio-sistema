@@ -780,6 +780,61 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"confirmacoes_cliente": {
+                  Row: {
+                    "cliente_id": string,"contato_id": string,"conversa_id": string,"criado_em": string,"dados": NonNullable<Json>,"expira_em": string,"id": string,"mensagem_pergunta_id": string,"tipo": string,"turno": string,"usado_em": string | null,"valor_antigo": number | null
+                  }
+                  Insert: {
+                    "cliente_id": string,"contato_id": string,"conversa_id": string,"criado_em"?: string,"dados": NonNullable<Json>,"expira_em"?: string,"id"?: string,"mensagem_pergunta_id": string,"tipo": string,"turno": string,"usado_em"?: string | null,"valor_antigo"?: number | null
+                  }
+                  Update: {
+                    "cliente_id"?: string,"contato_id"?: string,"conversa_id"?: string,"criado_em"?: string,"dados"?: NonNullable<Json>,"expira_em"?: string,"id"?: string,"mensagem_pergunta_id"?: string,"tipo"?: string,"turno"?: string,"usado_em"?: string | null,"valor_antigo"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "confirmacoes_cliente_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "confirmacoes_cliente_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "confirmacoes_cliente_contato_id_fkey"
+      columns: ["contato_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "confirmacoes_cliente_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "caixa_entrada"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "confirmacoes_cliente_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
+    },{
+      foreignKeyName: "confirmacoes_cliente_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "conversas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "confirmacoes_cliente_mensagem_pergunta_id_fkey"
+      columns: ["mensagem_pergunta_id"]
+isOneToOne: false
+      referencedRelation: "mensagens"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"contato_cliente_setores": {
                   Row: {
                     "cliente_id": string,"contato_id": string,"pode_ser_procurado": boolean,"setor_id": string
@@ -2892,6 +2947,9 @@ isOneToOne: false
                            },
 "ultima_alteracao_cliente":
 { Args: { "p_cliente": string }; Returns: Json
+                           },
+"usar_confirmacao":
+{ Args: { "p_contato": string,"p_conversa": string,"p_id": string,"p_turno": string }; Returns: Json
                            },
 "uso_do_cadastro":
 { Args: { "p_id": string,"p_tipo": string }; Returns: Json

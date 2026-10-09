@@ -504,6 +504,30 @@ export function criarRepos(db: Db) {
       checar(await db.from('pedidos_nota_resumo').update({ usado_em: null }).eq('id', id).is('chamado_id', null), 'liberarResumoNota');
     },
 
+    /** Auditoria 1.2: pergunta de preço ou cadastro que chegou ao cliente (a saída já enviada); vale 30 min. */
+    async gravarConfirmacao(c: {
+      conversaId: string; contatoId: string; clienteId: string; tipo: 'preco' | 'produto'; dados: Record<string, unknown>;
+      valorAntigo: number | null; mensagemPerguntaId: string; turno: string;
+    }): Promise<string> {
+      return checar(await db.from('confirmacoes_cliente').insert({ conversa_id: c.conversaId, contato_id: c.contatoId, cliente_id: c.clienteId,
+        tipo: c.tipo, dados: c.dados as never, valor_antigo: c.valorAntigo, mensagem_pergunta_id: c.mensagemPerguntaId, turno: c.turno })
+        .select('id').single(), 'gravarConfirmacao').id;
+    },
+
+    /**
+     * Usa a confirmação uma vez só e aplica na mesma transação (usar_confirmacao): resposta do cliente depois da pergunta,
+     * noutra vez, em 30 min e, no preço, com o mesmo vigente. Erro da aplicação (sem permissão, código repetido) vem como exceção.
+     */
+    async usarConfirmacao(id: string, conversaId: string, contatoId: string, turnoAtual: string | null):
+      Promise<{ ok: true; tipo: 'preco' | 'produto'; valorAntigo: number | null; valorNovo: number | null; dados: Record<string, unknown> } | { ok: false; motivo: string }> {
+      const r = checar(await db.rpc('usar_confirmacao', { p_id: id, p_conversa: conversaId, p_contato: contatoId, p_turno: turnoAtual as string }),
+        'usarConfirmacao') as { ok?: boolean; motivo?: string; tipo?: 'preco' | 'produto'; valor_antigo?: number | null; valor_novo?: number | null; dados?: Record<string, unknown> };
+      return r.ok
+        ? { ok: true, tipo: r.tipo === 'produto' ? 'produto' : 'preco', valorAntigo: r.valor_antigo == null ? null : Number(r.valor_antigo),
+          valorNovo: r.valor_novo == null ? null : Number(r.valor_novo), dados: r.dados ?? {} }
+        : { ok: false, motivo: r.motivo ?? 'nao_encontrado' };
+    },
+
     async vincularChamadoAoResumo(id: string, chamadoId: string): Promise<void> {
       checar(await db.from('pedidos_nota_resumo').update({ chamado_id: chamadoId }).eq('id', id), 'vincularChamadoAoResumo');
     },
@@ -745,20 +769,7 @@ export function criarRepos(db: Db) {
       return checar(await db.rpc('gerar_demandas_certificado', { p_hoje: hoje }), 'gerarDemandasCertificado');
     },
 
-    /** Preço alterado pelo agente a pedido do contato; o banco exige "pode mudar preço" para a empresa. */
-    async definirPrecoPeloAgente(grupoId: string, produtoId: string, valor: number, contatoId: string): Promise<void> {
-      const r = await db.rpc('definir_preco_agente', { p_grupo: grupoId, p_produto: produtoId, p_valor: valor, p_contato: contatoId });
-      if (r.error) throw new Error(r.error.message);
-    },
-
-    /** Produto cadastrado pelo agente a pedido do contato; o banco exige "pode mudar preço" para a empresa. */
-    async cadastrarProdutoPeloAgente(clienteId: string, p: { codigo: string; descricao: string; unidade: string; apelidos: string[] }, contatoId: string): Promise<string> {
-      const r = await db.rpc('cadastrar_produto_agente', {
-        p_cliente: clienteId, p_codigo: p.codigo, p_descricao: p.descricao, p_unidade: p.unidade, p_apelidos: p.apelidos, p_contato: contatoId,
-      });
-      if (r.error) throw new Error(r.error.message);
-      return r.data;
-    },
+    // Auditoria 1.2: definir_preco_agente e cadastrar_produto_agente só são chamadas por usar_confirmacao (sem caminho direto).
 
     /** Telefone de alguém da equipe com "Site e WhatsApp" (o mesmo critério de eh_telefone_do_assistente). */
     async usuarioDoAssistente(telefone: string): Promise<UsuarioAssistente | null> {
