@@ -1,10 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Segurança do login (item 8): o código do aplicativo é conferido pelo Supabase; erro fica na tela (o QR não muda).
-const falso = vi.hoisted(() => ({ challengeAndVerify: vi.fn(), listFactors: vi.fn(), rpc: vi.fn() }));
+const falso = vi.hoisted(() => ({ challengeAndVerify: vi.fn(), listFactors: vi.fn(), rpc: vi.fn(), usuario: 'u1', contagem: new Map<string, number>() }));
+vi.mock('server-only', () => ({}));
+vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
+// Dublê de contar_tentativa: a mesma regra do banco, em memória.
+vi.mock('@/lib/supabase/servico', () => ({
+  supabaseServico: () => ({
+    rpc: async (_: string, a: { p_chave: string; p_limite: number }) => {
+      const n = falso.contagem.get(a.p_chave) ?? 0;
+      if (n >= a.p_limite) return { data: false, error: null };
+      falso.contagem.set(a.p_chave, n + 1);
+      return { data: true, error: null };
+    },
+  }),
+}));
 vi.mock('@/lib/supabase/servidor', () => ({
   supabaseServidor: async () => ({
-    auth: { mfa: { challengeAndVerify: falso.challengeAndVerify, listFactors: falso.listFactors } },
+    auth: {
+      getUser: async () => ({ data: { user: falso.usuario ? { id: falso.usuario } : null }, error: null }),
+      mfa: { challengeAndVerify: falso.challengeAndVerify, listFactors: falso.listFactors },
+    },
     rpc: falso.rpc,
   }),
 }));
@@ -14,6 +30,8 @@ import { cadastrarAplicativo, conferirCodigo } from './acoes';
 const form = (campos: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(campos)) f.set(k, v); return f; };
 
 beforeEach(() => {
+  falso.contagem.clear();
+  falso.usuario = 'u1';
   falso.challengeAndVerify.mockReset();
   falso.challengeAndVerify.mockResolvedValue({ error: null });
   falso.listFactors.mockReset();
@@ -57,5 +75,23 @@ describe('conferirCodigo', () => {
   it('sem fator cadastrado: volta para a tela, que mostra o cadastro', async () => {
     falso.listFactors.mockResolvedValue({ data: { totp: [] }, error: null });
     await expect(conferirCodigo({ erro: null }, form({ codigo: '654321' }))).rejects.toThrow('REDIRECT:/segundo-fator');
+  });
+});
+
+// Auditoria 2.3: código do segundo fator, 5 por minuto por pessoa, antes do Auth.
+describe('limite de tentativas do código', () => {
+  it('a 6ª tentativa no minuto é recusada sem chamar o Auth; outra pessoa passa', async () => {
+    falso.challengeAndVerify.mockResolvedValue({ error: { message: 'Invalid TOTP code entered' } });
+    for (let i = 0; i < 5; i++) expect((await conferirCodigo({ erro: null }, form({ codigo: '123456' }))).erro).toContain('Código incorreto');
+    expect(await conferirCodigo({ erro: null }, form({ codigo: '123456' }))).toEqual({ erro: 'Muitas tentativas. Espere alguns minutos e tente de novo.' });
+    expect(falso.challengeAndVerify).toHaveBeenCalledTimes(5);
+    falso.usuario = 'u2';
+    expect((await conferirCodigo({ erro: null }, form({ codigo: '123456' }))).erro).toContain('Código incorreto');
+    expect(falso.challengeAndVerify).toHaveBeenCalledTimes(6);
+  });
+  it('sem sessão: volta para a entrada', async () => {
+    falso.usuario = '';
+    await expect(cadastrarAplicativo({ erro: null }, form({ fator: 'f1', codigo: '123456' }))).rejects.toThrow('REDIRECT:/entrar');
+    expect(falso.challengeAndVerify).not.toHaveBeenCalled();
   });
 });

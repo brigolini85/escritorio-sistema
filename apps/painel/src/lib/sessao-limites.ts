@@ -27,6 +27,23 @@ export function lerClaims(accessToken: string): Claims | null {
   }
 }
 
+/**
+ * Auditoria 2.6: a troca de senha sem a atual só vale para a sessão aberta pelo link do e-mail (convite ou nova senha)
+ * há menos de 15 min. O Supabase grava esse login no amr como "otp" (conferido no local, para convite e recuperação);
+ * "recovery", "invite" e "magiclink" também valem. O totp do segundo fator, depois, não apaga o registro do link.
+ */
+export const LINK_RECENTE_MS = 15 * 60 * 1000;
+const METODOS_DO_LINK = new Set(['otp', 'recovery', 'invite', 'magiclink']);
+
+export function veioDeLinkRecente(c: Claims | null, agora: number): boolean {
+  const amr = Array.isArray(c?.amr) ? c.amr : [];
+  return amr.some((a) => {
+    if (!a || !METODOS_DO_LINK.has(String(a.method)) || typeof a.timestamp !== 'number' || !Number.isFinite(a.timestamp)) return false;
+    const quando = a.timestamp * 1000;
+    return quando <= agora + FOLGA_MS && agora - quando <= LINK_RECENTE_MS;
+  });
+}
+
 /** Momento do login em ms, ou null se o token não diz. */
 export function momentoDoLogin(c: Claims): number | null {
   const tempos = (Array.isArray(c.amr) ? c.amr : []).map((a) => a?.timestamp).filter((t): t is number => typeof t === 'number' && Number.isFinite(t));
@@ -47,6 +64,8 @@ export async function assinarAtividade(sessionId: string, quando: number, segred
 
 /** Momento do último uso, se o cookie é desta sessão e não foi mexido; senão null. */
 export async function lerAtividade(valor: string | undefined, sessionId: string, segredo: string): Promise<number | null> {
+  // Auditoria 2.7: segredo vazio (variável faltando) tornaria o cookie forjável; nunca vale.
+  if (!segredo) return null;
   const m = /^(\d{1,15})\.([A-Za-z0-9_-]+)$/.exec(valor ?? '');
   if (!m) return null;
   const esperado = await hmac(`${sessionId}.${m[1]}`, segredo);

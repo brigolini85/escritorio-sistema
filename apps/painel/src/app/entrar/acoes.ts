@@ -2,15 +2,21 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { COOKIE_LETRA, OPCOES_COOKIE_LETRA, tamanhoDoValor } from '@/components/layout/tamanho-letra';
+import { dentroDosLimites, ipDoPedido, LIMITES } from '@/lib/limite-tentativas';
 import { TELA_SEGUNDO_FATOR } from '@/lib/segundo-fator';
 import { COOKIE_ATIVIDADE } from '@/lib/sessao-limites';
 import { lerSituacao } from '@/lib/situacao-acesso';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
 export async function entrar(formData: FormData) {
+  const email = String(formData.get('email') ?? '');
+  // Auditoria 2.3: limite próprio antes do Auth (IP 5/min e 20/h, e-mail 5 em 15 min); acima dele, o Auth nem é chamado.
+  const ip = await ipDoPedido();
+  const liberado = await dentroDosLimites([[LIMITES.loginIpMinuto, ip], [LIMITES.loginIpHora, ip], [LIMITES.loginEmail, email]]);
+  if (!liberado) redirect('/entrar?erro=tentativas');
   const sb = await supabaseServidor();
   const { data, error } = await sb.auth.signInWithPassword({
-    email: String(formData.get('email') ?? ''),
+    email,
     password: String(formData.get('senha') ?? ''),
   });
   if (error) redirect('/entrar?erro=credenciais');

@@ -1,6 +1,7 @@
 'use server';
 import { redirect } from 'next/navigation';
 import { painelUrl } from '@/lib/ambiente-servidor';
+import { dentroDosLimites, ipDoPedido, LIMITES } from '@/lib/limite-tentativas';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { destinoDoPedido } from './destino';
 
@@ -12,6 +13,10 @@ export async function pedirNovaSenha(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim();
   let falhou = false;
   if (email) {
+    // Auditoria 2.3: pedidos repetidos esgotavam o limite de e-mails do projeto (convites e recuperações falhavam).
+    // 3 por hora por e-mail e 10 por hora por IP; acima disso, o Auth nem é chamado.
+    const ip = await ipDoPedido();
+    if (!(await dentroDosLimites([[LIMITES.esqueciIp, ip], [LIMITES.esqueciEmail, email]]))) redirect('/esqueci-senha?erro=tentativas');
     try {
       const destino = `${painelUrl()}/auth/confirm`;
       const { error } = await (await supabaseServidor()).auth.resetPasswordForEmail(email, { redirectTo: destino });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  assinarAtividade, atividadeNova, avaliarSessao, INATIVIDADE_MS, lerAtividade, lerClaims, momentoDoLogin, momentoDoUso, SESSAO_MAXIMA_MS,
+  assinarAtividade, atividadeNova, avaliarSessao, INATIVIDADE_MS, lerAtividade, lerClaims, momentoDoLogin, momentoDoUso, SESSAO_MAXIMA_MS, veioDeLinkRecente,
 } from './sessao-limites';
 
 // Segurança do login (item 7): sessão de no máximo 12 h e 1 h sem uso, conferidas pelo painel.
@@ -90,5 +90,34 @@ describe('momentoDoUso e atividadeNova (só uso de verdade conta para a 1 h)', (
     // Toque de uma sessão anterior (mais velho que o login) não conta.
     expect(atividadeNova({ uso: agora - 3 * H, atividade: null, login: agora - H })).toBeNull();
     expect(atividadeNova({ uso: agora, atividade: null, login: null })).toBe(agora);
+  });
+});
+
+// Auditoria 2.7: segredo vazio (variável faltando no middleware) não pode assinar nem aceitar cookie.
+describe('segredo vazio', () => {
+  it('lerAtividade com segredo vazio: null, mesmo com cookie assinado com segredo vazio', async () => {
+    const v = await assinarAtividade('s1', 123456, '');
+    expect(await lerAtividade(v, 's1', '')).toBeNull();
+  });
+});
+
+// Auditoria 2.6: troca de senha sem a atual só para quem abriu o link (convite ou nova senha) há menos de 15 min.
+describe('veioDeLinkRecente', () => {
+  const agora = 1_800_000_000_000;
+  const seg = (ms: number) => Math.floor((agora - ms) / 1000);
+  it('otp (o que o Supabase grava para convite e nova senha) de menos de 15 min: sim', () => {
+    expect(veioDeLinkRecente({ amr: [{ method: 'otp', timestamp: seg(14 * 60 * 1000) }] }, agora)).toBe(true);
+    expect(veioDeLinkRecente({ amr: [{ method: 'recovery', timestamp: seg(60 * 1000) }] }, agora)).toBe(true);
+    expect(veioDeLinkRecente({ amr: [{ method: 'invite', timestamp: seg(60 * 1000) }] }, agora)).toBe(true);
+  });
+  it('senha, link antigo, token sem amr ou momento no futuro: não', () => {
+    expect(veioDeLinkRecente({ amr: [{ method: 'password', timestamp: seg(60 * 1000) }] }, agora)).toBe(false);
+    expect(veioDeLinkRecente({ amr: [{ method: 'otp', timestamp: seg(16 * 60 * 1000) }] }, agora)).toBe(false);
+    expect(veioDeLinkRecente({}, agora)).toBe(false);
+    expect(veioDeLinkRecente(null, agora)).toBe(false);
+    expect(veioDeLinkRecente({ amr: [{ method: 'otp', timestamp: seg(-10 * 60 * 1000) }] }, agora)).toBe(false);
+  });
+  it('totp depois do link não apaga o link', () => {
+    expect(veioDeLinkRecente({ amr: [{ method: 'totp', timestamp: seg(0) }, { method: 'otp', timestamp: seg(5 * 60 * 1000) }] }, agora)).toBe(true);
   });
 });

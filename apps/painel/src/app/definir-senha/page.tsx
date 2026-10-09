@@ -1,31 +1,33 @@
-import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { SENHA_MINIMA, senhaCurta } from '@/lib/senha';
+import { SENHA_MINIMA } from '@/lib/senha';
+import { lerClaims, veioDeLinkRecente } from '@/lib/sessao-limites';
 import { supabaseServidor } from '@/lib/supabase/servidor';
-
-async function definir(formData: FormData) {
-  'use server';
-  const senha = String(formData.get('senha') ?? '');
-  if (senhaCurta(senha)) redirect('/definir-senha?erro=curta');
-  const sb = await supabaseServidor();
-  const { error } = await sb.auth.updateUser({ password: senha });
-  // Segurança do login (item 8): quem já tem o aplicativo autenticador confirma o código antes de trocar a senha.
-  if (error?.code === 'insufficient_aal') redirect('/segundo-fator?depois=senha');
-  if (error) redirect('/definir-senha?erro=falha');
-  redirect('/inicio');
-}
+import { MUITAS_TENTATIVAS } from '@/lib/textos-login';
+import { definirSenha } from './acoes';
 
 const ERROS: Record<string, string> = {
   curta: 'A senha precisa ter pelo menos 10 caracteres.',
   falha: 'Não foi possível salvar. Abra o link do e-mail de novo.',
+  // Auditoria 2.6: fora do link recente, a troca pede a senha atual.
+  atual: 'Digite sua senha atual para trocar a senha.',
+  atual_errada: 'Senha atual incorreta.',
+  tentativas: MUITAS_TENTATIVAS,
 };
 
 export default async function DefinirSenha({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
   const { erro } = await searchParams;
-  const aviso = erro ? ERROS[erro] : undefined;
+  const aviso = erro && Object.hasOwn(ERROS, erro) ? ERROS[erro] : undefined;
+  // Auditoria 2.6: sessão que não veio de um link recente (login comum) precisa da senha atual.
+  const sb = await supabaseServidor();
+  const { data: auth } = await sb.auth.getUser();
+  let pedirAtual = false;
+  if (auth.user) {
+    const { data: sessao } = await sb.auth.getSession();
+    pedirAtual = !veioDeLinkRecente(sessao.session ? lerClaims(sessao.session.access_token) : null, Date.now());
+  }
   return (
     <main className="flex min-h-dvh items-start justify-center px-4 pt-24">
       <Card className="w-full max-w-sm">
@@ -38,7 +40,13 @@ export default async function DefinirSenha({ searchParams }: { searchParams: Pro
               {aviso}
             </p>
           )}
-          <form action={definir} className="flex flex-col gap-4">
+          <form action={definirSenha} className="flex flex-col gap-4">
+            {pedirAtual && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="senha-atual">Senha atual</Label>
+                <Input id="senha-atual" name="senha_atual" type="password" required autoComplete="current-password" placeholder="Senha atual" />
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="nova-senha">Nova senha</Label>
               <Input

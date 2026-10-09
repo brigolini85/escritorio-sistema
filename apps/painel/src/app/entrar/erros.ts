@@ -1,3 +1,4 @@
+import { MUITAS_TENTATIVAS } from '@/lib/textos-login';
 /** Mensagens da tela de entrada: só códigos fixos viram texto; o resto (inclusive texto colado na URL) é genérico. */
 const ERROS: Record<string, string> = {
   credenciais: 'E-mail ou senha incorretos.',
@@ -7,6 +8,8 @@ const ERROS: Record<string, string> = {
   indisponivel: 'Não consegui conferir seu acesso agora. Tente de novo em instantes.',
   // Segurança do login (item 7): 12 h desde o login ou 1 h sem uso.
   sessao: 'Sua sessão expirou. Entre de novo.',
+  // Auditoria 2.3: limite de tentativas de login.
+  tentativas: MUITAS_TENTATIVAS,
 };
 
 export function mensagemDeErro(codigo: string): string {

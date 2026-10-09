@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import { sqlTeste } from '@escritorio/db/teste';
-import { criarUsuarioTeste, db, entrar } from './apoio';
+import { criarUsuarioTeste, db, entrar, zerarTentativas } from './apoio';
 import { chaveDe, codigoTotp, guardarChave } from './apoio-mfa';
 import { exigirBancoLocal } from './trava-local';import { apagarPessoas } from './apoio-sessao';
 
@@ -12,6 +12,7 @@ const SENHA = 'senha-forte-123';
 const ADMIN = 'admin-fator@e2e.local';
 
 async function soASenha(page: Page, email: string) {
+  await zerarTentativas();
   await page.goto('/entrar');
   await page.getByLabel('E-mail').fill(email);
   await page.getByLabel('Senha').fill(SENHA);

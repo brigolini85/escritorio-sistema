@@ -52,4 +52,12 @@ describe('anonimizarContato e a remoção dos arquivos', () => {
     expect(falso.auditoria).toHaveBeenCalledWith('adm', 'remocao_pendente', 'arquivos_lgpd', 'ct', { paths: ['t1/b.pdf'] });
     expect(console.error).toHaveBeenCalled();
   });
+  // Auditoria 2.10: registrarAuditoria passou a lançar; aqui o banco já apagou, então o aviso continua saindo.
+  it('auditoria do pendente também falha: devolve o aviso mesmo assim, sem lançar', async () => {
+    falso.fila.mockRejectedValue(new Error('pg-boss fora'));
+    falso.remover.mockResolvedValue({ data: null, error: { message: 'storage fora' } });
+    falso.auditoria.mockRejectedValue(new Error('banco fora'));
+    const r = await anonimizarContato('cli', 'ct', form());
+    expect(r?.aviso).toMatch(/arquivo/);
+  });
 });

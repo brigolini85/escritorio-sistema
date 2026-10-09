@@ -20,7 +20,17 @@ export async function criarUsuarioTeste(p: { email: string; senha: string; nome:
   return id;
 }
 
+/**
+ * Auditoria 2.3: o painel limita as tentativas de login por IP (5 por minuto) e todos os testes saem do mesmo
+ * 127.0.0.1. Antes de cada login a contagem do banco local é zerada (só a contagem; o limite continua igual ao da produção).
+ */
+export async function zerarTentativas(): Promise<void> {
+  const { error } = await db.from('tentativas_login').delete().neq('chave', '');
+  if (error) throw new Error(`[e2e] não zerou as tentativas de login: ${error.message}`);
+}
+
 export async function entrar(page: Page, email: string, senha: string): Promise<void> {
+  await zerarTentativas();
   await page.goto('/entrar');
   await page.getByLabel('E-mail').fill(email);
   await page.getByLabel('Senha').fill(senha);

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { criarUsuarioTeste, db, entrar } from './apoio';
+import { criarUsuarioTeste, db, entrar, zerarTentativas } from './apoio';
 import { exigirBancoLocal } from './trava-local';import { apagarPessoas } from './apoio-sessao';
 
 
@@ -86,6 +86,9 @@ test('depois de Sair, o Voltar do navegador não mostra a página protegida', as
   await expect(page.getByRole('heading', { name: 'Demandas', level: 1 })).toBeVisible();
   const r = await page.request.get('/demandas');
   expect(r.headers()['cache-control']).toContain('no-store');
+  // Auditoria 2.10: /api/* também sai sem cache (o middleware põe no-store, private).
+  const api = await page.request.get('/api/busca?q=ana', { headers: { accept: 'application/json' } });
+  expect(api.headers()['cache-control']).toContain('no-store');
   await page.getByRole('complementary').getByRole('button', { name: 'Sair' }).click();
   await page.waitForURL('**/entrar');
   await page.goBack();
@@ -93,4 +96,50 @@ test('depois de Sair, o Voltar do navegador não mostra a página protegida', as
   await page.waitForTimeout(2_000);
   await expect(page).toHaveURL(/\/entrar/);
   await expect(page.getByRole('heading', { name: 'Demandas', level: 1 })).toHaveCount(0);
+});
+
+// Auditoria 2.3: o painel limita as tentativas antes do Supabase (5 por minuto do mesmo IP).
+test('seis tentativas seguidas no mesmo minuto: a sexta mostra o aviso de muitas tentativas', async ({ page }) => {
+  await zerarTentativas();
+  for (let i = 1; i <= 6; i++) {
+    await page.goto('/entrar');
+    await page.getByLabel('E-mail').fill(`tentativa${i}@e2e.local`);
+    await page.getByLabel('Senha').fill('senha-errada-123');
+    await page.getByRole('button', { name: 'Entrar' }).click();
+    await page.waitForURL(/\/entrar\?erro=/);
+  }
+  await expect(page).toHaveURL(/erro=tentativas/);
+  await expect(page.getByRole('alert').filter({ hasText: 'Muitas tentativas. Espere alguns minutos e tente de novo.' })).toBeVisible();
+  await zerarTentativas();
+});
+
+// Auditoria 2.6: com sessão de login comum, /definir-senha pede a senha atual; pelo link do e-mail, troca direto.
+test('trocar a senha logado pede a senha atual; pelo link recente, não', async ({ page }) => {
+  await criarUsuarioTeste({ email: 'troca-sl@e2e.local', senha: SENHA, nome: 'Troca SL', papel: 'atendente', setores: ['Fiscal'] });
+  await entrar(page, 'troca-sl@e2e.local', SENHA);
+  await page.goto('/definir-senha');
+  await page.getByLabel('Senha atual').fill('senha-errada-999');
+  await page.getByLabel('Nova senha').fill('Senha-nova-2026');
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await page.waitForURL('**/definir-senha?erro=atual_errada');
+  await expect(page.getByRole('alert').filter({ hasText: 'Senha atual incorreta.' })).toBeVisible();
+  // Sem a senha atual no pedido (formulário montado à mão): recusa sem trocar.
+  await page.evaluate(() => document.querySelector<HTMLInputElement>('#senha-atual')?.removeAttribute('required'));
+  await page.getByLabel('Nova senha').fill('Senha-nova-2026');
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await page.waitForURL('**/definir-senha?erro=atual');
+  const sb = clientePublico();
+  expect((await sb.auth.signInWithPassword({ email: 'troca-sl@e2e.local', password: SENHA })).error).toBeNull();
+  // Pelo link de nova senha: o campo da senha atual nem aparece.
+  await page.context().clearCookies();
+  const { data, error } = await db.auth.admin.generateLink({ type: 'recovery', email: 'troca-sl@e2e.local' });
+  expect(error).toBeNull();
+  await page.goto(`/auth/confirm?token_hash=${data.properties!.hashed_token}&type=recovery`);
+  await page.waitForURL('**/definir-senha');
+  await expect(page.getByLabel('Senha atual')).toHaveCount(0);
+  await page.getByLabel('Nova senha').fill('Senha-nova-2026');
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await page.waitForURL('**/inicio');
+  expect((await clientePublico().auth.signInWithPassword({ email: 'troca-sl@e2e.local', password: 'Senha-nova-2026' })).error).toBeNull();
+  await apagarPessoas(['troca-sl@e2e.local']);
 });

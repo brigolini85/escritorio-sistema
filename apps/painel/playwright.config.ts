@@ -13,6 +13,8 @@ const PORTA_CONSULTAS = 3199;
 process.env.CONSULTA_CNPJ_URL = `http://127.0.0.1:${PORTA_CONSULTAS}/api/cnpj/v1`;
 process.env.CONSULTA_CEP_URL = `http://127.0.0.1:${PORTA_CONSULTAS}/ws`;
 process.env.ACESSOS_PORTAIS_CHAVE = 'ZTJlLXNvLXBhcmEtdGVzdGVzLWxvY2Fpcy0zMmJ5dGU='; // "e2e-so-para-testes-locais-32byte"
+// Auditoria 2.7: segredo do cookie de atividade, fixo e só de teste (os e2e assinam o cookie como o painel, apoio-sessao.ts).
+process.env.PAINEL_SEGREDO_SESSAO = 'e2e-segredo-de-sessao-so-para-testes-locais';
 
 export default defineConfig({
   testDir: './e2e',

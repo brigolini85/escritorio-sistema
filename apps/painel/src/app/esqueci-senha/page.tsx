@@ -3,6 +3,7 @@ import { classeCampoSublinhado, classeRotuloLogin, FaixasLogin } from '@/app/ent
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MUITAS_TENTATIVAS } from '@/lib/textos-login';
 import { pedirNovaSenha } from './acoes';
 
 export default async function EsqueciSenha({ searchParams }: { searchParams: Promise<{ enviado?: string; erro?: string }> }) {
@@ -23,6 +24,7 @@ export default async function EsqueciSenha({ searchParams }: { searchParams: Pro
               {erro === 'envio' && (
                 <p role="alert" className="text-base font-medium text-danger">Não deu para enviar agora. Tente de novo em alguns minutos.</p>
               )}
+              {erro === 'tentativas' && <p role="alert" className="text-base font-medium text-danger">{MUITAS_TENTATIVAS}</p>}
               <p className="text-muted">Informe o e-mail do seu acesso. Enviamos um link para definir uma nova senha.</p>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="esqueci-email" className={classeRotuloLogin}>E-mail</Label>

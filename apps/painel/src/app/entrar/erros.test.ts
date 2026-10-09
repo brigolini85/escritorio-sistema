@@ -5,6 +5,9 @@ describe('mensagemDeErro (tela de entrada)', () => {
   it('sessão vencida (item 7)', () => {
     expect(mensagemDeErro('sessao')).toBe('Sua sessão expirou. Entre de novo.');
   });
+  it('auditoria 2.3: muitas tentativas', () => {
+    expect(mensagemDeErro('tentativas')).toBe('Muitas tentativas. Espere alguns minutos e tente de novo.');
+  });
   it('códigos de sempre', () => {
     expect(mensagemDeErro('credenciais')).toBe('E-mail ou senha incorretos.');
   });

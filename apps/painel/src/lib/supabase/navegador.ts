@@ -2,9 +2,12 @@
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '@escritorio/db';
 import { chavePublica, supabaseUrl } from '@/lib/ambiente-publico';
+import { opcoesCookieSupabase } from './opcoes-cookie';
 
 export function supabaseNavegador() {
-  return createBrowserClient<Database>(supabaseUrl(), chavePublica());
+  // Auditoria 2.2: o AMBIENTE não chega ao navegador; a página em https é o sinal de que não é o computador local.
+  const local = typeof window !== 'undefined' && window.location.protocol !== 'https:';
+  return createBrowserClient<Database>(supabaseUrl(), chavePublica(), { cookieOptions: opcoesCookieSupabase(local ? 'local' : undefined) });
 }
 
 /**

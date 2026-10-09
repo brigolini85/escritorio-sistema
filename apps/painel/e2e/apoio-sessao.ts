@@ -14,7 +14,8 @@ export async function sessaoDoNavegador(ctx: BrowserContext): Promise<{ access_t
 export async function atividadeHa(ctx: BrowserContext, baseURL: string, ms: number): Promise<void> {
   const { access_token } = await sessaoDoNavegador(ctx);
   const sessionId = lerClaims(access_token)!.session_id!;
-  const valor = await assinarAtividade(sessionId, Date.now() - ms, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  // Auditoria 2.7: o mesmo segredo próprio que o playwright.config passa ao painel dos testes.
+  const valor = await assinarAtividade(sessionId, Date.now() - ms, process.env.PAINEL_SEGREDO_SESSAO!);
   await ctx.addCookies([{ name: COOKIE_ATIVIDADE, value: valor, url: baseURL, httpOnly: true, sameSite: 'Lax' }]);
 }
 

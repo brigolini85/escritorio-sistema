@@ -24,7 +24,7 @@ const pedir = (c: string, accept?: string) => middleware(new NextRequest(`http:/
 
 beforeEach(() => {
   Object.assign(falso, { aal: 'aal1', exige: true, situacao: 'liberado', rpcs: [] });
-  vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'segredo');
+  vi.stubEnv('PAINEL_SEGREDO_SESSAO', 'segredo-de-teste-com-mais-de-32-caracteres');
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 

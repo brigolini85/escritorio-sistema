@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { semMigracaoI1 } from '@/lib/agentes';
 import { registrarAuditoria } from '@/lib/auditoria';
+import { respostaAuditoriaFora } from '@/lib/download-auditado';
 import { ehPedidoDeNota } from '@/lib/pedido-nota';
 import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
@@ -41,8 +42,13 @@ export async function GET(req: NextRequest) {
     const { data: veConversa } = await sb.rpc('pode_ver_conversa', { p_conversa: msg.conversa_id });
     if (veConversa !== true) return new NextResponse(NAO_ACHEI, { status: 404 });
   }
+  // Auditoria 2.10: registra antes de assinar; sem auditoria, 503 e nada assinado.
+  try {
+    await registrarAuditoria(u.id, 'download', 'arquivo_tarefa', id);
+  } catch (e) {
+    return respostaAuditoriaFora(e);
+  }
   const { data, error } = await supabaseServico().storage.from(a.bucket).createSignedUrl(a.caminho, 60, { download: a.nome });
   if (error || !data) return new NextResponse(NAO_ACHEI, { status: 404 });
-  await registrarAuditoria(u.id, 'download', 'arquivo_tarefa', id);
   return NextResponse.redirect(data.signedUrl);
 }

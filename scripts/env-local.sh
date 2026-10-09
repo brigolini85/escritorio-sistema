@@ -23,4 +23,6 @@ definir DATABASE_URL "${DB_URL}"
 grep -q '^WEBHOOK_SEGREDO=.' .env || definir WEBHOOK_SEGREDO segredo-local-com-16-caracteres
 # Obrigatório no trabalhador (produção mínima): no computador é sempre local (só TELEFONES_PERMITIDOS recebem mensagem).
 grep -q '^AMBIENTE=.' .env || definir AMBIENTE local
+# Auditoria 2.7: segredo próprio do cookie de atividade do painel (no local pode faltar, mas assim fica fixo entre partidas).
+grep -q '^PAINEL_SEGREDO_SESSAO=.' .env || definir PAINEL_SEGREDO_SESSAO "$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')"
 echo ".env gerado"

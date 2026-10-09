@@ -10,6 +10,7 @@ const BOM = {
   PAINEL_URL: 'http://localhost:3000',
   AMBIENTE: 'local',
 };
+const SEGREDO = 'a'.repeat(32);
 
 describe('problemasDoAmbiente', () => {
   it('tudo certo: nenhum problema', () => {
@@ -38,11 +39,29 @@ describe('problemasDoAmbiente', () => {
     expect(problemasDoAmbiente({})).toHaveLength(5);
   });
   it('auditoria 3.13: AMBIENTE só producao, homologacao ou local (NEXT_PUBLIC_AMBIENTE vale na falta dele)', () => {
-    for (const v of ['producao', 'homologacao', 'local']) expect(problemasDoAmbiente({ ...BOM, AMBIENTE: v })).toEqual([]);
-    expect(problemasDoAmbiente({ ...BOM, AMBIENTE: undefined, NEXT_PUBLIC_AMBIENTE: 'homologacao' })).toEqual([]);
+    // Auditoria 2.7: fora do computador local o segredo do cookie de atividade passou a ser obrigatório.
+    for (const v of ['producao', 'homologacao', 'local']) expect(problemasDoAmbiente({ ...BOM, AMBIENTE: v, PAINEL_SEGREDO_SESSAO: SEGREDO })).toEqual([]);
+    expect(problemasDoAmbiente({ ...BOM, AMBIENTE: undefined, NEXT_PUBLIC_AMBIENTE: 'homologacao', PAINEL_SEGREDO_SESSAO: SEGREDO })).toEqual([]);
     const p = problemasDoAmbiente({ ...BOM, AMBIENTE: 'prod' });
     expect(p).toHaveLength(1);
     expect(p[0]).toContain('AMBIENTE');
     expect(p[0]).toContain('producao, homologacao ou local');
+  });
+  // Auditoria 2.7: o cookie de atividade tinha a chave de serviço como segredo.
+  it('auditoria 2.7: PAINEL_SEGREDO_SESSAO obrigatório em produção e homologação, com pelo menos 32 caracteres', () => {
+    for (const v of ['producao', 'homologacao']) {
+      const p = problemasDoAmbiente({ ...BOM, AMBIENTE: v });
+      expect(p).toHaveLength(1);
+      expect(p[0]).toContain('PAINEL_SEGREDO_SESSAO');
+      expect(problemasDoAmbiente({ ...BOM, AMBIENTE: v, PAINEL_SEGREDO_SESSAO: 'curto' })[0]).toContain('32');
+    }
+    expect(problemasDoAmbiente({ ...BOM, AMBIENTE: 'producao', PAINEL_SEGREDO_SESSAO: 'x'.repeat(32) })).toEqual([]);
+  });
+  it('auditoria 2.7: no computador local pode faltar (o painel sorteia um por processo); curto demais não', () => {
+    expect(problemasDoAmbiente({ ...BOM, AMBIENTE: 'local' })).toEqual([]);
+    expect(problemasDoAmbiente({ ...BOM, AMBIENTE: 'local', PAINEL_SEGREDO_SESSAO: 'curto' })[0]).toContain('PAINEL_SEGREDO_SESSAO');
+  });
+  it('a mensagem nunca mostra o valor do segredo', () => {
+    expect(problemasDoAmbiente({ ...BOM, AMBIENTE: 'producao', PAINEL_SEGREDO_SESSAO: 'valor-secreto' }).join(' ')).not.toContain('valor-secreto');
   });
 });

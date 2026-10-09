@@ -1917,6 +1917,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"tentativas_login": {
+                  Row: {
+                    "chave": string,"janela": string,"total": number
+                  }
+                  Insert: {
+                    "chave": string,"janela": string,"total"?: number
+                  }
+                  Update: {
+                    "chave"?: string,"janela"?: string,"total"?: number
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"travas_trabalhador": {
                   Row: {
                     "ate": string,"chave": string,"dono": string
@@ -2304,6 +2317,9 @@ isOneToOne: false
                            },
 "consumir_resumo_nota":
 { Args: { "p_cliente": string,"p_conversa": string,"p_id": string,"p_turno": string }; Returns: Json
+                           },
+"contar_tentativa":
+{ Args: { "p_chave": string,"p_janela_segundos": number,"p_limite": number }; Returns: boolean
                            },
 "contato_arquivado_do_telefone":
 { Args: { "p_telefone": string }; Returns: Json

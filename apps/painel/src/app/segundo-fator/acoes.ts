@@ -1,6 +1,7 @@
 'use server';
 import { redirect } from 'next/navigation';
 import { NOME_ESCRITORIO } from '@/lib/escritorio';
+import { dentroDosLimites, LIMITES, MUITAS_TENTATIVAS } from '@/lib/limite-tentativas';
 import { codigoDoFormulario, destinoDepoisDoFator, TELA_SEGUNDO_FATOR } from '@/lib/segundo-fator';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 
@@ -14,6 +15,10 @@ async function verificar(factorId: string, formData: FormData, cadastro = false)
   const codigo = codigoDoFormulario(formData.get('codigo'));
   if (!codigo) return { erro: CODIGO_INVALIDO };
   const sb = await supabaseServidor();
+  // Auditoria 2.3: 5 códigos por minuto por pessoa, contados antes do Auth (para ele, todos vêm do IP do painel).
+  const { data: auth } = await sb.auth.getUser();
+  if (!auth.user) redirect('/entrar');
+  if (!(await dentroDosLimites([[LIMITES.fatorUsuario, auth.user.id]]))) return { erro: MUITAS_TENTATIVAS };
   const { error } = await sb.auth.mfa.challengeAndVerify({ factorId, code: codigo });
   if (error) {
     console.error('[segundo-fator] código recusado', error.message);

@@ -111,7 +111,13 @@ export async function anonimizarContato(clienteId: string, contatoId: string, fo
     const restantes = await removerArquivosAgora(caminhos);
     if (!restantes.length) return undefined;
     console.error('[lgpd] arquivos ainda não removidos', { contatoId, paths: restantes });
-    await registrarAuditoria(u.id, 'remocao_pendente', 'arquivos_lgpd', contatoId, { paths: restantes });
+    // Auditoria 2.10: registrarAuditoria lança agora; aqui o banco já apagou, então o aviso sai mesmo sem o registro
+    // (os caminhos já foram para o log logo acima).
+    try {
+      await registrarAuditoria(u.id, 'remocao_pendente', 'arquivos_lgpd', contatoId, { paths: restantes });
+    } catch (erroAuditoria) {
+      console.error('[lgpd] pendente não registrado na auditoria', erroAuditoria instanceof Error ? erroAuditoria.message : erroAuditoria);
+    }
     return { aviso: `Os dados foram apagados, mas ${restantes.length} arquivo(s) ainda não saíram do armazenamento. Ficou registrado para remover; avise o suporte.` };
   }
 }

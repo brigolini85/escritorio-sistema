@@ -15,6 +15,8 @@ vi.mock('@/lib/supabase/servidor', () => ({
   }),
 }));
 vi.mock('next/navigation', () => ({ redirect: (u: string) => { throw new Error(`REDIRECT:${u}`); } }));
+// acoes.ts também tem o limite de tentativas do código (auditoria 2.3), que é só do servidor.
+vi.mock('server-only', () => ({}));
 import { prepararCadastro } from './acoes';
 
 beforeEach(() => {

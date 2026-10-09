@@ -21,6 +21,10 @@ function valor(secao: string, chave: string): string | undefined {
 }
 
 describe('supabase/config.toml: Auth', () => {
+  // Auditoria 2.2: token de acesso de 15 min (roubado, vale menos). Na nuvem, o mesmo no painel do Supabase.
+  it('token de acesso de 15 min', () => {
+    expect(valor('auth', 'jwt_expiry')).toBe('900');
+  });
   it('senha mínima de 10 caracteres, igual ao painel (item 3)', () => {
     expect(valor('auth', 'minimum_password_length')).toBe('10');
   });

@@ -3,6 +3,7 @@ import { dividirPedidosBling, montarCsvVendaBling, nomeArquivoVendaBling } from 
 import { registrarAuditoria } from '@/lib/auditoria';
 import { carregarPedidosBling, escolherParte, type FiltroBling } from '@/lib/bling';
 import { lerFiltrosDemandas } from '@/lib/demandas';
+import { AUDITORIA_FORA } from '@/lib/download-auditado';
 import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
 import { supabaseServidor } from '@/lib/supabase/servidor';
@@ -66,7 +67,13 @@ export async function GET(req: NextRequest) {
   // Parte além da última: o filtro mudou desde que a tela contou as partes; baixar outra parte no lugar duplicaria pedidos no Bling.
   if (parte === null) return aviso('Esta parte do arquivo não existe.', [`Este filtro tem ${partes.length} ${partes.length === 1 ? 'parte' : 'partes'}. Volte e baixe de novo pela tela Demandas.`], 400);
   const nome = nomeArquivoVendaBling(new Date(), partes.length > 1 ? parte : undefined);
-  await registrarAuditoria(u.id, 'download', 'csv_bling', id ?? (mensagemId ? `assistente:${mensagemId}` : ids ? ids.join(',') : `exportacao:${q.toString()}`), { pedidos: partes[parte - 1]!.map((p) => p.numero), arquivo: nome });
+  // Auditoria 2.10: sem auditoria, o arquivo não sai.
+  try {
+    await registrarAuditoria(u.id, 'download', 'csv_bling', id ?? (mensagemId ? `assistente:${mensagemId}` : ids ? ids.join(',') : `exportacao:${q.toString()}`), { pedidos: partes[parte - 1]!.map((p) => p.numero), arquivo: nome });
+  } catch (e) {
+    console.error('[csv-bling] recusado: auditoria não gravada', e instanceof Error ? e.message : e);
+    return aviso(AUDITORIA_FORA, [], 503);
+  }
   return new NextResponse(montarCsvVendaBling(partes[parte - 1]!), {
     headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${nome}"` },
   });

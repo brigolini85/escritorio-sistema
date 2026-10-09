@@ -19,7 +19,7 @@ vi.mock('@supabase/ssr', () => ({
 }));
 import { middleware } from './middleware';
 
-const SEGREDO = 'segredo-de-teste';
+const SEGREDO = 'segredo-de-teste-com-mais-de-32-caracteres';
 async function pedir(caminho: string, atividade?: number, accept?: string, extras: Record<string, string> = {}) {
   const headers = new Headers({ ...(accept ? { accept } : {}), ...extras });
   const outros = headers.get('cookie');
@@ -28,7 +28,9 @@ async function pedir(caminho: string, atividade?: number, accept?: string, extra
 }
 
 beforeEach(() => {
-  vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', SEGREDO);
+  // Auditoria 2.7: o cookie de atividade tem segredo próprio.
+  vi.stubEnv('PAINEL_SEGREDO_SESSAO', SEGREDO);
+  vi.stubEnv('AMBIENTE', 'producao');
   falso.signOut.mockReset();
   falso.signOut.mockResolvedValue({ error: null });
   falso.rpc.mockReset();
@@ -98,5 +100,22 @@ describe('middleware: limites da sessão', () => {
     expect(Number((nav.cookies.get(COOKIE_ATIVIDADE)?.value ?? '').split('.')[0])).toBeGreaterThan(Date.now() - 5000);
     const acao = await pedir('/atendimento', Date.now() - 50 * 60 * 1000, undefined, { 'sec-fetch-mode': 'cors', 'next-action': 'abc' });
     expect(Number((acao.cookies.get(COOKIE_ATIVIDADE)?.value ?? '').split('.')[0])).toBeGreaterThan(Date.now() - 5000);
+  });
+});
+
+// Auditoria 2.7: sem o segredo próprio, nada de segredo vazio (cookie forjável): a sessão conta como vencida.
+describe('middleware: segredo do cookie de atividade', () => {
+  it('sem PAINEL_SEGREDO_SESSAO em produção: desloga, mesmo com a chave de serviço presente', async () => {
+    vi.stubEnv('PAINEL_SEGREDO_SESSAO', '');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', SEGREDO);
+    falso.login = Date.now() - 2 * 60 * 1000;
+    const r = await pedir('/clientes', Date.now() - 1000);
+    expect(r.headers.get('location')).toBe('http://localhost/entrar?erro=sessao');
+    expect(falso.signOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+  it('/api/* com sessão: no-store, private', async () => {
+    falso.login = Date.now() - 2 * 60 * 1000;
+    const r = await pedir('/api/busca?q=ana', Date.now() - 1000, 'application/json');
+    expect(r.headers.get('cache-control')).toBe('no-store, private');
   });
 });

@@ -2,6 +2,8 @@
  * Conferência das variáveis do painel (segurança do login, itens 4 e 5). Só regras puras sobre o objeto recebido: serve à
  * partida do servidor (instrumentation.ts) e aos leitores. Nenhum valor secreto vai para as mensagens.
  */
+import { SEGREDO_SESSAO_MINIMO } from './segredo-sessao';
+
 export type Ambiente = Record<string, string | undefined>;
 
 const LOCAIS = new Set(['localhost', '127.0.0.1']);
@@ -78,6 +80,18 @@ export function problemasDoAmbiente(env: Ambiente): string[] {
   tentar(() => {
     const a = (env.AMBIENTE ?? env.NEXT_PUBLIC_AMBIENTE ?? '').trim();
     if (!AMBIENTES.has(a)) throw new Error('AMBIENTE inválido ou ausente: use producao, homologacao ou local.');
+  });
+  // Auditoria 2.7: segredo próprio do cookie de atividade (era a chave de serviço). Só no computador local pode faltar
+  // (segredo-sessao.ts sorteia um por processo); nunca curto.
+  tentar(() => {
+    const a = (env.AMBIENTE ?? env.NEXT_PUBLIC_AMBIENTE ?? '').trim();
+    const segredo = (env.PAINEL_SEGREDO_SESSAO ?? '').trim();
+    if (!segredo && (a === 'producao' || a === 'homologacao')) {
+      throw new Error(`PAINEL_SEGREDO_SESSAO ausente: gere ${SEGREDO_SESSAO_MINIMO} bytes aleatórios (veja deploy/painel.env.example).`);
+    }
+    if (segredo && segredo.length < SEGREDO_SESSAO_MINIMO) {
+      throw new Error(`PAINEL_SEGREDO_SESSAO curto demais: use pelo menos ${SEGREDO_SESSAO_MINIMO} caracteres aleatórios.`);
+    }
   });
   return problemas;
 }
