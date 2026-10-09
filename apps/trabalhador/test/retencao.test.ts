@@ -62,24 +62,36 @@ describe('limparRetencao', () => {
 });
 
 describe('limparRetencao: o que o manual promete (auditoria 6.3)', () => {
-  it('apaga a conversa parada há mais de 1 ano, a demanda concluída há mais de 1 ano, alertas e auditoria velha', async () => {
+  it('demanda concluída: o padrão mantém; com "apagar" nas Configurações ela sai (revisão da Task 15)', async () => {
+    const { data: cliente } = await db.from('clientes').insert({ razao_social: 'Retenção 15b', cnpj: '15150000000202' }).select('id').single();
+    const { data: dem } = await db.from('chamados').insert({ cliente_id: cliente!.id, titulo: 'Antiga', resumo: 'antiga' }).select('id').single();
+    await db.from('chamados').update({ status: 'concluido' }).eq('id', dem!.id);
+    await db.from('chamados').update({ concluido_em: '2024-06-01T00:00:00Z' }).eq('id', dem!.id);
+    const agora = new Date('2026-10-10T12:00:00Z');
+    expect((await limparRetencao(db, criarArmazenamento(db), agora)).demandas).toBe(0);
+    expect((await db.from('chamados').select('titulo').eq('id', dem!.id)).data).toEqual([{ titulo: 'Antiga' }]);
+    await db.from('configuracoes').update({ retencao_demandas: 'apagar' }).eq('id', 1);
+    try {
+      expect((await limparRetencao(db, criarArmazenamento(db), agora)).demandas).toBe(1);
+    } finally {
+      await db.from('configuracoes').update({ retencao_demandas: 'manter' }).eq('id', 1);
+    }
+    expect((await db.from('chamados').select('id').eq('id', dem!.id)).data).toEqual([]);
+  });
+
+  it('apaga a conversa parada há mais de 1 ano, alertas e auditoria velha', async () => {
     const velha = await db.from('conversas')
       .insert({ telefone: '5531999991501', criado_em: '2024-01-01T00:00:00Z', atualizado_em: '2024-01-01T00:00:00Z' }).select('id').single();
     expect(velha.error).toBeNull();
     const nova = await repos.obterOuCriarConversa('5531999991502', null);
-    const { data: cliente } = await db.from('clientes').insert({ razao_social: 'Retenção 15', cnpj: '15150000000101' }).select('id').single();
-    const { data: dem } = await db.from('chamados').insert({ cliente_id: cliente!.id, titulo: 'Antiga', resumo: 'antiga' }).select('id').single();
-    await db.from('chamados').update({ status: 'concluido' }).eq('id', dem!.id);
-    await db.from('chamados').update({ concluido_em: '2024-06-01T00:00:00Z' }).eq('id', dem!.id);
     await db.from('alertas').insert({ nivel: 'aviso', mensagem: 'velho', criado_em: '2024-01-01T00:00:00Z' });
     await db.from('alertas').insert({ nivel: 'aviso', mensagem: 'novo' });
     await db.from('auditoria_acessos').insert({ acao: 'editar', entidade: 'teste15', criado_em: '2020-01-01T00:00:00Z' });
     await db.from('auditoria_acessos').insert({ acao: 'editar', entidade: 'teste15', criado_em: '2023-01-01T00:00:00Z' });
 
     const r = await limparRetencao(db, criarArmazenamento(db), new Date('2026-10-10T12:00:00Z'));
-    expect(r).toMatchObject({ conversas: 1, demandas: 1, alertas: 1, auditoria: 1 });
+    expect(r).toMatchObject({ conversas: 1, alertas: 1, auditoria: 1 });
     expect((await db.from('conversas').select('id')).data).toEqual([{ id: nova.id }]);
-    expect((await db.from('chamados').select('id').eq('id', dem!.id)).data).toEqual([]);
     expect((await db.from('alertas').select('mensagem')).data).toEqual([{ mensagem: 'novo' }]);
     expect((await db.from('auditoria_acessos').select('criado_em').eq('entidade', 'teste15')).data).toHaveLength(1);
   });

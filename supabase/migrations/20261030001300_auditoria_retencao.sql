@@ -1,12 +1,15 @@
 -- Auditoria 6.3 e 6.4: a retenção passa a ser a que o manual promete, e os arquivos sem dono no Storage aparecem.
 --   * retencao_apagar(regra, agora, lote): um lote de cada regra por chamada (o trabalhador repete até acabar), para a
 --     primeira rodada (um ano de atraso) não segurar as tabelas. Regras e prazos:
---       conversas          parada há mais de 1 ano e sem nenhuma mensagem (as mensagens de mais de 1 ano, com os arquivos,
---                          já saíram na etapa anterior; por isso apagar a conversa nunca deixa arquivo para trás);
+--       conversas          parada há mais de 1 ano, sem nenhuma mensagem e sem demanda aberta (as mensagens de mais de
+--                          1 ano, com os arquivos, já saíram na etapa anterior; por isso apagar a conversa nunca deixa
+--                          arquivo para trás);
 --       conversa_eventos   mais de 1 ano;
---       demandas           concluída há mais de 1 ano, com os eventos, as tarefas (já descartadas ou aprovadas), sugestões e
---                          pré-análises (cascata). Fica a demanda cuja tarefa ainda tem arquivo vivo no compartimento
---                          "tarefas": esse arquivo segue a guarda escolhida pelo dono (padrão "Nunca apagar");
+--       demandas           concluída há mais de 1 ano, conforme configuracoes.retencao_demandas (o dono escolhe):
+--                          'manter' (padrão: nada muda), 'anonimizar' (a linha, o número, as datas e o setor ficam; saem
+--                          os textos, como em anonimizar_contato) ou 'apagar' (com os eventos, as tarefas, sugestões e
+--                          pré-análises, em cascata; fica a demanda cuja tarefa ainda tem arquivo vivo no compartimento
+--                          "tarefas", que segue a guarda escolhida pelo dono, padrão "Nunca apagar");
 --       alertas            mais de 1 ano;
 --       auditoria          auditoria_acessos com mais de 5 anos (evidência);
 --       fora_do_acesso     pedidos_fora_do_acesso com mais de 1 ano;
@@ -18,24 +21,30 @@
 --     aparecer coluna com cara de caminho de arquivo fora dela (catálogo, tarefas, Radar...).
 --   * listar_objetos_storage e caminhos_sem_referencia: a varredura semanal (6.4) lista os objetos em páginas e pergunta
 --     quais não têm linha. Só o trabalhador.
---   * configuracoes.varredura_orfaos_apagar: começa falsa (só relata). Só o administrador liga.
---   * anonimizar_contato alcança alertas (telefone no texto), envios do Radar e avisos de tarefa (6.3).
+--   * configuracoes.varredura_orfaos_apagar: começa falsa (só relata). configuracoes.retencao_demandas: começa 'manter'.
+--     Só o administrador muda as duas.
+--   * anonimizar_contato alcança alertas (telefone atual e os antigos das conversas dele), envios do Radar e avisos de
+--     tarefa (6.3).
 
 alter table public.configuracoes add column varredura_orfaos_apagar boolean not null default false;
+-- Revisão da Task 15: apagar ou anonimizar demanda concluída é irreversível; o padrão não mexe em nada.
+alter table public.configuracoes add column retencao_demandas text not null default 'manter'
+  check (retencao_demandas in ('manter', 'anonimizar', 'apagar'));
 
 -- Fora da lista de configuracoes_so_admin (que outras tasks redefinem): gatilho próprio, mesma regra.
-create function public.configuracoes_varredura_so_admin() returns trigger
+create function public.configuracoes_guarda_so_admin() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
   if auth.uid() is not null and not public.eh_admin() then
-    raise exception 'Só o administrador liga a remoção dos arquivos sem dono.';
+    raise exception 'Só o administrador muda a guarda das demandas e a remoção dos arquivos sem dono.';
   end if;
   return new;
 end $$;
-revoke execute on function public.configuracoes_varredura_so_admin() from public, anon, authenticated;
-create trigger varredura_orfaos_so_admin before update of varredura_orfaos_apagar on public.configuracoes
-  for each row when (new.varredura_orfaos_apagar is distinct from old.varredura_orfaos_apagar)
-  execute function public.configuracoes_varredura_so_admin();
+revoke execute on function public.configuracoes_guarda_so_admin() from public, anon, authenticated;
+create trigger guarda_so_admin before update of varredura_orfaos_apagar, retencao_demandas on public.configuracoes
+  for each row when (new.varredura_orfaos_apagar is distinct from old.varredura_orfaos_apagar
+                     or new.retencao_demandas is distinct from old.retencao_demandas)
+  execute function public.configuracoes_guarda_so_admin();
 
 -- Toda referência a objeto do Storage. Coluna nova que guarda caminho de arquivo entra aqui (o pgTAP 132 cobra).
 -- Arquivo de tarefa marcado como removido (guarda ou LGPD) não segura o objeto.
@@ -82,17 +91,58 @@ declare
   v_cinco timestamptz := p_agora - interval '5 years';
   v_lote int := least(greatest(coalesce(p_lote, 1000), 1), 5000);
   v_n int;
+  v_modo text;
+  v_ids uuid[];
+  v_datas timestamptz[];
+  v_tarefas uuid[];
+  c_guarda constant text := '[texto apagado pela guarda de 1 ano]';
 begin
   if p_regra = 'conversas' then
+    -- Revisão da Task 15: conversa com demanda aberta fica (a demanda ainda usa a conversa). O "not exists" das
+    -- mensagens se repete no delete de fora: mensagem que chegou durante a rodada não vai junto na cascata.
     delete from public.conversas c where c.id in (
       select c2.id from public.conversas c2
        where greatest(c2.criado_em, c2.atualizado_em) < v_ano
          and not exists (select 1 from public.mensagens m where m.conversa_id = c2.id)
-       limit v_lote for update skip locked);
+         and not exists (select 1 from public.chamados ch where ch.conversa_id = c2.id and ch.status <> 'concluido')
+       limit v_lote for update skip locked)
+      and not exists (select 1 from public.mensagens m where m.conversa_id = c.id)
+      and not exists (select 1 from public.chamados ch where ch.conversa_id = c.id and ch.status <> 'concluido');
   elsif p_regra = 'conversa_eventos' then
     delete from public.conversa_eventos e where e.id in (
       select e2.id from public.conversa_eventos e2 where e2.criado_em < v_ano limit v_lote for update skip locked);
   elsif p_regra = 'demandas' then
+    -- Revisão da Task 15: o dono escolhe (Configurações); o padrão 'manter' não mexe em nada.
+    select coalesce((select retencao_demandas from public.configuracoes where id = 1), 'manter') into v_modo;
+    if v_modo = 'manter' then
+      return 0;
+    end if;
+    if v_modo = 'anonimizar' then
+      -- Fica a linha (número, datas, setor, responsável, status): os relatórios continuam contando. Saem os textos, o mesmo
+      -- conjunto de anonimizar_contato. A marca no título impede repetir a demanda já tratada.
+      select coalesce(array_agg(c2.id), '{}'), coalesce(array_agg(c2.atualizado_em), '{}') into v_ids, v_datas
+        from (select c3.id, c3.atualizado_em from public.chamados c3
+               where c3.status = 'concluido' and coalesce(c3.concluido_em, c3.atualizado_em) < v_ano
+                 and c3.titulo is distinct from c_guarda
+                 and not exists (select 1 from public.agente_tarefas t
+                                  where t.chamado_id = c3.id and t.estado not in ('aprovada', 'descartada'))
+               limit v_lote for update skip locked) c2;
+      if cardinality(v_ids) = 0 then return 0; end if;
+      select coalesce(array_agg(id), '{}') into v_tarefas from public.agente_tarefas where chamado_id = any (v_ids);
+      update public.chamados set titulo = c_guarda, resumo = c_guarda where id = any (v_ids);
+      -- O gatilho de chamados marca atualizado_em; a data volta a ser a de antes.
+      update public.chamados ch set atualizado_em = x.d from unnest(v_ids, v_datas) as x(id, d) where ch.id = x.id;
+      update public.chamado_eventos set texto = null where chamado_id = any (v_ids);
+      delete from public.agente_sugestoes where chamado_id = any (v_ids);
+      delete from public.pre_analises_nota where chamado_id = any (v_ids);
+      update public.agente_tarefas set pedido = c_guarda, anotacoes = '', resultado = null, ajustes = '[]'::jsonb
+       where id = any (v_tarefas);
+      update public.agente_tarefa_eventos set texto = c_guarda where tarefa_id = any (v_tarefas);
+      update public.agente_tarefa_avisos set mensagem = c_guarda where tarefa_id = any (v_tarefas);
+      update public.agente_pendencias set pergunta = c_guarda, detalhe = null, mensagem = null, pedido_texto = null, resposta = null
+       where tarefa_id = any (v_tarefas);
+      return cardinality(v_ids);
+    end if;
     delete from public.chamados ch where ch.id in (
       select c2.id from public.chamados c2
        where c2.status = 'concluido' and coalesce(c2.concluido_em, c2.atualizado_em) < v_ano
@@ -129,7 +179,7 @@ grant execute on function public.retencao_apagar(text, timestamptz, int) to serv
 create or replace function public.anonimizar_contato(p_contato uuid) returns text[]
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_tel text; v_paths text[]; v_paths_tarefas text[]; v_novo text;
+  v_tel text; v_paths text[]; v_paths_tarefas text[]; v_novo text; v_t text;
   v_conversas uuid[]; v_chamados uuid[]; v_tarefas uuid[];
   c_removido constant text := '[removido a pedido do titular]';
 begin
@@ -179,7 +229,10 @@ begin
 
   -- Auditoria 6.3: o texto do Radar enviado ao titular (traz o nome dele) e os alertas com o telefone dele.
   update public.radar_envios set texto = c_removido where contato_id = p_contato;
-  update public.alertas set mensagem = replace(mensagem, v_tel, '[telefone removido]') where strpos(mensagem, v_tel) > 0;
+  -- Revisão da Task 15: também os números antigos (conversas dele com outro telefone), antes de virarem fictícios.
+  for v_t in select v_tel union select distinct telefone from public.conversas where id = any (v_conversas) loop
+    update public.alertas set mensagem = replace(mensagem, v_t, '[telefone removido]') where strpos(mensagem, v_t) > 0;
+  end loop;
 
   -- random() é avaliado por linha: cada conversa recebe um número fictício diferente (telefone é único).
   update public.conversas set telefone = '5500' || lpad(floor(random() * 1e9)::text, 9, '0') where id = any (v_conversas);

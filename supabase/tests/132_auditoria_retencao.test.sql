@@ -4,7 +4,7 @@
 -- (caminhos_referenciados), e uma coluna nova com cara de caminho de arquivo que não entrou nela derruba este teste.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(51);
+select plan(66);
 
 -- 1–12: estrutura e permissões (só o trabalhador; a chave da varredura só o administrador muda)
 select has_column('public', 'configuracoes', 'varredura_orfaos_apagar', 'configuracoes tem a chave da varredura');
@@ -28,7 +28,7 @@ select is_empty($$
     from information_schema.columns c
     join information_schema.tables t on t.table_schema = c.table_schema and t.table_name = c.table_name and t.table_type = 'BASE TABLE'
    where c.table_schema = 'public'
-     and c.column_name ~* '(path|caminho|arquivo|midia|bucket|objeto|storage|anexo)'
+     and c.column_name ~* '(path|caminho|arquivo|midia|bucket|objeto|storage|anexo|pdf|xml|comprovante|logo|foto|imagem|file|key)'
      and not exists (select 1 from information_schema.view_column_usage u
                       where u.view_schema = 'public' and u.view_name = 'caminhos_referenciados'
                         and u.table_schema = 'public' and u.table_name = c.table_name and u.column_name = c.column_name)
@@ -39,7 +39,8 @@ select is_empty($$
        'documentos_empresa.arquivo_mime', 'documentos_empresa.arquivo_nome',
        'mensagens.arquivo_mime', 'mensagens.arquivo_nome',
        'mensagens.midia_url_origem',          -- endereço da mídia na Z-API (fora do nosso Storage)
-       'radar_fontes.caminho')                -- caminho da página no site da fonte
+       'radar_fontes.caminho',                -- caminho da página no site da fonte
+       'mensagens.reenfileirada', 'mensagens.reenfileirada_em')  -- "enFILEirada": marca da fila, não é arquivo
 $$, 'toda coluna com caminho de arquivo está em caminhos_referenciados (ou explicada no teste)');
 -- 14: o mesmo para tabelas com nome de arquivo: precisam de ao menos uma coluna na view (ou explicação).
 select is_empty($$
@@ -61,11 +62,12 @@ insert into public.clientes (id, razao_social, cnpj) values ('e1321000-0000-0000
 insert into public.contatos (id, nome, telefone) values ('e1322000-0000-0000-0000-000000000001', 'Rita 132', '5531999991321');
 
 -- Conversas: c1 parada há 2 anos sem mensagem (sai); c2 parada há 2 anos com mensagem (fica: a etapa das mensagens vem antes);
--- c3 recente sem mensagem (fica).
+-- c3 recente sem mensagem (fica); c4 parada há 2 anos sem mensagem, mas com a demanda aberta d3 (fica).
 insert into public.conversas (id, telefone, criado_em, atualizado_em) values
   ('e1323000-0000-0000-0000-000000000001', '5531999991322', '2024-10-01', '2024-10-01'),
   ('e1323000-0000-0000-0000-000000000002', '5531999991323', '2024-10-01', '2024-10-01'),
-  ('e1323000-0000-0000-0000-000000000003', '5531999991324', now(), now());
+  ('e1323000-0000-0000-0000-000000000003', '5531999991324', now(), now()),
+  ('e1323000-0000-0000-0000-000000000004', '5531999991325', '2024-10-01', '2024-10-01');
 insert into public.mensagens (conversa_id, direcao, autor, tipo, conteudo, criado_em) values
   ('e1323000-0000-0000-0000-000000000002', 'entrada', 'cliente', 'texto', 'oi', '2024-10-01');
 insert into public.conversa_eventos (conversa_id, tipo, texto, criado_em) values
@@ -77,7 +79,7 @@ insert into public.conversa_eventos (conversa_id, tipo, texto, criado_em) values
 insert into public.chamados (id, cliente_id, conversa_id, titulo, resumo) values
   ('e1324000-0000-0000-0000-000000000001', 'e1321000-0000-0000-0000-000000000001', 'e1323000-0000-0000-0000-000000000001', 'D1', 'antiga'),
   ('e1324000-0000-0000-0000-000000000002', 'e1321000-0000-0000-0000-000000000001', null, 'D2', 'recente'),
-  ('e1324000-0000-0000-0000-000000000003', 'e1321000-0000-0000-0000-000000000001', null, 'D3', 'aberta'),
+  ('e1324000-0000-0000-0000-000000000003', 'e1321000-0000-0000-0000-000000000001', 'e1323000-0000-0000-0000-000000000004', 'D3', 'aberta'),
   ('e1324000-0000-0000-0000-000000000004', 'e1321000-0000-0000-0000-000000000001', null, 'D4', 'com arquivo');
 insert into public.chamado_eventos (chamado_id, cliente_id, tipo, usuario_id, texto) values
   ('e1324000-0000-0000-0000-000000000001', 'e1321000-0000-0000-0000-000000000001', 'nota_interna', 'e1320000-0000-0000-0000-00000000000a', 'nota antiga');
@@ -120,6 +122,8 @@ select is(public.retencao_apagar('conversas', '2026-10-10', 1000), 1, 'conversas
 select ok(not exists (select 1 from public.conversas where id = 'e1323000-0000-0000-0000-000000000001'), 'a conversa parada saiu');
 select is((select count(*)::int from public.conversas where id in ('e1323000-0000-0000-0000-000000000002', 'e1323000-0000-0000-0000-000000000003')), 2,
   'a conversa com mensagem e a recente ficam');
+select ok(exists (select 1 from public.conversas where id = 'e1323000-0000-0000-0000-000000000004'),
+  'conversa parada sem mensagem, mas com demanda aberta, fica (revisão)');
 -- 18: a demanda da conversa apagada fica sem a conversa (sem bloquear e sem cascata)
 select is((select conversa_id from public.chamados where id = 'e1324000-0000-0000-0000-000000000001'), null, 'a demanda perde só o vínculo com a conversa');
 
@@ -127,8 +131,34 @@ select is((select conversa_id from public.chamados where id = 'e1324000-0000-000
 select is(public.retencao_apagar('conversa_eventos', '2026-10-10', 1000), 1, 'eventos de conversa: um com mais de 1 ano');
 select is((select array_agg(texto) from public.conversa_eventos where conversa_id = 'e1323000-0000-0000-0000-000000000003'), array['novo'], 'o recente fica');
 
--- 21–27: demandas
-select is(public.retencao_apagar('demandas', '2026-10-10', 1000), 1, 'demandas: uma concluída há mais de 1 ano sem arquivo vivo');
+-- Demandas, modo 'manter' (padrão): nada muda.
+select is((select retencao_demandas from public.configuracoes where id = 1), 'manter', 'demandas: o padrão é manter');
+select is(public.retencao_apagar('demandas', '2026-10-10', 1000), 0, 'manter: nenhuma demanda tocada');
+select is((select titulo from public.chamados where id = 'e1324000-0000-0000-0000-000000000001'), 'D1', 'manter: o título fica');
+select throws_ok($$ update public.configuracoes set retencao_demandas = 'jogar fora' where id = 1 $$, '23514', null, 'modo desconhecido é recusado');
+
+-- Modo 'anonimizar': a linha fica (número, datas, status); saem os textos; a segunda volta não repete.
+create temp table antes_132 as select id, numero, criado_em, atualizado_em, concluido_em, setor_id, status from public.chamados
+ where id in ('e1324000-0000-0000-0000-000000000001', 'e1324000-0000-0000-0000-000000000004');
+update public.configuracoes set retencao_demandas = 'anonimizar' where id = 1;
+select is(public.retencao_apagar('demandas', '2026-10-10', 1000), 2, 'anonimizar: as duas concluídas há mais de 1 ano (com ou sem arquivo)');
+select is((select count(*)::int from public.chamados ch join antes_132 a using (id)
+            where (ch.numero, ch.criado_em, ch.atualizado_em, ch.concluido_em, ch.setor_id, ch.status)
+                  is not distinct from (a.numero, a.criado_em, a.atualizado_em, a.concluido_em, a.setor_id, a.status)), 2,
+  'anonimizar: número, datas, setor e status ficam como estavam');
+select ok((select titulo = '[texto apagado pela guarda de 1 ano]' and resumo = '[texto apagado pela guarda de 1 ano]'
+  from public.chamados where id = 'e1324000-0000-0000-0000-000000000001'), 'anonimizar: título e resumo saem');
+select is((select texto from public.chamado_eventos where chamado_id = 'e1324000-0000-0000-0000-000000000001' and tipo = 'nota_interna'), null,
+  'anonimizar: a nota sai (o evento fica)');
+select is((select pedido from public.agente_tarefas where id = 'e1325000-0000-0000-0000-000000000001'), '[texto apagado pela guarda de 1 ano]',
+  'anonimizar: o pedido da tarefa sai (a tarefa fica)');
+select is((select titulo from public.chamados where id = 'e1324000-0000-0000-0000-000000000002'), 'D2', 'anonimizar: a recente fica');
+select is((select titulo from public.chamados where id = 'e1324000-0000-0000-0000-000000000003'), 'D3', 'anonimizar: a aberta fica');
+select is(public.retencao_apagar('demandas', '2026-10-10', 1000), 0, 'anonimizar: a próxima volta não repete');
+
+-- Modo 'apagar': com eventos e tarefa; a com arquivo vivo fica.
+update public.configuracoes set retencao_demandas = 'apagar' where id = 1;
+select is(public.retencao_apagar('demandas', '2026-10-10', 1000), 1, 'apagar: uma concluída há mais de 1 ano sem arquivo vivo');
 select ok(not exists (select 1 from public.chamados where id = 'e1324000-0000-0000-0000-000000000001'), 'a demanda antiga saiu');
 select ok(not exists (select 1 from public.chamado_eventos where chamado_id = 'e1324000-0000-0000-0000-000000000001'), 'com os eventos');
 select ok(not exists (select 1 from public.agente_tarefas where id = 'e1325000-0000-0000-0000-000000000001'), 'e com a tarefa');
@@ -187,13 +217,17 @@ insert into public.agente_tarefas (id, agente_id, chamado_id, cliente_id, pedido
    'e1321000-0000-0000-0000-000000000001', 'Tarefa da Rita', 2, 20);
 insert into public.agente_tarefa_avisos (tarefa_id, usuario_id, canal, tipo, chave, mensagem) values
   ('e1325000-0000-0000-0000-000000000009', 'e1320000-0000-0000-0000-00000000000a', 'whatsapp', 'pronta', 'p132', 'Tarefa da Rita pronta.');
+-- Número antigo da Rita: conversa dela com outro telefone (revisão).
+insert into public.conversas (id, telefone, contato_id) values ('e1323000-0000-0000-0000-00000000000a', '5531988881321', 'e1322000-0000-0000-0000-000000000001');
 insert into public.alertas (nivel, mensagem) values
-  ('aviso', 'A mensagem de 5531999991321 ficou sem resposta do agente.'), ('aviso', 'A mensagem de 5531999990000 ficou sem resposta.');
+  ('aviso', 'A mensagem de 5531999991321 ficou sem resposta do agente.'), ('aviso', 'A mensagem de 5531999990000 ficou sem resposta.'),
+  ('aviso', 'O agente parou de responder 5531988881321.');
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"e1320000-0000-0000-0000-00000000000a","role":"authenticated","aal":"aal2"}', true);
 select lives_ok($$ select public.anonimizar_contato('e1322000-0000-0000-0000-000000000001') $$, 'o administrador anonimiza');
 reset role;
 select is((select count(*)::int from public.alertas where mensagem like '%5531999991321%'), 0, 'nenhum alerta guarda o telefone do titular');
+select is((select count(*)::int from public.alertas where mensagem like '%5531988881321%'), 0, 'nem o número antigo dele (revisão)');
 select ok(exists (select 1 from public.alertas where mensagem = 'A mensagem de 5531999990000 ficou sem resposta.'), 'alerta de outro número fica');
 select is((select count(*)::int from public.radar_envios where contato_id = 'e1322000-0000-0000-0000-000000000001' and texto like '%Rita%'), 0,
   'envios do Radar ao titular sem o texto');
@@ -203,7 +237,9 @@ select is((select mensagem from public.agente_tarefa_avisos where chave = 'p132'
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"e1320000-0000-0000-0000-00000000000b","role":"authenticated","aal":"aal2"}', true);
 select throws_ok($$ update public.configuracoes set varredura_orfaos_apagar = true where id = 1 $$, 'P0001',
-  'Só o administrador liga a remoção dos arquivos sem dono.', 'Configurações Sim (sem ser administrador) não liga a remoção');
+  'Só o administrador muda a guarda das demandas e a remoção dos arquivos sem dono.', 'Configurações Sim (sem ser administrador) não liga a remoção');
+select throws_ok($$ update public.configuracoes set retencao_demandas = 'manter' where id = 1 $$, 'P0001',
+  'Só o administrador muda a guarda das demandas e a remoção dos arquivos sem dono.', 'Configurações Sim não muda a guarda das demandas');
 select set_config('request.jwt.claims', '{"sub":"e1320000-0000-0000-0000-00000000000a","role":"authenticated","aal":"aal2"}', true);
 select lives_ok($$ update public.configuracoes set varredura_orfaos_apagar = true where id = 1 $$, 'o administrador liga');
 reset role;
