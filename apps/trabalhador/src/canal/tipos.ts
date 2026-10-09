@@ -2,6 +2,8 @@ export type TipoRecebido = 'texto' | 'audio' | 'imagem' | 'documento' | 'outro';
 
 export type MensagemRecebida = {
   idProvedor: string;
+  /** Auditoria 3.1: instanceId do corpo (a Z-API manda em todo evento real). */
+  instanciaId?: string | null;
   telefone: string;
   enviadaPorMim: boolean;
   ehGrupo: boolean;

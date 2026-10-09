@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import Fastify, { type FastifyInstance } from 'fastify';
+import type { Writable } from 'node:stream';
+import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { telefoneDoWhatsApp } from '@escritorio/core';
 import type { Repos } from '@escritorio/db';
 import type { CanalWhatsApp } from './canal/tipos';
@@ -11,7 +12,24 @@ export type DepsServidor = {
   saudeToken?: string;
   /** Prontidão (D2): aparece nos detalhes do /saude (produção sem AMBIENTE=producao não passa despercebida). */
   ambiente?: string;
+  /** Auditoria 3.1: instância da Z-API; evento de outra instância (ou sem instanceId) é descartado. Sem ela, não confere (testes antigos). */
+  instancia?: string;
+  /** Auditoria 3.1: requisições por minuto e por IP. */
+  limites?: { webhook: number; saude: number };
+  /** Só para testes: onde o log é escrito. */
+  logStream?: Writable;
 };
+
+const LIMITES_PADRAO = { webhook: 120, saude: 30 } as const;
+const JANELA_LIMITE_MS = 60_000;
+/** Auditoria 3.7: mais de 20 descartes por esquema em 10 min viram alerta (no máximo um por hora). */
+const DESCARTES_PARA_ALERTA = 20;
+const JANELA_DESCARTES_MS = 10 * 60_000;
+
+/** Auditoria 3.4: o segredo (e o token do /saude) nunca vão para o log, em qualquer forma de URL. */
+export function mascararUrl(url: string): string {
+  return url.replace(/^(\/webhook\/).*?(?=[?#]|$)/, '$1***').replace(/([?&]token=)[^&#]*/g, '$1***');
+}
 
 export const LIMITES_SAUDE = { sinalMs: 3 * 60_000 } as const;
 
@@ -43,16 +61,78 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
     bodyLimit: 1_000_000,
     logger: {
       level: 'info',
-      // O segredo do webhook faz parte da URL: nunca vai para o log.
+      // O segredo do webhook faz parte da URL: nunca vai para o log, nem em rota desconhecida (3.4).
       // O token do /saude (?token=) também não.
-      serializers: { req: (req) => ({ method: req.method, url: req.url.replace(/\/webhook\/zapi\/[^/?]+/, '/webhook/zapi/***').replace(/([?&]token=)[^&]*/, '$1***') }) },
+      serializers: { req: (req) => ({ method: req.method, url: mascararUrl(req.url) }) },
+      ...(d.logStream ? { stream: d.logStream } : {}),
+    },
+    // Atrás do proxy do Easypanel, o IP de verdade vem no X-Forwarded-For (senão todos dividiriam o mesmo limite).
+    trustProxy: true,
+    // Segredo comprido demais (maxParamLength) ou URL malformada: o padrão devolve o caminho na resposta.
+    frameworkErrors: (err: FastifyError, req: FastifyRequest, rep: FastifyReply) => {
+      req.log.warn({ codigo: err.code }, 'url_recusada');
+      return rep.code(err.statusCode ?? 400).send({ erro: 'requisição inválida' });
     },
   });
+
+  // Auditoria 3.4: 404 e 500 próprios, sem eco da URL na resposta nem no log (o padrão do Fastify loga a URL crua).
+  app.setNotFoundHandler((_req, rep) => rep.code(404).send({ erro: 'não encontrado' }));
+  app.setErrorHandler((err: FastifyError, req, rep) => {
+    const status = typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 500 ? err.statusCode : 500;
+    req.log.error({ codigo: err.code, status, url: mascararUrl(req.url) }, 'erro na requisição');
+    return rep.code(status).send({ erro: status === 500 ? 'erro interno' : 'requisição inválida' });
+  });
+
+  // Auditoria 3.1: limite por IP, em memória (há um processo só). Vem antes da conferência do segredo, para frear tentativas de adivinhar.
+  const limites = d.limites ?? LIMITES_PADRAO;
+  const contagens = { webhook: new Map<string, number>(), saude: new Map<string, number>() };
+  let inicioJanela = d.relogio().getTime();
+  app.addHook('onRequest', async (req, rep) => {
+    const caminho = req.url.split('?')[0]!;
+    const balde = caminho.startsWith('/webhook/') ? 'webhook' : caminho === '/saude' ? 'saude' : null;
+    if (!balde) return;
+    const agora = d.relogio().getTime();
+    if (agora - inicioJanela >= JANELA_LIMITE_MS) { contagens.webhook.clear(); contagens.saude.clear(); inicioJanela = agora; }
+    const n = (contagens[balde].get(req.ip) ?? 0) + 1;
+    contagens[balde].set(req.ip, n);
+    if (n > limites[balde]) {
+      if (n === limites[balde] + 1) req.log.warn({ balde, ip: req.ip }, 'limite_de_requisicoes');
+      return rep.code(429).send({ erro: 'muitas requisições' });
+    }
+  });
+
+  const descartes: number[] = [];
+  async function contarDescarte(req: { log: FastifyInstance['log'] }) {
+    const agora = d.relogio().getTime();
+    descartes.push(agora);
+    while (descartes.length > 0 && agora - descartes[0]! > JANELA_DESCARTES_MS) descartes.shift();
+    if (descartes.length <= DESCARTES_PARA_ALERTA) return;
+    const aviso = 'Muitas mensagens do WhatsApp chegaram em formato que o sistema não entende e foram descartadas. Confira se a Z-API mudou o formato do aviso.';
+    try {
+      if (!(await d.repos.alertaRecente(aviso, 60))) await d.repos.registrarAlerta({ nivel: 'aviso', mensagem: aviso });
+    } catch (e) {
+      req.log.error(e, 'alerta de descartes não registrado');
+    }
+  }
 
   app.post<{ Params: { segredo: string } }>('/webhook/zapi/:segredo', async (req, rep) => {
     if (!segredoConfere(req.params.segredo, d.segredo)) return rep.code(401).send();
     const m = d.canal.interpretarWebhook(req.body);
-    if (!m || m.ehGrupo) return { ok: true };
+    if (!m) {
+      // Auditoria 3.7: o descarte deixa rastro (só o type, nunca o conteúdo). Aviso/reação são esperados e não contam.
+      const c = (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>;
+      const type = typeof c.type === 'string' ? c.type.slice(0, 40) : null;
+      const esperado = Boolean(c.notification) || Boolean(c.reaction);
+      req.log.info({ type, motivo: esperado ? 'aviso_ou_reacao' : 'esquema' }, 'webhook_descartado');
+      if (!esperado) await contarDescarte(req);
+      return { ok: true };
+    }
+    // Auditoria 3.1: evento de outra instância, ou sem instanceId (as capturas reais sempre trazem), não vira nada.
+    if (d.instancia && m.instanciaId !== d.instancia) {
+      req.log.warn({ recebida: m.instanciaId ? String(m.instanciaId).slice(0, 40) : null }, 'instancia_diferente');
+      return { ok: true };
+    }
+    if (m.ehGrupo) return { ok: true };
 
     if (m.enviadaPorMim) {
       // Espera o envio do próprio sistema gravar o id antes de decidir se foi uma pessoa no celular.
@@ -65,7 +145,8 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
       // Revisão geral I7: número estrangeiro ou identificador "@lid" não vira conversa (o agente e o envio são só para o Brasil),
       // mas a equipe fica sabendo (uma vez por hora por número) para responder pelo celular do escritório.
       const bruto = m.telefone.slice(0, 60);
-      req.log.warn({ telefone: bruto }, 'mensagem de número fora do formato brasileiro');
+      // Auditoria 3.4: o número não vai bruto para o log (dado pessoal); só o final.
+      req.log.warn({ telefoneFinal: bruto.slice(-4) }, 'mensagem de número fora do formato brasileiro');
       const aviso = `Mensagem de WhatsApp de um número fora do padrão brasileiro (${bruto}) não foi atendida pelo agente. Responda pelo celular do escritório.`;
       try {
         if (!(await d.repos.alertaRecente(aviso, 60))) await d.repos.registrarAlerta({ nivel: 'aviso', mensagem: aviso });

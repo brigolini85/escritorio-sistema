@@ -28,7 +28,7 @@ function deps(ia: IaRoteirizada, extra: Partial<DepsProcessamento> = {}): DepsPr
 }
 async function receber(conversaId: string, idProvedor: string, conteudo: string, tipo: 'texto' | 'audio' = 'texto') {
   await repos.inserirMensagemEntrada({ conversaId, clienteId: null, idProvedor, tipo, conteudo,
-    midiaUrlOrigem: tipo === 'audio' ? 'https://z-api.exemplo/a.ogg' : null, arquivoMime: tipo === 'audio' ? 'audio/ogg' : null });
+    midiaUrlOrigem: tipo === 'audio' ? 'https://f004.backblazeb2.com/a.ogg' : null, arquivoMime: tipo === 'audio' ? 'audio/ogg' : null });
 }
 // Uso de IA gravado no mês do relógio do teste (o banco grava now(); sem isto o teste quebra quando o mês real muda).
 async function registrarUsoNoMesDoRelogio(custoUsd: number) {
@@ -81,7 +81,7 @@ describe('processarConversa', () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
     await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: 'IMG1', tipo: 'imagem', conteudo: 'segue o pedido',
-      midiaUrlOrigem: 'https://z-api.exemplo/f.jpg', arquivoMime: 'image/jpeg' });
+      midiaUrlOrigem: 'https://f004.backblazeb2.com/f.jpg', arquivoMime: 'image/jpeg' });
     const baixar = vi.fn().mockImplementation(async () => new Response(new Uint8Array([9, 9, 9]), { headers: { 'content-type': 'image/jpeg' } }));
     const erro = new Anthropic.APIConnectionError({ message: 'sem rede' });
     await expect(processarConversa(deps(new IaRoteirizada([erro]), { midia: criarArmazenamento(db, baixar) }), conversa.id, false)).rejects.toThrow();
@@ -104,7 +104,7 @@ describe('processarConversa', () => {
     const { conversa } = await contatoComEmpresas(['Indústria X']);
     await repos.atualizarConversa(conversa.id, { aviso_lgpd_enviado_em: new Date().toISOString() });
     await repos.inserirMensagemEntrada({ conversaId: conversa.id, clienteId: null, idProvedor: 'IMG2', tipo: 'imagem', conteudo: 'foto do pedido',
-      midiaUrlOrigem: 'https://z-api.exemplo/expirou.jpg', arquivoMime: 'image/jpeg' });
+      midiaUrlOrigem: 'https://f004.backblazeb2.com/expirou.jpg', arquivoMime: 'image/jpeg' });
     const expirado = vi.fn().mockImplementation(async () => new Response('não existe', { status: 404 }));
     const erro = new Anthropic.APIConnectionError({ message: 'sem rede' });
     await expect(processarConversa(deps(new IaRoteirizada([erro]), { midia: criarArmazenamento(db, expirado) }), conversa.id, false)).rejects.toThrow();

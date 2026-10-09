@@ -18,6 +18,20 @@ export class ArquivoGrandeDemais extends Error {
 
 const BUCKET = 'anexos';
 
+/** Auditoria 3.5: a Z-API entrega a mídia por estes domínios (as capturas reais usam f004.backblazeb2.com). Configurável por MIDIA_HOSTS_PERMITIDOS. */
+export const MIDIA_HOSTS_PADRAO = ['z-api.io', 'backblazeb2.com', 'storage.googleapis.com'];
+const MAX_SALTOS = 3;
+
+/** Só https, host por nome (nunca IP literal nem localhost) e dentro da lista (o próprio domínio ou subdomínio dele). */
+export function hostPermitido(url: string, hosts: readonly string[] = MIDIA_HOSTS_PADRAO): boolean {
+  let u: URL;
+  try { u = new URL(url); } catch { return false; }
+  if (u.protocol !== 'https:') return false;
+  const h = u.hostname.toLowerCase().replace(/\.$/, '');
+  if (!h || h === 'localhost' || h.includes(':') || h.startsWith('[') || /^[\d.]+$/.test(h)) return false;
+  return hosts.some((d) => h === d || h.endsWith(`.${d}`));
+}
+
 function nomeSeguro(nome: string): string {
   return nome.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_').slice(-80);
 }
@@ -49,10 +63,24 @@ async function lerComLimite(r: Response): Promise<Uint8Array> {
   return bytes;
 }
 
-export function criarArmazenamento(db: Db, buscar: typeof fetch = fetch): ArmazenamentoMidia {
+export function criarArmazenamento(db: Db, buscar: typeof fetch = fetch, hosts: readonly string[] = MIDIA_HOSTS_PADRAO): ArmazenamentoMidia {
+  /** Auditoria 3.5: cada salto de redirecionamento é conferido contra a lista antes de ser seguido. */
+  async function buscarSeguro(urlInicial: string): Promise<Response> {
+    let url = urlInicial;
+    for (let salto = 0; salto <= MAX_SALTOS; salto++) {
+      if (!hostPermitido(url, hosts)) throw new Error('endereço da mídia não permitido');
+      const r = await buscar(url, { signal: AbortSignal.timeout(PRAZO_DOWNLOAD_MS), redirect: 'manual' });
+      if (r.status < 300 || r.status >= 400) return r;
+      const destino = r.headers.get('location');
+      await r.body?.cancel().catch(() => undefined);
+      if (!destino) throw new Error('redirecionamento sem destino');
+      try { url = new URL(destino, url).toString(); } catch { throw new Error('endereço da mídia não permitido'); }
+    }
+    throw new Error('redirecionamentos demais no download da mídia');
+  }
   return {
     async baixarESalvar(url, conversaId, nomeArquivo, mime) {
-      const r = await buscar(url, { signal: AbortSignal.timeout(PRAZO_DOWNLOAD_MS) });
+      const r = await buscarSeguro(url);
       if (!r.ok) throw new Error(`download da mídia falhou: ${r.status}`);
       const bytes = await lerComLimite(r);
       const tipo = mime ?? r.headers.get('content-type') ?? 'application/octet-stream';

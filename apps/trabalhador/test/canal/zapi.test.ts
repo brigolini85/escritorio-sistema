@@ -9,7 +9,7 @@ describe('interpretarWebhook', () => {
   const canal = criarCanalZapi(cfg);
   it('texto', () => {
     expect(canal.interpretarWebhook(f.texto)).toEqual({
-      idProvedor: 'MSG-TEXTO-1', telefone: '5531999990001', enviadaPorMim: false, ehGrupo: false,
+      idProvedor: 'MSG-TEXTO-1', instanciaId: null, telefone: '5531999990001', enviadaPorMim: false, ehGrupo: false,
       nomeRemetente: 'João', tipo: 'texto', texto: 'Preciso da guia do DAS', midia: null,
     });
   });

@@ -10,6 +10,11 @@ export const Config = z.object({
   ZAPI_TOKEN: z.string().min(1),
   ZAPI_CLIENT_TOKEN: z.string().min(1),
   WEBHOOK_SEGREDO: z.string().min(16),
+  // Auditoria 3.5: domínios de onde a mídia do cliente pode ser baixada (separados por vírgula). Vazio = padrão (Z-API, Backblaze, Google Storage).
+  MIDIA_HOSTS_PERMITIDOS: z.string().optional().transform((v) => {
+    const l = (v ?? '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
+    return l.length > 0 ? l : undefined;
+  }),
   TRANSCRICAO_BASE_URL: z.string().url(),
   TRANSCRICAO_API_KEY: z.string().min(1),
   TRANSCRICAO_MODELO: z.string().min(1),

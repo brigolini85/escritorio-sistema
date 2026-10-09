@@ -48,7 +48,7 @@ async function principal() {
     { ambiente: cfg.AMBIENTE, permitidos: cfg.TELEFONES_PERMITIDOS },
     (b) => repos.registrarDecisao({ conversaId: null, clienteId: null, etapa: 'envio_bloqueado', entrada: b, saida: { ambiente: cfg.AMBIENTE } }));
   if (cfg.AMBIENTE !== 'producao') console.warn(`[trava] ${cfg.AMBIENTE}: só ${cfg.TELEFONES_PERMITIDOS.length} telefone(s) da lista recebem mensagem.`);
-  const midia = criarArmazenamento(db);
+  const midia = criarArmazenamento(db, fetch, cfg.MIDIA_HOSTS_PERMITIDOS);
   // Parte I3b (D4): os arquivos da pasta do cliente vão para o compartimento "tarefas".
   const guardar = guardarNaTarefa(db);
   const remover = removerDaTarefa(db);
@@ -141,7 +141,7 @@ async function principal() {
   await boss.work(FILAS.radarEnvios, async () => { await enviosRadar(depsRadar); });
   await boss.schedule(FILAS.radarEnvios, '* * * * *');
 
-  const app = criarServidor({ canal, repos, fila: filaDe(boss), segredo: cfg.WEBHOOK_SEGREDO, relogio,
+  const app = criarServidor({ canal, repos, fila: filaDe(boss), segredo: cfg.WEBHOOK_SEGREDO, relogio, instancia: cfg.ZAPI_INSTANCIA,
     saudeToken: cfg.SAUDE_TOKEN, ambiente: cfg.AMBIENTE });
   await app.listen({ host: '0.0.0.0', port: cfg.PORTA });
 

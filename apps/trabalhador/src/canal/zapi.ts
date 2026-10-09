@@ -3,7 +3,9 @@ import type { CanalWhatsApp, MensagemRecebida } from './tipos';
 
 const Corpo = z.object({
   type: z.literal('ReceivedCallback'),
-  messageId: z.string(),
+  // Auditoria 3.7: id vazio faria duas mensagens colidirem (a segunda viraria duplicada).
+  messageId: z.string().min(1).max(128),
+  instanceId: z.string().nullish(),
   phone: z.string(),
   fromMe: z.boolean().default(false),
   isGroup: z.boolean().default(false),
@@ -61,7 +63,7 @@ export function criarCanalZapi(
       // Revisão geral M5: reação (👍 numa mensagem) não é pedido do cliente: não vira mensagem nem chama o agente.
       if ((c as { reaction?: unknown }).reaction) return null;
       const comum = {
-        idProvedor: c.messageId, telefone: c.phone, enviadaPorMim: c.fromMe, ehGrupo: c.isGroup, nomeRemetente: c.senderName ?? null,
+        idProvedor: c.messageId, instanciaId: c.instanceId ?? null, telefone: c.phone, enviadaPorMim: c.fromMe, ehGrupo: c.isGroup, nomeRemetente: c.senderName ?? null,
       };
       if (c.text) return { ...comum, tipo: 'texto', texto: c.text.message, midia: null };
       if (c.audio) return { ...comum, tipo: 'audio', texto: null, midia: { url: c.audio.audioUrl, mime: c.audio.mimeType ?? null, nomeArquivo: null } };

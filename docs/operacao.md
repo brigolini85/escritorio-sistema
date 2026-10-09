@@ -36,7 +36,7 @@ Para cada ambiente (homologação e produção), crie dois apps a partir do repo
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA`, `DATABASE_URL` (o endereço do Session pooler);
    - `ANTHROPIC_API_KEY` (a chave do Claude);
    - `ZAPI_INSTANCIA`, `ZAPI_TOKEN`, `ZAPI_CLIENT_TOKEN` (da instância da Z-API daquele ambiente);
-   - `WEBHOOK_SEGREDO`: invente uma sequência longa de letras e números (pelo menos 16), diferente em cada ambiente;
+   - `WEBHOOK_SEGREDO`: invente uma sequência longa de letras e números (recomendado 32 caracteres ou mais; o mínimo aceito é 16), diferente em cada ambiente. Para trocar depois, veja "Trocar o segredo do webhook" na seção 2.5;
    - `TRANSCRICAO_BASE_URL`, `TRANSCRICAO_API_KEY`, `TRANSCRICAO_MODELO` (Groq, `whisper-large-v3`). `TRANSCRICAO_VOCABULARIO` é opcional: termos que ajudam a transcrição a acertar siglas;
    - `SMTP_HOST`, `SMTP_PORTA`, `SMTP_USUARIO`, `SMTP_SENHA`, `SMTP_REMETENTE` (o e-mail que manda os alertas);
    - `PAINEL_URL`: o endereço do painel, por exemplo `https://painel.seuescritorio.com.br`.
@@ -70,6 +70,19 @@ Na instância de cada ambiente, abra **Webhooks**:
 
 1. No campo **Ao receber**, cole `https://<domínio do trabalhador>/webhook/zapi/<WEBHOOK_SEGREDO>`, usando o mesmo segredo que você colocou no Easypanel.
 2. Na mesma tela, ligue a opção de **notificar também as mensagens enviadas por mim** (na documentação da Z-API ela se chama `notifySentByMe`). É assim que o sistema percebe quando alguém respondeu o cliente direto pelo celular do escritório; nesse caso o agente para de responder aquela conversa. Não é preciso configurar o webhook "Ao enviar": o sistema não usa esse aviso.
+
+#### Trocar o segredo do webhook (rotação)
+
+Troque o `WEBHOOK_SEGREDO` se ele vazou (apareceu em log, foi colado em conversa, o computador de quem o tinha foi perdido) e de tempos em tempos. O sistema só tem um segredo válido por vez; por isso a troca leva uns 2 minutos e as mensagens que chegarem nesse intervalo podem ser perdidas. Faça fora do horário de pico.
+
+1. Gere um segredo novo, de **32 caracteres ou mais** (o sistema aceita a partir de 16, mas recomendamos 32 ou mais): `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`. Use só letras, números, `-` e `_`, sem barra, e no máximo 100 caracteres.
+2. No Easypanel, abra o app **Trabalhador** › Environment, troque o valor de `WEBHOOK_SEGREDO` e salve.
+3. Reinicie (Deploy/Restart) o Trabalhador e espere ele ficar de pé: `https://<domínio do trabalhador>/vivo` deve responder `{"ok":true}`.
+4. Na Z-API, na instância daquele ambiente, abra **Webhooks** e troque o final do endereço do campo **Ao receber** para o segredo novo: `https://<domínio do trabalhador>/webhook/zapi/<segredo novo>`. Salve.
+5. Mande uma mensagem de teste para o WhatsApp do escritório e confira que ela aparece no painel. Se não aparecer, o segredo da Z-API não é o mesmo do Easypanel: confira os dois.
+6. Apague o segredo antigo de onde ele estiver (anotações, arquivos de texto, conversas). Na homologação, use outro segredo, diferente do da produção.
+
+Outras variáveis desta área: `MIDIA_HOSTS_PERMITIDOS` (opcional) lista os domínios de onde o sistema aceita baixar a mídia do cliente, separados por vírgula; vazio usa `z-api.io`, `backblazeb2.com` e `storage.googleapis.com`. Se anexos novos passarem a chegar com o aviso "[anexo não pôde ser baixado]", veja no log o endereço recusado e acrescente o domínio.
 
 ### 2.6 Aviso de sistema fora do ar (UptimeRobot)
 
