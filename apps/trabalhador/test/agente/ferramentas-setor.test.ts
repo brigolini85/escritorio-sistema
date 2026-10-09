@@ -7,7 +7,7 @@ import { AVISOS_AGENTE } from '../../src/agente/roteamento';
 import { CanalFalso } from '../../src/canal/falso';
 import { LimitadorEnvio } from '../../src/envio';
 import { criarArmazenamento } from '../../src/midia/armazenamento';
-import { contatoComEmpresas, criarCadastrosExemplo, db, definirAcessoTeste, repos, setorId, type CadastrosExemplo } from '../apoio/cenario';
+import { clienteRespondeResumo, contatoComEmpresas, criarCadastrosExemplo, db, definirAcessoTeste, repos, setorId, type CadastrosExemplo } from '../apoio/cenario';
 import { IaRoteirizada } from '../apoio/ia-roteirizada';
 
 // Parte I2 (D8, D9): as ferramentas do agente do setor e a pré-análise, com o banco de verdade.
@@ -146,8 +146,9 @@ describe('pré-análise na abertura do pedido de nota (D9)', () => {
     const e = await estadoDo('thiago');
     const pedido = { tipo: 'venda', unidade_id: cad.brasilEfigenia, texto_destinatario: 'Brasil Santa Efigênia',
       itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 10, unidade: 'PAC' }] };
-    await usar(e, 'resumir_pedido_nota', pedido);
-    const r = await usar(e, 'abrir_pedido_nota', { ...pedido, pedido_original: '10 costela pro Brasil', cliente_confirmou_resumo: true, prioridade: 'normal' });
+    const { resumo_id } = await usar(e, 'resumir_pedido_nota', pedido);
+    await clienteRespondeResumo(e);
+    const r = await usar(e, 'abrir_pedido_nota', { resumo_id, pedido_original: '10 costela pro Brasil', prioridade: 'normal' });
     expect(r._erro).toBe(false);
     const { data } = await db.from('pre_analises_nota').select('agente_id');
     expect(data).toEqual([{ agente_id: fiscal }]);

@@ -204,38 +204,15 @@ export function montarResumoParaCliente(p: {
   return linhas.join('\n');
 }
 
-/** Identifica o pedido que o cliente conferiu: destinatário e itens (quantidade e unidade). A demanda só abre se bater com um resumo enviado. */
-type PedidoConferivel = {
-  tipo: 'venda' | 'devolucao'; unidade_id: string | null; itens: { produto_id: string | null; texto: string; quantidade: number; unidade: string }[];
-};
-
 /**
- * Qual resumo enviado ao cliente é este pedido. Depois do "sim", o modelo remonta o pedido de memória e costuma perder
- * os ids (unidade e produto) ou trocar PAC por PC; por isso, além da chave exata, vale o resumo com o mesmo tipo e os
- * mesmos itens na mesma ordem (quantidade igual, unidade de contagem equivalente, produto igual quando o modelo informa),
- * e a mesma unidade quando o modelo informa. Mais de um resumo diferente servindo = ambíguo: não abre às cegas.
+ * Auditoria 1.1: impressão do pedido como o cliente viu no resumo (destinatário e itens resolvidos, com preços). Na
+ * abertura o pedido é montado de novo com o cadastro e os preços de agora; hash diferente = resumo novo.
  */
-export function acharResumoConferido<R extends { entrada: unknown; conferencia: string }>(
-  pedido: PedidoConferivel, resumos: R[], valido: (e: unknown) => e is PedidoConferivel,
-): { resumo: R } | { ambiguo: true } | null {
-  const exato = resumos.find((r) => r.conferencia === chaveConferencia(pedido));
-  if (exato) return { resumo: exato };
-  const serve = (e: PedidoConferivel) => e.tipo === pedido.tipo
-    && (pedido.unidade_id === null || pedido.unidade_id === e.unidade_id)
-    && e.itens.length === pedido.itens.length
-    && e.itens.every((i, n) => {
-      const p = pedido.itens[n]!;
-      return p.quantidade === i.quantidade && mesmaUnidade(p.unidade, i.unidade) && (p.produto_id === null || p.produto_id === i.produto_id);
-    });
-  const candidatos = resumos.filter((r) => valido(r.entrada) && serve(r.entrada));
-  if (candidatos.length === 0) return null;
-  if (new Set(candidatos.map((r) => r.conferencia)).size > 1) return { ambiguo: true };
-  return { resumo: candidatos[0]! };
-}
-
-export function chaveConferencia(p: {
-  tipo: 'venda' | 'devolucao'; unidade_id: string | null; itens: { produto_id: string | null; texto: string; quantidade: number; unidade: string }[];
-}): string {
-  const itens = p.itens.map((i) => [i.produto_id ?? i.texto.trim().toLowerCase(), i.quantidade, i.unidade.trim().toLowerCase()]);
-  return createHash('sha1').update(JSON.stringify([p.tipo, p.unidade_id, itens])).digest('hex').slice(0, 16);
+export function hashPedidoNota(p: { tipo: 'venda' | 'devolucao'; destino: UnidadeParceiro | null; itens: ItemPedido[] }): string {
+  const d = p.destino;
+  const destino = d && [d.id, d.rede, d.unidade, d.razaoSocial, d.cnpj, d.ie, d.endereco, d.numero, d.complemento, d.bairro, d.cidade, d.uf, d.cep];
+  const itens = p.itens.map((i) => [
+    i.produto && [i.produto.id, i.produto.codigo, i.produto.descricao, i.produto.unidade], i.texto, i.quantidade, i.unidade, i.preco, i.precoInformado ?? false,
+  ]);
+  return createHash('sha256').update(JSON.stringify([p.tipo, destino, itens])).digest('hex');
 }

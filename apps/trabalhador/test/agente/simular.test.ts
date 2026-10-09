@@ -50,6 +50,22 @@ async function contagens(): Promise<Record<string, number>> {
   return r;
 }
 
+/** Auditoria 1.1: guarda na entrada da abertura o resumo_id devolvido pelo resumo, como o modelo faria. */
+class IaQueGuardaResumo extends IaRoteirizada {
+  constructor(private readonly abrir: { resumo_id?: string }, roteiro: ConstructorParameters<typeof IaRoteirizada>[0]) {
+    super(roteiro);
+  }
+  override async criar(p: Parameters<IaRoteirizada['criar']>[0]) {
+    const r = await super.criar(p);
+    const ultima = this.recebidos.at(-1)!.messages.at(-1)!;
+    if (typeof ultima.content !== 'string') {
+      const id = this.ultimosResultados().map((x) => (JSON.parse(x.content) as { resumo_id?: string }).resumo_id).find(Boolean);
+      if (id) this.abrir.resumo_id = id;
+    }
+    return r;
+  }
+}
+
 const textoSistema = (ia: IaRoteirizada, i = 0) => (ia.recebidos[i]!.system as { text: string }[]).map((b) => b.text).join('\n----\n');
 const textoUsuario = (ia: IaRoteirizada) => JSON.stringify(ia.recebidos[0]!.messages[0]!.content);
 
@@ -71,14 +87,16 @@ describe('processarSimulacao', () => {
       tipo: 'venda', unidade_id: c.brasilEfigenia, texto_destinatario: 'Brasil Santa Efigênia',
       itens: [{ produto_id: c.costela, texto: 'costela', quantidade: 10, unidade: 'PAC' }],
     };
-    const ia = new IaRoteirizada([
+    // Auditoria 1.1: a abertura usa o resumo_id que o resumo devolveu (lido do resultado da ferramenta, como o modelo faria).
+    const abrirEntrada: { resumo_id?: string; pedido_original: string } = { pedido_original: '10 costela pro Brasil' };
+    const ia = new IaQueGuardaResumo(abrirEntrada, [
       usarFerramentas(
         { nome: 'buscar_parceiros', entrada: { texto: 'Brasil Santa Efigênia', tipo: 'cliente' } },
         { nome: 'buscar_produtos', entrada: { textos: ['costela'] } },
       ),
       usarFerramentas({ nome: 'resumir_pedido_nota', entrada: pedido }),
       usarFerramentas(
-        { nome: 'abrir_pedido_nota', entrada: { ...pedido, pedido_original: '10 costela pro Brasil', cliente_confirmou_resumo: true } },
+        { nome: 'abrir_pedido_nota', entrada: abrirEntrada },
         { nome: 'abrir_chamado', entrada: { setor_id: fiscal, titulo: 'Guia DAS de setembro', resumo: 'Cliente pediu a guia.', fora_do_contrato: false } },
         { nome: 'alterar_preco', entrada: { unidade_id: c.brasilEfigenia, produto_id: c.costela, novo_valor: 10, confirmado_pelo_cliente: true } },
         { nome: 'cadastrar_produto', entrada: { codigo: '30', descricao: 'Lasanha Bolonhesa', unidade: 'pac', apelidos: [], confirmado_pelo_cliente: true } },
@@ -102,17 +120,19 @@ describe('processarSimulacao', () => {
     // O resumo que o sistema mandaria vem inteiro, antes das mensagens do agente.
     expect(r.mensagens[0]).toContain('Costela com Requeijão');
     expect(r.mensagens.slice(1)).toEqual(['[documento] Contrato social', 'Pode deixar, já passei pro Fiscal.', 'Mais alguma coisa?']);
+    // Auditoria 1.1/5.5: o teste é uma vez só, sem resposta do cliente ao resumo: a nota não passaria (mesma vez).
     expect(r.acoes.map((a) => a.ferramenta)).toEqual([
-      'resumir_pedido_nota', 'abrir_pedido_nota', 'abrir_chamado', 'alterar_preco', 'cadastrar_produto', 'enviar_documento', 'sinalizar_nao_entendido', 'selecionar_empresa',
+      'resumir_pedido_nota', 'abrir_chamado', 'alterar_preco', 'cadastrar_produto', 'enviar_documento', 'sinalizar_nao_entendido', 'selecionar_empresa',
     ]);
-    expect(r.acoes[1]!.resumo).toMatch(/^Passaria a nota para o Fiscal: NF de venda/);
-    expect(r.acoes[2]!.resumo).toBe('Abriria uma demanda no Fiscal: Guia DAS de setembro');
-    expect(r.acoes[3]!.resumo).toBe('Alteraria o preço de Costela com Requeijão para a rede Supermercado Brasil: de R$ 9,50 para R$ 10,00');
-    expect(r.acoes[4]!.resumo).toBe('Cadastraria o produto 30 - Lasanha Bolonhesa (PAC)');
+    expect(abrirEntrada.resumo_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(r.acoes[1]!.resumo).toBe('Abriria uma demanda no Fiscal: Guia DAS de setembro');
+    expect(r.acoes[2]!.resumo).toBe('Alteraria o preço de Costela com Requeijão para a rede Supermercado Brasil: de R$ 9,50 para R$ 10,00');
+    expect(r.acoes[3]!.resumo).toBe('Cadastraria o produto 30 - Lasanha Bolonhesa (PAC)');
     // Leituras rodaram de verdade (o agente recebeu os candidatos).
     expect(ia.recebidos[1]!.messages.at(-1)!.content).toMatchObject([{ is_error: false }, { is_error: false }]);
     expect(JSON.stringify(ia.recebidos[1]!.messages.at(-1)!.content)).toContain(c.brasilEfigenia);
-    expect(ia.recebidos[3]!.messages.at(-1)!.content).toMatchObject(Array(7).fill({ is_error: false }));
+    expect(ia.recebidos[3]!.messages.at(-1)!.content).toMatchObject([{ is_error: true }, ...Array(6).fill({ is_error: false })]);
+    expect(JSON.stringify(ia.recebidos[3]!.messages.at(-1)!.content)).toContain('mesmo_turno');
     // Custo gravado sem conversa: conta no teto.
     const uso = (await db.from('uso_ia').select('conversa_id')).data!;
     expect(uso).toHaveLength(5);
@@ -121,12 +141,11 @@ describe('processarSimulacao', () => {
 
   it('pedido de nota sem resumo neste teste é recusado, como no atendimento', async () => {
     const { empresas } = await contatoComEmpresas(['Indústria X']);
-    const c = await criarCadastrosExemplo(empresas[0]!.id);
+    await criarCadastrosExemplo(empresas[0]!.id);
     const id = await novaSimulacao({ clienteId: empresas[0]!.id });
     const ia = new IaRoteirizada([
       usarFerramentas({ nome: 'abrir_pedido_nota', entrada: {
-        tipo: 'venda', unidade_id: c.brasilEfigenia, texto_destinatario: 'Brasil', pedido_original: 'x', cliente_confirmou_resumo: true,
-        itens: [{ produto_id: c.costela, texto: 'costela', quantidade: 1, unidade: 'PAC' }],
+        resumo_id: '00000000-0000-4000-8000-000000000001', pedido_original: 'x', prioridade: 'normal',
       } }),
       usarFerramentas({ nome: 'responder', entrada: { texto: 'Vou conferir.' } }),
       fim(),

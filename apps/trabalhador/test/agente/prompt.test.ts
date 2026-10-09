@@ -187,7 +187,12 @@ describe('regras fixas da skill do dono (2026-09-30)', () => {
 
   it('regras 3a, 3c e 3e: erro das ferramentas de nota, dados de outras empresas e cadastro conferido antes', () => {
     const r3a = s.slice(s.indexOf('\n3a. '), s.indexOf('\n3b. '));
-    expect(r3a).toContain('Se buscar_parceiros, buscar_produtos, resumir_pedido_nota ou abrir_pedido_nota der erro que não seja de empresa não definida, abra com abrir_chamado no Fiscal');
+    expect(r3a).toContain('Se buscar_parceiros, buscar_produtos ou resumir_pedido_nota der erro que não seja de empresa não definida, abra com abrir_chamado no Fiscal');
+    // Auditoria 1.1/5.5: a recusa de abrir_pedido_nota (sem resposta do cliente, resumo velho) não vira demanda por outro caminho.
+    expect(r3a).toContain('Se abrir_pedido_nota recusar, siga a instrução que ela devolver');
+    expect(r3a).toContain('cada uma com o resumo_id da sua nota');
+    expect(r3a).toContain('Nunca chame abrir_pedido_nota na mesma vez em que mandou o resumo');
+    expect(r3a).not.toContain('cliente_confirmou_resumo');
     const r3c = s.slice(s.indexOf('\n3c. '), s.indexOf('\n3d. '));
     expect(r3c).toContain('Nunca informe dados de empresas que não sejam a empresa em foco ou os clientes/fornecedores cadastrados dela');
     const r3e = s.slice(s.indexOf('\n3e. '), s.indexOf('\n4. '));

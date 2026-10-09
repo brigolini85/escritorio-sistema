@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { AGENTE_ATENDIMENTO_ID, MODOS_CONTATO, SLUG_ATENDIMENTO, estaNoExpediente, mesReferencia, type ModoContato } from '@escritorio/core';
 import type { Conversa, EmpresaDoContato, Mensagem, OrientacaoAgente, RascunhoOrientacao, Repos, SimulacaoAgente, UsuarioAssistente } from '@escritorio/db';
 import { podeVerChamado } from '../assistente/visibilidade';
@@ -9,11 +10,11 @@ import { erroTemporarioIa, type ClienteIa } from './cliente-ia';
 import type { ContextoAgente } from './contexto';
 import { executarAgente, type ResultadoAgente } from './executar';
 import {
-  AVISOS, PedidoNota, avisoForaDoHorario, empresaDefinida, executarFerramenta, exigirEmpresa, falha, ok, partesDaResposta,
+  AVISOS, avisoForaDoHorario, consumirResumo, empresaDefinida, executarFerramenta, exigirEmpresa, falha, ok, partesDaResposta,
   prepararPedido, validarEntrada, type DepsAgente, type EstadoExecucao, type ExecutorFerramentas, type NomeFerramenta, type Resultado,
 } from './ferramentas';
 import { orientacoesDaConversa } from './orientacoes';
-import { acharResumoConferido, chaveConferencia, formatarReais, montarPedidoNota, montarResumoParaCliente } from './pedido-nota';
+import { formatarReais, hashPedidoNota, montarPedidoNota, montarResumoParaCliente } from './pedido-nota';
 import { carregarPerfil } from './perfil';
 import { montarConteudoUsuario } from './prompt';
 
@@ -89,6 +90,7 @@ export function reposDaSimulacao(repos: Repos, conversa: Conversa, usuario: Usua
     obterConversa: async () => conversa,
     chamadosAbertosDoCliente: async (clienteId: string) =>
       (await repos.chamadosAbertosDoCliente(clienteId)).filter((c) => usuario?.ativo === true && podeVerChamado(usuario, c)),
+    ...resumosNaMemoria(),
   });
   return new Proxy(liberados, {
     get(alvo, nome) {
@@ -97,6 +99,35 @@ export function reposDaSimulacao(repos: Repos, conversa: Conversa, usuario: Usua
       return () => { throw new BloqueadoNaSimulacao(`repositório: ${nome}`); };
     },
   }) as unknown as Repos;
+}
+
+/**
+ * Auditoria 1.1: resumos de nota do teste, na memória, com as regras de consumir_resumo_nota. A conversa fictícia não
+ * recebe mensagem depois do resumo: fora da mesma vez, a recusa é "sem_resposta".
+ */
+function resumosNaMemoria(): Pick<Repos, 'gravarResumoNota' | 'lerResumoNota' | 'consumirResumoNota'> {
+  type Guardado = Parameters<Repos['gravarResumoNota']>[0] & { usado: boolean };
+  const resumos = new Map<string, Guardado>();
+  const recusa = (motivo: string) => ({ ok: false as const, motivo, numero: null });
+  return {
+    gravarResumoNota: async (r) => {
+      const id = randomUUID();
+      resumos.set(id, { ...r, usado: false });
+      return id;
+    },
+    lerResumoNota: async (id, conversaId, clienteId) => {
+      const r = resumos.get(id);
+      return r && r.conversaId === conversaId && r.clienteId === clienteId ? { pedido: r.pedido, hash: r.hash, usado: r.usado, numeroChamado: null } : null;
+    },
+    consumirResumoNota: async (id, conversaId, clienteId, turnoAtual) => {
+      const r = resumos.get(id);
+      if (!r || r.conversaId !== conversaId) return recusa('nao_encontrado');
+      if (r.clienteId !== clienteId) return recusa('outra_empresa');
+      if (r.usado) return recusa('ja_usado');
+      if (!turnoAtual || r.turno === turnoAtual) return recusa('mesmo_turno');
+      return recusa('sem_resposta');
+    },
+  };
 }
 
 function canalBloqueado(): CanalWhatsApp {
@@ -151,7 +182,6 @@ export function orientacoesDoTeste(ativas: OrientacaoAgente[], rascunho: Rascunh
 }
 
 type Registro = RespostasSimulacao & {
-  resumos: { entrada: unknown; conferencia: string }[];
   demandas: number;
   triagemAberta: boolean;
   naoEntendido: number;
@@ -222,24 +252,24 @@ async function simularGravacao(d: DepsAgente, estado: EstadoExecucao, nome: Nome
       if ('erro' in p) return p;
       // O cliente veria o resumo inteiro, montado pelo sistema: entra como mensagem.
       r.mensagens.push(montarResumoParaCliente({ tipo: entrada.tipo, destino: p.destino, textoDestinatario: entrada.texto_destinatario, itens: p.itens, extras: entrada }));
-      const conferencia = chaveConferencia(entrada);
-      r.resumos.push({ entrada, conferencia });
+      // Auditoria 1.1: o resumo fica no repositório da simulação (memória), como no atendimento.
+      const resumoId = await d.repos.gravarResumoNota({
+        conversaId: ctx.conversa.id, clienteId: e.clienteId, turno: estado.turno ?? randomUUID(), mensagemResumoId: 'simulacao',
+        pedido: { entrada, destino: p.destino, itens: p.itens }, hash: hashPedidoNota({ tipo: entrada.tipo, ...p }),
+      });
       estado.respondeu = true;
       acao(r, nome, `Mandaria o resumo de uma nota de ${entrada.tipo === 'venda' ? 'venda' : 'devolução'} para o cliente conferir`);
-      return ok({ enviado: true, conferencia, instrucao: AVISOS.instrucaoResumo });
+      return ok({ enviado: true, resumo_id: resumoId, instrucao: AVISOS.instrucaoResumo });
     }
 
     case 'abrir_pedido_nota': {
       const e = exigirEmpresa(estado);
       if ('erro' in e) return e;
-      if (!entrada.cliente_confirmou_resumo) return falha(AVISOS.pedidoSemConfirmacao);
-      // Mesma trava do atendimento: só passa um pedido cujo resumo foi mandado (aqui, neste mesmo teste).
-      const achado = acharResumoConferido(entrada, r.resumos, (x): x is typeof entrada => PedidoNota.safeParse(x).success);
-      if (achado === null) return falha(AVISOS.pedidoNaoConferido);
-      if ('ambiguo' in achado) return falha(AVISOS.pedidoAmbiguo);
-      const conferido = { ...PedidoNota.parse(achado.resumo.entrada), pedido_original: entrada.pedido_original };
-      const p = await prepararPedido(d, e.clienteId, conferido);
-      if ('erro' in p) return p;
+      // Mesma trava do atendimento (consumirResumo). O teste é uma vez só, sem resposta do cliente depois do resumo:
+      // o resumo deste teste nunca vira demanda, como no atendimento na mesma vez.
+      const p = await consumirResumo(d, estado, e.clienteId, entrada);
+      if ('resultado' in p) return p;
+      const { conferido } = p;
       const { titulo } = montarPedidoNota({
         tipo: conferido.tipo, destino: p.destino, textoDestinatario: conferido.texto_destinatario, itens: p.itens,
         pedidoOriginal: conferido.pedido_original, semPermissao: !ctx.empresaEmFoco!.podePedirNota,
@@ -416,7 +446,7 @@ async function simular(
     agente,
   };
 
-  const registro: Registro = { mensagens: [], acoes: [], observacoes: [], resumos: [], demandas: 0, triagemAberta: false, naoEntendido: 0 };
+  const registro: Registro = { mensagens: [], acoes: [], observacoes: [], demandas: 0, triagemAberta: false, naoEntendido: 0 };
   const mensagem = {
     id: `simulacao-${sim.id}`, conversa_id: sim.id, cliente_id: empresa?.id ?? null, direcao: 'entrada', autor: 'cliente', tipo: 'texto',
     conteudo: sim.mensagem, criado_em: agoraIso,

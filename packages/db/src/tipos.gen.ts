@@ -1294,6 +1294,61 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"pedidos_nota_resumo": {
+                  Row: {
+                    "chamado_id": string | null,"cliente_id": string,"conversa_id": string,"criado_em": string,"hash": string,"id": string,"mensagem_resumo_id": string,"pedido": NonNullable<Json>,"turno": string,"usado_em": string | null
+                  }
+                  Insert: {
+                    "chamado_id"?: string | null,"cliente_id": string,"conversa_id": string,"criado_em"?: string,"hash": string,"id"?: string,"mensagem_resumo_id": string,"pedido": NonNullable<Json>,"turno": string,"usado_em"?: string | null
+                  }
+                  Update: {
+                    "chamado_id"?: string | null,"cliente_id"?: string,"conversa_id"?: string,"criado_em"?: string,"hash"?: string,"id"?: string,"mensagem_resumo_id"?: string,"pedido"?: NonNullable<Json>,"turno"?: string,"usado_em"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pedidos_nota_resumo_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "chamados"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pedidos_nota_resumo_chamado_id_fkey"
+      columns: ["chamado_id"]
+isOneToOne: false
+      referencedRelation: "demandas_lista"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pedidos_nota_resumo_cliente_id_fkey"
+      columns: ["cliente_id"]
+isOneToOne: false
+      referencedRelation: "clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pedidos_nota_resumo_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "caixa_entrada"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pedidos_nota_resumo_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "contatos_lista"
+      referencedColumns: ["conversa_id"]
+    },{
+      foreignKeyName: "pedidos_nota_resumo_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "conversas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pedidos_nota_resumo_mensagem_resumo_id_fkey"
+      columns: ["mensagem_resumo_id"]
+isOneToOne: false
+      referencedRelation: "mensagens"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"permissao_niveis": {
                   Row: {
                     "modulo": string,"nivel": string,"ordem": number
@@ -2134,6 +2189,9 @@ isOneToOne: false
 "concluir_giro_radar":
 { Args: { "p_dados": Json,"p_giro": string }; Returns: undefined
                            },
+"consumir_resumo_nota":
+{ Args: { "p_cliente": string,"p_conversa": string,"p_id": string,"p_turno": string }; Returns: Json
+                           },
 "contato_arquivado_do_telefone":
 { Args: { "p_telefone": string }; Returns: Json
                            },
@@ -2200,6 +2258,9 @@ isOneToOne: false
                            },
 "custo_ia_periodo":
 { Args: { "p_fim": string,"p_inicio": string }; Returns: number
+                           },
+"dados_pagamento_validos":
+{ Args: { "p": Json }; Returns: boolean
                            },
 "decidir_sugestao":
 { Args: { "p_aprovar": boolean,"p_id": string }; Returns: string

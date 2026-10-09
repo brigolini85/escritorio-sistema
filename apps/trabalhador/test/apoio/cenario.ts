@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { Perfil } from '@escritorio/core';
 import { criarClienteServico, criarRepos } from '@escritorio/db';
 
@@ -96,4 +97,10 @@ export async function criarCadastrosExemplo(clienteId: string): Promise<Cadastro
   const contrato = await doc('Contrato social', 'contrato-social.pdf', true);
   const balanco = await doc('Balanço 2025', 'balanco-2025.pdf', false);
   return { brasilEfigenia, brasilMatilde, hortsul, boiBom, costela, frango, alho, contrato, balanco };
+}
+
+/** Auditoria 1.1/5.5: o cliente responde ao resumo de nota e a próxima ferramenta roda numa vez seguinte do agente. */
+export async function clienteRespondeResumo(estado: { ctx: { conversa: { id: string } }; turno?: string }, texto = 'sim'): Promise<void> {
+  await repos.inserirMensagemEntrada({ conversaId: estado.ctx.conversa.id, clienteId: null, tipo: 'texto', conteudo: texto, idProvedor: `ENT-${randomUUID()}` });
+  estado.turno = randomUUID();
 }

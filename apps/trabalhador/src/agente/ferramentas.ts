@@ -1,4 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { MOTIVOS_PASSAGEM, ROTULO_SITUACAO_PRE_ANALISE, escolherResponsavel, formatarMensagem, resumoPreAnalise } from '@escritorio/core';
 import type { AcessoContato, ModoContato } from '@escritorio/core';
@@ -12,7 +13,7 @@ import { recusarForaDoAcesso } from './fora-do-acesso';
 import type { ClienteIa } from './cliente-ia';
 import { calcularPreAnalise, preAnaliseNaAbertura } from './pre-analise';
 import { AVISOS_AGENTE, acessoAoSetor } from './roteamento';
-import { acharResumoConferido, chaveConferencia, cnpjFormatado, formatarReais, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente, type ItemPedido } from './pedido-nota';
+import { cnpjFormatado, formatarReais, hashPedidoNota, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente, type ItemPedido } from './pedido-nota';
 import type { ContextoAgente } from './contexto';
 import { lerReferenciaDoPerfil, lerSkillDoPerfil } from './skills';
 
@@ -73,6 +74,12 @@ const CAMPOS_PEDIDO = {
   },
 };
 const OBRIGATORIOS_PEDIDO = ['tipo', 'unidade_id', 'texto_destinatario', 'itens'];
+/**
+ * O que o cliente pode dizer só no "sim" (data, pagamento, frete): na abertura completa o que o resumo deixou vazio, sem
+ * trocar o que ele conferiu. O endereço de entrega fica de fora: endereço novo só com resumo novo (auditoria 1.1).
+ */
+const CAMPOS_EXTRAS_ABERTURA = ['data_prevista', 'forma_pagamento', 'valor_frete', 'tipo_frete', 'transportadora', 'observacoes'] as const;
+const EXTRAS_NA_ABERTURA = Object.fromEntries(CAMPOS_EXTRAS_ABERTURA.map((c) => [c, CAMPOS_PEDIDO[c]]));
 const PRIORIDADES = ['baixa', 'normal', 'alta', 'urgente'] as const;
 /** Prioridade da demanda (regra 14 do prompt). O prazo é calculado pelo banco e não volta para o modelo. */
 const CAMPO_PRIORIDADE = {
@@ -133,13 +140,14 @@ export const FERRAMENTAS: Anthropic.Tool[] = [
   },
   {
     name: 'abrir_pedido_nota',
-    description: 'Passa a nota para o Fiscal, já organizada, com o preço da tabela preenchido pelo sistema. Só depois de o cliente confirmar o resumo mandado por resumir_pedido_nota (cliente_confirmou_resumo = true), com o mesmo destinatário e os mesmos itens do resumo. Uma chamada por nota.',
+    description: 'Passa para o Fiscal a nota de um resumo que o cliente já confirmou, numa mensagem dele depois do resumo (nunca na mesma vez em que o resumo foi mandado). Informe o resumo_id que resumir_pedido_nota devolveu para essa nota: destinatário, itens, entrega e preços vêm do resumo. Uma chamada por nota.',
+    // Auditoria 1.1: sem itens nem destinatário aqui; tudo vem do resumo pelo id.
     input_schema: objeto({
-      ...CAMPOS_PEDIDO,
+      resumo_id: { type: 'string', description: 'O resumo_id devolvido por resumir_pedido_nota para esta nota.' },
       pedido_original: { type: 'string', description: 'Texto do pedido do cliente, copiado sem alterar.' },
-      cliente_confirmou_resumo: { type: 'boolean', description: 'true só depois de o cliente confirmar o resumo e dizer que não tem mais nota para pedir agora.' },
       prioridade: CAMPO_PRIORIDADE,
-    }, [...OBRIGATORIOS_PEDIDO, 'pedido_original', 'cliente_confirmou_resumo', 'prioridade']),
+      ...EXTRAS_NA_ABERTURA,
+    }, ['resumo_id', 'pedido_original', 'prioridade']),
   },
   {
     name: 'listar_documentos',
@@ -260,9 +268,9 @@ const Entradas = {
   buscar_parceiros: z.object({ texto: z.string().min(1).max(200), tipo: z.enum(['cliente', 'fornecedor']) }),
   buscar_produtos: z.object({ textos: z.array(z.string().min(1).max(200)).min(1).max(30) }),
   resumir_pedido_nota: PedidoNota,
-  abrir_pedido_nota: PedidoNota.extend({
-    pedido_original: z.string().min(1).max(4000), cliente_confirmou_resumo: z.boolean(), prioridade: z.enum(PRIORIDADES).catch('normal'),
-  }),
+  // Auditoria 1.1: resumo_id obrigatório; sem caminho que remonte o pedido de memória.
+  abrir_pedido_nota: PedidoNota.pick({ data_prevista: true, forma_pagamento: true, valor_frete: true, tipo_frete: true, transportadora: true, observacoes: true })
+    .extend({ resumo_id: z.string().uuid(), pedido_original: z.string().min(1).max(4000), prioridade: z.enum(PRIORIDADES).catch('normal') }),
   listar_documentos: z.object({}),
   enviar_documento: z.object({ documento_id: z.string() }),
   consultar_cadastro: z.object({ unidade_id: z.string().optional() }),
@@ -295,9 +303,12 @@ export const diaMes = (iso: string) =>
 export const AVISOS = {
   empresaAlheia: 'Essa empresa não está ligada a este contato. Não informe nada sobre ela.',
   setorInvalido: 'setor_id inválido. Use um id da lista de SETORES ou "triagem".',
-  pedidoSemConfirmacao: 'Ainda não passe o pedido: mande o resumo com resumir_pedido_nota e espere o cliente confirmar que está certo e que não tem mais nota. Depois chame de novo com cliente_confirmou_resumo = true (uma chamada por nota).',
-  pedidoNaoConferido: 'O cliente não conferiu este pedido: mande o resumo com resumir_pedido_nota (com o mesmo destinatário e os mesmos itens) e espere a confirmação antes de passar para o Fiscal.',
-  pedidoAmbiguo: 'Mais de um resumo enviado combina com este pedido. Chame de novo com o unidade_id e os produto_id usados no resumo que o cliente confirmou.',
+  // Auditoria 1.1 e 5.5: recusas de abrir_pedido_nota, pelo motivo devolvido por consumir_resumo_nota.
+  pedidoNaoConferido: 'Este resumo_id não é de um resumo mandado nesta conversa para a empresa em foco. Mande o resumo com resumir_pedido_nota e espere o cliente confirmar.',
+  pedidoSemResposta: 'O cliente ainda não respondeu a este resumo. Espere a resposta dele; não passe a nota agora.',
+  pedidoResumoVencido: 'Este resumo tem mais de 24 horas. Mande um resumo novo com resumir_pedido_nota e espere o cliente confirmar.',
+  pedidoEmAndamento: 'Esta nota já está sendo passada para o Fiscal. Não chame de novo.',
+  pedidoMudou: 'Os preços ou o cadastro mudaram desde o resumo. Mande um resumo novo com resumir_pedido_nota',
   documentoNaoEncontrado: 'Documento não encontrado nesta empresa. Use listar_documentos.',
   documentoNaoLiberado: 'Este documento não está liberado para envio automático. Abra uma demanda com abrir_chamado para a equipe enviar.',
   precoSemConfirmacao: 'Antes de alterar, confirme com o cliente o novo valor (produto, rede, de quanto para quanto) e só então chame de novo com confirmado_pelo_cliente = true.',
@@ -306,7 +317,7 @@ export const AVISOS = {
   instrucaoExplicarDeNovo: 'Peça gentilmente para o cliente explicar de outra forma.',
   instrucaoEquipeContinua: 'Diga ao cliente que uma pessoa da equipe vai continuar o atendimento.',
   instrucaoPessoaChamada: 'A equipe já foi avisada. Diga ao cliente, curto, que já chamou alguém da equipe para continuar.',
-  instrucaoResumo: 'O resumo já chegou ao cliente. Se for a última nota a resumir agora, pergunte numa mensagem curta se está tudo certo e se tem mais alguma nota. Não repita o resumo.',
+  instrucaoResumo: 'O resumo já chegou ao cliente. Se for a última nota a resumir agora, pergunte numa mensagem curta se está tudo certo e se tem mais alguma nota. Não repita o resumo. Depois que o cliente confirmar, passe com abrir_pedido_nota e este resumo_id.',
   basicoSemConsulta: 'Este contato ainda não consulta o andamento pelo WhatsApp. Diga que vai confirmar com a equipe e abra uma demanda curta no setor do assunto. Não fale em permissão, acesso nem cadastro.',
   basicoSemDocumentos: 'Este contato ainda não recebe documentos pelo WhatsApp. Abra uma demanda para a equipe enviar. Não fale em permissão, acesso nem cadastro.',
   basicoSemDados: 'Este contato ainda não consulta dados pelo WhatsApp. Abra uma demanda para a equipe responder. Não fale em permissão, acesso nem cadastro.',
@@ -424,6 +435,42 @@ export async function prepararPedido(d: DepsAgente, clienteId: string, entrada: 
     preco: i.produto_id ? precos[i.produto_id] ?? null : null,
   }));
   return { destino, itens };
+}
+
+/** Recusa com o motivo à parte (o modelo segue a instrução; testes e painel leem o motivo). */
+export const recusa = (motivo: string, instrucao: string): Resultado => ({ resultado: JSON.stringify({ erro: instrucao, motivo }), erro: true });
+
+const RECUSAS_RESUMO: Record<string, string> = {
+  nao_encontrado: AVISOS.pedidoNaoConferido, outra_empresa: AVISOS.pedidoNaoConferido, sem_envio: AVISOS.pedidoNaoConferido,
+  expirado: AVISOS.pedidoResumoVencido, mesmo_turno: AVISOS.pedidoSemResposta, sem_resposta: AVISOS.pedidoSemResposta, ja_usado: AVISOS.pedidoEmAndamento,
+};
+
+export type EntradaAbrirPedido = z.infer<(typeof Entradas)['abrir_pedido_nota']>;
+export type PedidoConferido = { conferido: z.infer<typeof PedidoNota> & { pedido_original: string }; destino: UnidadeParceiro | null; itens: ItemPedido[] };
+
+/**
+ * Auditoria 1.1 e 5.5: o pedido que vai ao Fiscal é o do resumo `resumo_id`, nunca um remontado pelo modelo. Confere que
+ * o resumo é desta conversa e da empresa em foco, que preços e cadastro não mudaram (hash) e o consome uma vez só
+ * (consumir_resumo_nota: resposta do cliente depois do envio, noutra vez, em 24 h). Já virou demanda: devolve o número.
+ */
+export async function consumirResumo(d: DepsAgente, estado: EstadoExecucao, clienteId: string, entrada: EntradaAbrirPedido): Promise<PedidoConferido | Resultado> {
+  const conversaId = estado.ctx.conversa.id;
+  const guardado = await d.repos.lerResumoNota(entrada.resumo_id, conversaId, clienteId);
+  if (!guardado) return recusa('nao_encontrado', AVISOS.pedidoNaoConferido);
+  if (guardado.numeroChamado !== null) return ok({ numero: guardado.numeroChamado, ja_aberto: true });
+  const resumido = PedidoNota.safeParse((guardado.pedido as { entrada?: unknown } | null)?.entrada);
+  if (!resumido.success) return recusa('nao_encontrado', AVISOS.pedidoNaoConferido);
+  // Antes de consumir: o pedido com os preços e o cadastro de agora tem de ser o que o cliente viu.
+  const p = await prepararPedido(d, clienteId, resumido.data);
+  if ('erro' in p || hashPedidoNota({ tipo: resumido.data.tipo, ...p }) !== guardado.hash) return recusa('pedido_mudou', AVISOS.pedidoMudou);
+  const c = await d.repos.consumirResumoNota(entrada.resumo_id, conversaId, clienteId, estado.turno ?? null);
+  if (!c.ok) {
+    if (c.motivo === 'ja_usado' && c.numero !== null) return ok({ numero: c.numero, ja_aberto: true });
+    return recusa(c.motivo, RECUSAS_RESUMO[c.motivo] ?? AVISOS.pedidoNaoConferido);
+  }
+  // O que o resumo trouxe vale; o que ele deixou vazio pode vir agora (o endereço de entrega não: CAMPOS_EXTRAS_ABERTURA).
+  const extras = Object.fromEntries(CAMPOS_EXTRAS_ABERTURA.map((k) => [k, resumido.data[k] ?? entrada[k] ?? null]));
+  return { conferido: { ...resumido.data, ...extras, pedido_original: entrada.pedido_original }, destino: p.destino, itens: p.itens };
 }
 
 /** Como o marcarPassagem de processar-conversa: falha ao marcar a espera só é registrada (não vira uma "Falha no agente" a mais). */
@@ -566,16 +613,18 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       if ('erro' in p) return p;
       const atual = await d.repos.obterConversa(ctx.conversa.id);
       if (atual.estado === 'humano') return falha('Um atendente assumiu esta conversa. Não envie nada.');
-      await enviarDoSistema(d.envio, {
+      const mensagemId = await enviarDoSistema(d.envio, {
         conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: e.clienteId, autor: 'agente',
         texto: montarResumoParaCliente({ tipo: entrada.tipo, destino: p.destino, textoDestinatario: entrada.texto_destinatario, itens: p.itens, extras: entrada }),
         turnoAgente: estado.turno ?? null,
       });
       estado.respondeu = true;
-      return ok({
-        enviado: true, conferencia: chaveConferencia(entrada),
-        instrucao: AVISOS.instrucaoResumo,
+      // Auditoria 1.1: gravado só depois de a saída ficar enviada; a entrada que chegou no meio do envio não confirma.
+      const resumoId = await d.repos.gravarResumoNota({
+        conversaId: ctx.conversa.id, clienteId: e.clienteId, turno: estado.turno ?? randomUUID(), mensagemResumoId: mensagemId,
+        pedido: { entrada, destino: p.destino, itens: p.itens }, hash: hashPedidoNota({ tipo: entrada.tipo, ...p }),
       });
+      return ok({ enviado: true, resumo_id: resumoId, instrucao: AVISOS.instrucaoResumo });
     }
 
     case 'abrir_pedido_nota': {
@@ -583,23 +632,9 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       if ('erro' in e) return e;
       const semNota = await exigirFluxoNota(d, estado, e.clienteId);
       if (semNota) return semNota;
-      if (!entrada.cliente_confirmou_resumo) {
-        return falha(AVISOS.pedidoSemConfirmacao);
-      }
-      // Trava: só abre o pedido que o cliente conferiu (um resumo enviado nas últimas 24 h). O que vai para o Fiscal é o
-      // pedido do resumo, não o remontado pelo modelo depois do "sim" (que perde ids e troca PAC por PC).
-      const resumos = await d.repos.resumosEnviados(ctx.conversa.id, new Date(ctx.agora.getTime() - 24 * 3600_000));
-      const achado = acharResumoConferido(entrada, resumos, (x): x is z.infer<typeof PedidoNota> => PedidoNota.safeParse(x).success);
-      if (achado === null) {
-        return falha(AVISOS.pedidoNaoConferido);
-      }
-      if ('ambiguo' in achado) {
-        return falha(AVISOS.pedidoAmbiguo);
-      }
-      const conferido = { ...PedidoNota.parse(achado.resumo.entrada), pedido_original: entrada.pedido_original };
-      const p = await prepararPedido(d, e.clienteId, conferido);
-      if ('erro' in p) return p;
-      const { destino, itens } = p;
+      const p = await consumirResumo(d, estado, e.clienteId, entrada);
+      if ('resultado' in p) return p;
+      const { conferido, destino, itens } = p;
       // O acesso de agora (o painel pode ter mudado depois de a conversa carregar), não o guardado no contexto.
       const acesso = await acessoNaEmpresa(d, estado, e.clienteId);
       const pedido = montarPedidoNota({
@@ -614,6 +649,7 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
         clienteId: e.clienteId, conversaId: ctx.conversa.id, setorId, responsavelId,
         titulo, resumo, foraDoContrato: false, origem: 'agente', prioridade: entrada.prioridade,
       });
+      await d.repos.vincularChamadoAoResumo(entrada.resumo_id, chamadoId);
       // Pedido de venda para a equipe baixar no painel como arquivo do Bling (o cliente nunca recebe).
       if (conferido.tipo === 'venda') {
         await d.repos.anexarPedidoVenda(chamadoId, montarPedidoVenda({ agora: ctx.agora, destino, textoDestinatario: conferido.texto_destinatario, itens, extras: conferido }));

@@ -476,15 +476,31 @@ export function criarRepos(db: Db) {
         ...(d.agenteId ? { agente_id: d.agenteId } : {}) }), 'registrarDecisao');
     },
 
-    /** Chaves dos resumos de nota enviados ao cliente nesta conversa desde `desde` (a demanda só abre para um pedido conferido). */
-    /** Resumos de pedido de nota que chegaram ao cliente nesta conversa (o pedido como foi resumido + a chave), do mais novo ao mais antigo. */
-    async resumosEnviados(conversaId: string, desde: Date): Promise<{ entrada: unknown; conferencia: string }[]> {
-      const linhas = checar(await db.from('decisoes_agente').select('entrada, saida').eq('conversa_id', conversaId)
-        .eq('etapa', 'resumir_pedido_nota').gte('criado_em', desde.toISOString()).order('criado_em', { ascending: false }), 'resumosEnviados');
-      return linhas.flatMap((l) => {
-        const chave = (l.saida as { conferencia?: unknown } | null)?.conferencia;
-        return typeof chave === 'string' ? [{ entrada: l.entrada, conferencia: chave }] : [];
-      });
+    /** Auditoria 1.1: resumo de nota que chegou ao cliente (a saída já enviada), com o pedido resolvido e o hash. */
+    async gravarResumoNota(r: { conversaId: string; clienteId: string; turno: string; mensagemResumoId: string; pedido: unknown; hash: string }): Promise<string> {
+      return checar(await db.from('pedidos_nota_resumo').insert({ conversa_id: r.conversaId, cliente_id: r.clienteId, turno: r.turno,
+        mensagem_resumo_id: r.mensagemResumoId, pedido: r.pedido as never, hash: r.hash }).select('id').single(), 'gravarResumoNota').id;
+    },
+
+    /** O resumo desta conversa e empresa (null se não for): o pedido guardado, o hash e, se já virou demanda, o número dela. */
+    async lerResumoNota(id: string, conversaId: string, clienteId: string): Promise<{ pedido: unknown; hash: string; usado: boolean; numeroChamado: number | null } | null> {
+      const l = checar(await db.from('pedidos_nota_resumo').select('pedido, hash, usado_em, chamados(numero)')
+        .eq('id', id).eq('conversa_id', conversaId).eq('cliente_id', clienteId).maybeSingle(), 'lerResumoNota');
+      if (!l) return null;
+      const numero = l.chamados?.numero;
+      return { pedido: l.pedido, hash: l.hash, usado: l.usado_em !== null, numeroChamado: numero == null ? null : Number(numero) };
+    },
+
+    /** Consome o resumo uma vez só (consumir_resumo_nota): resposta do cliente depois do envio, noutra vez, mesma empresa, 24 h. */
+    async consumirResumoNota(id: string, conversaId: string, clienteId: string, turnoAtual: string | null):
+      Promise<{ ok: true; pedido: unknown } | { ok: false; motivo: string; numero: number | null }> {
+      const r = checar(await db.rpc('consumir_resumo_nota', { p_id: id, p_conversa: conversaId, p_cliente: clienteId, p_turno: turnoAtual as string }),
+        'consumirResumoNota') as { ok?: boolean; pedido?: unknown; motivo?: string; numero?: number | null };
+      return r.ok ? { ok: true, pedido: r.pedido } : { ok: false, motivo: r.motivo ?? 'nao_encontrado', numero: r.numero == null ? null : Number(r.numero) };
+    },
+
+    async vincularChamadoAoResumo(id: string, chamadoId: string): Promise<void> {
+      checar(await db.from('pedidos_nota_resumo').update({ chamado_id: chamadoId }).eq('id', id), 'vincularChamadoAoResumo');
     },
 
     async registrarUsoIa(u: NovoUsoIa): Promise<void> {

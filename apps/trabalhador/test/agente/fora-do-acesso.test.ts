@@ -7,7 +7,7 @@ import { avisoAoSocio, diaEmSaoPaulo } from '../../src/agente/fora-do-acesso';
 import { CanalFalso } from '../../src/canal/falso';
 import { LimitadorEnvio } from '../../src/envio';
 import { criarArmazenamento } from '../../src/midia/armazenamento';
-import { contatoComEmpresas, criarCadastrosExemplo, db, definirAcessoTeste, repos, setorId } from '../apoio/cenario';
+import { clienteRespondeResumo, contatoComEmpresas, criarCadastrosExemplo, db, definirAcessoTeste, repos, setorId } from '../apoio/cenario';
 import { IaRoteirizada } from '../apoio/ia-roteirizada';
 
 // Parte H2 (spec 7D.2, D13–D15): pedido fora do acesso → resposta neutra fixa, nada revelado, demanda com nota no setor
@@ -256,8 +256,9 @@ describe('abrir_pedido_nota usa o acesso de agora', () => {
       tipo: 'venda', unidade_id: cad.brasilEfigenia, texto_destinatario: 'Brasil Santa Efigênia',
       itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 20, unidade: 'PAC' }],
     };
-    await usar('resumir_pedido_nota', base);
-    const r = await usar('abrir_pedido_nota', { ...base, pedido_original: 'NF pro Brasil: 20 costela', cliente_confirmou_resumo: true, prioridade: 'normal' });
+    const { resumo_id } = await usar('resumir_pedido_nota', base);
+    await clienteRespondeResumo(estado);
+    const r = await usar('abrir_pedido_nota', { resumo_id, pedido_original: 'NF pro Brasil: 20 costela', prioridade: 'normal' });
     expect(r.setor).toBe('Fiscal');
     const { data } = await db.from('chamados').select('resumo').eq('cliente_id', rede).single();
     expect(data!.resumo).toContain('Observação: contato sem permissão para pedir nota.');

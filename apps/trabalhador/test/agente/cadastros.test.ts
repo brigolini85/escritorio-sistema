@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { limparBanco } from '@escritorio/db/teste';
 import { carregarContexto } from '../../src/agente/contexto';
@@ -25,7 +26,7 @@ beforeEach(async () => {
   const { empresas, conversa } = await contatoComEmpresas(['Indústria X']);
   cad = await criarCadastrosExemplo(empresas[0]!.id);
   const contato = await repos.buscarContato(conversa.telefone);
-  estado = { ctx: await carregarContexto(repos, conversa, contato, await repos.obterConfiguracoes(), SEGUNDA_10H), respondeu: false };
+  estado = { ctx: await carregarContexto(repos, conversa, contato, await repos.obterConfiguracoes(), SEGUNDA_10H), respondeu: false, turno: randomUUID() };
 });
 
 describe('buscar_parceiros', () => {
@@ -69,30 +70,43 @@ describe('pedido de nota: resumo para o cliente e demanda no Fiscal', () => {
     itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 20, unidade: 'PAC' }, { produto_id: null, texto: 'lasanha', quantidade: 3, unidade: 'PAC' }],
     ...extra,
   });
-  const abrir = (extra: object = {}) => usar('abrir_pedido_nota', {
-    ...base(extra), pedido_original: 'Tira NF pro Brasil Santa Efigênia: 20 PAC costela e 3 lasanha', cliente_confirmou_resumo: true,
+  // Auditoria 1.1: a abertura recebe o resumo_id; itens e destinatário vêm do resumo.
+  const abrir = (resumoId: string, extra: object = {}) => usar('abrir_pedido_nota', {
+    resumo_id: resumoId, pedido_original: 'Tira NF pro Brasil Santa Efigênia: 20 PAC costela e 3 lasanha', ...extra,
   });
+  const resumir = async (extra: object = {}) => {
+    const r = await usar('resumir_pedido_nota', base(extra));
+    expect(r._erro).toBe(false);
+    return r.resumo_id as string;
+  };
+  /** O cliente responde ao resumo; a abertura vem na vez seguinte do agente (auditoria 1.1/5.5). */
+  const clienteConfirma = async () => {
+    await repos.inserirMensagemEntrada({ conversaId: estado.ctx.conversa.id, clienteId: null, tipo: 'texto', conteudo: 'sim', idProvedor: `ENT-${randomUUID()}` });
+    estado.turno = randomUUID();
+  };
   it('a nota leva a prioridade que o agente mandou (regra 14); sem ela, normal', async () => {
-    await usar('resumir_pedido_nota', base());
-    expect((await abrir({ prioridade: 'urgente' }))._erro).toBe(false);
-    await usar('resumir_pedido_nota', base({ observacoes: 'segunda nota' }));
-    expect((await abrir({ observacoes: 'segunda nota' }))._erro).toBe(false);
+    const id1 = await resumir();
+    const id2 = await resumir({ observacoes: 'segunda nota' });
+    await clienteConfirma();
+    expect((await abrir(id1, { prioridade: 'urgente' }))._erro).toBe(false);
+    expect((await abrir(id2))._erro).toBe(false);
     const { data } = await db.from('chamados').select('prioridade, prazo_em').order('numero');
     expect(data!.map((c) => c.prioridade)).toEqual(['urgente', 'normal']);
     expect(data!.every((c) => c.prazo_em !== null)).toBe(true);
   });
 
   it('prioridade inválida do modelo na nota cai para normal', async () => {
-    await usar('resumir_pedido_nota', base());
-    expect((await abrir({ prioridade: 'enorme' }))._erro).toBe(false);
+    const id = await resumir();
+    await clienteConfirma();
+    expect((await abrir(id, { prioridade: 'enorme' }))._erro).toBe(false);
     expect((await db.from('chamados').select('prioridade').single()).data!.prioridade).toBe('normal');
   });
 
   /** O cliente confere o resumo e confirma: só então a demanda abre. */
   const conferirEAbrir = async (extra: object = {}) => {
-    const r = await usar('resumir_pedido_nota', base(extra));
-    expect(r._erro).toBe(false);
-    return abrir(extra);
+    const id = await resumir(extra);
+    await clienteConfirma();
+    return abrir(id);
   };
 
   it('resumo vai ao cliente com CNPJ, código, preço e total, e não abre demanda (pedido do dono, 2026-09-29)', async () => {
@@ -123,35 +137,25 @@ describe('pedido de nota: resumo para o cliente e demanda no Fiscal', () => {
     expect(data!.resumo).toContain('Observação: contato sem permissão para pedir nota.');
   });
 
-  it('trava: sem resumo conferido, ou com itens diferentes do resumo, não abre a demanda', async () => {
-    expect(JSON.stringify(await abrir())).toContain('não conferiu');
-    await usar('resumir_pedido_nota', base());
-    const outro = await abrir({ itens: [{ produto_id: cad.costela, texto: 'costela', quantidade: 25, unidade: 'PAC' }] });
-    expect(JSON.stringify(outro)).toContain('não conferiu');
-    expect(JSON.stringify(await usar('abrir_pedido_nota', { ...base(), pedido_original: 'x', cliente_confirmou_resumo: false }))).toContain('resumir_pedido_nota');
+  // Auditoria 1.1: o caminho sem resumo_id (pedido remontado e casado com um resumo) não existe mais.
+  it('trava: sem resumo_id o esquema recusa; sem resposta do cliente ao resumo, não abre a demanda', async () => {
+    expect((await usar('abrir_pedido_nota', { ...base(), pedido_original: 'x', cliente_confirmou_resumo: true }))._erro).toBe(true);
+    const id = await resumir();
+    estado.turno = randomUUID();
+    expect(JSON.stringify(await abrir(id))).toContain('sem_resposta');
     expect((await db.from('chamados').select('id')).data).toHaveLength(0);
-    expect((await abrir())._erro).toBe(false);
+    await clienteConfirma();
+    expect((await abrir(id))._erro).toBe(false);
   });
 
-  it('depois do "sim", o agente remonta o pedido sem os ids e com outra unidade de contagem: abre o pedido do resumo conferido (bug do dono, 2026-09-30)', async () => {
-    await usar('resumir_pedido_nota', base({ forma_pagamento: 'PIX' }));
-    const r = await abrir({
-      unidade_id: null, forma_pagamento: undefined,
-      itens: [{ produto_id: null, texto: '20 pac de costela', quantidade: 20, unidade: 'PC' }, { produto_id: null, texto: 'lasanha', quantidade: 3, unidade: 'pct' }],
-    });
+  it('depois do "sim", vai o pedido do resumo (ids, unidade de contagem e pagamento), sem o modelo remontar (bug do dono, 2026-09-30)', async () => {
+    const id = await resumir({ forma_pagamento: 'PIX' });
+    await clienteConfirma();
+    const r = await abrir(id);
     expect(r._erro).toBe(false);
     const { data } = await db.from('chamados').select('resumo, pedido_venda').single();
     expect(data!.resumo).toContain('20 PAC Costela com Requeijão (cód. 12) × R$ 9,50 = R$ 190,00');
     expect(data!.pedido_venda).toMatchObject({ unidade_id: cad.brasilEfigenia, forma_pagamento: 'PIX' });
-  });
-
-  it('dois resumos que servem para o mesmo pedido remontado sem ids: pede para indicar qual, não abre às cegas', async () => {
-    await usar('resumir_pedido_nota', base());
-    await usar('resumir_pedido_nota', base({ unidade_id: cad.brasilMatilde, texto_destinatario: 'Brasil Santa Matilde' }));
-    const r = await abrir({ unidade_id: null, itens: [{ produto_id: null, texto: 'costela', quantidade: 20, unidade: 'PAC' }, { produto_id: null, texto: 'lasanha', quantidade: 3, unidade: 'PAC' }] });
-    expect(r._erro).toBe(true);
-    expect(JSON.stringify(r)).toContain('unidade_id');
-    expect((await db.from('chamados').select('id')).data).toHaveLength(0);
   });
 
   it('venda: guarda na demanda o pedido de venda para o arquivo do Bling (pedido do dono, 2026-09-29)', async () => {

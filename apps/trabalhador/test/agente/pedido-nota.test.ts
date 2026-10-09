@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ProdutoEmpresa, UnidadeParceiro } from '@escritorio/db';
-import { chaveConferencia, formatarReais, mesmaUnidade, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente } from '../../src/agente/pedido-nota';
+import { formatarReais, hashPedidoNota, mesmaUnidade, montarPedidoNota, montarPedidoVenda, montarResumoParaCliente } from '../../src/agente/pedido-nota';
 
 const efigenia: UnidadeParceiro = { id: 'u1', grupoId: 'g1', tipo: 'cliente', rede: 'Supermercado Brasil', unidade: 'Santa Efigênia',
   razaoSocial: 'Supermercado Brasil Ltda', cnpj: '11111111000191', ie: '0012345670011', bairro: 'Santa Efigênia', cidade: 'Belo Horizonte', uf: 'MG', palavrasChave: [],
@@ -140,12 +140,16 @@ describe('resumo para o cliente conferir (pedido do dono, 2026-09-29)', () => {
     expect(r).toBe(['*Nota de devolução*', 'Para: Boi Bom (não cadastrado, a equipe confere)', '• 20 PAC Costela com Requeijão (cód. 12)'].join('\n'));
   });
 
-  it('chave de conferência: mesma para o mesmo pedido, muda se mudar destinatário ou item', () => {
-    const base = { tipo: 'venda' as const, unidade_id: 'u1', itens: [{ produto_id: 'p1', texto: 'Costela', quantidade: 20, unidade: 'PAC' }] };
-    const k = chaveConferencia(base);
-    expect(chaveConferencia({ ...base, itens: [{ produto_id: 'p1', texto: ' costela ', quantidade: 20, unidade: 'pac' }] })).toBe(k);
-    expect(chaveConferencia({ ...base, unidade_id: 'u2' })).not.toBe(k);
-    expect(chaveConferencia({ ...base, itens: [{ ...base.itens[0]!, quantidade: 21 }] })).not.toBe(k);
+  // Auditoria 1.1: a chave flexível (chaveConferencia) saiu; o hash do resumo cobre destinatário, itens e preços.
+  it('hash do resumo: igual para o mesmo pedido; muda com preço, cadastro do destinatário ou item', () => {
+    const item = { produto: costela, texto: 'costela', quantidade: 20, unidade: 'PAC', preco: 9.5 };
+    const base = { tipo: 'venda' as const, destino: efigenia, itens: [item] };
+    const h = hashPedidoNota(base);
+    expect(hashPedidoNota({ ...base, destino: { ...efigenia, palavrasChave: ['outra'] }, itens: [{ ...item, produto: { ...costela, apelidos: ['x'] } }] })).toBe(h);
+    expect(hashPedidoNota({ ...base, itens: [{ ...item, preco: 10 }] })).not.toBe(h);
+    expect(hashPedidoNota({ ...base, destino: { ...efigenia, cnpj: '22222222000191' } })).not.toBe(h);
+    expect(hashPedidoNota({ ...base, destino: null })).not.toBe(h);
+    expect(hashPedidoNota({ ...base, itens: [{ ...item, quantidade: 21 }] })).not.toBe(h);
   });
 });
 
