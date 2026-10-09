@@ -55,6 +55,9 @@ describe('textoMedidor', () => {
     expect(textoMedidor({ total: 12500, nivel: 'excesso', cortadas: [{ titulo: 'Boleto' }] }, 'Rede Bom Preço').aviso)
       .toBe('Passou do limite (conta com Rede Bom Preço): fica de fora "Boleto".');
     expect(textoMedidor({ total: 12000, nivel: 'excesso', cortadas: [] }, null).aviso).toBe('No limite: a próxima orientação ligada pode ficar de fora.');
+    // Revisão da Task 16: cada corte diz em que empresa acontece (null = conversa sem empresa).
+    expect(textoMedidor({ total: 12500, nivel: 'excesso', cortadas: [{ titulo: 'Boleto', empresas: ['Rede Bom Preço'] }, { titulo: 'Férias', empresas: ['Sol', null] }] }, 'Rede Bom Preço').aviso)
+      .toBe('Passou do limite (conta com Rede Bom Preço): ficam de fora "Boleto" (com Rede Bom Preço) e "Férias" (com Sol e sem empresa).');
   });
 });
 

@@ -29,11 +29,20 @@ export function contarSituacao(linhas: readonly { ativo: boolean }[]) {
 }
 
 /** Medidor compacto: "9.940 / 12.000", "83%", a frase para leitor de tela e o aviso de uma linha (a partir de 80%). */
-export function textoMedidor(m: Pick<Medidor, 'total' | 'nivel'> & { cortadas?: Medidor['cortadas'] }, empresa: string | null, limite = LIMITE_ORIENTACOES) {
+export function textoMedidor(
+  m: Pick<Medidor, 'total' | 'nivel'> & { cortadas?: { titulo: string; empresas?: (string | null)[] }[] }, empresa: string | null, limite = LIMITE_ORIENTACOES,
+) {
   const conta = empresa ? ` (conta com ${empresa})` : '';
   // Auditoria 5.9: o corte é parcial; o aviso nomeia as que ficam de fora (as mesmas que o trabalhador corta).
   const cortadas = m.cortadas ?? [];
-  const titulos = cortadas.slice(0, 5).map((c) => `"${c.titulo}"`);
+  // Revisão da Task 16: cada corte diz em que conversas acontece (nome da empresa; null = conversa sem empresa).
+  const onde = (empresas: (string | null)[] = []) => {
+    if (!empresas.length) return '';
+    const nomes = empresas.map((e) => e ?? 'sem empresa');
+    const juntos = nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}` : nomes[0]!;
+    return ` (${empresas[0] === null ? '' : 'com '}${juntos})`;
+  };
+  const titulos = cortadas.slice(0, 5).map((c) => `"${c.titulo}"${onde(c.empresas)}`);
   if (cortadas.length > 5) titulos.push(`mais ${cortadas.length - 5}`);
   const lista = titulos.length > 1 ? `${titulos.slice(0, -1).join(', ')} e ${titulos.at(-1)}` : titulos.join('');
   return {

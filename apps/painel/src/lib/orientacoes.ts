@@ -69,6 +69,9 @@ export function cortarNoLimite<T>(emOrdem: readonly T[], tamanho: (o: T) => numb
 
 const maisRecentes = (a: OrientacaoMedida, b: OrientacaoMedida) => (b.atualizadoEm ?? '').localeCompare(a.atualizadoEm ?? '');
 
+/** Uma orientação que fica de fora e as conversas onde isso acontece: o id da empresa, ou null para conversa sem empresa. */
+export type OrientacaoCortada = { id?: string; titulo: string; empresas: (string | null)[] };
+
 export type Medidor = {
   /** Caracteres da conversa mais pesada: gerais + de setor (setores ativos) + a empresa com mais texto. */
   total: number;
@@ -80,12 +83,12 @@ export type Medidor = {
   /** 0 a 100 (para a barra; passa de 100 só no texto). */
   percentual: number;
   /** Auditoria 5.9: as que ficam de fora na conversa mais pesada (na ordem do corte do trabalhador). */
-  cortadas: { id?: string; titulo: string }[];
+  cortadas: OrientacaoCortada[];
 };
 
 /**
  * Medidor da tela: numa conversa entram as gerais, as de setor (setores ativos) e só as da empresa da conversa.
- * O pior caso é a empresa com mais texto; é ele que chega primeiro no limite. As que ficam de fora nele vêm em `cortadas`
+ * O pior caso é a empresa com mais texto; é ele que chega primeiro no limite. As que ficam de fora (em qualquer empresa) vêm em `cortadas`
  * (o mesmo corte do trabalhador: empresa, setor e gerais, das mais recentes para as mais antigas).
  */
 export function medirOrientacoes(orientacoes: OrientacaoMedida[], setoresAtivos: Iterable<string>, limite = LIMITE_ORIENTACOES): Medidor {
@@ -105,12 +108,17 @@ export function medirOrientacoes(orientacoes: OrientacaoMedida[], setoresAtivos:
   const total = gerais + setores + (empresa?.total ?? 0);
   const nivel = total >= limite ? 'excesso' : total >= limite * AVISO_MEDIDOR ? 'aviso' : 'ok';
 
+  // Revisão da Task 16: o corte de cada empresa e o da conversa sem empresa (não só o da que mais pesa), juntos.
   const ligadas = orientacoes.filter((o) => o.ativo);
-  const emOrdem = [
-    ...ligadas.filter((o) => empresa && o.clienteId === empresa.id).sort(maisRecentes),
-    ...ligadas.filter((o) => !o.clienteId && o.setorId && ativos.has(o.setorId)).sort(maisRecentes),
-    ...ligadas.filter((o) => !o.clienteId && !o.setorId).sort(maisRecentes),
-  ];
-  const cortadas = cortarNoLimite(emOrdem, tamanhoOrientacao, limite).cortadas.map((o) => ({ id: o.id, titulo: o.titulo }));
+  const deSetor = ligadas.filter((o) => !o.clienteId && o.setorId && ativos.has(o.setorId)).sort(maisRecentes);
+  const geraisLista = ligadas.filter((o) => !o.clienteId && !o.setorId).sort(maisRecentes);
+  const cortes = new Map<OrientacaoMedida, (string | null)[]>();
+  for (const alvo of [...porEmpresa.keys(), null]) {
+    const daEmpresa = alvo ? ligadas.filter((o) => o.clienteId === alvo).sort(maisRecentes) : [];
+    for (const o of cortarNoLimite([...daEmpresa, ...deSetor, ...geraisLista], tamanhoOrientacao, limite).cortadas) {
+      cortes.set(o, [...(cortes.get(o) ?? []), alvo]);
+    }
+  }
+  const cortadas = [...cortes].map(([o, empresas]) => ({ id: o.id, titulo: o.titulo, empresas }));
   return { total, gerais, setores, empresa, nivel, percentual: Math.min(100, Math.round((total / limite) * 100)), cortadas };
 }

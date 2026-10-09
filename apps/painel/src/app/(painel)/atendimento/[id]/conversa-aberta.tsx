@@ -17,7 +17,7 @@ import { cn } from '@/lib/cn';
 import { envioBloqueado } from '@/lib/envio-bloqueado';
 import { mascararTelefone } from '@/lib/formatos';
 import { linhaDoTempo } from '@/lib/historico';
-import { inicioDoDiaSaoPaulo, lerMensagensDaConversa } from '@/lib/mensagens-conversa';
+import { hrefVerAnteriores, inicioDoDiaSaoPaulo, lerMensagensDaConversa } from '@/lib/mensagens-conversa';
 import { AVISO_SEM_ACESSO_PEDIDO, ehPedidoDeNota, ocultarEventosDoPedido } from '@/lib/pedido-nota';
 import type { Prioridade } from '@/lib/demandas';
 import { temNivel, usaAssistente } from '@/lib/permissoes';
@@ -59,7 +59,7 @@ type MensagemDaTela = Database['public']['Tables']['mensagens']['Row'] & { usuar
  * Centro (cabeçalho, histórico, compositor) e painel da direita da conversa aberta. Fica num Suspense na página:
  * enquanto carrega aparece o esqueleto no formato da conversa; a lista ao lado não pisca.
  */
-export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pausaGeral, dataAlvo = null, anteriores = null }: {
+export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pausaGeral, dataAlvo = null, anteriores = null, mais = 1 }: {
   id: string;
   u: UsuarioPainel;
   filtroNaUrl: string | null;
@@ -71,6 +71,8 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   dataAlvo?: string | null;
   /** ?anteriores= (auditoria 6.6): o "Ver anteriores" traz as 200 de antes deste instante, e todas depois dele. */
   anteriores?: string | null;
+  /** Páginas da lista ao lado (?mais=): o "Ver anteriores" as mantém. */
+  mais?: number;
 }) {
   const sb = await supabaseServidor();
   const { data: conversa } = await sb.from('conversas')
@@ -79,13 +81,19 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   if (!conversa) notFound();
   // Auditoria 6.6: as mensagens mais novas (de 200 em 200, "Ver anteriores" por criado_em < x); o ?data= abre a partir do dia pedido.
   const antes = anteriores ?? (dataAlvo ? inicioDoDiaSaoPaulo(dataAlvo) : null);
-  const [leitura, { data: chamados }, { data: notas }, { data: decisoes }, { data: setores }, { data: respostas }, { data: vinculos }, { data: eventosConversa }, { data: todasDemandas }, { data: transferencias }] = await Promise.all([
-    lerMensagensDaConversa<MensagemDaTela>(sb, id, { antes, colunas: '*, usuarios(nome)' }),
+  const leitura = await lerMensagensDaConversa<MensagemDaTela>(sb, id, { antes, colunas: '*, usuarios(nome)' });
+  if (leitura.erro) console.error('[atendimento] falha ao ler as mensagens', leitura.erro);
+  const mensagens = leitura.mensagens;
+  // Com mensagens mais antigas fora da tela, os outros itens (cartões, marcos, notas) começam no mesmo ponto, e as leituras
+  // de eventos, notas e transferências também (revisão da Task 16: nada fica sem limite; nada do que aparece some).
+  const corteHistorico = leitura.anteriores;
+  const desdeCorte = <Q extends { gte: (c: string, v: string) => Q }>(q: Q) => (corteHistorico ? q.gte('criado_em', corteHistorico) : q);
+  const [{ data: chamados }, { data: notas }, { data: decisoes }, { data: setores }, { data: respostas }, { data: vinculos }, { data: eventosConversa }, { data: todasDemandas }, { data: transferencias }] = await Promise.all([
     sb.from('chamados').select('*, setores(nome), usuarios(nome), chamado_eventos(tipo, texto, criado_em, usuarios(nome))')
       .eq('conversa_id', id).neq('status', 'concluido').order('numero').order('criado_em', { referencedTable: 'chamado_eventos' }),
     // Notas internas de todas as demandas da conversa (também as já concluídas) entram no histórico.
-    sb.from('chamado_eventos').select('id, texto, criado_em, usuario_id, usuarios(nome), chamados!inner(numero, conversa_id, titulo, pedido_venda)')
-      .eq('chamados.conversa_id', id).eq('tipo', 'nota_interna'),
+    desdeCorte(sb.from('chamado_eventos').select('id, texto, criado_em, usuario_id, usuarios(nome), chamados!inner(numero, conversa_id, titulo, pedido_venda)')
+      .eq('chamados.conversa_id', id).eq('tipo', 'nota_interna')),
     // Auditoria 4.15: o registro do começo da vez (job e turno) é só rastreio, não decisão do agente.
     sb.from('decisoes_agente').select('id, etapa, entrada, saida, justificativa, criado_em, turno').eq('conversa_id', id).neq('etapa', 'inicio_vez')
       .order('criado_em', { ascending: false }).limit(300),
@@ -95,14 +103,10 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     conversa.contatos
       ? sb.from('contato_clientes').select('clientes!inner(id, razao_social, nome_fantasia, ativo)').eq('contato_id', conversa.contatos.id).eq('clientes.ativo', true)
       : Promise.resolve({ data: [] as { clientes: { id: string; razao_social: string; nome_fantasia: string | null; ativo: boolean } | null }[] }),
-    sb.from('conversa_eventos').select('id, tipo, texto, criado_em, usuarios(nome)').eq('conversa_id', id).order('criado_em'),
+    desdeCorte(sb.from('conversa_eventos').select('id, tipo, texto, criado_em, usuarios(nome)').eq('conversa_id', id)).order('criado_em'),
     sb.from('chamados').select('id, numero, prioridade, criado_em, concluido_em, setores(nome)').eq('conversa_id', id),
-    sb.from('chamado_eventos').select('id, criado_em, texto, chamados!inner(numero, conversa_id)').eq('chamados.conversa_id', id).eq('tipo', 'transferencia'),
+    desdeCorte(sb.from('chamado_eventos').select('id, criado_em, texto, chamados!inner(numero, conversa_id)').eq('chamados.conversa_id', id).eq('tipo', 'transferencia')),
   ]);
-  if (leitura.erro) console.error('[atendimento] falha ao ler as mensagens', leitura.erro);
-  const mensagens = leitura.mensagens;
-  // Com mensagens mais antigas fora da tela, os outros itens (cartões, marcos, notas) começam no mesmo ponto.
-  const corteHistorico = leitura.anteriores;
   const minha = conversa.atendente_id === u.id;
   const nomeDe = new Map(pessoas.map((p) => [p.id, p.nome]));
   const abertas = chamados ?? [];
@@ -200,7 +204,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   const temCorte = corteHistorico !== null;
   const historico = linhaDoTempo(temCorte ? itens.filter((x) => Date.parse(x.criado_em) >= Date.parse(corteHistorico!)) : itens);
   const hrefAnteriores = corteHistorico
-    ? `/atendimento/${id}${consultaCaixa({ filtro: filtroNaUrl, q })}${filtroNaUrl || q.trim() ? '&' : '?'}anteriores=${encodeURIComponent(corteHistorico)}`
+    ? hrefVerAnteriores({ conversaId: id, filtro: filtroNaUrl, q, mais, data: dataAlvo, anteriores: corteHistorico })
     : null;
 
   const demandasAcoes: AcoesDaDemanda[] = abertas.map((c) => ({

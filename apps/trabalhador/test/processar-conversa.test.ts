@@ -124,7 +124,8 @@ describe('processarConversa', () => {
     const ia = respondeOi();
     await processarConversa(deps(ia), conversa.id, false);
     const texto = (ia.recebidos[0]!.messages[0]!.content as { type: string; text: string }[])[0]!.text;
-    expect(texto).toContain('oi\ntudo bem?\npreciso da guia do DAS');
+    // Revisão da Task 16 (auditoria 5.8): cada mensagem nova vem com "[hora] Cliente:".
+    expect(texto).toMatch(/\] Cliente: oi\n\[[^\]]+\] Cliente: tudo bem\?\n\[[^\]]+\] Cliente: preciso da guia do DAS/);
   });
 
   it('conversa assumida por humano: grava e não responde', async () => {

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { consultaCaixa } from './caixa';
 import { lerEmPaginas } from './paginas';
 
 /**
@@ -54,4 +55,14 @@ export async function lerMensagensDaConversa<T extends { criado_em: string }>(
   }
   const mensagens = [...antigas, ...recentes];
   return { mensagens, anteriores: haMais && mensagens.length ? mensagens[0]!.criado_em : null, erro };
+}
+
+/** Link do "Ver anteriores": mantém filtro, busca e páginas da lista ao lado e o dia pedido (revisão da Task 16). */
+export function hrefVerAnteriores(p: {
+  conversaId: string; filtro: string | null; q: string; mais: number; data: string | null; anteriores: string;
+}): string {
+  const sp = new URLSearchParams(consultaCaixa({ filtro: p.filtro, q: p.q, mais: p.mais }).slice(1));
+  if (p.data) sp.set('data', p.data);
+  sp.set('anteriores', p.anteriores);
+  return `/atendimento/${p.conversaId}?${sp.toString()}`;
 }

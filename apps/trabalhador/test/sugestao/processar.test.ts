@@ -5,7 +5,7 @@ import type { Repos } from '@escritorio/db';
 import { novoEstado } from '../../src/assistente/ferramentas';
 import { carregarContextoAssistente } from '../../src/assistente/contexto';
 import { CanalFalso } from '../../src/canal/falso';
-import { BloqueadoNaSugestao, LEITURAS_REPOS_SUGESTAO, LEITURAS_SUGESTAO, canalDaSugestao, escopoDaSugestao, executarLeituraSugestao, reposDaSugestao } from '../../src/sugestao/ferramentas';
+import { BloqueadoNaSugestao, FERRAMENTAS_SUGESTAO, LEITURAS_REPOS_SUGESTAO, LEITURAS_SUGESTAO, canalDaSugestao, escopoDaSugestao, executarLeituraSugestao, reposDaSugestao } from '../../src/sugestao/ferramentas';
 import {
   SUGESTAO_DEMOROU, SUGESTAO_FORA_DO_HORARIO, SUGESTAO_SEM_ACESSO, SUGESTAO_SEM_ASSISTENTE, SUGESTAO_TETO, SUGESTAO_VAZIA, processarSugestao,
 } from '../../src/sugestao/processar';
@@ -73,7 +73,7 @@ describe('Sugerir resposta (spec 7A.1): só lê, nunca envia nem grava', () => {
     // Só ferramentas de leitura e a entrega do rascunho foram oferecidas à IA.
     // Auditoria 5.10: sem buscar_empresas, resumo_vendas e listar_demandas (alcançavam outras empresas).
     expect(ia.recebidos[0]!.tools!.map((t) => (t as { name: string }).name).sort()).toEqual([
-      'buscar_parceiros', 'buscar_produtos', 'consultar_preco', 'dados_cadastro', 'entregar_rascunho', 'ver_demanda',
+      'buscar_parceiros', 'buscar_produtos', 'consultar_preco', 'dados_cadastro', 'demandas_do_contato', 'entregar_rascunho', 'ver_demanda',
     ]);
   });
 
@@ -121,7 +121,7 @@ describe('Sugerir resposta (spec 7A.1): só lê, nunca envia nem grava', () => {
       consultar_preco: { cliente_id: clienteId, unidade_id: clienteId, produto_id: clienteId }, dados_cadastro: { cliente_id: clienteId },
       resumo_vendas: { de: '01/09/2026', ate: '30/09/2026' },
     };
-    for (const nome of LEITURAS_SUGESTAO) {
+    for (const nome of [...LEITURAS_SUGESTAO, 'demandas_do_contato']) {
       chamados.length = 0;
       const r = await executarLeituraSugestao({ repos: espiao, ia: new IaRoteirizada([]), canal }, estado, nome, entradas[nome] ?? {});
       // Entrada inválida não chamaria nada e o teste passaria à toa: ajuste a entrada ao esquema até não sair este erro.
@@ -162,12 +162,13 @@ describe('Sugerir resposta (spec 7A.1): só lê, nunca envia nem grava', () => {
       'obterConfiguracoes', 'custoIaDoMes', 'setoresAtivos', 'obterConversa', 'buscarContato', 'historico', 'chamadosAbertosDaConversa',
       'chamadosDaConversaParaVisibilidade', 'usuarioDoAssistente', 'obterUsuarioAssistente', 'horarioPermite', 'chamadosRecentes', 'chamadoPorNumero',
       'eventosDoChamado', 'buscarEmpresas', 'unidadesDaEmpresa', 'produtosDaEmpresa', 'precosVigentes', 'dadosDaEmpresa', 'pedidosVendaParaBling',
-      'nomesDasRedes', 'servicosDoCliente', 'documentosDaEmpresa', 'respostasProntas', 'chamadosAbertosDoCliente', 'acessoDoContato',
+      'nomesDasRedes', 'servicosDoCliente', 'documentosDaEmpresa', 'respostasProntas', 'chamadosAbertosDoCliente', 'acessoDoContato', 'demandasParaContato',
     ]);
     // E o código de cada método liberado não grava: nada de insert/update/upsert/delete, e rpc só das funções de leitura.
     // contato_ativo_do_telefone (auditoria 3.8, buscarContato) é "stable": o Postgres recusa escrita dentro dela.
     // acesso_do_contato (auditoria 5.10, acessoDoContato) também é "stable".
-    const RPC_DE_LEITURA = ['custo_ia_periodo', 'horario_permite', 'contato_ativo_do_telefone', 'acesso_do_contato'];
+    // demandas_para_contato (revisão da Task 16, demandas_do_contato) também é "stable".
+    const RPC_DE_LEITURA = ['custo_ia_periodo', 'horario_permite', 'contato_ativo_do_telefone', 'acesso_do_contato', 'demandas_para_contato'];
     // A conferência pelo código enxerga gravações de verdade (senão passaria à toa).
     expect(String(repos.registrarAuditoria)).toMatch(/\.insert\(/);
     expect(String(repos.concluirSugestao)).toMatch(/\.update\(/);
@@ -337,6 +338,7 @@ describe('Sugerir resposta: só a empresa desta conversa (auditoria 5.10)', () =
     expect(sistema).toContain('nunca de outra empresa');
     const resultados = ia.recebidos[1]!.messages.at(-1)!.content as { is_error?: boolean; content: string }[];
     expect(resultados).toHaveLength(7);
+    expect(JSON.stringify(ia.recebidos[1]!.messages)).not.toContain('Guia da B');
     for (const r of resultados) {
       expect(r.is_error).toBe(true);
       expect(r.content).not.toContain('Comércio B');
@@ -377,5 +379,61 @@ describe('Sugerir resposta: só a empresa desta conversa (auditoria 5.10)', () =
     const ia = new IaRoteirizada([usarFerramentas({ nome: 'entregar_rascunho', entrada: { texto: 'Oi.' } })]);
     await processarSugestao({ repos, ia, canal }, id, true);
     expect((ia.recebidos[0]!.system as { text: string }[])[0]!.text).toContain('Básico');
+  });
+});
+
+// Revisão da Task 16: demandas_do_contato espelha o consultar_chamados do agente; ver_demanda aceita o mesmo conjunto.
+describe('Sugerir resposta: demandas do contato (auditoria 5.10, revisão)', () => {
+  const carregar = async () => {
+    const usuario = (await repos.obterUsuarioAssistente(ana))!;
+    const ctx = await carregarContextoAssistente(repos, usuario, 'site', conversaId, new Date());
+    return { ...novoEstado(ctx), rascunho: null, escopo: await escopoDaSugestao(repos, ctx) };
+  };
+  const d = () => ({ repos, ia: new IaRoteirizada([]), canal });
+  const contatoA = async () => (await repos.obterConversa(conversaId)).contato_id!;
+
+  it('lista as demandas que o contato acompanha, só da empresa desta conversa', async () => {
+    const empresaB = (await db.from('clientes').insert({ razao_social: 'Comércio B Segredo', cnpj: '99888777000166' }).select('id').single()).data!.id;
+    await repos.abrirChamado({ clienteId: empresaB, conversaId, setorId: await setorId('Fiscal'), responsavelId: null, titulo: 'Guia da B', resumo: 'x', foraDoContrato: false, origem: 'agente' });
+    const r = await executarLeituraSugestao(d(), await carregar(), 'demandas_do_contato', {});
+    expect(r.erro).toBe(false);
+    const { demandas } = JSON.parse(r.resultado) as { demandas: { titulo: string }[] };
+    expect(demandas.map((x) => x.titulo)).toEqual(['Guia DAS']);
+    expect(r.resultado).not.toContain('Guia da B');
+  });
+
+  it('contato Básico: lista vazia, e ver_demanda também recusa', async () => {
+    await definirAcessoTeste(await contatoA(), clienteId, { perfil: 'basico' });
+    const estado = await carregar();
+    const r = await executarLeituraSugestao(d(), estado, 'demandas_do_contato', {});
+    expect(JSON.parse(r.resultado)).toEqual({ demandas: [] });
+    const numero = Number((await repos.chamadosAbertosDaConversa(conversaId))[0]!.numero);
+    expect((await executarLeituraSugestao(d(), estado, 'ver_demanda', { numero })).erro).toBe(true);
+  });
+
+  it('sem "Ver valores": o valor do título não sai', async () => {
+    await repos.abrirChamado({ clienteId, conversaId, setorId: await setorId('Fiscal'), responsavelId: null, titulo: 'Boleto de R$ 1.500,00', resumo: 'x', foraDoContrato: false, origem: 'agente' });
+    await definirAcessoTeste(await contatoA(), clienteId, { setores: 'todos', verValores: false });
+    const r = await executarLeituraSugestao(d(), await carregar(), 'demandas_do_contato', {});
+    expect(r.resultado).toContain('Boleto de R$ …');
+    expect(r.resultado).not.toContain('1.500');
+    await definirAcessoTeste(await contatoA(), clienteId, { setores: 'todos', verValores: true });
+    expect((await executarLeituraSugestao(d(), await carregar(), 'demandas_do_contato', {})).resultado).toContain('1.500,00');
+  });
+
+  it('sem conversa no escopo, ver_demanda recusa (fecha por padrão)', async () => {
+    const estado = await carregar();
+    const numero = Number((await repos.chamadosAbertosDaConversa(conversaId))[0]!.numero);
+    const r = await executarLeituraSugestao(d(), { ...estado, escopo: { ...estado.escopo, conversaId: null } }, 'ver_demanda', { numero });
+    expect(r.erro).toBe(true);
+  });
+
+  it('as ferramentas da sugestão não falam em buscar_empresas e pedem o id da empresa desta conversa', () => {
+    for (const f of FERRAMENTAS_SUGESTAO) {
+      expect(f.description).not.toContain('buscar_empresas');
+      if (['buscar_parceiros', 'buscar_produtos', 'consultar_preco', 'dados_cadastro'].includes(f.name)) {
+        expect({ nome: f.name, d: f.description }).toEqual({ nome: f.name, d: expect.stringContaining('cliente_id = id da empresa desta conversa') });
+      }
+    }
   });
 });

@@ -1,7 +1,8 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { AcessoContato, FuncionalidadeGravavel } from '@escritorio/core';
 import type { Repos, SugestaoResposta } from '@escritorio/db';
-import { ACESSO_BASICO, ehBasico, podeFluxoNota } from '../agente/acesso';
+import { ACESSO_BASICO, ehBasico, podeFluxoNota, tituloSemValores } from '../agente/acesso';
+import { diaMes } from '../agente/ferramentas';
 import type { ContextoAssistente } from '../assistente/contexto';
 import type { CanalWhatsApp } from '../canal/tipos';
 import { FERRAMENTAS_ASSISTENTE, executarConsultaAssistente, falha, objeto, ok, type DepsAssistente, type EstadoAssistente, type Resultado } from '../assistente/ferramentas';
@@ -22,8 +23,28 @@ export const ENTREGAR_RASCUNHO: Anthropic.Tool = {
   input_schema: objeto({ texto: { type: 'string', description: 'O rascunho, como a equipe escreveria no WhatsApp.' } }, ['texto']),
 };
 
+/** Revisão da Task 16 (auditoria 5.10): só da sugestão, espelha o consultar_chamados do agente (o que o contato acompanha). */
+export const DEMANDAS_DO_CONTATO: Anthropic.Tool = {
+  name: 'demandas_do_contato',
+  description: 'Demandas que o contato desta conversa acompanha na empresa desta conversa (número, título, status, setor e quando abriu). '
+    + 'Use para contar o andamento; os detalhes de uma delas, com ver_demanda.',
+  input_schema: objeto({}, []),
+};
+
+const CLIENTE_ID = ' cliente_id = id da empresa desta conversa (o do "Atendimento" acima); outra empresa é recusada.';
+/** Descrições da sugestão: sem buscar_empresas (fora da sugestão) e com a empresa fixa (revisão da Task 16). */
+const DESCRICOES_SUGESTAO: Record<string, string> = {
+  ver_demanda: 'Detalhes de uma demanda que o contato desta conversa acompanha (as de demandas_do_contato), pelo número.',
+  buscar_parceiros: `Procura, nos cadastros da empresa desta conversa, os clientes (tipo "cliente") ou fornecedores dela.${CLIENTE_ID}`,
+  buscar_produtos: `Procura produtos cadastrados da empresa desta conversa pelo nome, apelido ou código.${CLIENTE_ID}`,
+  consultar_preco: `Preço de tabela de um produto para a rede de uma unidade de cliente da empresa desta conversa.${CLIENTE_ID}`,
+  dados_cadastro: `Dados cadastrais da empresa desta conversa ou, com unidade_id, de um cliente/fornecedor dela.${CLIENTE_ID}`,
+};
+
 export const FERRAMENTAS_SUGESTAO: Anthropic.Tool[] = [
-  ...FERRAMENTAS_ASSISTENTE.filter((f) => (LEITURAS_SUGESTAO as readonly string[]).includes(f.name)),
+  ...FERRAMENTAS_ASSISTENTE.filter((f) => (LEITURAS_SUGESTAO as readonly string[]).includes(f.name))
+    .map((f) => ({ ...f, description: DESCRICOES_SUGESTAO[f.name] ?? f.description })),
+  DEMANDAS_DO_CONTATO,
   ENTREGAR_RASCUNHO,
 ];
 
@@ -33,6 +54,7 @@ export const LEITURAS_REPOS_SUGESTAO = [
   'chamadosDaConversaParaVisibilidade', 'usuarioDoAssistente', 'obterUsuarioAssistente', 'horarioPermite', 'chamadosRecentes', 'chamadoPorNumero',
   'eventosDoChamado', 'buscarEmpresas', 'unidadesDaEmpresa', 'produtosDaEmpresa', 'precosVigentes', 'dadosDaEmpresa', 'pedidosVendaParaBling',
   'nomesDasRedes', 'servicosDoCliente', 'documentosDaEmpresa', 'respostasProntas', 'chamadosAbertosDoCliente', 'acessoDoContato',
+  'demandasParaContato',
 ] as const satisfies readonly (keyof Repos)[];
 
 export class BloqueadoNaSugestao extends Error {
@@ -73,7 +95,9 @@ export function reposDaSugestao(repos: Repos, s: Pick<SugestaoResposta, 'usuario
  * Auditoria 5.10: o mesmo recorte do agente para esta conversa. A empresa é a do contexto (empresaDoUso, como o agente:
  * várias sem foco = nenhuma) e o acesso é o do contato nela (acessoDoContato; sem contato ou sem leitura, Básico).
  */
-export type EscopoSugestao = { conversaId: string | null; clienteId: string | null; acesso: AcessoContato; fiscalId: string | null };
+export type EscopoSugestao = {
+  conversaId: string | null; clienteId: string | null; contatoId: string | null; acesso: AcessoContato; fiscalId: string | null;
+};
 
 export async function escopoDaSugestao(repos: Repos, ctx: ContextoAssistente): Promise<EscopoSugestao> {
   const clienteId = ctx.conversa?.empresa?.id ?? null;
@@ -87,14 +111,20 @@ export async function escopoDaSugestao(repos: Repos, ctx: ContextoAssistente): P
       console.error('[sugestão] acesso não lido; tratado como Básico', contatoId, clienteId, erro);
     }
   }
-  return { conversaId: ctx.conversaId, clienteId, acesso, fiscalId: ctx.setores.find((s) => s.nome === 'Fiscal')?.id ?? null };
+  return { conversaId: ctx.conversaId, clienteId, contatoId, acesso, fiscalId: ctx.setores.find((s) => s.nome === 'Fiscal')?.id ?? null };
 }
 
 export type EstadoSugestao = EstadoAssistente & { rascunho: string | null; escopo: EscopoSugestao };
 
 const FORA_DA_EMPRESA = 'Na sugestão só se consultam dados da empresa desta conversa, nunca de outra empresa. Escreva que a equipe vai verificar.';
 const SEM_EMPRESA = 'Esta conversa não tem empresa definida: não consulte dados de empresa. Escreva que a equipe vai verificar.';
-const DEMANDA_DE_FORA = 'Na sugestão só se consultam as demandas desta conversa.';
+const DEMANDA_DE_FORA = 'Na sugestão só se consultam as demandas que o contato desta conversa acompanha (demandas_do_contato).';
+
+/** O mesmo conjunto do consultar_chamados do agente: Básico, sem contato ou sem empresa = nenhuma. */
+async function demandasDoContato(d: DepsAssistente, e: EscopoSugestao) {
+  if (!e.clienteId || !e.contatoId || !e.conversaId || ehBasico(e.acesso)) return [];
+  return d.repos.demandasParaContato(e.contatoId, e.clienteId, e.conversaId);
+}
 const SEM_ACESSO_DADOS = 'Este contato ainda não recebe dados pelo WhatsApp (acesso Básico): não traga cadastro, preço nem produto no rascunho; diga que a equipe vai verificar.';
 const SEM_ACESSO_NOTA = 'Este contato não pede nota nem consulta preços e cadastros de clientes e fornecedores: não traga esses dados no rascunho; diga que a equipe vai verificar.';
 
@@ -102,10 +132,11 @@ const SEM_ACESSO_NOTA = 'Este contato não pede nota nem consulta preços e cada
 async function foraDoEscopo(d: DepsAssistente, e: EscopoSugestao, nome: string, entrada: unknown): Promise<Resultado | null> {
   const x = (entrada ?? {}) as { cliente_id?: unknown; unidade_id?: unknown; numero?: unknown };
   if (nome === 'ver_demanda') {
-    if (!e.conversaId || typeof x.numero !== 'number') return null; // entrada inválida: a validação de sempre responde
-    const c = await d.repos.chamadoPorNumero(x.numero);
-    const daConversa = new Set((await d.repos.chamadosDaConversaParaVisibilidade(e.conversaId)).map((y) => y.id));
-    return c && daConversa.has(c.id) ? null : falha(DEMANDA_DE_FORA);
+    // Revisão da Task 16: sem conversa, recusa (fecha por padrão); entrada inválida, a validação de sempre responde.
+    if (!e.conversaId) return falha(DEMANDA_DE_FORA);
+    if (typeof x.numero !== 'number') return null;
+    const permitidas = new Set((await demandasDoContato(d, e)).map((c) => Number(c.numero)));
+    return permitidas.has(x.numero) ? null : falha(DEMANDA_DE_FORA);
   }
   if (!e.clienteId) return falha(SEM_EMPRESA);
   if (x.cliente_id !== e.clienteId) return falha(FORA_DA_EMPRESA);
@@ -123,6 +154,18 @@ export async function executarLeituraSugestao(d: DepsAssistente, estado: EstadoS
     if (texto.length > 4000) return falha('Rascunho longo demais: até 4000 caracteres.');
     estado.rascunho = texto;
     return ok({ entregue: true });
+  }
+  if (nome === DEMANDAS_DO_CONTATO.name) {
+    try {
+      // Sem "Ver valores", o valor em reais escrito no título não sai (como no agente).
+      const titulo = (t: string) => (estado.escopo.acesso.verValores ? t : tituloSemValores(t));
+      return ok({ demandas: (await demandasDoContato(d, estado.escopo)).map((c) => ({
+        numero: c.numero, titulo: titulo(c.titulo), status: c.status, setor: c.setor_nome ?? 'Triagem', aberta_em: diaMes(c.criado_em),
+      })) });
+    } catch (e) {
+      console.error('[sugestão] demandas do contato', e);
+      return falha('Não consegui consultar agora; tente de novo.');
+    }
   }
   if (!(LEITURAS_SUGESTAO as readonly string[]).includes(nome)) return falha(`A ferramenta ${nome} não está disponível na sugestão: aqui só se consulta.`);
   try {

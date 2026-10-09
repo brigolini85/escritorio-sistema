@@ -240,8 +240,9 @@ export function montarConteudoUsuario(
   ].join('\n');
   // I5: a linha seguinte de uma mensagem fica recuada; o cliente não forja "[dd/mm, hh:mm] Escritório: ..." numa linha nova.
   const hist = historico.map((m) => `[${hora(m.criado_em)}] ${quem(m)}: ${recuado(textoDaMensagem(m, true))}`).join('\n');
-  // Auditoria 5.8: as mensagens novas tamb\u00e9m ficam recuadas, como as do hist\u00f3rico.
-  const todasNovas = novas.map((m) => recuado(textoDaMensagem(m))).join('\n');
+  // Auditoria 5.8: as mensagens novas também ficam recuadas e, como no histórico, cada uma começa com "[hora] Cliente:";
+  // assim nenhuma linha delas se passa por uma fala do Escritório.
+  const todasNovas = novas.map((m) => `[${hora(m.criado_em)}] Cliente: ${recuado(textoDaMensagem(m))}`).join('\n');
   const novasTexto = todasNovas.length > MAX_CARACTERES_NOVAS
     ? `${AVISO_INICIO_CORTADO}\n${todasNovas.slice(-MAX_CARACTERES_NOVAS)}` : todasNovas;
 

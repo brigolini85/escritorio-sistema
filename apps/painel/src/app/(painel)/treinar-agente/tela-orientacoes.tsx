@@ -107,7 +107,10 @@ export async function TelaOrientacoes({ params, base, agenteId, comSimulador, ag
 
   const opcoesSetor: SetorOpcao[] = setores ?? [];
   // Empresa inativa não conversa: as orientações dela não pesam em conversa nenhuma.
-  const medidor = medirOrientacoes(todas.filter((l) => !l.clienteId || l.empresa?.ativa), opcoesSetor.filter((s) => s.ativo).map((s) => s.id));
+  const medidorBruto = medirOrientacoes(todas.filter((l) => !l.clienteId || l.empresa?.ativa), opcoesSetor.filter((s) => s.ativo).map((s) => s.id));
+  // Revisão da Task 16: no aviso, cada corte com o nome da empresa onde acontece.
+  const nomeDaEmpresa = (id: string) => todas.find((l) => l.clienteId === id)?.empresa?.nome ?? 'empresa removida';
+  const medidor = { ...medidorBruto, cortadas: medidorBruto.cortadas.map((c) => ({ ...c, empresas: c.empresas.map((e) => e && nomeDaEmpresa(e)) })) };
   const empresaMaisPesada = medidor.empresa ? todas.find((l) => l.clienteId === medidor.empresa!.id)?.empresa?.nome ?? null : null;
 
   const busca = normalizarBusca(f.q);

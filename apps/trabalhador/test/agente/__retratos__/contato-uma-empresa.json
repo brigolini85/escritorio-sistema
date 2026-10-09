@@ -539,7 +539,7 @@
       "content": [
         {
           "type": "text",
-          "text": "<contexto>\nContato: João (telefone 5531999990001)\nEmpresas do contato: [20000000-0000-4000-8000-000000000001] Padaria Sol ME\nEmpresa em foco: [20000000-0000-4000-8000-000000000001] Padaria Sol ME\nServiços contratados pela empresa em foco: Contabilidade completa\nHoje: segunda-feira, 28/09/2026\nExpediente do escritório agora: aberto\n</contexto>\n<historico>\n[27/09, 09:00] Cliente: Bom dia\n[27/09, 09:00] Escritório: Bom dia, João!\n</historico>\n<mensagens_do_cliente>\nPreciso da guia do DAS de setembro\n</mensagens_do_cliente>"
+          "text": "<contexto>\nContato: João (telefone 5531999990001)\nEmpresas do contato: [20000000-0000-4000-8000-000000000001] Padaria Sol ME\nEmpresa em foco: [20000000-0000-4000-8000-000000000001] Padaria Sol ME\nServiços contratados pela empresa em foco: Contabilidade completa\nHoje: segunda-feira, 28/09/2026\nExpediente do escritório agora: aberto\n</contexto>\n<historico>\n[27/09, 09:00] Cliente: Bom dia\n[27/09, 09:00] Escritório: Bom dia, João!\n</historico>\n<mensagens_do_cliente>\n[28/09, 09:59] Cliente: Preciso da guia do DAS de setembro\n</mensagens_do_cliente>"
         }
       ]
     }

@@ -99,6 +99,20 @@ describe('medirOrientacoes', () => {
     expect(medirOrientacoes([geralNova], []).cortadas).toEqual([]);
   });
 
+  // Revisão da Task 16: o corte de cada empresa (e o de conversa sem empresa) entra no medidor, não só o da que mais pesa.
+  it('mostra os cortes de todas as empresas, cada um com a empresa onde acontece', () => {
+    const geral = o({ texto: 'g'.repeat(1500), titulo: 'Geral' });
+    const deX = o({ clienteId: 'X', texto: 'x'.repeat(12_000), titulo: 'Enorme da X' });
+    const deY = Array.from({ length: 6 }, (_, i) => o({ clienteId: 'Y', texto: 'y'.repeat(1820), titulo: `Da Y ${i}` }));
+    expect(deY.reduce((s, x) => s + tamanhoOrientacao(x), 0)).toBeGreaterThan(11_000);
+    const m = medirOrientacoes([geral, deX, ...deY], []);
+    expect(m.empresa!.id).toBe('X');
+    expect(m.cortadas).toEqual([
+      { id: undefined, titulo: 'Enorme da X', empresas: ['X'] },
+      { id: undefined, titulo: 'Geral', empresas: ['Y'] },
+    ]);
+  });
+
   it('avisa a partir de 80% e fica em perigo a partir de 100%', () => {
     const uma = o({ texto: 'x'.repeat(60) });
     const t = tamanhoOrientacao(uma);

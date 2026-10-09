@@ -54,7 +54,7 @@ export default async function Conversa({ params, searchParams }: {
         className="hidden w-lista-conversas shrink-0 border-r border-border xl:flex"
       />
       <Suspense fallback={<EsqueletoConversa />}>
-        <ConversaAberta id={id} u={u} filtroNaUrl={sp.filtro ?? null} q={q} erro={sp.erro} pessoas={pessoas} pausaGeral={pausaGeral} dataAlvo={lerDataAlvo(sp.data)} anteriores={lerCursorAnteriores(sp.anteriores)} />
+        <ConversaAberta id={id} u={u} filtroNaUrl={sp.filtro ?? null} q={q} erro={sp.erro} pessoas={pessoas} pausaGeral={pausaGeral} dataAlvo={lerDataAlvo(sp.data)} anteriores={lerCursorAnteriores(sp.anteriores)} mais={lerPaginasCaixa(sp.mais)} />
       </Suspense>
     </div>
   );

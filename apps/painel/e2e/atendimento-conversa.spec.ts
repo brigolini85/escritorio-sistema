@@ -134,6 +134,8 @@ test('sem acesso a pedidos de nota, o por quê mostra o aviso e nunca o conteúd
   await page.goto(`/atendimento/${s.conversa}`);
   const log = page.getByRole('log', { name: 'Histórico da conversa' });
   await expect(page.locator('body')).toHaveAttribute(HIDRATADA, '', { timeout: 30_000 });
+  // Servidor de dev frio: a primeira compilação pode passar dos 5 s padrão (falhou uma vez assim na Task 16).
+  await expect(log.getByText('por quê?')).toBeVisible({ timeout: 30_000 });
   await log.getByText('por quê?').click();
   await expect(log.getByText('Só quem tem acesso a pedidos de nota vê a descrição, os itens e as correções deste pedido.')).toBeVisible();
   await expect(page.getByText('SEGREDO-DO-PEDIDO')).toHaveCount(0);
@@ -175,11 +177,19 @@ test('conversa com 1.200 mensagens: a última aparece e "Ver anteriores" chega �
   }));
   const { error } = await db.from('mensagens').insert(linhas);
   expect(error).toBeNull();
+  // Revisão da Task 16: notas e eventos também são lidos a partir do corte; os que estão na tela continuam lá.
+  const { data: ch } = await db.from('chamados').insert({ conversa_id: c!.id, titulo: 'Demanda longa e2e' }).select('id').single();
+  await db.from('chamado_eventos').insert([
+    { chamado_id: ch!.id, tipo: 'nota_interna', texto: 'Nota antiga e2e', criado_em: new Date(inicio + 10 * 60_000 + 30_000).toISOString() },
+    { chamado_id: ch!.id, tipo: 'nota_interna', texto: 'Nota recente e2e', criado_em: new Date(inicio + 1150 * 60_000 + 30_000).toISOString() },
+  ]);
   await entrar(page, 'ana-longa@e2e.local', SENHA);
   await page.goto(`/atendimento/${c!.id}`);
   const log = page.getByRole('log', { name: 'Histórico da conversa' });
   await expect(log.getByText('Mensagem longa 1200', { exact: true })).toBeVisible();
   await expect(log.getByText('Mensagem longa 1000', { exact: true })).toHaveCount(0);
+  await expect(log.getByText('Nota recente e2e')).toHaveCount(1);
+  await expect(log.getByText('Nota antiga e2e')).toHaveCount(0);
   await expect(page.locator('body')).toHaveAttribute(HIDRATADA, '', { timeout: 30_000 });
   for (let i = 0; i < 6 && await log.getByRole('link', { name: 'Ver anteriores' }).count(); i++) {
     await log.getByRole('link', { name: 'Ver anteriores' }).click();
@@ -188,5 +198,7 @@ test('conversa com 1.200 mensagens: a última aparece e "Ver anteriores" chega �
   }
   await expect(log.getByRole('link', { name: 'Ver anteriores' })).toHaveCount(0);
   await expect(log.getByText('Mensagem longa 0001', { exact: true })).toHaveCount(1);
+  await expect(log.getByText('Nota antiga e2e')).toHaveCount(1);
+  await expect(log.getByText('Nota recente e2e')).toHaveCount(1);
   await expect(log.getByText('Mensagem longa 1200', { exact: true })).toHaveCount(1);
 });

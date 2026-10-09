@@ -4,7 +4,7 @@ import type { AgenteSetor } from '@escritorio/db';
 import type { ContextoAgente } from './contexto';
 import { FERRAMENTAS, FERRAMENTAS_SETOR_DEFS, FERRAMENTAS_SKILL, objeto } from './ferramentas';
 import { orientacoesDaConversa } from './orientacoes';
-import { fraseDePrecedencia, montarOrientacoesEmpresa, secaoDadosPagamento, secaoOrientacoes } from './prompt';
+import { fraseDePrecedencia, montarOrientacoesEmpresa, neutroLinha, secaoDadosPagamento, secaoOrientacoes } from './prompt';
 import { secaoSkills, temLimites, temSkillSobDemanda } from './skills';
 
 /** Parte I2 (D4–D6): como o agente do setor fala com o cliente em cada modo. */
@@ -25,7 +25,10 @@ export const TEXTO_MODO: Record<ModoContato, (setor: string) => string> = {
 };
 
 /** Uma regra fixa para todos os setores (D17): o nome e o setor entram no texto; nada é "do Fiscal". */
-export function regrasDoEspecialista(nome: string, setor: string, modo: ModoContato): string {
+export function regrasDoEspecialista(nomeCadastrado: string, setorCadastrado: string, modo: ModoContato): string {
+  // Auditoria 5.8 (revisão): nome e setor do cadastro também não abrem nem fecham marcas.
+  const nome = neutroLinha(nomeCadastrado);
+  const setor = neutroLinha(setorCadastrado);
   const foraDoSetor = modo === 'por_tras'
     ? 'Se precisar abrir demanda, falar com uma pessoa ou tratar de outro setor, diga isso na devolver_resposta: quem faz é o Thiago.'
     : 'Para abrir demanda, passar para uma pessoa, assunto sensível ou de outro setor, use devolver_ao_thiago: quem faz isso é o Thiago.';

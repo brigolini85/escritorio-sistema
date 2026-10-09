@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inicioDoDiaSaoPaulo, lerCursorAnteriores, lerMensagensDaConversa, MENSAGENS_POR_PAGINA } from './mensagens-conversa';
+import { hrefVerAnteriores, inicioDoDiaSaoPaulo, lerCursorAnteriores, lerMensagensDaConversa, MENSAGENS_POR_PAGINA } from './mensagens-conversa';
 
 type Linha = { id: string; conversa_id: string; criado_em: string };
 
@@ -113,5 +113,18 @@ describe('lerCursorAnteriores', () => {
 
   it('dia do ?data= vira o começo do dia em São Paulo', () => {
     expect(inicioDoDiaSaoPaulo('2026-09-15')).toBe('2026-09-15T00:00:00-03:00');
+  });
+});
+
+describe('hrefVerAnteriores (revisão da Task 16)', () => {
+  it('mantém filtro, busca, páginas da lista e o dia pedido; o cursor vai codificado', () => {
+    const h = hrefVerAnteriores({ conversaId: 'C1', filtro: 'minhas', q: 'joão', mais: 3, data: '2026-09-15', anteriores: '2026-09-01T12:00:00.1+00:00' });
+    const u = new URL(h, 'http://x');
+    expect(u.pathname).toBe('/atendimento/C1');
+    expect(Object.fromEntries(u.searchParams)).toEqual({ filtro: 'minhas', q: 'joão', mais: '3', data: '2026-09-15', anteriores: '2026-09-01T12:00:00.1+00:00' });
+  });
+  it('sem nada além do cursor', () => {
+    expect(hrefVerAnteriores({ conversaId: 'C1', filtro: null, q: '', mais: 1, data: null, anteriores: '2026-09-01T12:00:00Z' }))
+      .toBe('/atendimento/C1?anteriores=2026-09-01T12%3A00%3A00Z');
   });
 });
