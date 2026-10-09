@@ -136,6 +136,43 @@ describe('arquivo vai com o conteúdo (Base64), não como link', () => {
   });
 });
 
+describe('auditoria 1.3 e 6.9: documento da empresa só da pasta dela e no tamanho do WhatsApp', () => {
+  const docDe = (id: string, arquivoPath: string) =>
+    ({ id, nome: 'Contrato social', arquivoPath, arquivoNome: 'contrato.pdf', arquivoMime: 'application/pdf', iaPodeEnviar: true });
+
+  it('caminho fora de "clientes/<empresa>/" lança, não lê o arquivo e não envia', async () => {
+    const { data: a } = await db.from('clientes').insert({ razao_social: 'Empresa A', cnpj: '11222333000181' }).select().single();
+    const { data: b } = await db.from('clientes').insert({ razao_social: 'Empresa B', cnpj: '11444777000161' }).select().single();
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    let lidos = 0;
+    const midia = criarArmazenamento(db);
+    d.midia = { ...midia, ler: async (...args) => { lidos++; return midia.ler(...args); } };
+    for (const caminho of [`clientes/${b!.id}/contrato.pdf`, `clientes/${a!.id}/../${b!.id}/contrato.pdf`, `${a!.id}/contrato.pdf`]) {
+      await expect(enviarDocumentoDoSistema(d, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: a!.id,
+        documento: docDe('00000000-0000-4000-8000-000000000001', caminho) })).rejects.toThrow(/pasta da empresa/);
+    }
+    expect(lidos).toBe(0);
+    expect(canal.arquivosEnviados).toEqual([]);
+    const { count } = await db.from('mensagens').select('*', { count: 'exact', head: true }).eq('conversa_id', conversa.id);
+    expect(count).toBe(0);
+  });
+
+  it('documento acima de 15 MB: recusa antes de ler, com o aviso ao agente, e não envia', async () => {
+    const { data: cli } = await db.from('clientes').insert({ razao_social: 'Indústria X', cnpj: '11222333000181' }).select().single();
+    const path = `clientes/${cli!.id}/grande.pdf`;
+    await db.storage.from('documentos').upload(path, new Uint8Array(15 * 1024 * 1024 + 1), { contentType: 'application/pdf', upsert: true });
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    let lidos = 0;
+    const midia = criarArmazenamento(db);
+    d.midia = { ...midia, ler: async (...args) => { lidos++; return midia.ler(...args); } };
+    await expect(enviarDocumentoDoSistema(d, { conversaId: conversa.id, telefone: conversa.telefone, clienteId: cli!.id,
+      documento: docDe('00000000-0000-4000-8000-000000000002', path) })).rejects.toThrow('documento grande demais para o WhatsApp; abra uma demanda');
+    expect(lidos).toBe(0);
+    expect(canal.arquivosEnviados).toEqual([]);
+    await db.storage.from('documentos').remove([path]);
+  });
+});
+
 describe('verificarEnviadaPorMim', () => {
   it('mensagem que o próprio sistema enviou não muda nada', async () => {
     const conversa = await repos.obterOuCriarConversa('5531999990001', null);

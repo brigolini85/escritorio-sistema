@@ -38,8 +38,8 @@ describe('acesso do contato', () => {
   });
   it('documentos e demandas filtrados', async () => {
     semErro(await db.from('documentos_empresa').insert([
-      { cliente_id: cliente, nome: 'Certidão', arquivo_path: 'a/c.pdf', arquivo_nome: 'c.pdf', ia_pode_enviar: true, setor_id: await setor('Fiscal') },
-      { cliente_id: cliente, nome: 'Folha', arquivo_path: 'a/f.pdf', arquivo_nome: 'f.pdf', ia_pode_enviar: true, setor_id: await setor('Pessoal'), tem_valores: true },
+      { cliente_id: cliente, nome: 'Certidão', arquivo_path: `clientes/${cliente}/c.pdf`, arquivo_nome: 'c.pdf', ia_pode_enviar: true, setor_id: await setor('Fiscal') },
+      { cliente_id: cliente, nome: 'Folha', arquivo_path: `clientes/${cliente}/f.pdf`, arquivo_nome: 'f.pdf', ia_pode_enviar: true, setor_id: await setor('Pessoal'), tem_valores: true },
     ], { defaultToNull: false }));
     expect((await repos.documentosParaContato(carla, cliente)).map((d) => [d.nome, d.iaPodeEnviar])).toEqual([['Certidão', true]]);
     const conversa = await repos.obterOuCriarConversa('5511977772211', carla);

@@ -137,6 +137,15 @@ describe('documento e demanda dentro do acesso', () => {
     expect(await usar('enviar_documento', { documento_id: certidao })).toEqual({ erro: AVISOS.documentoNaoLiberado, _erro: true });
     expect(canal.enviados).toEqual([]);
   });
+  it('auditoria 6.9: documento acima de 15 MB não sai; o agente é orientado a abrir uma demanda', async () => {
+    const certidao = await doc(x, 'Certidao grande', 'Fiscal');
+    const caminho = `clientes/${x}/Certidao grande.pdf`;
+    await db.storage.from('documentos').upload(caminho, new Uint8Array(15 * 1024 * 1024 + 1), { contentType: 'application/pdf', upsert: true });
+    expect(await usar('enviar_documento', { documento_id: certidao }))
+      .toEqual({ erro: 'documento grande demais para o WhatsApp; abra uma demanda', _erro: true });
+    expect(canal.enviados).toEqual([]);
+    await db.storage.from('documentos').remove([caminho]);
+  });
   it('sem "Ver valores", o valor escrito no título da demanda não chega ao modelo', async () => {
     await definirAcessoTeste(contato, x, { perfil: 'personalizado', setores: ['Pessoal'], verValores: false });
     await db.from('chamados').insert({ cliente_id: x, setor_id: await setorId('Pessoal'), titulo: 'Folha de setembro R$ 12.345,67' });

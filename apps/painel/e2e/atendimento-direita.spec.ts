@@ -25,8 +25,8 @@ async function cenario() {
     tipo_frete: null, transportadora: null, observacoes: null, entrega: null, itens: [{ produto: 'Costela', sku: '12', un: 'PAC', quantidade: 10, valor_unitario: 9.5 }] };
   await db.from('chamados').insert({ cliente_id: cliente!.id, setor_id: fiscal!.id, titulo: 'NF de Unid. Centro (direita)', pedido_venda: pedido, status: 'concluido', concluido_em: new Date().toISOString() });
   await db.from('documentos_empresa').insert([
-    { cliente_id: cliente!.id, nome: 'Cartão CNPJ', arquivo_path: 'e2e/cnpj.pdf', arquivo_nome: 'cnpj.pdf', ia_pode_enviar: true },
-    { cliente_id: cliente!.id, nome: 'Balanço interno', arquivo_path: 'e2e/balanco.pdf', arquivo_nome: 'balanco.pdf', ia_pode_enviar: false },
+    { cliente_id: cliente!.id, nome: 'Cartão CNPJ', arquivo_path: `clientes/${cliente!.id}/cnpj.pdf`, arquivo_nome: 'cnpj.pdf', ia_pode_enviar: true },
+    { cliente_id: cliente!.id, nome: 'Balanço interno', arquivo_path: `clientes/${cliente!.id}/balanco.pdf`, arquivo_nome: 'balanco.pdf', ia_pode_enviar: false },
   ]);
   await db.from('mensagens').insert({ conversa_id: c!.id, direcao: 'entrada', autor: 'cliente', conteudo: 'oi', processada_em: new Date().toISOString() });
   await db.from('decisoes_agente').insert({ conversa_id: c!.id, etapa: 'consultar_chamados', entrada: {}, saida: { chamados: [] }, turno: '33333333-3333-4333-8333-333333333333' });

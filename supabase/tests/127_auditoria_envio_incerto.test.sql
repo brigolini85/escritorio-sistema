@@ -12,7 +12,7 @@ insert into public.usuarios (id, nome, email, papel) values
   ('e1270000-0000-0000-0000-00000000000b', 'Bia 127', 'bia127@pgtap.local', 'atendente');
 insert into public.clientes (id, razao_social, cnpj) values ('e1270000-0000-0000-0000-0000000000d1', 'Padaria 127 Ltda', '11444777000161');
 insert into public.documentos_empresa (id, cliente_id, nome, arquivo_path, arquivo_nome) values
-  ('e1270000-0000-0000-0000-0000000000d2', 'e1270000-0000-0000-0000-0000000000d1', 'Contrato', 'clientes/x/contrato.pdf', 'contrato.pdf');
+  ('e1270000-0000-0000-0000-0000000000d2', 'e1270000-0000-0000-0000-0000000000d1', 'Contrato', 'clientes/e1270000-0000-0000-0000-0000000000d1/contrato.pdf', 'contrato.pdf');
 insert into public.conversas (id, telefone) values
   ('e1270000-0000-0000-0000-0000000000c1', '5531999991271'),
   ('e1270000-0000-0000-0000-0000000000c2', '5531999991272');

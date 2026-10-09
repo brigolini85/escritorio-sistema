@@ -1,4 +1,4 @@
-import { telefoneDoWhatsApp } from '@escritorio/core';
+import { caminhoDaEmpresa, telefoneDoWhatsApp } from '@escritorio/core';
 import type { DocumentoEmpresa, Repos } from '@escritorio/db';
 import { EnvioIncerto, type CanalWhatsApp, type MensagemRecebida } from './canal/tipos';
 import { FILAS, type Fila } from './fila';
@@ -94,17 +94,36 @@ async function arquivoEmBase64(d: DepsEnvio, path: string, mime: string, bucket?
   return `data:${mime.split(';')[0]};base64,${Buffer.from(bytes).toString('base64')}`;
 }
 
+/** Auditoria 6.9: acima disto o documento não vai pelo WhatsApp (bytes + Base64 + JSON da Z-API ao mesmo tempo na memória). */
+export const LIMITE_DOCUMENTO_BYTES = 15 * 1024 * 1024;
+
+/** Auditoria 6.9: o texto vai ao agente como está (a ferramenta devolve a mensagem). */
+export class DocumentoGrandeDemais extends Error {
+  constructor() { super('documento grande demais para o WhatsApp; abra uma demanda'); }
+}
+
 /** Documento da empresa (bucket "documentos"): registra antes, como em enviarDoSistema, e envia o conteúdo. */
 export async function enviarDocumentoDoSistema(
   d: DepsEnvio,
   p: { conversaId: string; telefone: string; clienteId: string; documento: DocumentoEmpresa; turnoAgente?: string | null },
 ): Promise<string> {
+  // Auditoria 1.3: a chave de serviço lê qualquer arquivo; o de outra empresa não é lido nem enviado.
+  if (!caminhoDaEmpresa(p.clienteId, p.documento.arquivoPath)) {
+    console.error(`[envio] documento ${p.documento.id} recusado: arquivo fora da pasta da empresa`);
+    throw new Error('Documento recusado: o arquivo não está na pasta da empresa.');
+  }
+  // Auditoria 6.9: grande demais não é lido (o tamanho vem do Storage, sem baixar).
+  const tamanho = await d.midia.tamanho(p.documento.arquivoPath, 'documentos').catch(() => null);
+  if (tamanho !== null && tamanho > LIMITE_DOCUMENTO_BYTES) throw new DocumentoGrandeDemais();
   // O painel mostra o documento com link (download auditado pelo id), não só o nome.
   const id = await d.repos.criarSaidaPendente({ conversaId: p.conversaId, clienteId: p.clienteId, autor: 'agente', conteudo: `📎 ${p.documento.nome}`,
     turnoAgente: p.turnoAgente ?? null, documentoId: p.documento.id });
   let url: string;
   try {
-    url = await arquivoEmBase64(d, p.documento.arquivoPath, p.documento.arquivoMime, 'documentos');
+    const bytes = await d.midia.ler(p.documento.arquivoPath, 'documentos');
+    // Segunda conferência antes de montar o Base64 (o Storage pode não ter informado o tamanho).
+    if (bytes.length > LIMITE_DOCUMENTO_BYTES) throw new DocumentoGrandeDemais();
+    url = `data:${p.documento.arquivoMime.split(';')[0]};base64,${Buffer.from(bytes).toString('base64')}`;
   } catch (e) {
     await d.repos.marcarFalha(id);
     throw e;

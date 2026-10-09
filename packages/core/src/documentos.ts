@@ -15,3 +15,11 @@ export function validarCnpj(entrada: string): boolean {
   const d2 = digito(c.slice(0, 12) + d1);
   return c.endsWith(`${d1}${d2}`);
 }
+
+/**
+ * Auditoria 1.3 e 6.10: o arquivo do documento fica na pasta da própria empresa (clientes/<cliente_id>/), sem "..".
+ * O banco já confere (caminho_da_empresa); o trabalhador antes de enviar e o painel antes de apagar conferem de novo.
+ */
+export function caminhoDaEmpresa(clienteId: string, caminho: string): boolean {
+  return clienteId.length > 0 && caminho.startsWith(`clientes/${clienteId}/`) && !caminho.includes('..');
+}

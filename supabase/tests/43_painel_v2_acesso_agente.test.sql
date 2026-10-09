@@ -28,11 +28,11 @@ insert into public.contato_cliente_setores (contato_id, cliente_id, setor_id, po
   -- Linha "sobrando" num Básico (gravada por fora): não pode valer.
   ('f5400000-0000-0000-0000-00000000000c', 'f5300000-0000-0000-0000-00000000000a', pg_temp.setor('Fiscal'), true);
 insert into public.documentos_empresa (cliente_id, nome, arquivo_path, arquivo_nome, ia_pode_enviar, setor_id, tem_valores) values
-  ('f5300000-0000-0000-0000-00000000000a', 'Contrato social', 'c/a/contrato.pdf', 'contrato.pdf', true, null, false),
-  ('f5300000-0000-0000-0000-00000000000a', 'Certidão negativa federal', 'c/a/cnd.pdf', 'cnd.pdf', true, pg_temp.setor('Fiscal'), false),
-  ('f5300000-0000-0000-0000-00000000000a', 'Folha de setembro', 'c/a/folha.pdf', 'folha.pdf', true, pg_temp.setor('Pessoal'), true),
-  ('f5300000-0000-0000-0000-00000000000a', 'Recibo do eSocial', 'c/a/recibo.pdf', 'recibo.pdf', false, pg_temp.setor('Pessoal'), false),
-  ('f5300000-0000-0000-0000-00000000000b', 'Contrato social da Padaria', 'c/b/contrato.pdf', 'contrato.pdf', true, null, false);
+  ('f5300000-0000-0000-0000-00000000000a', 'Contrato social', 'clientes/f5300000-0000-0000-0000-00000000000a/contrato.pdf', 'contrato.pdf', true, null, false),
+  ('f5300000-0000-0000-0000-00000000000a', 'Certidão negativa federal', 'clientes/f5300000-0000-0000-0000-00000000000a/cnd.pdf', 'cnd.pdf', true, pg_temp.setor('Fiscal'), false),
+  ('f5300000-0000-0000-0000-00000000000a', 'Folha de setembro', 'clientes/f5300000-0000-0000-0000-00000000000a/folha.pdf', 'folha.pdf', true, pg_temp.setor('Pessoal'), true),
+  ('f5300000-0000-0000-0000-00000000000a', 'Recibo do eSocial', 'clientes/f5300000-0000-0000-0000-00000000000a/recibo.pdf', 'recibo.pdf', false, pg_temp.setor('Pessoal'), false),
+  ('f5300000-0000-0000-0000-00000000000b', 'Contrato social da Padaria', 'clientes/f5300000-0000-0000-0000-00000000000b/contrato.pdf', 'contrato.pdf', true, null, false);
 insert into public.conversas (id, telefone, contato_id) values
   ('f5500000-0000-0000-0000-00000000000a', '5511977772211', 'f5400000-0000-0000-0000-00000000000a'),
   ('f5500000-0000-0000-0000-00000000000b', '5511955557788', 'f5400000-0000-0000-0000-00000000000c');

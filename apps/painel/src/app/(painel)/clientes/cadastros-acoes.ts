@@ -1,5 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
+import { caminhoDaEmpresa } from '@escritorio/core';
 import { temNivel } from '@/lib/permissoes';
 import { exigirAdmin, obterUsuario } from '@/lib/sessao';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
@@ -117,7 +118,9 @@ export async function excluirDocumento(clienteId: string, documentoId: string) {
   await exigirAdmin();
   const sb = await supabaseServidor();
   const { data: doc } = await sb.from('documentos_empresa').select('arquivo_path').eq('id', documentoId).eq('cliente_id', clienteId).single();
-  checar(await sb.from('documentos_empresa').delete().eq('id', documentoId));
-  if (doc) await sb.storage.from('documentos').remove([doc.arquivo_path]);
+  checar(await sb.from('documentos_empresa').delete().eq('id', documentoId).eq('cliente_id', clienteId));
+  // Auditoria 6.10: só apaga o arquivo da pasta desta empresa (uma linha antiga apontando para outra não leva o arquivo dela).
+  if (doc && caminhoDaEmpresa(clienteId, doc.arquivo_path)) await sb.storage.from('documentos').remove([doc.arquivo_path]);
+  else if (doc) console.error('[documentos] arquivo fora da pasta da empresa não foi apagado', documentoId);
   revalidatePath(`/clientes/${clienteId}`);
 }

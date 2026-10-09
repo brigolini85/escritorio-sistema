@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { MOTIVOS_PASSAGEM, ROTULO_SITUACAO_PRE_ANALISE, escolherResponsavel, formatarMensagem, resumoPreAnalise } from '@escritorio/core';
 import type { AcessoContato, ModoContato } from '@escritorio/core';
 import type { AgenteSetor, Repos, UnidadeParceiro } from '@escritorio/db';
-import { enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
+import { DocumentoGrandeDemais, enviarDocumentoDoSistema, enviarDoSistema, type DepsEnvio } from '../envio';
 import {
   ACESSO_BASICO, INSTRUCAO_FORA_DO_ACESSO, ehBasico, observacoesDeAcesso, podeFluxoNota, SETORES_SEMPRE_ABERTOS, tituloSemValores, trataSetor,
 } from './acesso';
@@ -796,8 +796,14 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       if (!doc.iaPodeEnviar) return falha(AVISOS.documentoNaoLiberado);
       const atual = await d.repos.obterConversa(ctx.conversa.id);
       if (atual.estado === 'humano') return falha('Um atendente assumiu esta conversa. Não envie nada.');
-      await enviarDocumentoDoSistema(d.envio, { conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: e.clienteId, documento: doc,
-        turnoAgente: estado.turno ?? null });
+      try {
+        await enviarDocumentoDoSistema(d.envio, { conversaId: ctx.conversa.id, telefone: ctx.conversa.telefone, clienteId: e.clienteId, documento: doc,
+          turnoAgente: estado.turno ?? null });
+      } catch (erro) {
+        // Auditoria 6.9: grande demais não sai pelo WhatsApp; o agente abre a demanda para a equipe enviar.
+        if (erro instanceof DocumentoGrandeDemais) return falha(erro.message);
+        throw erro;
+      }
       estado.respondeu = true;
       return ok({ enviado: true, documento: doc.nome });
     }

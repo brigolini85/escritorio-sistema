@@ -17,4 +17,19 @@ describe('armazenamento', () => {
     await a.remover([salvo.path]);
     await expect(a.ler(salvo.path)).rejects.toThrow();
   });
+
+  it('auditoria 6.9: áudio de voz com parâmetros ("audio/ogg; codecs=opus") entra no compartimento com lista de tipos', async () => {
+    const baixar = vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2]), { headers: { 'content-type': 'audio/ogg; codecs=opus' } }));
+    const a = criarArmazenamento(db, baixar);
+    const salvo = await a.baixarESalvar('https://f004.backblazeb2.com/voz.ogg', crypto.randomUUID(), 'voz.ogg', 'Audio/OGG;codecs=opus');
+    expect(salvo.mime).toBe('Audio/OGG;codecs=opus');
+    expect(await a.tamanho(salvo.path)).toBe(2);
+    await a.remover([salvo.path]);
+  });
+
+  it('auditoria 6.9: tipo que o navegador executa (svg) é recusado pelo compartimento', async () => {
+    const baixar = vi.fn().mockResolvedValue(new Response('<svg/>', { headers: { 'content-type': 'image/svg+xml' } }));
+    const a = criarArmazenamento(db, baixar);
+    await expect(a.baixarESalvar('https://f004.backblazeb2.com/x.svg', crypto.randomUUID(), 'x.svg', null)).rejects.toThrow(/upload falhou/);
+  });
 });

@@ -3,6 +3,8 @@ import type { Db } from '@escritorio/db';
 export interface ArmazenamentoMidia {
   baixarESalvar(url: string, conversaId: string, nomeArquivo: string, mime: string | null): Promise<{ path: string; bytes: Uint8Array; mime: string }>;
   ler(path: string, bucket?: string): Promise<Uint8Array>;
+  /** Auditoria 6.9: tamanho do objeto em bytes, sem baixar; nulo se o Storage não informar. */
+  tamanho(path: string, bucket?: string): Promise<number | null>;
   urlAssinada(path: string, segundos: number, bucket?: string): Promise<string>;
   remover(paths: string[]): Promise<void>;
 }
@@ -90,7 +92,9 @@ export function criarArmazenamento(db: Db, buscar: typeof fetch = fetch, hosts: 
       const bytes = await lerComLimite(r);
       const tipo = mime ?? r.headers.get('content-type') ?? 'application/octet-stream';
       const path = `conversas/${conversaId}/${Date.now()}-${nomeSeguro(nomeArquivo)}`;
-      const { error } = await db.storage.from(BUCKET).upload(path, bytes, { contentType: tipo });
+      // Auditoria 6.9: o compartimento só aceita os tipos da lista, comparados por inteiro; sobe sem parâmetros
+      // ("audio/ogg; codecs=opus" vira "audio/ogg"). A mensagem guarda o tipo como veio.
+      const { error } = await db.storage.from(BUCKET).upload(path, bytes, { contentType: tipo.split(';')[0]!.trim().toLowerCase() });
       if (error) throw new Error(`upload falhou: ${error.message}`);
       return { path, bytes, mime: tipo };
     },
@@ -98,6 +102,11 @@ export function criarArmazenamento(db: Db, buscar: typeof fetch = fetch, hosts: 
       const { data, error } = await db.storage.from(bucket).download(path);
       if (error || !data) throw new Error(`leitura falhou: ${error?.message}`);
       return new Uint8Array(await data.arrayBuffer());
+    },
+    async tamanho(path, bucket = BUCKET) {
+      const { data, error } = await db.storage.from(bucket).info(path);
+      if (error || !data) throw new Error(`leitura falhou: ${error?.message}`);
+      return typeof data.size === 'number' ? data.size : null;
     },
     async urlAssinada(path, segundos, bucket = BUCKET) {
       const { data, error } = await db.storage.from(bucket).createSignedUrl(path, segundos);

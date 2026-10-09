@@ -139,7 +139,7 @@ reset role;
 -- 34–35: apagar um setor não transforma os documentos dele em "documento da empresa" (iria para todos; onda final, Minor 8)
 insert into public.setores (nome, descricao_assuntos) values ('H2A Setor com documento', 'Teste');
 insert into public.documentos_empresa (cliente_id, nome, arquivo_path, arquivo_nome, setor_id) values
-  ('f4300000-0000-0000-0000-00000000000a', 'H2A Relatório do setor', 'h2a/rel.pdf', 'rel.pdf', (select id from public.setores where nome = 'H2A Setor com documento'));
+  ('f4300000-0000-0000-0000-00000000000a', 'H2A Relatório do setor', 'clientes/f4300000-0000-0000-0000-00000000000a/rel.pdf', 'rel.pdf', (select id from public.setores where nome = 'H2A Setor com documento'));
 select throws_ok($$ delete from public.setores where nome = 'H2A Setor com documento' $$, '23503', null,
   'setor com documento não é apagado (o escritório desativa)');
 select isnt((select setor_id from public.documentos_empresa where nome = 'H2A Relatório do setor'), null, 'o documento continua no setor');

@@ -128,7 +128,7 @@ test('documento com setor desativado mantém o setor ao salvar (nunca vira "da e
   const s = await semearAcesso();
   const auditoria = (await db.from('setores').select('id').eq('nome', 'H2E2E Auditoria').single()).data!.id as string;
   await db.from('setores').update({ ativo: false }).eq('id', auditoria);
-  await db.from('documentos_empresa').insert({ cliente_id: s.rede, nome: 'Relatório de auditoria', arquivo_path: `${s.rede}/auditoria.pdf`, arquivo_nome: 'auditoria.pdf', setor_id: auditoria });
+  await db.from('documentos_empresa').insert({ cliente_id: s.rede, nome: 'Relatório de auditoria', arquivo_path: `clientes/${s.rede}/auditoria.pdf`, arquivo_nome: 'auditoria.pdf', setor_id: auditoria });
   await comoAdmin(page);
   await page.goto(`/clientes/${s.rede}?aba=documentos`);
   await expect(page.getByLabel('Setor de Relatório de auditoria', { exact: true })).toHaveValue(auditoria);
