@@ -32,7 +32,34 @@ export type DepsAgente = {
 export type OrcamentoVez = { telefoneAntes: number; limiteDia: number; mesAntes: number; tetoMes: number; gastoNaVez: number };
 /** Parte I2 (D4): o que o agente do setor entrega ao Thiago no modo por trás. */
 export type Devolucao = { respostaAoCliente: string; paraAEquipe: string | null };
+/**
+ * Auditoria 5.6: o que esta vez já fez. Um só objeto por turno: o agente do setor recebe o mesmo (por referência) e não zera a conta.
+ * `recusou`: já devolvemos o limite ao modelo numa rodada; se ele insistir em outra, a vez é escalada.
+ */
+export type ContadoresVez = { demandasAbertas: number; respostasEnviadas: number; documentosEnviados: number; notasAbertas: number; recusou: boolean };
+export const novosContadores = (): ContadoresVez => ({ demandasAbertas: 0, respostasEnviadas: 0, documentosEnviados: 0, notasAbertas: 0, recusou: false });
+export const LIMITE_DEMANDAS = 4;
+export const LIMITE_RESPOSTAS = 4;
+export const LIMITE_DOCUMENTOS = 3;
+export const LIMITE_FERRAMENTAS_RODADA = 10;
+export const MENSAGEM_LIMITE_ACOES = 'Limite de ações neste atendimento atingido. Passe para a equipe com passar_para_pessoa.';
+/** A ferramenta é uma das que têm limite por atendimento e o limite já foi atingido. */
+export function limiteEstourado(c: ContadoresVez, nome: string): boolean {
+  if (nome === 'abrir_chamado' || nome === 'abrir_pedido_nota') return c.demandasAbertas >= LIMITE_DEMANDAS;
+  if (nome === 'responder') return c.respostasEnviadas >= LIMITE_RESPOSTAS;
+  if (nome === 'enviar_documento') return c.documentosEnviados >= LIMITE_DOCUMENTOS;
+  return false;
+}
+/** Conta uma ação que deu certo. */
+export function contarAcao(c: ContadoresVez, nome: string): void {
+  if (nome === 'abrir_chamado') c.demandasAbertas++;
+  else if (nome === 'abrir_pedido_nota') { c.demandasAbertas++; c.notasAbertas++; }
+  else if (nome === 'responder') c.respostasEnviadas++;
+  else if (nome === 'enviar_documento') c.documentosEnviados++;
+}
 export type EstadoExecucao = {
+  /** Auditoria 5.6: contadores da vez, compartilhados com o agente do setor. */ contadores?: ContadoresVez;
+  /** Auditoria 5.6: nesta rodada o limite recusou alguma ação. */ limiteNaRodada?: boolean;
   ctx: ContextoAgente; respondeu: boolean; /** Execução atual (executarAgente); liga decisões e mensagens. */ turno?: string;
   /** Já mandou a resposta neutra neste turno (Parte H2): não manda de novo. */ recusou?: boolean;
   /** Parte I2: o agente do setor desta execução (sem ele, o Thiago) e o modo em que ele fala. */ agenteSetor?: AgenteSetor; modo?: ModoContato;

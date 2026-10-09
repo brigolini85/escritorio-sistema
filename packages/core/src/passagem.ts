@@ -26,6 +26,8 @@ const ESCALADAS: Record<string, string> = {
   'tempo esgotado': 'o agente passou do tempo máximo da vez',
   // Auditoria 4.11: limite do número ou teto do mês atingido entre as rodadas.
   'limite de custo': 'o agente passou do limite de gasto com IA',
+  // Auditoria 5.6: o modelo insistiu em ação além do limite por atendimento (demandas, respostas, documentos).
+  'limite de ações': 'o agente insistiu em passar do limite de ações do atendimento',
 };
 
 /** Motivo de executarAgente (status "escalar") em texto da tela; desconhecido vira um texto genérico. */

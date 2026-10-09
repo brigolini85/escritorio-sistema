@@ -8,7 +8,7 @@ import type { ParametrosIa } from './cliente-ia';
 import type { ContextoAgente } from './contexto';
 import { ferramentasDoAgenteSetor, montarBlocosEspecialista } from './especialista';
 import {
-  NOMES_FERRAMENTAS, executarFerramenta, falha, ok, type DepsAgente, type Devolucao, type EstadoExecucao, type ExecutorFerramentas, type OrcamentoVez,
+  LIMITE_FERRAMENTAS_RODADA, MENSAGEM_LIMITE_ACOES, NOMES_FERRAMENTAS, contarAcao, executarFerramenta, falha, limiteEstourado, novosContadores, ok, type ContadoresVez, type DepsAgente, type Devolucao, type EstadoExecucao, type ExecutorFerramentas, type OrcamentoVez,
   type Resultado,
 } from './ferramentas';
 import { LIMITE_ORIENTACOES } from './orientacoes';
@@ -26,7 +26,7 @@ const LEMBRETE_DEVOLVER =
 export type PapelExecucao = { tipo: 'porta' } | { tipo: 'especialista'; agente: AgenteSetor; modo: ModoContato };
 const PORTA: PapelExecucao = { tipo: 'porta' };
 /** `acessoConferido`: chamar_agente acabou de conferir o setor do agente para este contato (F4); a condução não passa isso. */
-export type OpcoesExecucao = { papel?: PapelExecucao; turno?: string; acessoConferido?: boolean };
+export type OpcoesExecucao = { papel?: PapelExecucao; turno?: string; acessoConferido?: boolean; contadores?: ContadoresVez };
 /** `respondeu`: se mandou alguma mensagem ao cliente nesta vez. O Thiago devolve `{ status: 'ok' }` como antes. */
 export type ResultadoAgente =
   | { status: 'ok'; respondeu?: boolean; devolucao?: Devolucao }
@@ -128,7 +128,14 @@ async function despachar(
     const recusa = await conferirAcessoDoSetor(d, estado);
     if (recusa) return recusa;
   }
+  // Auditoria 5.6: limite de demandas, respostas e documentos por atendimento (os contadores são os mesmos do agente do setor).
+  const c = estado.contadores;
+  if (c && limiteEstourado(c, u.name)) {
+    estado.limiteNaRodada = true;
+    return falha(MENSAGEM_LIMITE_ACOES);
+  }
   const r = await executor(d, estado, u.name, u.input);
+  if (c && !r.erro) contarAcao(c, u.name);
   return u.name === 'abrir_chamado' ? avisoForaPeloSistema(d, estado, r) : r;
 }
 
@@ -143,12 +150,12 @@ export async function executarAgente(
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: conteudo }];
   // Um turno por vez do Thiago; o agente do setor chamado nele usa o mesmo (o "por quê?" junta os dois).
   const estado: EstadoExecucao = {
-    ctx, respondeu: false, turno: opcoes.turno ?? d.turno ?? randomUUID(), conteudo,
+    ctx, respondeu: false, contadores: opcoes.contadores ?? novosContadores(), turno: opcoes.turno ?? d.turno ?? randomUUID(), conteudo,
     ...(especialista ? { agenteSetor: especialista.agente, modo: especialista.modo } : {}),
     ...(especialista && opcoes.acessoConferido ? { acessoSetorConferido: true } : {}),
   };
   // Só chamarAgente roda o agente do setor, e só depois de conferir o acesso do contato ao setor dele (F4).
-  const rodar: RodarEspecialista = (p, c) => executarAgente(d, ctx, c, executor, { papel: p, turno: estado.turno, acessoConferido: true });
+  const rodar: RodarEspecialista = (p, c) => executarAgente(d, ctx, c, executor, { papel: p, turno: estado.turno, acessoConferido: true, contadores: estado.contadores });
   const terminou = (): ResultadoAgente | null => {
     if (estado.devolvido !== undefined) return { status: 'devolvido', motivo: estado.devolvido, respondeu: estado.respondeu };
     if (estado.devolucao) return { status: 'ok', respondeu: false, devolucao: estado.devolucao };
@@ -203,13 +210,24 @@ export async function executarAgente(
       : usos;
     estado.agenteFalouNaRodada = false;
     const porId = new Map<string, Resultado>();
-    for (const u of ordem) porId.set(u.id, await despachar(d, estado, u, liberadas, executor, rodar));
+    estado.limiteNaRodada = false;
+    let nesta = 0;
+    for (const u of ordem) {
+      // Auditoria 5.6: da 11ª ferramenta da rodada em diante só volta a recusa (todo tool_use precisa do seu tool_result).
+      if (++nesta > LIMITE_FERRAMENTAS_RODADA) { porId.set(u.id, falha(MENSAGEM_LIMITE_ACOES)); continue; }
+      porId.set(u.id, await despachar(d, estado, u, liberadas, executor, rodar));
+    }
     estado.agenteFalouNaRodada = false;
     for (const u of usos) {
       const res = porId.get(u.id)!;
       resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res.resultado, is_error: res.erro });
     }
     messages.push({ role: 'user', content: resultados });
+    // Auditoria 5.6: o limite já tinha sido devolvido numa rodada anterior e o modelo pediu de novo: escala a vez.
+    if (estado.limiteNaRodada && estado.contadores) {
+      if (estado.contadores.recusou) return { status: 'escalar', motivo: 'limite de ações', respondeu: estado.respondeu };
+      estado.contadores.recusou = true;
+    }
     const fim = terminou();
     if (fim) return fim;
   }
