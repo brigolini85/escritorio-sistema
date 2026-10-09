@@ -192,6 +192,34 @@ describe('pedido de nota com confirmação verificável (auditoria 1.1, 5.5)', (
     });
   });
 
+  it('revisão: abrirChamado falha depois do consumo: o resumo volta a valer e não duplica a demanda', async () => {
+    const id = await resumir(pedidoPara(cad.brasilEfigenia, 'Brasil Santa Efigênia'));
+    await clienteEscreve('sim');
+    novaVez();
+    const quebrado = { ...repos, abrirChamado: async () => { throw new Error('queda simulada'); } };
+    await expect(executarFerramenta({ ...d(), repos: quebrado }, estado, 'abrir_pedido_nota',
+      { resumo_id: id, pedido_original: 'NF pro Brasil: 20 costela', prioridade: 'normal' })).rejects.toThrow('queda simulada');
+    expect((await db.from('pedidos_nota_resumo').select('usado_em, chamado_id').single()).data).toEqual({ usado_em: null, chamado_id: null });
+    expect(await demandas()).toHaveLength(0);
+    const r = await abrir(id);
+    expect(r._erro).toBe(false);
+    expect(await abrir(id)).toMatchObject({ ja_aberto: true, numero: r.numero });
+    expect(await demandas()).toHaveLength(1);
+  });
+
+  it('revisão: resumo usado há mais de 2 min sem demanda: instrução honesta, não "já está sendo passada"', async () => {
+    const id = await resumir(pedidoPara(cad.brasilEfigenia, 'Brasil Santa Efigênia'));
+    await clienteEscreve('sim');
+    novaVez();
+    await db.from('pedidos_nota_resumo').update({ usado_em: new Date(Date.now() - 10 * 60_000).toISOString() }).eq('id', id);
+    const r = await abrir(id);
+    expect(r).toMatchObject({ _erro: true, erro: 'Não consegui confirmar que esta nota foi passada. Passe a conversa para a equipe com passar_para_pessoa.' });
+    // Usado há pouco (outra chamada em andamento): continua "já está sendo passada".
+    await db.from('pedidos_nota_resumo').update({ usado_em: new Date().toISOString() }).eq('id', id);
+    expect((await abrir(id)).motivo).toBe('ja_usado');
+    expect(await demandas()).toHaveLength(0);
+  });
+
   it('resumo_id de outra conversa ou inventado: recusado', async () => {
     novaVez();
     expect((await abrir(randomUUID()))._erro).toBe(true);

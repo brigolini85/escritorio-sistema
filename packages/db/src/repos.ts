@@ -483,12 +483,12 @@ export function criarRepos(db: Db) {
     },
 
     /** O resumo desta conversa e empresa (null se não for): o pedido guardado, o hash e, se já virou demanda, o número dela. */
-    async lerResumoNota(id: string, conversaId: string, clienteId: string): Promise<{ pedido: unknown; hash: string; usado: boolean; numeroChamado: number | null } | null> {
+    async lerResumoNota(id: string, conversaId: string, clienteId: string): Promise<{ pedido: unknown; hash: string; usadoEm: Date | null; numeroChamado: number | null } | null> {
       const l = checar(await db.from('pedidos_nota_resumo').select('pedido, hash, usado_em, chamados(numero)')
         .eq('id', id).eq('conversa_id', conversaId).eq('cliente_id', clienteId).maybeSingle(), 'lerResumoNota');
       if (!l) return null;
       const numero = l.chamados?.numero;
-      return { pedido: l.pedido, hash: l.hash, usado: l.usado_em !== null, numeroChamado: numero == null ? null : Number(numero) };
+      return { pedido: l.pedido, hash: l.hash, usadoEm: l.usado_em ? new Date(l.usado_em) : null, numeroChamado: numero == null ? null : Number(numero) };
     },
 
     /** Consome o resumo uma vez só (consumir_resumo_nota): resposta do cliente depois do envio, noutra vez, mesma empresa, 24 h. */
@@ -497,6 +497,11 @@ export function criarRepos(db: Db) {
       const r = checar(await db.rpc('consumir_resumo_nota', { p_id: id, p_conversa: conversaId, p_cliente: clienteId, p_turno: turnoAtual as string }),
         'consumirResumoNota') as { ok?: boolean; pedido?: unknown; motivo?: string; numero?: number | null };
       return r.ok ? { ok: true, pedido: r.pedido } : { ok: false, motivo: r.motivo ?? 'nao_encontrado', numero: r.numero == null ? null : Number(r.numero) };
+    },
+
+    /** A abertura falhou antes de haver demanda: o resumo volta a valer (senão ficaria "usado" sem demanda). */
+    async liberarResumoNota(id: string): Promise<void> {
+      checar(await db.from('pedidos_nota_resumo').update({ usado_em: null }).eq('id', id).is('chamado_id', null), 'liberarResumoNota');
     },
 
     async vincularChamadoAoResumo(id: string, chamadoId: string): Promise<void> {

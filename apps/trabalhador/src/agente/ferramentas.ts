@@ -308,6 +308,7 @@ export const AVISOS = {
   pedidoSemResposta: 'O cliente ainda não respondeu a este resumo. Espere a resposta dele; não passe a nota agora.',
   pedidoResumoVencido: 'Este resumo tem mais de 24 horas. Mande um resumo novo com resumir_pedido_nota e espere o cliente confirmar.',
   pedidoEmAndamento: 'Esta nota já está sendo passada para o Fiscal. Não chame de novo.',
+  pedidoNaoConfirmado: 'Não consegui confirmar que esta nota foi passada. Passe a conversa para a equipe com passar_para_pessoa.',
   pedidoMudou: 'Os preços ou o cadastro mudaram desde o resumo. Mande um resumo novo com resumir_pedido_nota',
   documentoNaoEncontrado: 'Documento não encontrado nesta empresa. Use listar_documentos.',
   documentoNaoLiberado: 'Este documento não está liberado para envio automático. Abra uma demanda com abrir_chamado para a equipe enviar.',
@@ -445,6 +446,8 @@ const RECUSAS_RESUMO: Record<string, string> = {
   expirado: AVISOS.pedidoResumoVencido, mesmo_turno: AVISOS.pedidoSemResposta, sem_resposta: AVISOS.pedidoSemResposta, ja_usado: AVISOS.pedidoEmAndamento,
 };
 
+const USADO_SEM_DEMANDA_MS = 2 * 60_000;
+
 export type EntradaAbrirPedido = z.infer<(typeof Entradas)['abrir_pedido_nota']>;
 export type PedidoConferido = { conferido: z.infer<typeof PedidoNota> & { pedido_original: string }; destino: UnidadeParceiro | null; itens: ItemPedido[] };
 
@@ -458,6 +461,8 @@ export async function consumirResumo(d: DepsAgente, estado: EstadoExecucao, clie
   const guardado = await d.repos.lerResumoNota(entrada.resumo_id, conversaId, clienteId);
   if (!guardado) return recusa('nao_encontrado', AVISOS.pedidoNaoConferido);
   if (guardado.numeroChamado !== null) return ok({ numero: guardado.numeroChamado, ja_aberto: true });
+  // Usado há mais de 2 min e sem demanda: a abertura não terminou. Não afirmar que a nota foi passada (revisão da Task 4).
+  if (guardado.usadoEm && Date.now() - guardado.usadoEm.getTime() > USADO_SEM_DEMANDA_MS) return falha(AVISOS.pedidoNaoConfirmado);
   const resumido = PedidoNota.safeParse((guardado.pedido as { entrada?: unknown } | null)?.entrada);
   if (!resumido.success) return recusa('nao_encontrado', AVISOS.pedidoNaoConferido);
   // Antes de consumir: o pedido com os preços e o cadastro de agora tem de ser o que o cliente viu.
@@ -635,20 +640,28 @@ async function executarValidada(d: DepsAgente, estado: EstadoExecucao, nome: key
       const p = await consumirResumo(d, estado, e.clienteId, entrada);
       if ('resultado' in p) return p;
       const { conferido, destino, itens } = p;
-      // O acesso de agora (o painel pode ter mudado depois de a conversa carregar), não o guardado no contexto.
-      const acesso = await acessoNaEmpresa(d, estado, e.clienteId);
-      const pedido = montarPedidoNota({
-        tipo: conferido.tipo, destino, textoDestinatario: conferido.texto_destinatario, itens,
-        pedidoOriginal: conferido.pedido_original, semPermissao: !acesso.podePedirNota,
-      });
-      const titulo = pedido.titulo;
-      const resumo = [pedido.resumo, ...observacoesDeAcesso(acesso)].join('\n\n');
-      const setorId = await d.repos.setorPorNome('Fiscal');
-      const responsavelId = escolherResponsavel(setorId, await d.repos.responsaveisDoCliente(e.clienteId));
-      const { id: chamadoId, numero } = await d.repos.abrirChamado({
-        clienteId: e.clienteId, conversaId: ctx.conversa.id, setorId, responsavelId,
-        titulo, resumo, foraDoContrato: false, origem: 'agente', prioridade: entrada.prioridade,
-      });
+      let setorId: string | null;
+      let chamadoId: string;
+      let numero: number;
+      try {
+        // O acesso de agora (o painel pode ter mudado depois de a conversa carregar), não o guardado no contexto.
+        const acesso = await acessoNaEmpresa(d, estado, e.clienteId);
+        const pedido = montarPedidoNota({
+          tipo: conferido.tipo, destino, textoDestinatario: conferido.texto_destinatario, itens,
+          pedidoOriginal: conferido.pedido_original, semPermissao: !acesso.podePedirNota,
+        });
+        const resumo = [pedido.resumo, ...observacoesDeAcesso(acesso)].join('\n\n');
+        setorId = await d.repos.setorPorNome('Fiscal');
+        const responsavelId = escolherResponsavel(setorId, await d.repos.responsaveisDoCliente(e.clienteId));
+        ({ id: chamadoId, numero } = await d.repos.abrirChamado({
+          clienteId: e.clienteId, conversaId: ctx.conversa.id, setorId, responsavelId,
+          titulo: pedido.titulo, resumo, foraDoContrato: false, origem: 'agente', prioridade: entrada.prioridade,
+        }));
+      } catch (erro) {
+        // Revisão da Task 4: sem demanda aberta, o resumo volta a valer (não fica "usado" sem demanda).
+        await d.repos.liberarResumoNota(entrada.resumo_id).catch((x) => console.error('[nota] resumo não liberado', entrada.resumo_id, x));
+        throw erro;
+      }
       await d.repos.vincularChamadoAoResumo(entrada.resumo_id, chamadoId);
       // Pedido de venda para a equipe baixar no painel como arquivo do Bling (o cliente nunca recebe).
       if (conferido.tipo === 'venda') {

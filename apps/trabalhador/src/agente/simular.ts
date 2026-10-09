@@ -14,7 +14,7 @@ import {
   prepararPedido, validarEntrada, type DepsAgente, type EstadoExecucao, type ExecutorFerramentas, type NomeFerramenta, type Resultado,
 } from './ferramentas';
 import { orientacoesDaConversa } from './orientacoes';
-import { formatarReais, hashPedidoNota, montarPedidoNota, montarResumoParaCliente } from './pedido-nota';
+import { formatarReais, hashPedidoNota, montarResumoParaCliente } from './pedido-nota';
 import { carregarPerfil } from './perfil';
 import { montarConteudoUsuario } from './prompt';
 
@@ -106,24 +106,23 @@ export function reposDaSimulacao(repos: Repos, conversa: Conversa, usuario: Usua
  * recebe mensagem depois do resumo: fora da mesma vez, a recusa é "sem_resposta".
  */
 function resumosNaMemoria(): Pick<Repos, 'gravarResumoNota' | 'lerResumoNota' | 'consumirResumoNota'> {
-  type Guardado = Parameters<Repos['gravarResumoNota']>[0] & { usado: boolean };
+  type Guardado = Parameters<Repos['gravarResumoNota']>[0];
   const resumos = new Map<string, Guardado>();
   const recusa = (motivo: string) => ({ ok: false as const, motivo, numero: null });
   return {
     gravarResumoNota: async (r) => {
       const id = randomUUID();
-      resumos.set(id, { ...r, usado: false });
+      resumos.set(id, r);
       return id;
     },
     lerResumoNota: async (id, conversaId, clienteId) => {
       const r = resumos.get(id);
-      return r && r.conversaId === conversaId && r.clienteId === clienteId ? { pedido: r.pedido, hash: r.hash, usado: r.usado, numeroChamado: null } : null;
+      return r && r.conversaId === conversaId && r.clienteId === clienteId ? { pedido: r.pedido, hash: r.hash, usadoEm: null, numeroChamado: null } : null;
     },
     consumirResumoNota: async (id, conversaId, clienteId, turnoAtual) => {
       const r = resumos.get(id);
       if (!r || r.conversaId !== conversaId) return recusa('nao_encontrado');
       if (r.clienteId !== clienteId) return recusa('outra_empresa');
-      if (r.usado) return recusa('ja_usado');
       if (!turnoAtual || r.turno === turnoAtual) return recusa('mesmo_turno');
       return recusa('sem_resposta');
     },
@@ -268,20 +267,10 @@ async function simularGravacao(d: DepsAgente, estado: EstadoExecucao, nome: Nome
       // Mesma trava do atendimento (consumirResumo). O teste é uma vez só, sem resposta do cliente depois do resumo:
       // o resumo deste teste nunca vira demanda, como no atendimento na mesma vez.
       const p = await consumirResumo(d, estado, e.clienteId, entrada);
-      if ('resultado' in p) return p;
-      const { conferido } = p;
-      const { titulo } = montarPedidoNota({
-        tipo: conferido.tipo, destino: p.destino, textoDestinatario: conferido.texto_destinatario, itens: p.itens,
-        pedidoOriginal: conferido.pedido_original, semPermissao: !ctx.empresaEmFoco!.podePedirNota,
-      });
-      const setorId = await d.repos.setorPorNome('Fiscal');
-      r.demandas++;
-      acao(r, nome, `Passaria a nota para ${setorId ? 'o Fiscal' : 'a Triagem'}: ${titulo}`);
-      return ok({
-        numero: r.demandas, setor: setorId ? 'Fiscal' : 'Triagem', itens_sem_cadastro: p.itens.filter((i) => !i.produto).length,
-        sem_preco: conferido.tipo === 'venda' ? p.itens.filter((i) => i.produto && i.preco === null).length : 0,
-        fora_do_horario: !ctx.noExpediente, aviso_para_o_cliente: avisoForaDoHorario(ctx),
-      });
+      if (!('resultado' in p)) return falha(AVISOS.pedidoSemResposta); // não acontece: o repositório do teste nunca consome
+      // Revisão da Task 4: quem treina vê que o agente tentou passar a nota e ela ficaria esperando o cliente.
+      if ((JSON.parse(p.resultado) as { motivo?: string }).motivo === 'mesmo_turno') acao(r, nome, 'Esperaria o cliente confirmar o resumo');
+      return p;
     }
 
     case 'enviar_documento': {

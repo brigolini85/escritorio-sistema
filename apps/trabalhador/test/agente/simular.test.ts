@@ -16,7 +16,7 @@ import { criarUsuarioTeste } from '../apoio/usuario';
 const SEGUNDA_10H = new Date('2026-09-28T13:00:00Z');
 const TABELAS_DE_NEGOCIO = [
   'chamados', 'chamado_eventos', 'mensagens', 'precos', 'produtos', 'decisoes_agente', 'conversas', 'contatos', 'contato_clientes',
-  'parceiros_unidades', 'orientacoes_agente', 'orientacoes_agente_versoes', 'auditoria_acessos', 'alertas',
+  'parceiros_unidades', 'orientacoes_agente', 'orientacoes_agente_versoes', 'auditoria_acessos', 'alertas', 'pedidos_nota_resumo',
 ] as const;
 let canal: CanalFalso;
 let usuarioId: string;
@@ -120,14 +120,15 @@ describe('processarSimulacao', () => {
     // O resumo que o sistema mandaria vem inteiro, antes das mensagens do agente.
     expect(r.mensagens[0]).toContain('Costela com Requeijão');
     expect(r.mensagens.slice(1)).toEqual(['[documento] Contrato social', 'Pode deixar, já passei pro Fiscal.', 'Mais alguma coisa?']);
-    // Auditoria 1.1/5.5: o teste é uma vez só, sem resposta do cliente ao resumo: a nota não passaria (mesma vez).
+    // Auditoria 1.1/5.5: o teste é uma vez só, sem resposta do cliente ao resumo: a nota esperaria a confirmação (mesma vez).
     expect(r.acoes.map((a) => a.ferramenta)).toEqual([
-      'resumir_pedido_nota', 'abrir_chamado', 'alterar_preco', 'cadastrar_produto', 'enviar_documento', 'sinalizar_nao_entendido', 'selecionar_empresa',
+      'resumir_pedido_nota', 'abrir_pedido_nota', 'abrir_chamado', 'alterar_preco', 'cadastrar_produto', 'enviar_documento', 'sinalizar_nao_entendido', 'selecionar_empresa',
     ]);
     expect(abrirEntrada.resumo_id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(r.acoes[1]!.resumo).toBe('Abriria uma demanda no Fiscal: Guia DAS de setembro');
-    expect(r.acoes[2]!.resumo).toBe('Alteraria o preço de Costela com Requeijão para a rede Supermercado Brasil: de R$ 9,50 para R$ 10,00');
-    expect(r.acoes[3]!.resumo).toBe('Cadastraria o produto 30 - Lasanha Bolonhesa (PAC)');
+    expect(r.acoes[1]!.resumo).toBe('Esperaria o cliente confirmar o resumo');
+    expect(r.acoes[2]!.resumo).toBe('Abriria uma demanda no Fiscal: Guia DAS de setembro');
+    expect(r.acoes[3]!.resumo).toBe('Alteraria o preço de Costela com Requeijão para a rede Supermercado Brasil: de R$ 9,50 para R$ 10,00');
+    expect(r.acoes[4]!.resumo).toBe('Cadastraria o produto 30 - Lasanha Bolonhesa (PAC)');
     // Leituras rodaram de verdade (o agente recebeu os candidatos).
     expect(ia.recebidos[1]!.messages.at(-1)!.content).toMatchObject([{ is_error: false }, { is_error: false }]);
     expect(JSON.stringify(ia.recebidos[1]!.messages.at(-1)!.content)).toContain(c.brasilEfigenia);
