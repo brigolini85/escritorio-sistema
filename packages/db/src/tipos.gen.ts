@@ -1142,13 +1142,13 @@ isOneToOne: false
                   ]
                 },"instancias_trabalhador": {
                   Row: {
-                    "ambiente": string,"hostname": string,"id": string,"iniciado_em": string,"versao": string,"visto_em": string
+                    "ambiente": string,"build_em": string | null,"hostname": string,"id": string,"iniciado_em": string,"versao": string,"visto_em": string
                   }
                   Insert: {
-                    "ambiente": string,"hostname": string,"id": string,"iniciado_em"?: string,"versao": string,"visto_em"?: string
+                    "ambiente": string,"build_em"?: string | null,"hostname": string,"id": string,"iniciado_em"?: string,"versao": string,"visto_em"?: string
                   }
                   Update: {
-                    "ambiente"?: string,"hostname"?: string,"id"?: string,"iniciado_em"?: string,"versao"?: string,"visto_em"?: string
+                    "ambiente"?: string,"build_em"?: string | null,"hostname"?: string,"id"?: string,"iniciado_em"?: string,"versao"?: string,"visto_em"?: string
                   }
                   Relationships: [
                     
@@ -2794,7 +2794,7 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: number
                            },
 "registrar_instancia":
-{ Args: { "p_ambiente": string,"p_hostname": string,"p_id": string,"p_versao": string }; Returns: Json
+{ Args: { "p_ambiente": string,"p_build_em"?: string,"p_hostname": string,"p_id": string,"p_versao": string }; Returns: Json
                            },
 "registrar_novidade_radar":
 { Args: { "p_dados": Json,"p_giro": string }; Returns: Json

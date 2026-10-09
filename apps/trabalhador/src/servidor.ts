@@ -21,6 +21,11 @@ export type DepsServidor = {
    * `instancias` (os hostnames das outras) aparece nos detalhes.
    */
   situacaoProcesso?: () => { falhas: FalhaProcesso[]; instancias: string[] };
+  /**
+   * Auditoria 4.3 (revisão): falso quando o AMBIENTE do processo não é o do banco. O webhook responde 503 (a Z-API entrega
+   * de novo mais tarde, ao trabalhador certo) e não grava nada. Sem ele, aberto.
+   */
+  webhookAberto?: () => boolean;
   /** Só para testes: onde o log é escrito. */
   logStream?: Writable;
 };
@@ -38,7 +43,7 @@ export function mascararUrl(url: string): string {
 
 export const LIMITES_SAUDE = { sinalMs: 3 * 60_000 } as const;
 
-export type FalhaProcesso = 'ambiente' | 'instancias';
+export type FalhaProcesso = 'ambiente' | 'instancias' | 'parado';
 type Falha = 'banco' | 'batimento' | 'whatsapp' | FalhaProcesso;
 /** Prontidão (D3): o que o monitor externo precisa saber. Sem segredo na resposta. */
 export async function avaliarSaude(repos: Pick<Repos, 'sinaisVida'>, agora: Date) {
@@ -107,6 +112,7 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
     }
   });
 
+  let webhookRecusadoLogado = false;
   const descartes: number[] = [];
   async function contarDescarte(req: { log: FastifyInstance['log'] }) {
     const agora = d.relogio().getTime();
@@ -123,6 +129,13 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
 
   app.post<{ Params: { segredo: string } }>('/webhook/zapi/:segredo', async (req, rep) => {
     if (!segredoConfere(req.params.segredo, d.segredo)) return rep.code(401).send();
+    if (d.webhookAberto && !d.webhookAberto()) {
+      if (!webhookRecusadoLogado) {
+        webhookRecusadoLogado = true;
+        req.log.error('webhook_recusado_ambiente: o AMBIENTE deste trabalhador não é o do banco; nada é gravado');
+      }
+      return rep.code(503).send({ erro: 'indisponível' });
+    }
     const m = d.canal.interpretarWebhook(req.body);
     if (!m) {
       // Auditoria 3.7: o descarte deixa rastro (só o type, nunca o conteúdo). Aviso/reação são esperados e não contam.

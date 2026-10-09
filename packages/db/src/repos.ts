@@ -672,16 +672,30 @@ export function criarRepos(db: Db) {
 
     /** Auditoria 4.3: o ambiente do banco; sem ele, grava o do processo (a primeira partida define). */
     async ambienteDoBanco(ambiente: 'producao' | 'homologacao' | 'local'): Promise<string> {
-      return String(checar(await db.rpc('ambiente_do_banco', { p_ambiente: ambiente }), 'ambienteDoBanco'));
+      const v = checar(await db.rpc('ambiente_do_banco', { p_ambiente: ambiente }), 'ambienteDoBanco');
+      // Revisão: nunca o texto "null" (a comparação daria "ambiente diferente" com uma mensagem sem sentido).
+      if (typeof v !== 'string' || !v) throw new Error('ambienteDoBanco: o banco não devolveu o ambiente (configuracoes id = 1)');
+      return v;
     },
 
-    /** Auditoria 4.3: batimento desta instância; devolve as outras vistas nos últimos 2 min e se esta deve parar de consumir. */
-    async registrarInstancia(i: { id: string; hostname: string; ambiente: string; versao: string }): Promise<{
-      deveParar: boolean; outras: { hostname: string; ambiente: string; versao: string; iniciadoEm: string }[];
+    /**
+     * Auditoria 4.3: batimento desta instância; devolve as outras vistas nos últimos 2 min, se esta deve parar de consumir
+     * (há outra de build mais novo com versão ou ambiente diferente) e todas as vivas, em ordem de build, com quem parou.
+     */
+    async registrarInstancia(i: { id: string; hostname: string; ambiente: string; versao: string; buildEm: string | null }): Promise<{
+      deveParar: boolean;
+      outras: { hostname: string; ambiente: string; versao: string; buildEm: string | null; iniciadoEm: string }[];
+      todas: { hostname: string; ambiente: string; versao: string; buildEm: string | null; para: boolean }[];
     }> {
-      const r = checar(await db.rpc('registrar_instancia', { p_id: i.id, p_hostname: i.hostname, p_ambiente: i.ambiente, p_versao: i.versao }),
-        'registrarInstancia') as { deve_parar: boolean; outras: { hostname: string; ambiente: string; versao: string; iniciado_em: string }[] };
-      return { deveParar: r.deve_parar, outras: r.outras.map((o) => ({ hostname: o.hostname, ambiente: o.ambiente, versao: o.versao, iniciadoEm: o.iniciado_em })) };
+      type Linha = { hostname: string; ambiente: string; versao: string; build_em: string | null };
+      const r = checar(await db.rpc('registrar_instancia', {
+        p_id: i.id, p_hostname: i.hostname, p_ambiente: i.ambiente, p_versao: i.versao, ...(i.buildEm ? { p_build_em: i.buildEm } : {}),
+      }), 'registrarInstancia') as { deve_parar: boolean; outras: (Linha & { iniciado_em: string })[]; todas: (Linha & { para: boolean })[] };
+      return {
+        deveParar: r.deve_parar,
+        outras: r.outras.map((o) => ({ hostname: o.hostname, ambiente: o.ambiente, versao: o.versao, buildEm: o.build_em, iniciadoEm: o.iniciado_em })),
+        todas: r.todas.map((t) => ({ hostname: t.hostname, ambiente: t.ambiente, versao: t.versao, buildEm: t.build_em, para: t.para })),
+      };
     },
 
     /** Auditoria 4.3: no desligamento, a instância sai da lista (a nova não vê a antiga por mais 2 min). */

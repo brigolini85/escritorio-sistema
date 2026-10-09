@@ -29,6 +29,7 @@ export default async function LayoutPainel({ children }: { children: ReactNode }
     // Auditoria 3.13: o ambiente do banco, para a faixa vermelha quando não bate com o do painel (só o administrador).
     u.papel === 'admin' ? lerAmbienteDoBanco(sb) : Promise.resolve(null),
   ]);
+  // Auditoria 3.13: a mesma precedência da conferência da partida (ambiente-validar.ts) na faixa amarela e na vermelha.
   const ambienteProcesso = process.env.AMBIENTE ?? process.env.NEXT_PUBLIC_AMBIENTE;
 
   return (
@@ -37,7 +38,7 @@ export default async function LayoutPainel({ children }: { children: ReactNode }
       itens={itensDoMenu({ ...u, dono })}
       contadores={{ atendimento, demandas }}
       estadoAgente={estadoPelaPausaGeral(pausado)}
-      ambiente={rotuloAmbiente(process.env.NEXT_PUBLIC_AMBIENTE ?? process.env.AMBIENTE)}
+      ambiente={rotuloAmbiente(ambienteProcesso)}
       avisoAmbiente={divergenciaAmbiente(ambienteProcesso, ambienteBanco)}
       tamanhoLetra={u.tamanhoLetra}
       whatsapp={sinais ? situacaoDoSinal(sinais.whatsapp) : null}
