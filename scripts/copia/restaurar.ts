@@ -1,9 +1,10 @@
 // Auditoria 6.2: restauração de uma cópia feita por fazer-copia.ts, sem reenviar nada aos clientes.
-//   pnpm copia:restaurar <copia.enc> [--substituir] [--ambiente producao|homologacao|local] [--sou-o-dono-e-quero-a-producao]
+//   pnpm copia:restaurar <copia.enc> [--substituir] [--ambiente producao|homologacao|local] [--pasta <pasta>] [--sou-o-dono-e-quero-a-producao]
 // Variáveis: DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e COPIA_CHAVE do projeto de DESTINO (e a chave da cópia).
 // Destino: um projeto Supabase com as migrações aplicadas (supabase db push) na mesma versão da cópia ou mais nova:
 // um projeto novo e vazio, ou a homologação com --substituir. Ordem:
-//   1. recusa a produção sem --sou-o-dono-e-quero-a-producao (antes de abrir a cópia);
+//   1. recusa a produção sem --sou-o-dono-e-quero-a-producao: pela URL antes de abrir a cópia e, no passo 3, pelo
+//      configuracoes.ambiente do próprio destino;
 //   2. decifra numa pasta temporária e confere o manifesto (hash de cada arquivo); chave errada para aqui, sem tocar no banco;
 //   3. confere o destino (migrações, dados de clientes; com dados, só com --substituir);
 //   4. numa transação só: apaga os dados do destino, carrega os da cópia, confere as contagens do manifesto e roda
@@ -19,8 +20,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { decifrador, lerChave } from './cifra';
 import {
-  AMBIENTES, ARQUIVO_AUTH, ARQUIVO_BANCO, ARQUIVO_MANIFESTO, NOME_TABELA, PROJETO_PRODUCAO_REF_PADRAO, argumento, cabecalhosServico,
-  caminhoDoUsuario, ehProducao, hashArquivo, ocultar, senhaDaUrl, urlObjeto, type Ambiente, type Manifesto,
+  AMBIENTES, ARQUIVO_AUTH, ARQUIVO_BANCO, ARQUIVO_MANIFESTO, NOME_TABELA, argumento, cabecalhosServico,
+  caminhoDoUsuario, ehProducao, hashArquivo, ocultar, refProducao, senhaDaUrl, urlObjeto, type Ambiente, type Manifesto,
 } from './comum';
 import { rodarPg } from './pg';
 import { lerTar } from './tar';
@@ -38,6 +39,11 @@ export type OpcoesRestaurar = {
   ambiente?: Ambiente;
   souODono?: boolean;
   refProducao?: string;
+  /**
+   * Onde ficam os arquivos decifrados durante a restauração (padrão: a pasta temporária do sistema, %TEMP% no Windows).
+   * Use uma pasta num disco cifrado (BitLocker); a pasta é apagada no fim, com erro ou sem.
+   */
+  pasta?: string;
 };
 
 export type ResumoRestauracao = { tabelas: number; objetos: number; ambiente: string | null; avisos: string[] };
@@ -85,12 +91,18 @@ async function conferirDestino(o: OpcoesRestaurar, m: Manifesto): Promise<Destin
       throw new Error(`O banco de destino está na migração ${destinoMig}, mais antiga que a da cópia (${m.migracao}). Aplique as migrações antes.`);
     }
     if (m.migracao && destinoMig && destinoMig > m.migracao) avisos.push(`O destino tem migrações mais novas (${destinoMig}) que a cópia (${m.migracao}).`);
+    // Revisão da Task 18: o próprio banco diz se é a produção (Auditoria 4.3), seja qual for a URL (domínio próprio, ref
+    // novo depois de um desastre, PROJETO_PRODUCAO_REF errado).
+    const [amb] = await q<{ ambiente: string | null }>(`select ambiente from public.configuracoes where id = 1`);
+    if (amb?.ambiente === 'producao' && !o.souODono) {
+      throw new Error('O banco de destino é a produção (configuracoes.ambiente = producao). Restaurar apaga os dados de lá; só o dono faz isso, '
+        + 'com --sou-o-dono-e-quero-a-producao.');
+    }
     const [dados] = await q<{ tem: boolean }>(`select exists (select 1 from public.clientes) or exists (select 1 from public.contatos)
       or exists (select 1 from public.conversas) or exists (select 1 from public.mensagens) or exists (select 1 from auth.users) as tem`);
     if (dados!.tem && !o.substituir) {
       throw new Error('O banco de destino já tem dados (clientes, conversas ou logins). Para apagar tudo e pôr a cópia no lugar, rode de novo com --substituir.');
     }
-    const [amb] = await q<{ ambiente: string | null }>(`select ambiente from public.configuracoes where id = 1`);
     const tabelas = (await q<{ nome: string }>(
       `select 'public.' || c.relname as nome from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind in ('r', 'p') and not c.relispartition order by 1`)).map((r) => r.nome);
@@ -170,7 +182,7 @@ async function enviarObjetos(o: OpcoesRestaurar, m: Manifesto, pasta: string): P
 
 export async function restaurar(o: OpcoesRestaurar): Promise<ResumoRestauracao> {
   // 1. Produção só com a marca do dono, antes de qualquer outra coisa.
-  const ref = o.refProducao ?? process.env.PROJETO_PRODUCAO_REF ?? PROJETO_PRODUCAO_REF_PADRAO;
+  const ref = refProducao(o.refProducao ?? process.env.PROJETO_PRODUCAO_REF);
   const bancoProd = ehProducao(o.databaseUrl, ref);
   const apiProd = ehProducao(o.supabaseUrl, ref);
   if ((bancoProd || apiProd) && !o.souODono) {
@@ -181,7 +193,7 @@ export async function restaurar(o: OpcoesRestaurar): Promise<ResumoRestauracao> 
   const chave = lerChave(o.chave);
 
   // 2. Abre e confere a cópia sem tocar no banco.
-  const temporaria = await mkdtemp(join(tmpdir(), 'restaurar-'));
+  const temporaria = await mkdtemp(join(o.pasta ?? tmpdir(), 'restaurar-'));
   try {
     const { m, pasta } = await abrirCopia(o.arquivo, chave, temporaria);
     // 3. Confere o destino.
@@ -200,8 +212,8 @@ export async function restaurar(o: OpcoesRestaurar): Promise<ResumoRestauracao> 
 async function principal(): Promise<void> {
   const args = process.argv.slice(2);
   const env = process.env;
-  const arquivo = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--ambiente');
-  if (!arquivo) throw new Error('Uso: pnpm copia:restaurar <copia.enc> [--substituir] [--ambiente producao|homologacao|local]');
+  const arquivo = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--ambiente' && args[i - 1] !== '--pasta');
+  if (!arquivo) throw new Error('Uso: pnpm copia:restaurar <copia.enc> [--substituir] [--ambiente producao|homologacao|local] [--pasta <pasta num disco cifrado>]');
   const faltam = ['DATABASE_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'COPIA_CHAVE'].filter((k) => !env[k]);
   if (faltam.length) throw new Error(`Faltam as variáveis: ${faltam.join(', ')}.`);
   const inicio = Date.now();
@@ -209,6 +221,7 @@ async function principal(): Promise<void> {
     arquivo: caminhoDoUsuario(arquivo), chave: env.COPIA_CHAVE!, databaseUrl: env.DATABASE_URL!, supabaseUrl: env.SUPABASE_URL!,
     chaveServico: env.SUPABASE_SERVICE_ROLE_KEY!, substituir: args.includes('--substituir'),
     ambiente: argumento(args, '--ambiente') as Ambiente | undefined, souODono: args.includes('--sou-o-dono-e-quero-a-producao'),
+    pasta: argumento(args, '--pasta') ? caminhoDoUsuario(argumento(args, '--pasta')!) : undefined,
   });
   for (const a of r.avisos) console.log(`Aviso: ${a}`);
   console.log(`Restauração pronta em ${Math.round((Date.now() - inicio) / 1000)} s: ${r.tabelas} tabelas, ${r.objetos} arquivos, ambiente ${r.ambiente ?? 'da cópia'}.`);

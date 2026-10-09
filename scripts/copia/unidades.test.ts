@@ -9,7 +9,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CABECALHO_BYTES, VERSAO_FORMATO, cifrador, decifrador, lerChave } from './cifra';
-import { ehProducao, ocultar } from './comum';
+import { ehProducao, ocultar, refProducao } from './comum';
 import { ambientePg } from './pg';
 import { gerarTar, lerTar } from './tar';
 
@@ -142,5 +142,12 @@ describe('conexão sem a URL na linha de comando', () => {
 
   it('ocultar troca a senha e a chave por ***', () => {
     expect(ocultar('falhou: senha s3gr3d0 e chave AbC=', ['s3gr3d0', 'AbC=', ''])).toBe('falhou: senha *** e chave ***');
+  });
+});
+
+describe('ref da produção', () => {
+  it('vazio ou inválido volta ao padrão; um ref válido vale', () => {
+    for (const v of [undefined, '', '   ', 'x', 'nao-e-ref', 'XEXINBTBZRJFGDXAAXLA1']) expect(refProducao(v)).toBe('xexinbtbzrjfgdxaaxla');
+    expect(refProducao(' abcdefghijklmnopqrst ')).toBe('abcdefghijklmnopqrst');
   });
 });

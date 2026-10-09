@@ -45,9 +45,30 @@ end $$;
 -- 4. Outros envios guardados para depois também não saem sozinhos:
 --    Radar aprovado e não enviado;
 update public.radar_envios set estado = 'nao_enviado', reservado_em = null where estado = 'aguardando';
---    aviso de tarefa ao WhatsApp da equipe (o mesmo "não enviado por falha" do batimento);
-update public.agente_tarefa_avisos set estado = 'nao_enviado', motivo = 'falha'
- where canal = 'whatsapp' and estado in ('pendente', 'segurado', 'enviando');
+--    aviso de tarefa ao WhatsApp da equipe: o mesmo "não enviado por falha" do batimento (avisos_tarefa_parados), que
+--    também põe o aviso no painel (o aviso nunca se perde);
+do $$
+declare v record;
+begin
+  for v in update public.agente_tarefa_avisos set estado = 'nao_enviado', motivo = 'falha'
+            where canal = 'whatsapp' and estado in ('pendente', 'segurado', 'enviando')
+           returning tarefa_id, usuario_id, tipo, chave, mensagem loop
+    perform interno.aviso_no_painel(v.tarefa_id, v.usuario_id, v.tipo, v.chave, v.mensagem);
+  end loop;
+end $$;
+--    pergunta da equipe ao assistente sem resposta (o batimento a devolveria à fila e a resposta sairia no WhatsApp de quem
+--    perguntou, dias depois);
+update public.assistente_mensagens set processada_em = now() where papel = 'usuario' and processada_em is null;
+--    tarefa de trabalho "trabalhando" (o batimento a retomaria, com IA e pedidos ao cliente): fica pausada como pela pessoa
+--    (motivo 'pessoa', o mesmo de pausar_tarefa; não há código próprio de restauração e esse não gera aviso de "pausou"),
+--    com o evento na tarefa. A pessoa retoma pela tela. "aguardando_pendencias" fica: só a resposta ou a pessoa a movem.
+with pausadas as (
+  update public.agente_tarefas set estado = 'pausada', motivo_pausa = 'pessoa', executando_desde = null, atualizado_em = now()
+   where estado = 'trabalhando'
+  returning id
+)
+insert into public.agente_tarefa_eventos (tarefa_id, quem, texto)
+select id, 'sistema', 'restauração da cópia de segurança: a tarefa foi pausada; retome pela tela se ainda fizer sentido.' from pausadas;
 --    pedido ao cliente aprovado e não enviado: o batimento só retoma pedidos das últimas 24 h; o pedido passa a contar
 --    como de mais de 24 h atrás e a pessoa pede de novo pelo painel, se ainda fizer sentido.
 update public.agente_pendencias set pedido_em = least(pedido_em, now() - interval '25 hours'), pedido_enviado_em = null
@@ -61,3 +82,8 @@ delete from public.instancias_trabalhador;
 --    trabalhador de lá se recusaria a consumir. O restaurar.ts manda --ambiente, ou o que o destino já tinha.
 update public.configuracoes set ambiente = current_setting('copia.ambiente', true)
  where id = 1 and coalesce(current_setting('copia.ambiente', true), '') <> '';
+
+-- 7. Remoção de arquivos sem dono (Auditoria 6.4) volta a "só relata": o banco restaurado aponta para os arquivos da cópia,
+--    e os do destino que não estão nela virariam "sem dono" (numa homologação, a varredura de domingo os apagaria). O dono
+--    liga de novo depois de conferir um relatório.
+update public.configuracoes set varredura_orfaos_apagar = false where id = 1 and varredura_orfaos_apagar;

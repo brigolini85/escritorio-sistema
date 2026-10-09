@@ -76,3 +76,12 @@ export function argumento(args: string[], nome: string): string | undefined {
   if (!v || v.startsWith('--')) throw new Error(`${nome} precisa de um valor.`);
   return v;
 }
+
+/**
+ * Ref do projeto de produção para a guarda. Vazio ou fora do formato do Supabase (20 letras minúsculas e números) volta ao
+ * padrão: uma variável mal preenchida nunca desliga a guarda (revisão da Task 18).
+ */
+export function refProducao(valor: string | undefined): string {
+  const v = (valor ?? '').trim();
+  return /^[a-z0-9]{20}$/.test(v) ? v : PROJETO_PRODUCAO_REF_PADRAO;
+}

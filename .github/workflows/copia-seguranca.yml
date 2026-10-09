@@ -17,7 +17,8 @@ concurrency:
 jobs:
   copia:
     runs-on: ubuntu-latest
-    environment: producao
+    # Ambiente próprio, sem revisor (a cópia de domingo não espera aprovação), só com os 4 segredos e só da branch main.
+    environment: copia
     timeout-minutes: 90
     env:
       # Conta gratuita com repositório privado: ~500 MB de armazenamento de Actions no total. Com 60 dias, ficam ~9 cópias

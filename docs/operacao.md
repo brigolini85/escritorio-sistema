@@ -57,7 +57,11 @@ Para cada ambiente (homologação e produção), crie dois apps a partir do repo
 
    **Atenção:** não cadastre esses cinco como segredos do repositório. Se ficarem no repositório, a publicação de produção usaria os dados de homologação.
 3. Em **Settings → Secrets and variables → Actions → Repository secrets**, cadastre só a `ANTHROPIC_API_KEY`. Ela é usada nos testes de conversa com o Claude antes de cada publicação em produção.
-4. **Cópia de segurança semanal** (seção 5, "Cópia de segurança e restauração"): no ambiente `producao`, cadastre também `DATABASE_URL` (o endereço do Session pooler da produção, porta 5432, com a senha), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (da produção) e `COPIA_CHAVE`.
+4. **Cópia de segurança semanal** (seção 5, "Cópia de segurança e restauração"): crie um terceiro ambiente, `copia`, **sem** Required reviewers (a cópia de domingo não fica esperando aprovação) e, em **Deployment branches and tags**, escolha "Selected branches" e só `main`. Cadastre nele **só estes 4** segredos, da produção:
+   - `DATABASE_URL`: o endereço do **Session pooler** (Connect → Session pooler, porta **5432**), com a senha. Não use o endereço direto `db.<ref>.supabase.co` (só tem IPv6, e as máquinas do GitHub não têm) nem a porta 6543 (Transaction pooler, que não serve para o pg_dump);
+   - `SUPABASE_URL`;
+   - `SUPABASE_SERVICE_ROLE_KEY`;
+   - `COPIA_CHAVE`.
 
 ### 2.4 Login da equipe (Supabase Auth)
 
@@ -574,13 +578,14 @@ A cópia diária do plano Pro do Supabase guarda só o banco, e fica dentro do p
 - **Quando:** todo domingo às 04:00 (horário de Brasília), pelo workflow **Cópia de segurança** (GitHub → Actions). Também dá para rodar na hora: Actions → Cópia de segurança → **Run workflow**.
 - **O que vai:** o banco inteiro do esquema `public`, os logins (usuários, identidades e segundo fator), todos os arquivos dos compartimentos `anexos`, `documentos` e `tarefas`, e uma lista de conferência (`manifesto.json`) com a contagem de cada tabela e o "hash" de cada arquivo. A fila interna (pg-boss) não vai, de propósito.
 - **Como fica guardada:** um arquivo `.enc` cifrado (AES-256-GCM) com a `COPIA_CHAVE`. Sem a chave, ninguém abre, nem o GitHub. Fica como artefato da execução por **60 dias** (umas 9 cópias ao mesmo tempo).
-- **Aprovação:** o job usa o ambiente `producao`, que pede a sua aprovação. A cópia de domingo fica **esperando você aprovar** (chega a notificação do GitHub). Se preferir que rode sozinha, crie um ambiente `copia` **sem** revisores, cadastre nele os mesmos 4 segredos e troque `environment: producao` por `environment: copia` no arquivo `.github/workflows/copia-seguranca.yml`.
+- **Ambiente:** o job usa o ambiente `copia` do GitHub (seção 2.3, item 4): sem revisor, só da branch `main`, só com os 4 segredos da cópia. Assim roda sozinho no domingo e não enxerga os outros segredos da produção.
 - **Falha:** o GitHub manda e-mail para quem mexeu por último no agendamento do workflow (deixe ligado em GitHub → Settings → Notifications → Actions → "Send notifications for failed workflows only"). O log mostra só o tamanho e as contagens, nunca senha ou chave.
 - **Limite de tamanho:** a conta gratuita do GitHub com repositório privado tem uns **500 MB** para artefatos, somando todas as cópias guardadas. O workflow recusa uma cópia acima de **50 MB** (500 MB ÷ ~9 cópias) com a mensagem "A cópia tem ... MB, acima do limite": nada é cortado nem guardado pela metade. Quando chegar perto disso, a saída é guardar a cópia num **bucket externo** (por exemplo Backblaze B2, Cloudflare R2 ou Amazon S3, com regra de apagar depois de 60 dias) em vez do artefato: peça ao Claude para trocar o último passo do workflow. Com plano pago do GitHub, dá para subir `LIMITE_MB` no mesmo arquivo.
 
 **Onde guardar as chaves (cofre do dono).** Guarde no seu gerenciador de senhas, com o nome do ambiente, e **uma segunda cópia fora do computador** (papel num envelope lacrado no cofre do escritório ou um pendrive guardado):
 
-- **`COPIA_CHAVE`**: gere uma vez com `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` (ou `openssl rand -base64 32`): sai um texto de 44 caracteres terminado em `=`. Cadastre no GitHub (ambiente `producao`) e no cofre. **Não** coloque no Easypanel, no `.env` nem em e-mail. Sem ela, nenhuma cópia abre. Se trocar a chave, guarde a antiga por mais 60 dias (as cópias antigas só abrem com ela).
+- **`COPIA_CHAVE`**: gere uma vez com `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` (ou `openssl rand -base64 32`): sai um texto de 44 caracteres terminado em `=`. Cadastre no GitHub (ambiente `copia`) e no cofre. **Não** coloque no Easypanel, no `.env` nem em e-mail. Sem ela, nenhuma cópia abre. Se trocar a chave, guarde a antiga por mais 60 dias (as cópias antigas só abrem com ela).
+  - **Se a `COPIA_CHAVE` vazar** junto com uma cópia, quem tem as duas lê tudo, inclusive os segredos do segundo fator (o código do aplicativo) de cada pessoa. Nesse caso: gere uma chave nova, troque-a no GitHub e **todos que usam o aplicativo de código cadastram o segundo fator de novo** (Supabase → Authentication → Users → a pessoa → remover o fator; ela cadastra outro ao entrar). Troque também a senha do banco da produção.
 - **`ACESSOS_PORTAIS_CHAVE`** (a do Easypanel, da produção): a cópia leva as senhas de portais **cifradas**; depois de uma restauração, elas só abrem com essa mesma chave. Guarde no mesmo cofre.
 
 **Restaurar (passo a passo).** Tempo esperado: **de 30 a 60 minutos** no total (criar o projeto e aplicar as migrações leva a maior parte; a restauração em si, uns minutos para cada 100 MB). Os dados voltam como estavam **no domingo da cópia**: o que chegou depois se perde (a Z-API não reenvia mensagens antigas).
@@ -613,12 +618,19 @@ A cópia diária do plano Pro do Supabase guarda só o banco, e fica dentro do p
    - mensagens de saída **pendentes ou sem confirmação** viram **falhou**, com a nota "restauração" em "Por que o agente fez isso?" (a equipe decide se manda de novo);
    - mensagens de cliente **sem resposta** mais antigas que a cópia ficam como processadas, com a decisão "restauracao" (o agente não responde mensagens de dias atrás; a equipe olha as conversas);
    - a fila interna fica **vazia** (nenhum envio, resposta ou aviso esperando);
-   - envios do Radar aprovados e não enviados viram "não enviado"; avisos de tarefa ao WhatsApp da equipe também; pedidos ao cliente aprovados e não enviados só saem se a pessoa pedir de novo;
-   - as travas e o registro das instâncias do trabalhador são apagados; o ambiente do banco fica o do `--ambiente`.
+   - envios do Radar aprovados e não enviados viram "não enviado"; avisos de tarefa ao WhatsApp da equipe também (e aparecem no painel); pedidos ao cliente aprovados e não enviados só saem se a pessoa pedir de novo;
+   - perguntas da equipe ao assistente sem resposta ficam como respondidas (a pessoa pergunta de novo se ainda precisar);
+   - tarefas de trabalho que estavam "trabalhando" ficam **pausadas**, com a nota da restauração na tarefa; a pessoa retoma pela tela;
+   - as travas e o registro das instâncias do trabalhador são apagados; o ambiente do banco fica o do `--ambiente`; a remoção de arquivos sem dono volta a "só relata".
 7. **Confira e religue:** no painel do destino, abra algumas conversas e documentos (os anexos devem abrir). Só então ligue o trabalhador. Nos primeiros minutos, confira no painel da Z-API que nada saiu sozinho. A equipe entra de novo com as mesmas senhas (as sessões abertas caem); o segundo fator continua valendo.
-8. **Num desastre de verdade** (o destino vira a nova produção): troque, no Easypanel e no GitHub (ambiente `producao`), o endereço e as chaves do Supabase pelos do projeto novo. O endereço do webhook da Z-API não muda (é do trabalhador) e a `ACESSOS_PORTAIS_CHAVE` continua a mesma. A proteção da produção do `copia:restaurar` conhece o ref antigo (`xexinbtbzrjfgdxaaxla`): até o Claude atualizar esse valor no código, rode o programa com `$env:PROJETO_PRODUCAO_REF = "<ref novo>"`.
+8. **Num desastre de verdade** (o destino vira a nova produção): troque, no Easypanel e no GitHub (ambientes `producao` e `copia`), o endereço e as chaves do Supabase pelos do projeto novo. O endereço do webhook da Z-API não muda (é do trabalhador) e a `ACESSOS_PORTAIS_CHAVE` continua a mesma. A proteção da produção do `copia:restaurar` conhece o ref antigo (`xexinbtbzrjfgdxaaxla`): até o Claude atualizar esse valor no código, rode o programa com `$env:PROJETO_PRODUCAO_REF = "<ref novo>"`.
 
 **Ensaio (recomendado a cada 3 meses):** faça os passos 1 a 7 num **projeto novo e descartável** (ou na homologação com `--substituir --ambiente homologacao`), anote quanto tempo levou e apague o projeto descartável no fim.
+
+- **O primeiro ensaio confere uma coisa que só a nuvem diz:** que o usuário `postgres` do Supabase pode gravar em `auth.users` e `auth.mfa_factors` e usar `set session_replication_role` (no Supabase local pode). Se a restauração parar com "permission denied" nessas linhas, nada foi gravado (a transação é desfeita): avise o Claude antes de depender da cópia.
+- **Arquivos abertos no computador:** durante a restauração, a cópia fica **decifrada** numa pasta temporária (`%TEMP%` no Windows) e é apagada no fim, com erro ou sem. Prefira um disco cifrado (BitLocker) e aponte para ele com `--pasta`, por exemplo `--pasta D:\restauracao`. Se o computador desligar no meio, apague à mão as pastas `restaurar-...` que sobrarem.
+- **Depois de restaurar**, a remoção de arquivos sem dono volta a "só relata" (`varredura_orfaos_apagar = false`): a cópia aponta só para os arquivos dela, e os outros arquivos do destino passariam por "sem dono" e seriam apagados no domingo. Ligue de novo só depois de conferir um relatório em Alertas.
+- **A proteção da produção é dupla:** a restauração recusa a URL da produção e também qualquer banco que diga ser a produção (`configuracoes.ambiente = producao`), sem `--sou-o-dono-e-quero-a-producao`.
 
 ## 6. Plano de saída da Z-API
 

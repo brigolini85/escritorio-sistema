@@ -1,5 +1,5 @@
 // Auditoria 6.2: cópia semanal cifrada do banco e dos arquivos, guardada fora do Supabase (artefato do GitHub).
-//   pnpm copia:fazer --saida <arquivo.enc>
+//   pnpm copia:fazer --saida <arquivo.enc> [--pasta <pasta de trabalho>]
 // Variáveis: DATABASE_URL (pooler em modo sessão, porta 5432), SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, COPIA_CHAVE.
 // Conteúdo (um .tar cifrado com AES-256-GCM): banco/public.dump (pg_dump -Fc do esquema public), banco/auth.dump (dados de
 // auth.users, auth.identities e auth.mfa_factors), objetos/NNNNNN (cada arquivo dos buckets) e manifesto.json (contagem
@@ -31,6 +31,8 @@ export type OpcoesCopia = {
   saida: string;
   /** Só para os testes: copia apenas os objetos cujo nome começa assim. */
   prefixoObjetos?: string;
+  /** Pasta dos arquivos de trabalho (sem cifra) enquanto a cópia é montada; padrão: a temporária do sistema. Apagada no fim. */
+  pasta?: string;
 };
 
 export type ResumoCopia = { bytes: number; tabelas: number; objetos: number; objetosSumidos: number };
@@ -54,7 +56,7 @@ async function baixarObjeto(o: OpcoesCopia, bucket: string, nome: string, destin
 
 export async function fazerCopia(o: OpcoesCopia): Promise<ResumoCopia> {
   const chave = lerChave(o.chave);
-  const pasta = await mkdtemp(join(tmpdir(), 'copia-'));
+  const pasta = await mkdtemp(join(o.pasta ?? tmpdir(), 'copia-'));
   const cliente = new pg.Client({ connectionString: o.databaseUrl });
   try {
     await mkdir(join(pasta, 'banco'));
@@ -62,8 +64,11 @@ export async function fazerCopia(o: OpcoesCopia): Promise<ResumoCopia> {
     await cliente.connect();
     // A foto: contagens, lista de objetos e os dois pg_dump (--snapshot) veem o mesmo instante do banco.
     await cliente.query('begin isolation level repeatable read read only');
-    const criadaEm = new Date().toISOString();
-    const [{ snapshot }] = (await cliente.query<{ snapshot: string }>('select pg_export_snapshot() as snapshot')).rows as [{ snapshot: string }];
+    // criada_em vem do relógio do banco, na mesma consulta que tira a foto: toda mensagem que está na cópia foi gravada
+    // antes dele, e a restauração marca todas as entradas não processadas da cópia (revisão da Task 18).
+    const [{ snapshot, agora }] = (await cliente.query<{ snapshot: string; agora: Date }>(
+      'select pg_export_snapshot() as snapshot, clock_timestamp() as agora')).rows as [{ snapshot: string; agora: Date }];
+    const criadaEm = agora.toISOString();
     const tabelasPublic = (await cliente.query<{ nome: string }>(
       `select 'public.' || c.relname as nome from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind in ('r', 'p') and not c.relispartition order by 1`)).rows.map((r) => r.nome);
@@ -121,6 +126,7 @@ async function principal(): Promise<void> {
   const saida = caminhoDoUsuario(argumento(args, '--saida') ?? `copia-${new Date().toISOString().slice(0, 10)}.enc`);
   const r = await fazerCopia({
     databaseUrl: env.DATABASE_URL!, supabaseUrl: env.SUPABASE_URL!, chaveServico: env.SUPABASE_SERVICE_ROLE_KEY!, chave: env.COPIA_CHAVE!, saida,
+    pasta: argumento(args, '--pasta') ? caminhoDoUsuario(argumento(args, '--pasta')!) : undefined,
   });
   const mb = (r.bytes / 1024 / 1024).toFixed(1);
   console.log(`Cópia pronta: ${mb} MB (${r.bytes} bytes), ${r.tabelas} tabelas, ${r.objetos} arquivos.`);
