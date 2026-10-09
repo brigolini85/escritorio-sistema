@@ -34,6 +34,8 @@ export async function limparBanco(): Promise<void> {
     if to_regclass('public.avisos_limite_dia') is not null then delete from public.avisos_limite_dia; end if;
     if to_regclass('public.instancias_trabalhador') is not null then delete from public.instancias_trabalhador; end if;
     if to_regclass('public.limite_envio_sistema') is not null then delete from public.limite_envio_sistema; end if;
+    if to_regclass('public.avisos_unicos') is not null then delete from public.avisos_unicos; end if;
+    if to_regclass('public.ia_falhas_seguidas') is not null then delete from public.ia_falhas_seguidas; end if;
     end $$`);
   // Auditoria 4.3: o banco de teste volta sem ambiente (a próxima partida, ou o teste, define).
   await c.query(`do $$ begin

@@ -3,7 +3,7 @@ import { MOTIVOS_PASSAGEM, custoTranscricaoUsd, empresaDoUso, mesReferencia, mot
 import { PREFIXO_TENTATIVA_IA80, type Conversa, type Mensagem } from '@escritorio/db';
 import type { Alertas } from './alertas';
 import { atenderComAgentes, avisarRespostaAosPedidos } from './agente/atender';
-import { erroTemporarioIa } from './agente/cliente-ia';
+import { erroDaIa, erroTemporarioIa, falhaGeralIa } from './agente/cliente-ia';
 import { carregarContexto } from './agente/contexto';
 import type { DepsAgente } from './agente/ferramentas';
 import { montarConteudoUsuario, type AnexoParaIa } from './agente/prompt';
@@ -12,7 +12,9 @@ import { ESPERA_OCUPADA_SEGUNDOS, FILAS, TRAVA_VEZ_SEGUNDOS, agendarAssistente, 
 import { ArquivoGrandeDemais, type ArmazenamentoMidia } from './midia/armazenamento';
 import { AVISO_AUDIO_LONGO, audioLongoDemais, cortarTranscricao, type Transcricao, type Transcritor } from './midia/transcritor';
 
-export type DepsProcessamento = DepsAgente & { transcritor: Transcritor; midia: ArmazenamentoMidia; alertas: Alertas; relogio: () => Date; fila: Fila };
+export type DepsProcessamento = DepsAgente & { transcritor: Transcritor; midia: ArmazenamentoMidia; alertas: Alertas; relogio: () => Date; fila: Fila;
+  /** Auditoria 4.15: o job do pg-boss desta vez (vai na decisão inicio_vez, junto com o turno). */
+  jobId?: string };
 export type DesfechoProcessamento = 'sem-mensagens' | 'assistente' | 'interno' | 'humano' | 'pausado' | 'teto' | 'limite' | 'agente' | 'escalado' | 'volume'
   /** Revisão da Task 7: a vez perdeu a trava (outra pode estar rodando); não escreve mais nada, a retomada cuida do lote. */
   | 'trava-perdida';
@@ -447,11 +449,14 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
     return 'trava-perdida';
   };
   if (d.sinalVez?.aborted) return travaPerdida();
+  await registrarInicioVez(d, conversaId, custoAudio.clienteId, turno);
   try {
     // Auditoria 4.11: a vez para entre as rodadas se o gasto dela passar do limite do número ou do teto do mês.
     const orcamento = { telefoneAntes: custoTelefone, limiteDia, mesAntes: custoMes, tetoMes: config.tetoIaUsd, gastoNaVez: 0 };
     const r = await atenderComAgentes({ ...d, prazoVez, orcamento, turno }, ctx, montarConteudoUsuario(ctx, historico, novas, anexos));
     agenteAgiu = true;
+    // Auditoria 4.8: a IA respondeu; a conta de falhas seguidas zera (a parada pelo limite de custo não é resposta da IA).
+    if (!(r.status === 'escalar' && r.motivo === 'limite de custo')) await registrarResultadoIa(d, conversaId, null);
     if (d.sinalVez?.aborted) return travaPerdida();
     if (r.status === 'escalar') {
       if (await assumidaPorHumano(d, conversaId)) {
@@ -464,6 +469,8 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
       }
     }
   } catch (e) {
+    // Auditoria 4.8: antes de qualquer outra coisa (também quando a fila vai tentar de novo), a falha da IA entra na conta.
+    if (erroDaIa(e)) await registrarResultadoIa(d, conversaId, e);
     // Só relança (nova tentativa) se a IA falhou antes de qualquer ação; depois disso, relançar repetiria ferramentas.
     if (!agenteAgiu && erroTemporarioIa(e) && !ultimaTentativa && (await d.repos.contarDecisoesDesde(conversaId, novas[0]!.criado_em)) === 0) throw e;
     console.error('[agente] falha', e);
@@ -499,6 +506,46 @@ async function processarConversaSemProtecao(d: DepsProcessamento, conversaId: st
   // O batimento confere de novo a cada poucos minutos: falha aqui não derruba a vez.
   await conferirAlertaIa80(d).catch((e) => console.error('[alerta 80%] não conferido', conversaId, e));
   return desfecho;
+}
+
+/**
+ * Auditoria 4.15: liga o job do pg-boss ao turno da vez (o turno liga, por sua vez, decisões, saídas e uso_ia). O turno vai
+ * na entrada, não na coluna `turno`: a decisão não é ação do agente (a retomada e o "por quê?" olham a coluna). Falha aqui
+ * não derruba a vez.
+ */
+async function registrarInicioVez(d: DepsProcessamento, conversaId: string, clienteId: string | null, turno: string): Promise<void> {
+  try {
+    await d.repos.registrarDecisao({ conversaId, clienteId, etapa: 'inicio_vez', entrada: { turno, job_id: d.jobId ?? null }, saida: {} });
+  } catch (e) {
+    console.error('[agente] início da vez não registrado', conversaId, e);
+  }
+}
+
+/** Auditoria 4.8: o texto do alerta crítico ao dono quando a IA recusa os pedidos de todas as conversas. */
+export const MSG_IA_RECUSANDO = (motivo: string) => `A IA está recusando os pedidos: ${motivo}. As conversas estão indo para a equipe.`;
+
+/**
+ * Auditoria 4.8: `erro` null = a IA respondeu (zera a conta). Com erro: falha geral (401/403, limite de gasto da conta, ou 3
+ * conversas diferentes seguidas em 10 min, contadas no banco) grava o sinal ia_falha (o /saude mostra) e avisa o dono com
+ * alerta crítico no máximo uma vez por hora (a marca no banco vale entre processos). Nunca derruba a vez.
+ */
+async function registrarResultadoIa(d: Pick<DepsProcessamento, 'repos' | 'alertas'>, conversaId: string, erro: unknown): Promise<void> {
+  try {
+    if (erro === null) {
+      await d.repos.registrarResultadoIa(conversaId, true);
+      return;
+    }
+    let motivo = falhaGeralIa(erro);
+    const seguidas = await d.repos.registrarResultadoIa(conversaId, false)
+      .catch((e) => { console.error('[ia] falha não contada', conversaId, e); return false; });
+    if (!motivo && seguidas) motivo = 'falhas seguidas em conversas diferentes';
+    if (!motivo) return;
+    await d.repos.registrarSinalVida('ia_falha');
+    if (!(await d.repos.marcarAvisoUnico(`ia-falha:${new Date().toISOString().slice(0, 13)}`))) return;
+    await d.alertas.alertar({ nivel: 'critico', mensagem: MSG_IA_RECUSANDO(motivo) });
+  } catch (e) {
+    console.error('[ia] resultado da IA não registrado', conversaId, e);
+  }
 }
 
 /** D2: o dono fica sabendo uma vez por dia por telefone. A chave é o hash do telefone inteiro, no banco (revisão da Task 6). */

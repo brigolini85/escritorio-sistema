@@ -33,7 +33,7 @@ export type ResultadoAgente =
   | { status: 'escalar'; motivo: string; respondeu: boolean }
   | { status: 'devolvido'; motivo: string; respondeu: boolean };
 
-async function registrarUso(d: DepsAgente, ctx: ContextoAgente, r: Anthropic.Message, papel: PapelExecucao): Promise<void> {
+async function registrarUso(d: DepsAgente, ctx: ContextoAgente, r: Anthropic.Message, papel: PapelExecucao, turno?: string): Promise<void> {
   const especialista = papel.tipo === 'especialista' ? papel.agente : null;
   const perfil = especialista ?? perfilDoContexto(ctx);
   const modelo = modeloDoPerfil(perfil, ctx.config);
@@ -47,6 +47,8 @@ async function registrarUso(d: DepsAgente, ctx: ContextoAgente, r: Anthropic.Mes
     funcionalidade: especialista ? 'especialista_setor' : 'agente_clientes', usuarioId: null, conversaId: ctx.conversa.id,
     clienteId: ctx.empresaEmFoco?.id ?? null, modelo, tokensEntrada: uso.entrada, tokensSaida: uso.saida,
     tokensCacheLeitura: uso.cacheLeitura, tokensCacheEscrita: uso.cacheEscrita, custoUsd, agenteId: perfil.id,
+    // Auditoria 4.15: o mesmo turno das decisões e das saídas desta vez.
+    turno: turno ?? null,
   });
 }
 
@@ -175,7 +177,7 @@ export async function executarAgente(
     // A cada rodada: selecionar_empresa pode ter trocado a empresa em foco (e com ela as orientações da empresa).
     const { pedido, cortadas } = montarPedido(ctx, messages, papel);
     const r = await d.ia.criar(pedido);
-    await registrarUso(d, ctx, r, papel);
+    await registrarUso(d, ctx, r, papel, estado.turno);
     // Só depois de a IA responder: o registro não pode contar como "o agente já agiu" numa falha temporária antes disso.
     if (cortadas.length && !cortesVerificados) {
       cortesVerificados = true;

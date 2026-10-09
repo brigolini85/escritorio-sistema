@@ -46,6 +46,8 @@ export type NovoUsoIa = {
   agenteId?: string | null;
   /** Tarefa de trabalho que gastou (Parte I3a, D12). Só existe com a I3 no banco. */
   tarefaId?: string | null;
+  /** Auditoria 4.15: a vez do agente que chamou o modelo (o mesmo turno das decisões e das saídas). */
+  turno?: string | null;
 };
 export type NovoChamado = {
   clienteId: string | null; conversaId: string | null; setorId: string | null; responsavelId: string | null;
@@ -628,6 +630,7 @@ export function criarRepos(db: Db) {
         segundos_audio: u.segundosAudio ?? null, custo_usd: u.custoUsd,
         ...(u.agenteId ? { agente_id: u.agenteId } : {}),
         ...(u.tarefaId ? { tarefa_id: u.tarefaId } : {}),
+        ...(u.turno ? { turno: u.turno } : {}),
       }), 'registrarUsoIa');
     },
 
@@ -751,6 +754,21 @@ export function criarRepos(db: Db) {
       checar(await db.from('instancias_trabalhador').delete().eq('id', id), 'removerInstancia');
     },
 
+    /**
+     * Auditoria 4.9 e 4.13: conversas com mensagem de cliente parada (mais de 5 min e menos de 24 h), saídas com falha ou
+     * incertas na última hora e mensagens esquecidas há mais de 24 h. Conversa com pessoa fica de fora.
+     */
+    async indicadoresSaude(): Promise<{ conversasAtrasadas: number; enviosComFalha: number; entradasEsquecidas: number }> {
+      const r = checar(await db.rpc('indicadores_saude'), 'indicadoresSaude') as Record<string, unknown> | null;
+      return { conversasAtrasadas: Number(r?.conversas_atrasadas ?? 0), enviosComFalha: Number(r?.envios_com_falha ?? 0),
+        entradasEsquecidas: Number(r?.entradas_esquecidas ?? 0) };
+    },
+
+    /** Auditoria 4.8: resultado de uma chamada à IA; true = 3 falhas seguidas de conversas diferentes em 10 min (falha geral). */
+    async registrarResultadoIa(conversaId: string | null, ok: boolean): Promise<boolean> {
+      return Boolean(checar(await db.rpc('registrar_resultado_ia', { p_conversa: conversaId as string, p_ok: ok }), 'registrarResultadoIa'));
+    },
+
     async sinaisVida(): Promise<Record<string, Date>> {
       const linhas = checar(await db.from('sinais_vida').select('*'), 'sinaisVida');
       return Object.fromEntries(linhas.map((l) => [l.componente, new Date(l.visto_em)]));
@@ -762,10 +780,13 @@ export function criarRepos(db: Db) {
         .is('alertado_fila_em', null).lt('criado_em', limite), 'chamadosSemResponsavelParaAlertar');
     },
 
-    /** Ações do agente na conversa desde `desdeIso` (decide a nova tentativa). O aviso de orientações cortadas não é ação. */
+    /**
+     * Ações do agente na conversa desde `desdeIso` (decide a nova tentativa). O aviso de orientações cortadas não é ação, nem o
+     * registro do começo da vez (auditoria 4.15).
+     */
     async contarDecisoesDesde(conversaId: string, desdeIso: string): Promise<number> {
       const r = await db.from('decisoes_agente').select('id', { count: 'exact', head: true })
-        .eq('conversa_id', conversaId).gte('criado_em', desdeIso).neq('etapa', 'orientacoes_cortadas');
+        .eq('conversa_id', conversaId).gte('criado_em', desdeIso).not('etapa', 'in', '(orientacoes_cortadas,inicio_vez)');
       if (r.error) throw new Error(`contarDecisoesDesde: ${r.error.message}`);
       return r.count ?? 0;
     },

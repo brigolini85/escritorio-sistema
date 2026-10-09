@@ -79,7 +79,9 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
     // Notas internas de todas as demandas da conversa (também as já concluídas) entram no histórico.
     sb.from('chamado_eventos').select('id, texto, criado_em, usuario_id, usuarios(nome), chamados!inner(numero, conversa_id, titulo, pedido_venda)')
       .eq('chamados.conversa_id', id).eq('tipo', 'nota_interna'),
-    sb.from('decisoes_agente').select('id, etapa, entrada, saida, justificativa, criado_em, turno').eq('conversa_id', id).order('criado_em', { ascending: false }).limit(300),
+    // Auditoria 4.15: o registro do começo da vez (job e turno) é só rastreio, não decisão do agente.
+    sb.from('decisoes_agente').select('id, etapa, entrada, saida, justificativa, criado_em, turno').eq('conversa_id', id).neq('etapa', 'inicio_vez')
+      .order('criado_em', { ascending: false }).limit(300),
     sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
     sb.from('respostas_prontas').select('id, pergunta, resposta').eq('ativo', true).order('pergunta'),
     // Empresas ativas pelas quais o contato fala (a troca da empresa da conversa só vale entre elas).

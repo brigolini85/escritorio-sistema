@@ -12,7 +12,7 @@ import type { DriveLeitor } from './drive/leitor';
 import { removerArquivosDoJob } from './midia/remocao';
 import { processarConversaNaVez, type DepsProcessamento } from './processar-conversa';
 import { cicloRadar, enviosRadar } from './radar/ciclo';
-import { limpezaNaVez, limparRetencao } from './retencao';
+import { limpezaNaVez, limparERegistrar, limparRetencao } from './retencao';
 import { canalDaSugestao } from './sugestao/ferramentas';
 import { processarSugestao } from './sugestao/processar';
 import type { GuardarArquivo, RemoverArquivos } from './tarefa/armazenamento';
@@ -53,7 +53,8 @@ export async function ligarConsumidores(boss: Pick<PgBoss, 'work' | 'schedule'>,
   // 4 consumidores: conversas diferentes andam em paralelo; a trava do banco (naVez) garante uma execução por conversa.
   for (let i = 0; i < 4; i++) {
     await boss.work<{ conversaId: string }>(FILAS.processarConversa, { includeMetadata: true }, async ([job]) => {
-      await processarConversaNaVez(c.deps, job!.data.conversaId, job!.retryCount >= job!.retryLimit);
+      // Auditoria 4.15: o id do job vai na decisão inicio_vez, junto com o turno.
+      await processarConversaNaVez({ ...c.deps, jobId: job!.id }, job!.data.conversaId, job!.retryCount >= job!.retryLimit);
     });
   }
   for (let i = 0; i < 2; i++) {
@@ -108,11 +109,14 @@ export async function ligarConsumidores(boss: Pick<PgBoss, 'work' | 'schedule'>,
   // Auditoria 4.17: uma limpeza por vez (trava de 2 h, renovada enquanto roda); a segunda sai sem limpar.
   await boss.work(FILAS.limpezaRetencao, async () => {
     await limpezaNaVez(c.repos, async () => {
-      await limparRetencao(c.db, c.midia);
+      // Auditoria 6.5: o resultado (contagens ou erro) fica em alertas; a falha vira alerta crítico e não pula a guarda.
+      const falha = await limparERegistrar({ db: c.db, midia: c.midia, repos: c.repos, alertas: c.depsTarefas.alertas })
+        .then(() => null, (e: unknown) => ({ e }));
       // Parte I3b (D14): a guarda dos arquivos das tarefas; uma falha aqui não desfaz a limpeza das conversas.
       await limparArquivosDasTarefas(c.repos, c.remover)
         .then((n) => { if (n > 0) console.log(`[guarda] ${n} arquivo(s) das tarefas apagado(s)`); })
         .catch((e) => console.error('[guarda] arquivos das tarefas', e));
+      if (falha) throw falha.e;
     });
   });
   await boss.schedule(FILAS.limpezaRetencao, '0 3 * * *', {}, FUSO);

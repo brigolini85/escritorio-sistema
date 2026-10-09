@@ -1153,6 +1153,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"ia_falhas_seguidas": {
+                  Row: {
+                    "conversa_id": string | null,"criado_em": string,"id": number
+                  }
+                  Insert: {
+                    "conversa_id"?: string | null,"criado_em"?: string,"id"?: never
+                  }
+                  Update: {
+                    "conversa_id"?: string | null,"criado_em"?: string,"id"?: never
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"instancias_trabalhador": {
                   Row: {
                     "ambiente": string,"build_em": string | null,"hostname": string,"id": string,"iniciado_em": string,"versao": string,"visto_em": string
@@ -1945,13 +1958,13 @@ isOneToOne: false
                   ]
                 },"uso_ia": {
                   Row: {
-                    "agente_id": string | null,"cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"custo_usd": number,"funcionalidade": string,"id": string,"modelo": string,"provedor": string,"segundos_audio": number | null,"setor_id": string | null,"tarefa_id": string | null,"tokens_cache_escrita": number,"tokens_cache_leitura": number,"tokens_entrada": number,"tokens_saida": number,"usuario_id": string | null
+                    "agente_id": string | null,"cliente_id": string | null,"conversa_id": string | null,"criado_em": string,"custo_usd": number,"funcionalidade": string,"id": string,"modelo": string,"provedor": string,"segundos_audio": number | null,"setor_id": string | null,"tarefa_id": string | null,"tokens_cache_escrita": number,"tokens_cache_leitura": number,"tokens_entrada": number,"tokens_saida": number,"turno": string | null,"usuario_id": string | null
                   }
                   Insert: {
-                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd": number,"funcionalidade": string,"id"?: string,"modelo": string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tarefa_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada": number,"tokens_saida": number,"usuario_id"?: string | null
+                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd": number,"funcionalidade": string,"id"?: string,"modelo": string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tarefa_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada": number,"tokens_saida": number,"turno"?: string | null,"usuario_id"?: string | null
                   }
                   Update: {
-                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd"?: number,"funcionalidade"?: string,"id"?: string,"modelo"?: string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tarefa_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada"?: number,"tokens_saida"?: number,"usuario_id"?: string | null
+                    "agente_id"?: string | null,"cliente_id"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"custo_usd"?: number,"funcionalidade"?: string,"id"?: string,"modelo"?: string,"provedor"?: string,"segundos_audio"?: number | null,"setor_id"?: string | null,"tarefa_id"?: string | null,"tokens_cache_escrita"?: number,"tokens_cache_leitura"?: number,"tokens_entrada"?: number,"tokens_saida"?: number,"turno"?: string | null,"usuario_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -2631,6 +2644,9 @@ isOneToOne: false
 "horario_valido":
 { Args: { "h": Json }; Returns: boolean
                            },
+"indicadores_saude":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
 "iniciar_conducao":
 { Args: { "p_agente": string,"p_conversa": string }; Returns: boolean
                            },
@@ -2872,6 +2888,9 @@ isOneToOne: false
                            },
 "registrar_resposta":
 { Args: { "p_arquivo_mime": string,"p_arquivo_nome": string,"p_arquivo_path": string,"p_conversa": string,"p_texto": string }; Returns: string
+                           },
+"registrar_resultado_ia":
+{ Args: { "p_conversa": string,"p_ok": boolean }; Returns: boolean
                            },
 "registrar_situacao_drive":
 { Args: { "p_email": string,"p_erro": string,"p_sem_leitor"?: boolean }; Returns: undefined

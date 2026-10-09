@@ -41,23 +41,35 @@ export function mascararUrl(url: string): string {
   return url.replace(/\/(webhook|zapi)\/[^?#]*/g, '/$1/***').replace(/([?&]token=)[^&#]*/g, '$1***');
 }
 
-export const LIMITES_SAUDE = { sinalMs: 3 * 60_000 } as const;
+/**
+ * Auditoria 4.9: `iaMs`, quanto tempo o sinal ia_falha deixa o /saude em falha; `enviosComFalha`, acima disto na última hora é
+ * falha (uma ou outra saída incerta é normal). Mensagem de cliente atrasada (mais de 5 min, conta no banco) já é falha.
+ */
+export const LIMITES_SAUDE = { sinalMs: 3 * 60_000, iaMs: 15 * 60_000, enviosComFalha: 5 } as const;
 
 export type FalhaProcesso = 'ambiente' | 'instancias' | 'parado';
-type Falha = 'banco' | 'batimento' | 'whatsapp' | FalhaProcesso;
-/** Prontidão (D3): o que o monitor externo precisa saber. Sem segredo na resposta. */
-export async function avaliarSaude(repos: Pick<Repos, 'sinaisVida'>, agora: Date) {
+type Falha = 'banco' | 'batimento' | 'whatsapp' | 'ia' | 'conversas_atrasadas' | 'envios_com_falha' | FalhaProcesso;
+/** Prontidão (D3): o que o monitor externo precisa saber. Sem segredo na resposta (só contagens). */
+export async function avaliarSaude(repos: Pick<Repos, 'sinaisVida' | 'indicadoresSaude'>, agora: Date) {
   let sinais: Record<string, Date>;
+  let ind: Awaited<ReturnType<Repos['indicadoresSaude']>>;
   try {
-    sinais = await repos.sinaisVida();
+    [sinais, ind] = await Promise.all([repos.sinaisVida(), repos.indicadoresSaude()]);
   } catch {
     return { ok: false, falhas: ['banco'] as Falha[], sinais: {} as Record<string, string> };
   }
-  const recente = (c: string) => Boolean(sinais[c] && agora.getTime() - sinais[c].getTime() < LIMITES_SAUDE.sinalMs);
+  const idade = (c: string) => (sinais[c] ? agora.getTime() - sinais[c].getTime() : Number.POSITIVE_INFINITY);
   const falhas: Falha[] = [];
-  if (!recente('fila')) falhas.push('batimento');
-  if (!recente('whatsapp')) falhas.push('whatsapp');
-  return { ok: falhas.length === 0, falhas, sinais: Object.fromEntries(Object.entries(sinais).map(([k, v]) => [k, v.toISOString()])) };
+  if (idade('fila') >= LIMITES_SAUDE.sinalMs) falhas.push('batimento');
+  if (idade('whatsapp') >= LIMITES_SAUDE.sinalMs) falhas.push('whatsapp');
+  // Auditoria 4.8 e 4.9: a IA, as conversas de cliente sem resposta e os envios que não saíram.
+  if (idade('ia_falha') < LIMITES_SAUDE.iaMs) falhas.push('ia');
+  if (ind.conversasAtrasadas > 0) falhas.push('conversas_atrasadas');
+  if (ind.enviosComFalha > LIMITES_SAUDE.enviosComFalha) falhas.push('envios_com_falha');
+  return {
+    ok: falhas.length === 0, falhas, sinais: Object.fromEntries(Object.entries(sinais).map(([k, v]) => [k, v.toISOString()])),
+    indicadores: { conversas_atrasadas: ind.conversasAtrasadas, envios_com_falha: ind.enviosComFalha },
+  };
 }
 
 function segredoConfere(recebido: string, esperado: string): boolean {

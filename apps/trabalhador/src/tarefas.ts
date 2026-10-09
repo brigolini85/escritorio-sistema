@@ -14,27 +14,52 @@ export type DepsTarefas = { repos: Repos; canal: CanalWhatsApp; alertas: Alertas
 export const MSG_WHATSAPP_DESCONECTADO =
   'O WhatsApp do escritório está desconectado. Abra o painel da Z-API e leia o QR code de novo com o celular do escritório.';
 
+/**
+ * Auditoria 4.7: cada recuperação no seu try (a falha de uma não pula as outras, as mensagens paradas nem o WhatsApp) e o
+ * sinal "fila" gravado no fim, depois delas. O erro das recuperações volta no fim e o job consta como falho.
+ */
 export async function batimento(d: DepsTarefas): Promise<void> {
-  await d.repos.registrarSinalVida('fila');
+  const erros: unknown[] = [];
+  const passo = async (nome: string, f: () => Promise<unknown>) => {
+    try {
+      await f();
+    } catch (e) {
+      console.error(`[batimento] ${nome}`, e);
+      erros.push(e);
+    }
+  };
   // Resposta do painel que não entrou na fila (ex.: falha ao enfileirar) é reenfileirada.
-  for (const mensagemId of await d.repos.respostasPendentesAntigas(2)) {
-    await d.fila.enviar(FILAS.enviarMensagem, { mensagemId }, { singletonKey: mensagemId });
-  }
+  await passo('respostas do painel', async () => {
+    for (const mensagemId of await d.repos.respostasPendentesAntigas(2)) {
+      await d.fila.enviar(FILAS.enviarMensagem, { mensagemId }, { singletonKey: mensagemId });
+    }
+  });
   // Pergunta ao assistente sem resposta há mais de 2 minutos (o job não entrou ou se perdeu) volta para a fila.
-  for (const p of await d.repos.perguntasAssistenteParadas(2)) {
-    await agendarAssistente(d.fila, { usuarioId: p.usuarioId, canal: p.canal, conversaId: p.conversaId, telefone: p.canal === 'whatsapp' ? p.telefone : null });
-  }
+  await passo('assistente', async () => {
+    for (const p of await d.repos.perguntasAssistenteParadas(2)) {
+      await agendarAssistente(d.fila, { usuarioId: p.usuarioId, canal: p.canal, conversaId: p.conversaId, telefone: p.canal === 'whatsapp' ? p.telefone : null });
+    }
+  });
   // Parte I3a (D8): tarefa "trabalhando" sem vez em andamento há 2 minutos (o job não entrou ou se perdeu) volta para a fila.
-  for (const tarefaId of await d.repos.tarefasParadas(2)) await agendarTarefa(d.fila, tarefaId);
+  await passo('tarefas', async () => { for (const tarefaId of await d.repos.tarefasParadas(2)) await agendarTarefa(d.fila, tarefaId); });
   // Parte I3a (F5): pedido ao cliente aprovado que não saiu (job perdido, tentativas esgotadas, queda entre reservar e marcar) volta para a fila;
   // o banco solta antes as reservas de mais de 10 min sem mensagem.
-  for (const pendenciaId of await d.repos.pedidosAoClienteParados(2)) await agendarPedidoPendencia(d.fila, pendenciaId, 'batimento');
+  await passo('pedidos ao cliente', async () => {
+    for (const pendenciaId of await d.repos.pedidosAoClienteParados(2)) await agendarPedidoPendencia(d.fila, pendenciaId, 'batimento');
+  });
   // Parte I4 (D9): aviso que não saiu (fila perdida, fora do horário) volta para a fila.
-  for (const avisoId of await d.repos.avisosTarefaParados()) await agendarAviso(d.fila, avisoId);
+  await passo('avisos de tarefa', async () => { for (const avisoId of await d.repos.avisosTarefaParados()) await agendarAviso(d.fila, avisoId); });
   // Revisão da Task 9: mensagem incerta sem eco há 10 min avisa a equipe (uma vez); falha aqui não derruba o batimento.
   await avisarIncertosAntigos(d).catch((e) => console.error('[incerto] aviso de mensagens não confirmadas', e));
   // Revisão geral C1: mensagem de cliente parada; uma falha aqui não derruba o resto do batimento (o WhatsApp abaixo).
   await mensagensParadas(d).catch((e) => console.error('[parada] mensagens paradas', e));
+  await passo('sinal fila', () => d.repos.registrarSinalVida('fila'));
+  await passo('whatsapp', () => conferirWhatsApp(d));
+  if (erros.length === 1) throw erros[0];
+  if (erros.length > 1) throw new Error(`Batimento: ${erros.map((e) => (e instanceof Error ? e.message : String(e))).join('; ')}`);
+}
+
+async function conferirWhatsApp(d: DepsTarefas): Promise<void> {
   const conectado = await d.canal.status().then((s) => s.conectado).catch(() => false);
   if (conectado) {
     await d.repos.registrarSinalVida('whatsapp');
@@ -43,6 +68,21 @@ export async function batimento(d: DepsTarefas): Promise<void> {
   if (!(await d.repos.alertaRecente(MSG_WHATSAPP_DESCONECTADO, 30))) {
     await d.alertas.alertar({ nivel: 'critico', mensagem: MSG_WHATSAPP_DESCONECTADO });
   }
+}
+
+/**
+ * Auditoria 4.13: mensagem de cliente sem resposta há mais de 24 h (fora das conversas com pessoa) sai do batimento; o dono
+ * recebe, uma vez por dia (dia de São Paulo, marca no banco), a quantidade. Sem telefone no texto.
+ */
+export async function alertaEntradasEsquecidas(d: Pick<DepsTarefas, 'repos' | 'alertas' | 'relogio'>): Promise<number> {
+  const { entradasEsquecidas: n } = await d.repos.indicadoresSaude();
+  if (n === 0) return 0;
+  const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d.relogio());
+  if (!(await d.repos.marcarAvisoUnico(`entradas-esquecidas:${dia}`))) return n;
+  const quantas = n === 1 ? '1 mensagem de cliente está' : `${n} mensagens de cliente estão`;
+  await d.alertas.alertar({ nivel: 'operacional',
+    mensagem: `${quantas} sem resposta há mais de 24 h. Abra o Atendimento e assuma essas conversas.` });
+  return n;
 }
 
 /**
@@ -85,8 +125,9 @@ export async function alertaVencimento(d: DepsTarefas): Promise<number> {
 
 /** A cada 5 minutos: cada alerta no seu try, para a falha de um não pular o outro; o erro volta no fim e o job consta como falho. */
 // Auditoria 4.12: o alerta de 80% do mês também roda aqui, para o gasto fora do atendimento (assistente, tarefas, Radar, sugestão).
+// Auditoria 4.13: e o das mensagens esquecidas há mais de 24 h (uma vez por dia).
 export async function alertasPeriodicos(
-  d: DepsTarefas, tarefas: ((d: DepsTarefas) => Promise<unknown>)[] = [alertaFila, alertaVencimento, conferirAlertaIa80],
+  d: DepsTarefas, tarefas: ((d: DepsTarefas) => Promise<unknown>)[] = [alertaFila, alertaVencimento, conferirAlertaIa80, alertaEntradasEsquecidas],
 ): Promise<void> {
   const erros: unknown[] = [];
   for (const tarefa of tarefas) {

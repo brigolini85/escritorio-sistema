@@ -7,6 +7,8 @@ const AGORA = new Date('2026-11-02T13:00:00Z');
 const ha = (min: number) => new Date(AGORA.getTime() - min * 60_000);
 const repos = (x: { sinais?: Record<string, Date>; bancoFora?: boolean }) => ({
   sinaisVida: async () => { if (x.bancoFora) throw new Error('banco fora'); return x.sinais ?? {}; },
+  // Auditoria 4.9: o /saude também lê os indicadores (aqui, tudo em dia).
+  indicadoresSaude: async () => { if (x.bancoFora) throw new Error('banco fora'); return { conversasAtrasadas: 0, enviosComFalha: 0, entradasEsquecidas: 0 }; },
 }) as never;
 const app = (r: ReturnType<typeof repos>, token?: string) =>
   criarServidor({ canal: new CanalFalso(), repos: r, fila: { enviar: async () => {} } as never, segredo: 'segredo-de-teste-123456',
