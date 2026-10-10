@@ -21,7 +21,7 @@ describe('deploy/*.env.example', () => {
     const doTrabalhador = /^(ANTHROPIC_|ZAPI_|WEBHOOK_SEGREDO|TRANSCRICAO_|SMTP_|GOOGLE_DRIVE_|TELEFONES_PERMITIDOS|SAUDE_TOKEN|SUPABASE_URL$)/;
     expect(nomes(p).filter((n) => doTrabalhador.test(n))).toEqual([]);
     expect(nomes(p)).toEqual(expect.arrayContaining(['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA',
-      'SUPABASE_SERVICE_ROLE_KEY', 'DATABASE_URL', 'PAINEL_URL', 'ACESSOS_PORTAIS_CHAVE']));
+      'SUPABASE_SERVICE_ROLE_KEY', 'DATABASE_URL', 'DATABASE_URL_FILA', 'PAINEL_URL', 'ACESSOS_PORTAIS_CHAVE']));
     for (const n of nomes(p)) if (n !== 'AMBIENTE') expect(valor(p, n), n).toBe('');
   });
 });

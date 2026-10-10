@@ -101,3 +101,14 @@ export function exigirAmbiente(env: Ambiente): void {
   const p = problemasDoAmbiente(env);
   if (p.length) throw new Error(`Painel sem configuração válida:\n- ${p.join('\n- ')}`);
 }
+
+/** O que não impede a partida, mas precisa aparecer no log (sem valores). */
+export function avisosDoAmbiente(env: Ambiente): string[] {
+  const avisos: string[] = [];
+  // Auditoria 2.9: sem o papel próprio, a fila do painel usa a DATABASE_URL (dono do banco), como antes.
+  if (!(env.DATABASE_URL_FILA ?? '').trim()) {
+    avisos.push('DATABASE_URL_FILA ausente: a fila do painel usa a DATABASE_URL (dono do banco). Crie a senha do papel painel_fila e '
+      + 'cadastre DATABASE_URL_FILA (docs/operacao.md, "Conexões com o banco").');
+  }
+  return avisos;
+}

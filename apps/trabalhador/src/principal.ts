@@ -71,7 +71,7 @@ async function principal() {
   if (!inicio.consome) console.error('[instancia] este trabalhador não atende: o AMBIENTE dele não é o do banco.');
 
   const app = criarServidor({ canal, repos, fila: boss ? filaDe(boss) : FILA_FECHADA, segredo: cfg.WEBHOOK_SEGREDO, relogio, instancia: cfg.ZAPI_INSTANCIA,
-    saudeToken: cfg.SAUDE_TOKEN, ambiente: cfg.AMBIENTE, situacaoProcesso: () => situacaoDoProcesso(estado),
+    saudeToken: cfg.SAUDE_TOKEN, ambiente: cfg.AMBIENTE, build: { versao: eu.versao, buildEm: eu.buildEm }, situacaoProcesso: () => situacaoDoProcesso(estado),
     webhookAberto: () => !estado.ambienteDoBanco });
   await app.listen({ host: '0.0.0.0', port: cfg.PORTA });
 

@@ -61,8 +61,14 @@ export const TRAVA_VEZ_SEGUNDOS = 20 * 60;
 /** I1: a conversa (ou pergunta) ocupada volta para a fila depois deste tempo. */
 export const ESPERA_OCUPADA_SEGUNDOS = 15;
 
+/**
+ * Auditoria 4.14: teto de conexões do pg-boss (o padrão do pg é 10). Trabalhador 8 + painel 3 = 11 por ambiente, com um
+ * trabalhador a mais na troca de versão 19: abaixo do pool_size do Session pooler (docs/operacao.md, "Conexões com o banco").
+ */
+export const MAXIMO_CONEXOES_FILA = 8;
+
 export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
-  const boss = new PgBoss({ connectionString: databaseUrl });
+  const boss = new PgBoss({ connectionString: databaseUrl, max: MAXIMO_CONEXOES_FILA });
   boss.on('error', (e) => console.error('[fila]', e));
   await boss.start();
   // Revisão geral I1: "short" = no máximo um job ESPERANDO por chave (mensagens picadas viram um processamento só); a vez
@@ -94,7 +100,20 @@ export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   // Parte I5: um ciclo por vez ("stately" sem chave: um esperando e um rodando); o giro pode levar até 40 min (D8).
   await garantirFila(boss, FILAS.radar, { policy: 'stately', retryLimit: 0, expireInSeconds: 3000 });
   await garantirFila(boss, FILAS.radarEnvios, { policy: 'stately', retryLimit: 0, expireInSeconds: 600 });
+  await concederFilaAoPainel(boss);
   return boss;
+}
+
+/**
+ * Auditoria 2.9: o pg-boss cria o esquema na primeira partida, depois da migração; aqui os grants do papel painel_fila são
+ * aplicados de novo (idempotente). Banco sem a migração ainda: só avisa, a fila do trabalhador segue.
+ */
+async function concederFilaAoPainel(boss: PgBoss): Promise<void> {
+  try {
+    await boss.getDb().executeSql('select public.conceder_fila_painel()', []);
+  } catch (e) {
+    console.warn('[fila] grants do painel_fila não aplicados (migração 20261030001400 pendente?):', (e as Error).message);
+  }
 }
 
 export type JobAssistente = { usuarioId: string; canal: 'site' | 'whatsapp'; conversaId: string | null; telefone: string | null };

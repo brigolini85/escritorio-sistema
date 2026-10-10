@@ -12,6 +12,8 @@ export type DepsServidor = {
   saudeToken?: string;
   /** Prontidão (D2): aparece nos detalhes do /saude (produção sem AMBIENTE=producao não passa despercebida). */
   ambiente?: string;
+  /** Auditoria 6.8: versão e data do build (lerBuild); com o token, aparecem no /saude para a publicação conferir o trabalhador novo. */
+  build?: { versao: string; buildEm: string | null };
   /** Auditoria 3.1: instância da Z-API; evento de outra instância (ou sem instanceId) é descartado. Sem ela, não confere (testes antigos). */
   instancia?: string;
   /** Auditoria 3.1: requisições por minuto e por IP. */
@@ -153,8 +155,12 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
       // Auditoria 3.7: o descarte deixa rastro (só o type, nunca o conteúdo). Aviso/reação são esperados e não contam.
       const c = (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>;
       const type = typeof c.type === 'string' ? c.type.slice(0, 40) : null;
-      const esperado = Boolean(c.notification) || Boolean(c.reaction);
-      req.log.info({ type, motivo: esperado ? 'aviso_ou_reacao' : 'esquema' }, 'webhook_descartado');
+      // Status, lista de transmissão, canal e edição (3.7, resto) também são esperados.
+      const motivo = c.notification || c.reaction ? 'aviso_ou_reacao'
+        : c.broadcast === true || c.isNewsletter === true || c.isStatusReply === true ? 'status_ou_canal'
+          : c.isEdit === true ? 'edicao' : 'esquema';
+      const esperado = motivo !== 'esquema';
+      req.log.info({ type, motivo }, 'webhook_descartado');
       if (!esperado) await contarDescarte(req);
       return { ok: true };
     }
@@ -221,7 +227,9 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
     const dado = (typeof cabecalho === 'string' ? cabecalho : undefined) ?? req.query.token ?? '';
     // Sem token (ou errado): só o ok, para o monitor público; nada de 401 (o monitor sem token continua funcionando).
     const detalhes = Boolean(d.saudeToken) && segredoConfere(dado, d.saudeToken!);
-    return rep.code(s.ok ? 200 : 503).send(detalhes ? { ...s, ambiente: d.ambiente ?? null } : { ok: s.ok });
+    return rep.code(s.ok ? 200 : 503).send(detalhes
+      ? { ...s, ambiente: d.ambiente ?? null, ...(d.build ? { versao: d.build.versao, build_em: d.build.buildEm } : {}) }
+      : { ok: s.ok });
   });
   // D3: o HEALTHCHECK do contêiner; só diz que o processo responde (WhatsApp ou banco fora não reiniciam o trabalhador em laço).
   app.get('/vivo', async () => ({ ok: true }));

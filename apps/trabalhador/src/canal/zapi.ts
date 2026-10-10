@@ -82,6 +82,10 @@ export function criarCanalZapi(
       if (c.notification) return null;
       // Revisão geral M5: reação (👍 numa mensagem) não é pedido do cliente: não vira mensagem nem chama o agente.
       if ((c as { reaction?: unknown }).reaction) return null;
+      // Auditoria 3.7: status, lista de transmissão e canal não são pedido do cliente. A edição chega com o texto novo de uma
+      // mensagem que já foi tratada: virar mensagem nova repetiria o atendimento. (waitingMessage segue como "outro": a equipe vê.)
+      const e = c as { broadcast?: unknown; isNewsletter?: unknown; isStatusReply?: unknown; isEdit?: unknown };
+      if (e.broadcast === true || e.isNewsletter === true || e.isStatusReply === true || e.isEdit === true) return null;
       const comum = {
         idProvedor: c.messageId, instanciaId: c.instanceId ?? null, telefone: c.phone, enviadaPorMim: c.fromMe, ehGrupo: c.isGroup, nomeRemetente: c.senderName ?? null,
       };

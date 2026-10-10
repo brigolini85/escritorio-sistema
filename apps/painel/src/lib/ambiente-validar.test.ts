@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { problemasDoAmbiente } from './ambiente-validar';
+import { avisosDoAmbiente, problemasDoAmbiente } from './ambiente-validar';
 
 // Segurança do login (item 5): o painel não sobe com variável faltando ou trocada.
 const jwt = (role: string) => `x.${Buffer.from(JSON.stringify({ role })).toString('base64url')}.y`;
@@ -63,5 +63,18 @@ describe('problemasDoAmbiente', () => {
   });
   it('a mensagem nunca mostra o valor do segredo', () => {
     expect(problemasDoAmbiente({ ...BOM, AMBIENTE: 'producao', PAINEL_SEGREDO_SESSAO: 'valor-secreto' }).join(' ')).not.toContain('valor-secreto');
+  });
+});
+
+describe('avisosDoAmbiente (auditoria 2.9)', () => {
+  it('sem DATABASE_URL_FILA: avisa que a fila usa a DATABASE_URL (dono do banco), sem impedir a partida', () => {
+    const a = avisosDoAmbiente({ ...BOM, DATABASE_URL: 'postgresql://postgres:segredo-x@127.0.0.1:54322/postgres' });
+    expect(a).toHaveLength(1);
+    expect(a[0]).toContain('DATABASE_URL_FILA');
+    expect(a[0]).not.toContain('segredo-x');
+    expect(problemasDoAmbiente({ ...BOM, DATABASE_URL: 'postgresql://postgres:x@127.0.0.1:54322/postgres' })).toEqual([]);
+  });
+  it('com DATABASE_URL_FILA: nenhum aviso', () => {
+    expect(avisosDoAmbiente({ ...BOM, DATABASE_URL_FILA: 'postgresql://painel_fila:x@127.0.0.1:54322/postgres' })).toEqual([]);
   });
 });

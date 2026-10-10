@@ -2326,6 +2326,9 @@ isOneToOne: false
               "cidade": string,"cliente_id": string,"nome": string,"regime": string,"uf": string
             }[]
                            },
+"conceder_fila_painel":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "concluir_chamado":
 { Args: { "p_chamado": string }; Returns: undefined
                            },

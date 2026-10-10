@@ -262,8 +262,9 @@ select ok(has_table_privilege('authenticated', 'public.chamados', 'select') and 
 set local role anon;
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 select throws_ok($$ select 1 from public.demandas_lista $$, '42501', null, 'visitante: sem lista das demandas');
-select is((select count(*) from public.caixa_entrada)::int, 0, 'visitante: Atendimento vazio');
-select is((select count(*) from public.clientes)::int, 0, 'visitante: nenhuma empresa');
+-- Auditoria 6.14: o visitante não tem mais grant nas tabelas e views (antes a RLS devolvia zero linhas).
+select throws_ok($$ select count(*) from public.caixa_entrada $$, '42501', null, 'visitante: Atendimento vazio');
+select throws_ok($$ select count(*) from public.clientes $$, '42501', null, 'visitante: nenhuma empresa');
 
 select * from finish();
 rollback;

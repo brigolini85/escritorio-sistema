@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.118.0 # auditoria 6.8: fixa, a mesma do deploy.yml
       - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
       - run: supabase test db
       - uses: pnpm/action-setup@v4

@@ -53,9 +53,12 @@ Para cada ambiente (homologação e produção), crie dois apps a partir do repo
    - `SUPABASE_ACCESS_TOKEN`
    - `SUPABASE_DB_PASSWORD`
    - `SUPABASE_PROJECT_REF` (o "Reference ID")
-   - `EASYPANEL_DEPLOY_TRABALHADOR` e `EASYPANEL_DEPLOY_PAINEL` (as URLs de Deploy webhook)
+   - `EASYPANEL_DEPLOY_TRABALHADOR` e `EASYPANEL_DEPLOY_PAINEL` (as URLs de Deploy webhook). **Opcionais**: sem eles, a publicação avisa "publique agora no Easypanel" e você clica em Deploy e depois Stop e Start no Trabalhador e no Painel, como hoje;
+   - `TRABALHADOR_SAUDE_URL` (o endereço completo do `/saude` do trabalhador daquele ambiente, ex.: `https://robo.seuescritorio.com.br/saude`) e `SAUDE_TOKEN` (o mesmo valor do `SAUDE_TOKEN` do app Trabalhador no Easypanel). **Opcionais**: com os dois, a publicação só termina verde quando o trabalhador **novo** (construído depois da migração) responde 200 no `/saude`; ela espera até 30 minutos, tempo de você publicar à mão. Sem eles, a publicação avisa e não confere.
 
-   **Atenção:** não cadastre esses cinco como segredos do repositório. Se ficarem no repositório, a publicação de produção usaria os dados de homologação.
+   Só no ambiente `producao`, cadastre também os 4 segredos da cópia (os mesmos do ambiente `copia`, item 4): `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `COPIA_CHAVE`. Auditoria 6.8: antes de cada migração da produção sai uma cópia cifrada do banco e dos arquivos, guardada 14 dias no próprio GitHub (Actions → a execução → Artifacts, `copia-antes-da-publicacao-N`); sem esses segredos a publicação para antes de mexer no banco. Para restaurar, veja a seção 5, "Cópia de segurança e restauração".
+
+   **Atenção:** não cadastre esses segredos como segredos do repositório. Se ficarem no repositório, a publicação de produção usaria os dados de homologação.
 3. Em **Settings → Secrets and variables → Actions → Repository secrets**, cadastre só a `ANTHROPIC_API_KEY`. Ela é usada nos testes de conversa com o Claude antes de cada publicação em produção.
 4. **Cópia de segurança semanal** (seção 5, "Cópia de segurança e restauração"): crie um terceiro ambiente, `copia`, **sem** Required reviewers (a cópia de domingo não fica esperando aprovação) e, em **Deployment branches and tags**, escolha "Selected branches" e só `main`. Cadastre nele **só estes 4** segredos, da produção:
    - `DATABASE_URL`: o endereço do **Session pooler** (Connect → Session pooler, porta **5432**), com a senha. Não use o endereço direto `db.<ref>.supabase.co` (só tem IPv6, e as máquinas do GitHub não têm) nem a porta 6543 (Transaction pooler, que não serve para o pg_dump);
@@ -92,6 +95,21 @@ Troque o `WEBHOOK_SEGREDO` se ele vazou (apareceu em log, foi colado em conversa
 6. Apague o segredo antigo de onde ele estiver (anotações, arquivos de texto, conversas). Na homologação, use outro segredo, diferente do da produção.
 
 Outras variáveis desta área: `MIDIA_HOSTS_PERMITIDOS` (opcional) lista os domínios de onde o sistema aceita baixar a mídia do cliente, separados por vírgula; vazio usa `z-api.io`, `backblazeb2.com` e `storage.googleapis.com`. Se anexos novos passarem a chegar com o aviso "[anexo não pôde ser baixado]", veja no log o endereço recusado e acrescente o domínio.
+
+### Conexões com o banco (auditoria 2.9 e 4.14)
+
+**Papel próprio para a fila do painel.** O painel só precisa pôr trabalhos na fila (pg-boss). Com a `DATABASE_URL` ele entra como dono do banco; com o papel `painel_fila` ele só consegue enfileirar e não lê mais nada (nem mensagens, nem clientes). A migração `20261030001400` cria o papel **sem senha e sem login**. Para ligar, uma vez por ambiente:
+
+1. Gere uma senha longa: `node -e "console.log(require(crypto).randomBytes(24).toString(hex))"` e guarde no gerenciador de senhas.
+2. No Supabase (SQL Editor daquele projeto), rode, trocando a senha:
+   `alter role painel_fila with login password A-SENHA-GERADA;`
+3. No Easypanel, no app **Painel**, crie `DATABASE_URL_FILA` com o mesmo endereço do Session pooler da `DATABASE_URL`, trocando o usuário `postgres.<ref>` por `painel_fila.<ref>` e a senha pela do passo 1. Exemplo: `postgresql://painel_fila.<ref>:A-SENHA-GERADA@aws-0-sa-east-1.pooler.supabase.com:5432/postgres`.
+4. Publique o Painel (Deploy, depois Stop e Start). No log de partida some o aviso "DATABASE_URL_FILA ausente". Teste respondendo um cliente pelo painel: a resposta sai.
+5. Depois de conferir, apague a `DATABASE_URL` do app Painel (ela só é usada enquanto `DATABASE_URL_FILA` estiver vazia).
+
+Se a resposta da equipe parar de sair e o log do painel disser "filas ainda não criadas pelo trabalhador", ligue o trabalhador uma vez (ele cria as filas e reaplica as permissões do `painel_fila` a cada partida). Para desligar o papel: `alter role painel_fila nologin;` e volte a `DATABASE_URL` no Painel.
+
+**Limite de conexões.** No Session pooler (porta 5432), cada conexão aberta ocupa uma vaga do "Pool Size" do projeto (Supabase → Database → Settings → Connection pooling). O trabalhador usa no máximo **8** conexões para a fila e o painel no máximo **3**. Na troca de versão, o trabalhador antigo e o novo ficam alguns segundos juntos (até 19). A cópia de segurança usa mais 1 ou 2 por alguns minutos. Confira que o Pool Size do projeto é **pelo menos 20**; se for menor, aumente ali (ou peça ao Claude para baixar os limites em `apps/trabalhador/src/fila.ts` e `apps/painel/src/lib/fila.ts`). Com o pool cheio, a resposta enfileirada pelo painel fica "pendente" e o batimento reenvia depois de 2 minutos.
 
 ### 2.6 Aviso de sistema fora do ar (UptimeRobot)
 
@@ -537,7 +555,12 @@ O menu de Configurações fica à esquerda, em grupos, com um resumo do que est�
 1. Abra o Claude Code no VS Code e descreva em português o que quer mudar (por exemplo: "quero que o agente também responda sobre o prazo do IR").
 2. O Claude altera o sistema, e os testes rodam sozinhos no GitHub.
 3. Se os testes passarem, a **homologação é atualizada automaticamente**. Teste com o número de teste.
-4. Para ir à **produção**: no GitHub, abra **Actions → Publicação → Run workflow**, escolha `producao` e confirme. Os testes de conversa com o Claude rodam antes; se passarem, o GitHub pede a sua aprovação. Aprove e a produção é atualizada.
+4. Para ir à **produção**: no GitHub, abra **Actions → Publicação → Run workflow**, deixe o ramo em **main**, escolha `producao` e confirme. Os testes de conversa com o Claude rodam antes; se passarem, o GitHub pede a sua aprovação. Aprove e a publicação segue, nesta ordem (auditoria 6.8):
+   1. confere que o ramo é a `main` (outro ramo não chega à produção);
+   2. faz a cópia cifrada do banco e dos arquivos;
+   3. aplica as migrações (`supabase db push`, com o Supabase CLI na versão fixa do `deploy.yml`);
+   4. publica o Trabalhador e o Painel pelos webhooks do Easypanel; sem os webhooks, aparece o aviso "publique agora no Easypanel": clique em **Deploy** e depois **Stop** e **Start** nos dois apps;
+   5. espera o trabalhador novo responder 200 no `/saude` (se `TRABALHADOR_SAUDE_URL` e `SAUDE_TOKEN` estiverem cadastrados). Se em 30 minutos isso não acontecer, a publicação fica vermelha dizendo o último estado (por exemplo "ainda é o trabalhador antigo" ou "falhas: whatsapp"). As migrações já estão aplicadas: publique o Trabalhador e confira o `/saude`.
 
 ## 5. Segurança e LGPD
 

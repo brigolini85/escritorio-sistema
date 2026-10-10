@@ -4,7 +4,7 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
-  const { exigirAmbiente } = await import('./lib/ambiente-validar');
+  const { avisosDoAmbiente, exigirAmbiente } = await import('./lib/ambiente-validar');
   try {
     exigirAmbiente(process.env);
   } catch (e) {
@@ -12,4 +12,6 @@ export async function register() {
     // Para o processo: um painel com configuração errada não deve atender ninguém.
     process.exit(1);
   }
+  // Auditoria 2.9: o que não impede a partida (ex.: DATABASE_URL_FILA ausente) aparece no log.
+  for (const aviso of avisosDoAmbiente(process.env)) console.warn(`[painel] aviso: ${aviso}`);
 }

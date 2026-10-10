@@ -51,6 +51,13 @@ describe('/saude e /vivo (D3)', () => {
     expect(e.json()).toEqual({ ok: false });
     expect((await a.inject({ url: '/saude?token=tok-12' })).json()).toEqual({ ok: false });
   });
+  it('auditoria 6.8: com o token, a versão e a data do build (a publicação confere que o trabalhador novo subiu)', async () => {
+    const a = criarServidor({ canal: new CanalFalso(), repos: repos({ sinais: { fila: ha(1), whatsapp: ha(1) } }), fila: { enviar: async () => {} } as never,
+      segredo: 'segredo-de-teste-123456', relogio: () => AGORA, saudeToken: 'tok-123', build: { versao: 'abc123def456', buildEm: '2026-11-02T12:50:00.000Z' } });
+    expect((await a.inject({ url: '/saude', headers: { 'x-saude-token': 'tok-123' } })).json())
+      .toMatchObject({ ok: true, versao: 'abc123def456', build_em: '2026-11-02T12:50:00.000Z' });
+    expect((await a.inject({ url: '/saude' })).json()).toEqual({ ok: true });
+  });
   it('sem SAUDE_TOKEN configurado, ninguém vê detalhes (nem com token vazio)', async () => {
     const a = app(repos({ sinais: { fila: ha(1), whatsapp: ha(1) } }));
     expect((await a.inject({ url: '/saude?token=' })).json()).toEqual({ ok: true });

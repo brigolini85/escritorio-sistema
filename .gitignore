@@ -20,3 +20,10 @@ webhook-zapi.txt
 
 # Cópias de trabalho separadas (git worktree)
 .claude/worktrees/
+
+# Auditoria 6.14: capturas do navegador de teste (podem ter dados de clientes), atalhos locais do dono e o arquivo de vez
+# do Supabase local. Já ficam fora da imagem (.dockerignore); aqui ficam fora de um "git add .".
+.playwright-mcp/
+/*.bat
+/*.ps1
+.vez-supabase.txt

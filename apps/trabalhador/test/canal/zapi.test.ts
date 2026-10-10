@@ -44,6 +44,21 @@ describe('interpretarWebhook', () => {
     expect(canal.interpretarWebhook({ ...f.imagem, image: { ...f.imagem.image, caption: '' } })!.texto).toBeNull();
     expect(canal.interpretarWebhook({ ...f.documento, document: { ...f.documento.document, caption: null } })!.texto).toBeNull();
   });
+  // Auditoria 3.7 (resto): status, lista de transmissão, canal e mensagem editada não viram mensagem nova do cliente.
+  it.each([
+    ['broadcast', { broadcast: true }],
+    ['isNewsletter', { isNewsletter: true }],
+    ['isStatusReply', { isStatusReply: true }],
+    ['isEdit', { isEdit: true }],
+  ])('%s devolve null', (_n, extra) => {
+    expect(canal.interpretarWebhook({ ...f.texto, ...extra })).toBeNull();
+  });
+  it('os mesmos campos falsos (como nas capturas reais) não mudam nada', () => {
+    expect(canal.interpretarWebhook({ ...f.texto, broadcast: false, isNewsletter: false, isStatusReply: false, isEdit: false, waitingMessage: false })!.tipo).toBe('texto');
+  });
+  it('mensagem ainda não decifrada (waitingMessage) continua chegando à equipe como "outro"', () => {
+    expect(canal.interpretarWebhook({ ...f.texto, text: undefined, waitingMessage: true })!.tipo).toBe('outro');
+  });
   it('interpreta todas as capturas reais da Task 1', () => {
     const pasta = new URL('../fixtures/zapi/reais/', import.meta.url);
     expect(existsSync(pasta), 'faltam as capturas reais da Task 1').toBe(true);

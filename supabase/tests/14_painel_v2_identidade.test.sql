@@ -20,8 +20,8 @@ reset role;
 update public.configuracoes set aviso_login = '  DCTFWeb vence dia 15.  ' where id = 1;
 set local role anon;
 select is(public.aviso_login(), 'DCTFWeb vence dia 15.', 'visitante lê o aviso aparado');
--- A RLS filtra sem dar erro: o visitante enxerga zero linhas de configuracoes.
-select is((select count(*) from public.configuracoes), 0::bigint, 'visitante não lê configuracoes');
+-- Auditoria 6.14: o visitante não tem mais grant na tabela (antes a RLS filtrava e devolvia zero linhas).
+select throws_ok($$ select count(*) from public.configuracoes $$, '42501', null, 'visitante não lê configuracoes');
 reset role;
 select throws_ok($$ update public.configuracoes set aviso_login = repeat('x', 201) where id = 1 $$, '23514', null,
   'aviso com 201 caracteres é recusado');

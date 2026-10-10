@@ -144,6 +144,18 @@ describe('descartes (3.7)', () => {
     expect(log).toContain('ReceivedCallback');
     expect(log).not.toContain('CONTEUDO-SECRETO');
   });
+  it.each([
+    ['status_ou_canal', { broadcast: true }],
+    ['status_ou_canal', { isNewsletter: true }],
+    ['status_ou_canal', { isStatusReply: true }],
+    ['edicao', { isEdit: true }],
+  ])('descarte esperado (%s) deixa o motivo no log, não grava e não conta para o alerta', async (motivo, extra) => {
+    const { app, linhas, gravadas, alertas } = montar();
+    for (let i = 0; i < 25; i++) await app.inject({ method: 'POST', url: URL_OK, payload: { ...doInstancia, ...extra } });
+    expect(gravadas).toHaveLength(0);
+    expect(alertas).toHaveLength(0);
+    expect(linhas.join('')).toContain(`"motivo":"${motivo}"`);
+  });
   it('messageId vazio não grava', async () => {
     const { app, gravadas } = montar();
     await app.inject({ method: 'POST', url: URL_OK, payload: { ...doInstancia, messageId: '' } });
