@@ -148,13 +148,18 @@ describe('descartes (3.7)', () => {
     ['status_ou_canal', { broadcast: true }],
     ['status_ou_canal', { isNewsletter: true }],
     ['status_ou_canal', { isStatusReply: true }],
-    ['edicao', { isEdit: true }],
   ])('descarte esperado (%s) deixa o motivo no log, não grava e não conta para o alerta', async (motivo, extra) => {
     const { app, linhas, gravadas, alertas } = montar();
     for (let i = 0; i < 25; i++) await app.inject({ method: 'POST', url: URL_OK, payload: { ...doInstancia, ...extra } });
     expect(gravadas).toHaveLength(0);
     expect(alertas).toHaveLength(0);
     expect(linhas.join('')).toContain(`"motivo":"${motivo}"`);
+  });
+  it('edição: grava como mensagem nova e deixa o motivo edicao no log', async () => {
+    const { app, linhas, gravadas } = montar();
+    await app.inject({ method: 'POST', url: URL_OK, payload: { ...doInstancia, isEdit: true, momment: 5, text: { message: 'corrigido' } } });
+    expect(gravadas).toHaveLength(1);
+    expect(linhas.join('')).toContain('"motivo":"edicao"');
   });
   it('messageId vazio não grava', async () => {
     const { app, gravadas } = montar();

@@ -46,9 +46,9 @@ describe('fila simular_agente (Treinar o agente)', () => {
 });
 
 describe('conexões e papel da fila do painel (auditoria 4.14 e 2.9)', () => {
-  it('o pool do pg-boss tem no máximo 8 conexões', () => {
+  it('o pool do pg-boss tem no máximo 6 conexões (6 + 6 na troca de versão cabem no pooler)', () => {
     const pool = (boss.getDb() as unknown as { pool: { options: { max: number } } }).pool;
-    expect(MAXIMO_CONEXOES_FILA).toBe(8);
+    expect(MAXIMO_CONEXOES_FILA).toBe(6);
     expect(pool.options.max).toBe(MAXIMO_CONEXOES_FILA);
   });
   it('na partida, concede de novo ao painel_fila o que o send precisa (esquema pgboss criado depois da migração)', async () => {

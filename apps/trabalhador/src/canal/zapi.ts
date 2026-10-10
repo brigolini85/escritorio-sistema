@@ -82,13 +82,22 @@ export function criarCanalZapi(
       if (c.notification) return null;
       // Revisão geral M5: reação (👍 numa mensagem) não é pedido do cliente: não vira mensagem nem chama o agente.
       if ((c as { reaction?: unknown }).reaction) return null;
-      // Auditoria 3.7: status, lista de transmissão e canal não são pedido do cliente. A edição chega com o texto novo de uma
-      // mensagem que já foi tratada: virar mensagem nova repetiria o atendimento. (waitingMessage segue como "outro": a equipe vê.)
-      const e = c as { broadcast?: unknown; isNewsletter?: unknown; isStatusReply?: unknown; isEdit?: unknown };
-      if (e.broadcast === true || e.isNewsletter === true || e.isStatusReply === true || e.isEdit === true) return null;
+      // Auditoria 3.7: status, lista de transmissão e canal não são pedido do cliente. (waitingMessage segue como "outro":
+      // a equipe vê.) Atenção: a lista de transmissão do próprio cliente (ele manda a mesma mensagem a vários contatos) também
+      // sai aqui, como status_ou_canal no log; acompanhe essa contagem e, se aparecer pedido de cliente, revise.
+      const e = c as { broadcast?: unknown; isNewsletter?: unknown; isStatusReply?: unknown; isEdit?: unknown; momment?: unknown };
+      if (e.broadcast === true || e.isNewsletter === true || e.isStatusReply === true) return null;
       const comum = {
         idProvedor: c.messageId, instanciaId: c.instanceId ?? null, telefone: c.phone, enviadaPorMim: c.fromMe, ehGrupo: c.isGroup, nomeRemetente: c.senderName ?? null,
       };
+      if (e.isEdit === true) {
+        // Auditoria 3.7 (revisão): a edição é a correção do cliente (ex.: "março" no lugar de "fevereiro"): chega como mensagem
+        // de texto nova, com prefixo, para o agente e a equipe verem. O id leva o momento da edição: a mensagem original e
+        // cada edição gravam uma vez cada; a mesma edição entregue de novo é descartada pela deduplicação do id.
+        const novo = c.text?.message ?? c.image?.caption ?? c.document?.caption ?? '';
+        const momento = typeof e.momment === 'number' || typeof e.momment === 'string' ? String(e.momment) : 'sem-momento';
+        return { ...comum, idProvedor: `${c.messageId}:edit:${momento}`, tipo: 'texto', texto: `(mensagem editada) ${novo}`.trim(), midia: null };
+      }
       if (c.text) return { ...comum, tipo: 'texto', texto: c.text.message, midia: null };
       if (c.audio) return { ...comum, tipo: 'audio', texto: null, midia: { url: c.audio.audioUrl, mime: c.audio.mimeType ?? null, nomeArquivo: null } };
       if (c.image) return { ...comum, tipo: 'imagem', texto: c.image.caption || null, midia: { url: c.image.imageUrl, mime: c.image.mimeType ?? null, nomeArquivo: null } };

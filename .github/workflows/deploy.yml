@@ -70,7 +70,7 @@ jobs:
 
   producao:
     needs: cenarios
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: producao          # configurar no GitHub com aprovação obrigatória do dono
     timeout-minutes: 120

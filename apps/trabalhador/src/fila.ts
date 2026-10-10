@@ -62,10 +62,11 @@ export const TRAVA_VEZ_SEGUNDOS = 20 * 60;
 export const ESPERA_OCUPADA_SEGUNDOS = 15;
 
 /**
- * Auditoria 4.14: teto de conexões do pg-boss (o padrão do pg é 10). Trabalhador 8 + painel 3 = 11 por ambiente, com um
- * trabalhador a mais na troca de versão 19: abaixo do pool_size do Session pooler (docs/operacao.md, "Conexões com o banco").
+ * Auditoria 4.14: teto de conexões do pg-boss (o padrão do pg é 10). O Supavisor conta o Pool Size por usuário e banco e,
+ * no modo sessão, recusa a conexão que passa do limite: na troca de versão, antigo + novo = 6 + 6 no usuário postgres; o
+ * painel (3) usa o próprio usuário painel_fila (docs/operacao.md, "Conexões com o banco").
  */
-export const MAXIMO_CONEXOES_FILA = 8;
+export const MAXIMO_CONEXOES_FILA = 6;
 
 export async function criarBoss(databaseUrl: string): Promise<PgBoss> {
   const boss = new PgBoss({ connectionString: databaseUrl, max: MAXIMO_CONEXOES_FILA });

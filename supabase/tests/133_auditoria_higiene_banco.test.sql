@@ -3,7 +3,7 @@
 -- A prova de que o painel enfileira com esse papel (e não lê public.mensagens) está em apps/painel/src/lib/fila-papel.test.ts.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(29);
+select plan(30);
 
 -- 1–2 (6.12): nenhuma função security definer do public executável pelo visitante, fora aviso_login (tela de entrar);
 -- nenhuma função do public com search_path = public.
@@ -25,6 +25,15 @@ select throws_ok($$ select public.pode_ver_conversa(gen_random_uuid()) $$, '4250
 reset role;
 select ok(has_function_privilege('authenticated', 'public.eh_admin()', 'execute'), 'a equipe chama eh_admin (políticas)');
 select ok(has_function_privilege('authenticated', 'public.nota_interna(uuid, text)', 'execute'), 'a equipe chama nota_interna');
+-- Revisão: guarda contra deriva de ACL (grant explícito na migração) das RPCs e ajudantes fechados ao visitante.
+select is_empty($$
+  select f from unnest(array['public.eh_usuario_ativo()', 'public.eh_admin()', 'public.meus_setores()', 'public.tem_permissao(text)',
+    'public.pode_ver_chamado(uuid)', 'public.pode_ver_conversa(uuid)', 'public.marcar_alerta_lido(uuid)', 'public.assumir_conversa(uuid)',
+    'public.devolver_ao_agente(uuid)', 'public.registrar_resposta(uuid, text, text, text, text)', 'public.nota_interna(uuid, text)',
+    'public.transferir_chamado(uuid, uuid, uuid)', 'public.concluir_chamado(uuid)', 'public.anonimizar_contato(uuid)',
+    'public.definir_preco(uuid, uuid, numeric)', 'public.vincular_contato_conversa(uuid, uuid)']) f
+  where not has_function_privilege('authenticated', f, 'execute') or not has_function_privilege('service_role', f, 'execute')
+$$, 'equipe e trabalhador continuam chamando as RPCs e ajudantes');
 
 -- 7–13 (6.11): índices das leituras do painel e da retenção.
 select has_index('public', 'chamado_eventos', 'chamado_eventos_chamado_idx', array['chamado_id', 'criado_em'], 'chamado_eventos por demanda');

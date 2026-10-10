@@ -44,14 +44,20 @@ describe('interpretarWebhook', () => {
     expect(canal.interpretarWebhook({ ...f.imagem, image: { ...f.imagem.image, caption: '' } })!.texto).toBeNull();
     expect(canal.interpretarWebhook({ ...f.documento, document: { ...f.documento.document, caption: null } })!.texto).toBeNull();
   });
-  // Auditoria 3.7 (resto): status, lista de transmissão, canal e mensagem editada não viram mensagem nova do cliente.
+  // Auditoria 3.7 (resto): status, lista de transmissão e canal não viram mensagem do cliente.
   it.each([
     ['broadcast', { broadcast: true }],
     ['isNewsletter', { isNewsletter: true }],
     ['isStatusReply', { isStatusReply: true }],
-    ['isEdit', { isEdit: true }],
   ])('%s devolve null', (_n, extra) => {
     expect(canal.interpretarWebhook({ ...f.texto, ...extra })).toBeNull();
+  });
+  it('auditoria 3.7 (revisão): edição vira mensagem de texto nova, com o prefixo e id próprio (a original não é descartada)', () => {
+    const corpo = { ...f.texto, isEdit: true, momment: 1759000000999, text: { message: 'Preciso da guia do DAS de março' } };
+    const m = canal.interpretarWebhook(corpo)!;
+    expect(m).toMatchObject({ tipo: 'texto', texto: '(mensagem editada) Preciso da guia do DAS de março', idProvedor: 'MSG-TEXTO-1:edit:1759000000999' });
+    // A mesma edição entregue de novo tem o mesmo id (a deduplicação do banco descarta a repetição).
+    expect(canal.interpretarWebhook(corpo)!.idProvedor).toBe(m.idProvedor);
   });
   it('os mesmos campos falsos (como nas capturas reais) não mudam nada', () => {
     expect(canal.interpretarWebhook({ ...f.texto, broadcast: false, isNewsletter: false, isStatusReply: false, isEdit: false, waitingMessage: false })!.tipo).toBe('texto');

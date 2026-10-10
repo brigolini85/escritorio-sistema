@@ -5,7 +5,7 @@ let boss: Promise<PgBoss> | null = null;
 
 /**
  * Auditoria 4.14: o painel só publica jobs; 3 conexões bastam e deixam folga no limite do Session pooler (o trabalhador
- * usa 8). Ver docs/operacao.md, "Conexões com o banco".
+ * usa 6). Ver docs/operacao.md, "Conexões com o banco".
  */
 export const MAXIMO_CONEXOES_FILA = 3;
 

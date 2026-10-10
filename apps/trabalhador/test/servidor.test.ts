@@ -45,6 +45,18 @@ describe('webhook', () => {
     expect(fila.enviados).toHaveLength(1);
   });
 
+  it('auditoria 3.7 (revisão): a edição chega como mensagem nova com o prefixo; a mesma edição repetida não duplica', async () => {
+    const app = servidor();
+    const edicao = { ...f.texto, isEdit: true, momment: 1759000000999, text: { message: 'Preciso da guia do DAS de março' } };
+    await app.inject({ method: 'POST', url: URL_OK, payload: f.texto });
+    await app.inject({ method: 'POST', url: URL_OK, payload: edicao });
+    await app.inject({ method: 'POST', url: URL_OK, payload: edicao });
+    const conversa = await repos.obterOuCriarConversa('5531999990001', null);
+    const msgs = await repos.mensagensNaoProcessadas(conversa.id);
+    expect(msgs.map((m) => m.conteudo)).toEqual(['Preciso da guia do DAS', '(mensagem editada) Preciso da guia do DAS de março']);
+    expect(msgs[1]!.id_provedor).toBe('MSG-TEXTO-1:edit:1759000000999');
+  });
+
   it('ignora mensagens de grupo', async () => {
     await servidor().inject({ method: 'POST', url: URL_OK, payload: f.grupo });
     expect(fila.enviados).toHaveLength(0);

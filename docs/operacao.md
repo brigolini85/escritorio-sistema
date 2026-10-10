@@ -100,16 +100,16 @@ Outras variáveis desta área: `MIDIA_HOSTS_PERMITIDOS` (opcional) lista os dom�
 
 **Papel próprio para a fila do painel.** O painel só precisa pôr trabalhos na fila (pg-boss). Com a `DATABASE_URL` ele entra como dono do banco; com o papel `painel_fila` ele só consegue enfileirar e não lê mais nada (nem mensagens, nem clientes). A migração `20261030001400` cria o papel **sem senha e sem login**. Para ligar, uma vez por ambiente:
 
-1. Gere uma senha longa: `node -e "console.log(require(crypto).randomBytes(24).toString(hex))"` e guarde no gerenciador de senhas.
+1. Gere uma senha longa: `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"` e guarde no gerenciador de senhas.
 2. No Supabase (SQL Editor daquele projeto), rode, trocando a senha:
-   `alter role painel_fila with login password A-SENHA-GERADA;`
+   `alter role painel_fila with login password 'A-SENHA-GERADA';`
 3. No Easypanel, no app **Painel**, crie `DATABASE_URL_FILA` com o mesmo endereço do Session pooler da `DATABASE_URL`, trocando o usuário `postgres.<ref>` por `painel_fila.<ref>` e a senha pela do passo 1. Exemplo: `postgresql://painel_fila.<ref>:A-SENHA-GERADA@aws-0-sa-east-1.pooler.supabase.com:5432/postgres`.
 4. Publique o Painel (Deploy, depois Stop e Start). No log de partida some o aviso "DATABASE_URL_FILA ausente". Teste respondendo um cliente pelo painel: a resposta sai.
 5. Depois de conferir, apague a `DATABASE_URL` do app Painel (ela só é usada enquanto `DATABASE_URL_FILA` estiver vazia).
 
 Se a resposta da equipe parar de sair e o log do painel disser "filas ainda não criadas pelo trabalhador", ligue o trabalhador uma vez (ele cria as filas e reaplica as permissões do `painel_fila` a cada partida). Para desligar o papel: `alter role painel_fila nologin;` e volte a `DATABASE_URL` no Painel.
 
-**Limite de conexões.** No Session pooler (porta 5432), cada conexão aberta ocupa uma vaga do "Pool Size" do projeto (Supabase → Database → Settings → Connection pooling). O trabalhador usa no máximo **8** conexões para a fila e o painel no máximo **3**. Na troca de versão, o trabalhador antigo e o novo ficam alguns segundos juntos (até 19). A cópia de segurança usa mais 1 ou 2 por alguns minutos. Confira que o Pool Size do projeto é **pelo menos 20**; se for menor, aumente ali (ou peça ao Claude para baixar os limites em `apps/trabalhador/src/fila.ts` e `apps/painel/src/lib/fila.ts`). Com o pool cheio, a resposta enfileirada pelo painel fica "pendente" e o batimento reenvia depois de 2 minutos.
+**Limite de conexões.** No Session pooler (porta 5432, Supavisor), cada conexão aberta ocupa uma vaga do "Pool Size" (Supabase → Database → Settings → Connection pooling). O Pool Size vale **por usuário e banco**: `postgres.<ref>` (trabalhador, cópia e o painel enquanto não tiver o `painel_fila`) tem a sua conta e `painel_fila.<ref>` tem outra. No modo sessão, passar do limite **não espera na fila: a conexão nova dá erro** ("max clients reached"). O trabalhador usa no máximo **6** conexões para a fila e o painel no máximo **3**. Na troca de versão, o trabalhador antigo e o novo ficam alguns segundos juntos: **6 + 6 = 12** no usuário `postgres`, mais 3 do painel enquanto ele usar a `DATABASE_URL`, mais 1 ou 2 da cópia de segurança durante a publicação. Se o Pool Size do projeto for menor que isso, aumente para **pelo menos 20**. Com o pool cheio, a resposta enfileirada pelo painel fica "pendente" e o batimento reenvia depois de 2 minutos.
 
 ### 2.6 Aviso de sistema fora do ar (UptimeRobot)
 
@@ -561,6 +561,7 @@ O menu de Configurações fica à esquerda, em grupos, com um resumo do que est�
    3. aplica as migrações (`supabase db push`, com o Supabase CLI na versão fixa do `deploy.yml`);
    4. publica o Trabalhador e o Painel pelos webhooks do Easypanel; sem os webhooks, aparece o aviso "publique agora no Easypanel": clique em **Deploy** e depois **Stop** e **Start** nos dois apps;
    5. espera o trabalhador novo responder 200 no `/saude` (se `TRABALHADOR_SAUDE_URL` e `SAUDE_TOKEN` estiverem cadastrados). Se em 30 minutos isso não acontecer, a publicação fica vermelha dizendo o último estado (por exemplo "ainda é o trabalhador antigo" ou "falhas: whatsapp"). As migrações já estão aplicadas: publique o Trabalhador e confira o `/saude`.
+      Atenção: uma publicação sem mudança no código do trabalhador pode reaproveitar a imagem em cache do Easypanel, com a mesma data de build (`build_em`) de antes da migração. Nesse caso a espera não termina sozinha: confira o `/saude` à mão e, se estiver 200, ignore o vermelho (ou force um build novo no Easypanel).
 
 ## 5. Segurança e LGPD
 

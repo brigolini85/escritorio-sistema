@@ -333,12 +333,23 @@ revoke execute on function public.usuario_permissoes_espelhar() from public, ano
 revoke execute on function public.usuarios_niveis_depois_inserir() from public, anon, authenticated;
 revoke execute on function public.usuarios_permissoes_antes_alterar() from public, anon, authenticated;
 revoke execute on function public.orientacoes_do_agente_certo() from public, anon, authenticated;
+-- Guarda contra deriva de ACL: a equipe (RLS e RPCs do painel) e o trabalhador continuam podendo chamar. É o estado de hoje,
+-- explícito, para não depender do grant padrão que um banco restaurado ou recriado pode não ter.
+grant execute on function public.eh_usuario_ativo(), public.eh_admin(), public.meus_setores(), public.tem_permissao(text),
+  public.pode_ver_chamado(uuid), public.pode_ver_conversa(uuid), public.marcar_alerta_lido(uuid), public.assumir_conversa(uuid),
+  public.devolver_ao_agente(uuid), public.registrar_resposta(uuid, text, text, text, text), public.nota_interna(uuid, text),
+  public.transferir_chamado(uuid, uuid, uuid), public.concluir_chamado(uuid), public.anonimizar_contato(uuid),
+  public.definir_preco(uuid, uuid, numeric), public.vincular_contato_conversa(uuid, uuid)
+  to authenticated, service_role;
 
 -- ===== 6.14: o visitante sem grant em tabela, view e sequência do public, agora e nas próximas =====
 revoke all on all tables in schema public from anon;
 revoke all on all sequences in schema public from anon;
 alter default privileges for role postgres in schema public revoke all on tables from anon;
 alter default privileges for role postgres in schema public revoke all on sequences from anon;
+-- Funções novas: tirar o anon do padrão não basta, porque o PUBLIC (que inclui o anon) continua com EXECUTE em toda
+-- função nova (padrão do Postgres; revogar do PUBLIC só no padrão global). Por isso toda função security definer nova
+-- precisa de "revoke execute … from public, anon" na própria migração; o pgTAP 133 (teste 1) falha se alguma ficar aberta.
 alter default privileges for role postgres in schema public revoke execute on functions from anon;
 
 -- ===== 6.11: índices =====
