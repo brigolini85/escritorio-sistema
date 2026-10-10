@@ -28,11 +28,11 @@ Faça tudo primeiro em **homologação**, com o número de teste. Só depois de 
 
 Para cada ambiente (homologação e produção), crie dois apps a partir do repositório do GitHub:
 
-1. **Trabalhador**: em "Build", escolha **Dockerfile** e informe `Dockerfile.trabalhador`. Porta: **3001**. A imagem guarda a versão e a data do build (nada a informar): com outro trabalhador vivo no mesmo banco, o de build mais antigo e versão (ou `AMBIENTE`) diferente para de atender, e volta sozinho se o outro sumir. Na primeira partida, o trabalhador grava o seu `AMBIENTE` no banco; depois, um trabalhador com `AMBIENTE` diferente daquele banco não atende nada e avisa o dono.
+1. **Trabalhador**: em "Build", escolha **Dockerfile** e informe `Dockerfile.trabalhador`. Porta: **3001**. A imagem guarda a versão e a data do build (nada a informar; **não** existe build argument `VERSAO` a preencher): com outro trabalhador vivo no mesmo banco, o de build mais antigo e versão (ou `AMBIENTE`) diferente para de atender, e volta sozinho se o outro sumir. O banco guarda qual ambiente ele é (veja "Ambiente do banco", abaixo); um trabalhador com `AMBIENTE` diferente daquele banco não atende nada e avisa o dono.
 2. **Painel**: em "Build", escolha **Dockerfile** e informe `Dockerfile.painel`. Porta: **3000**. Em "Build arguments", informe `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA` do projeto Supabase daquele ambiente.
 3. Em cada app, **desligue a publicação automática** ("Auto deploy"). Quem publica é o GitHub, e só depois que os testes passam.
 4. Em cada app, copie a URL de **Deploy webhook**. Ela vai para os segredos do GitHub (passo 2.3).
-5. Em "Environment", cole **em cada app só as variáveis dele**: no Trabalhador, as de `deploy/trabalhador.env.example`; no Painel, as de `deploy/painel.env.example` (o painel não recebe as chaves da Anthropic, Z-API, Groq, SMTP nem Drive). Preencha com os valores daquele ambiente. No Trabalhador, `AMBIENTE` é obrigatório: `producao` na produção; na homologação, `homologacao` e `TELEFONES_PERMITIDOS` com os celulares de teste (só eles recebem mensagem). A lista completa:
+5. Em "Environment", cole **em cada app só as variáveis dele**: no Trabalhador, as de `deploy/trabalhador.env.example`; no Painel, as de `deploy/painel.env.example` (o painel não recebe as chaves da Anthropic, Z-API, Groq, SMTP nem Drive). Preencha com os valores daquele ambiente. `AMBIENTE` é obrigatório **nos dois apps** (auditoria 3.13): `producao` na produção; na homologação, `homologacao` e, no Trabalhador, `TELEFONES_PERMITIDOS` com os celulares de teste (só eles recebem mensagem). Sem `AMBIENTE` válido, o Painel não sobe; se ele não bater com o do banco, o Painel mostra uma faixa vermelha no topo. A lista completa:
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_CHAVE_PUBLICA`, `DATABASE_URL` (o endereço do Session pooler);
    - `ANTHROPIC_API_KEY` (a chave do Claude);
    - `ZAPI_INSTANCIA`, `ZAPI_TOKEN`, `ZAPI_CLIENT_TOKEN` (da instância da Z-API daquele ambiente);
@@ -40,10 +40,11 @@ Para cada ambiente (homologação e produção), crie dois apps a partir do repo
    - `TRANSCRICAO_BASE_URL`, `TRANSCRICAO_API_KEY`, `TRANSCRICAO_MODELO` (Groq, `whisper-large-v3`). `TRANSCRICAO_VOCABULARIO` é opcional: termos que ajudam a transcrição a acertar siglas;
    - `SMTP_HOST`, `SMTP_PORTA`, `SMTP_USUARIO`, `SMTP_SENHA`, `SMTP_REMETENTE` (o e-mail que manda os alertas);
    - `PAINEL_URL`: o endereço do painel, por exemplo `https://painel.seuescritorio.com.br`.
+   - `SAUDE_TOKEN` (só no app **Trabalhador**, recomendado): com ele, `/saude?token=...` mostra qual item falhou (seção 2.6). Gere com `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
    - `ACESSOS_PORTAIS_CHAVE` (só no app **Painel**): a chave das senhas de portais da ficha do cliente. Gere uma por ambiente com o comando do `.env.example` (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`: sai um texto de 44 caracteres terminado em `=`) e guarde uma cópia num lugar seguro (gerenciador de senhas). Sem ela, as senhas não abrem; trocar ou perder a chave obriga a cadastrar as senhas de novo.
      **Painel de teste no computador** (o que liga na porta 3002 apontando para a homologação): ele não lê o Easypanel, e sim o arquivo de variáveis da homologação na pasta do projeto (o mesmo que leva o endereço e as chaves do Supabase de homologação para o painel de teste). Coloque nesse arquivo uma linha `ACESSOS_PORTAIS_CHAVE=` com **a mesma chave da homologação** cadastrada no Easypanel (não gere outra: senhas guardadas com uma chave não abrem com outra). Sem essa linha, o bloco "Acessos de portais" da ficha mostra o aviso de que falta a chave e não deixa cadastrar, ver nem copiar senhas.
    - `PAINEL_SEGREDO_SESSAO` (só no app **Painel**; auditoria 2.7): o segredo do cookie que marca o último uso do painel (a regra de 1 h parada). Pelo menos 32 caracteres aleatórios, um por ambiente: gere com `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Sem ele, o painel de produção ou de homologação **não sobe**. Trocar o valor pede login de novo a quem entrou há mais de 1 h (a 1 h parada passa a contar desde o login). O **painel de teste no computador** (porta 3002, homologação) também precisa de uma linha `PAINEL_SEGREDO_SESSAO=` no arquivo de variáveis da homologação; no computador local (`AMBIENTE=local`) pode faltar, e `scripts/env-local.sh` já grava um no `.env`.
-6. No app **Trabalhador**, em "Advanced" (ou "Deploy"), ponha o **tempo de parada** ("stop grace period") em **120 segundos**. Numa publicação ou reinício, o trabalhador para de pegar mensagens novas e espera até 90 segundos o atendimento que está em andamento terminar; com o padrão (10 segundos), o Easypanel desliga antes e a conversa pode ficar parada alguns minutos.
+6. **Obrigatório:** no app **Trabalhador**, em "Advanced" (ou "Deploy"), ponha o **tempo de parada** ("stop grace period") em **120 segundos** (auditoria 4.1). Numa publicação ou reinício, o trabalhador para de pegar mensagens novas e espera até 90 segundos o atendimento que está em andamento terminar; com o padrão (10 segundos), o Easypanel desliga antes e a conversa pode ficar parada alguns minutos.
 7. Em "Domains", configure o domínio do painel (ex.: `painel.seuescritorio.com.br`) e o do trabalhador (ex.: `robo.seuescritorio.com.br`).
 
 ### 2.3 GitHub
@@ -75,6 +76,8 @@ Em cada projeto do Supabase:
 3. **Authentication → Sign In / Providers**: desligue **Allow new users to sign up**. Só entra quem for convidado.
 4. **Duração do token de acesso** (auditoria 2.2): em **Project Settings → JWT Keys** (ou "JWT Settings", conforme a versão do painel do Supabase), ponha o **Access token expiry time** ("JWT expiry") em **900** segundos (15 min). Um token roubado vale menos tempo; o painel renova sozinho e ninguém percebe a troca. No computador, o mesmo valor está em `supabase/config.toml` e vale a partir da próxima vez que o Supabase local for ligado.
 5. **Troca de senha segura** (auditoria 2.6): em **Authentication → Sign In / Providers → Email** (ou "Auth settings", conforme a versão), ligue **Secure password change**. Assim, quem chama a API do Supabase direto com uma sessão de mais de 24 h não troca a senha sem entrar de novo. As telas do painel continuam funcionando: o link do e-mail abre uma sessão nova, e a troca logada (com a senha atual) usa a sessão do painel, que o painel encerra em 12 h (se mesmo assim passar de 24 h, a tela pede para entrar de novo). No computador, `secure_password_change = true` em `supabase/config.toml` vale a partir da próxima vez que o Supabase local for ligado.
+6. **Sessões** (auditoria 2.2): em **Authentication → Sessions**, ponha **Time-box user sessions** em **12 horas** e **Inactivity timeout** em **1 hora**. O painel já aplica essas regras nas telas; aqui elas passam a valer também para quem chama a API do Supabase direto.
+7. **Aviso de aplicativo de código** (auditoria 2.5): depois de aplicar as migrações da auditoria, confira no SQL Editor `select tgname from pg_trigger where tgrelid = 'auth.mfa_factors'::regclass;`. O esperado é `aviso_fator_cadastrado`: assim, um aplicativo cadastrado até direto pela API do Supabase avisa o dono. Se vier vazio, a nuvem não deixou criar o gatilho; nada quebra e o aviso continua saindo quando o cadastro é feito pelo painel.
 
 ### 2.5 Z-API
 
@@ -111,9 +114,43 @@ Se a resposta da equipe parar de sair e o log do painel disser "filas ainda não
 
 **Limite de conexões.** No Session pooler (porta 5432, Supavisor), cada conexão aberta ocupa uma vaga do "Pool Size" (Supabase → Database → Settings → Connection pooling). O Pool Size vale **por usuário e banco**: `postgres.<ref>` (trabalhador, cópia e o painel enquanto não tiver o `painel_fila`) tem a sua conta e `painel_fila.<ref>` tem outra. No modo sessão, passar do limite **não espera na fila: a conexão nova dá erro** ("max clients reached"). O trabalhador usa no máximo **6** conexões para a fila e o painel no máximo **3**. Na troca de versão, o trabalhador antigo e o novo ficam alguns segundos juntos: **6 + 6 = 12** no usuário `postgres`, mais 3 do painel enquanto ele usar a `DATABASE_URL`, mais 1 ou 2 da cópia de segurança durante a publicação. Se o Pool Size do projeto for menor que isso, aumente para **pelo menos 20**. Com o pool cheio, a resposta enfileirada pelo painel fica "pendente" e o batimento reenvia depois de 2 minutos.
 
+**Primeira publicação da versão da auditoria (Fase 2).** A versão anterior não tinha limite: até 10 conexões no trabalhador e 10 no painel. Na troca, as antigas e as novas ficam juntas e passam de 20. Antes dessa publicação, escolha: ponha o Pool Size em **30 ou mais**; ou, no Easypanel, **pare** o app antigo antes de implantar e iniciar o novo (o atendimento fica parado uns 3 minutos). Depois dela, 20 basta.
+
+### Ambiente do banco (auditoria 4.3 e 3.13)
+
+O banco guarda qual ambiente ele é (`configuracoes.ambiente`: `producao`, `homologacao` ou `local`). O trabalhador só atende num banco com o mesmo `AMBIENTE` dele; o Painel mostra uma faixa vermelha quando o dele não bate. Assim, um trabalhador da homologação ligado por engano no banco da produção (ou o contrário) não atende ninguém e avisa o dono.
+
+- **Carimbar** (uma vez por banco, logo depois de aplicar as migrações da auditoria), no SQL Editor daquele projeto:
+
+  ```sql
+  update public.configuracoes set ambiente = 'producao' where id = 1 and ambiente is null;
+  select ambiente from public.configuracoes where id = 1;
+  ```
+
+  Na homologação, troque `'producao'` por `'homologacao'`. Se o banco ainda estiver sem carimbo, a primeira partida do trabalhador grava o `AMBIENTE` dele; por isso o carimbo à mão vem antes da primeira publicação.
+- **Ninguém muda o carimbo pela tela**, nem o administrador. Só o SQL Editor do Supabase (ou o programa de restauração) muda. Se um dia aparecer um valor errado, peça ajuda antes de trocar: é sinal de que um trabalhador errado chegou a ligar naquele banco.
+- **Trabalhador no computador:** com `AMBIENTE=local` apontando para um banco da nuvem, ele **não carimba nada**, loga "AMBIENTE=local apontando para banco remoto", o `/saude` fica 503 `ambiente` e ele não atende. Para usar o banco da homologação no computador, rode com `AMBIENTE=homologacao`.
+- **No log**, "este trabalhador não atende: o AMBIENTE dele não é o do banco" quer dizer que o `AMBIENTE` do Easypanel e o carimbo não batem.
+
 ### 2.6 Aviso de sistema fora do ar (UptimeRobot)
 
-Crie uma conta gratuita em uptimerobot.com e um monitor **HTTP(s)** para `https://<domínio do trabalhador>/saude`, conferindo a cada 5 minutos e avisando no seu e-mail. Se o servidor inteiro cair, é esse monitor que avisa, porque o próprio sistema não consegue mandar alerta estando parado.
+Crie uma conta gratuita em uptimerobot.com e um monitor **HTTP(s)** para `https://<domínio do trabalhador>/saude?token=<SAUDE_TOKEN>`, conferindo a cada 5 minutos e avisando no seu e-mail. Se o servidor inteiro cair, é esse monitor que avisa, porque o próprio sistema não consegue mandar alerta estando parado. O token não muda o resultado (200 ou 503); com ele, ao abrir o endereço você vê a lista `falhas`. O token nunca aparece no log.
+
+**O que cada falha do `/saude` quer dizer** (auditoria 4.9; o `/saude` responde 503 quando a lista não está vazia):
+
+| Falha | O que é | Tipo |
+|---|---|---|
+| `ia` | a IA falhou para várias conversas nos últimos 15 min (chave, cobrança ou limite da Anthropic); as conversas vão para a equipe | alerta de negócio |
+| `envios_com_falha` | mais de 5 conversas com mensagem que falhou ou ficou sem confirmação na última hora | alerta de negócio |
+| `conversas_atrasadas` | cliente esperando resposta do agente há mais de 5 min (até 24 h; mais velha que isso vai para o alerta diário). Num atendimento longo pode aparecer por 1 ou 2 minutos | alerta de negócio |
+| `whatsapp` | o WhatsApp não deu sinal nos últimos 3 min | fora do ar |
+| `batimento` | a rotina de cada minuto parou | fora do ar |
+| `banco` | o trabalhador não consegue ler o banco | fora do ar |
+| `ambiente` | o `AMBIENTE` do trabalhador não é o do banco (ou é `local` apontando para a nuvem); ele não atende | fora do ar |
+| `instancias` | dois trabalhadores vivos no mesmo banco. Numa publicação, é normal por até 1 minuto | fora do ar se durar |
+| `parado` | este trabalhador parou porque há um mais novo. Numa publicação, é normal | fora do ar se durar |
+
+Alerta de negócio: o sistema está no ar, mas algo pede atenção (as conversas afetadas vão para a equipe). Fora do ar: o atendimento automático não está acontecendo. A publicação pelo GitHub (seção 4) também tolera os três alertas de negócio quando o trabalhador novo já está no ar.
 
 ### 2.7 Primeiro administrador
 
@@ -560,8 +597,10 @@ O menu de Configurações fica à esquerda, em grupos, com um resumo do que est�
    2. faz a cópia cifrada do banco e dos arquivos;
    3. aplica as migrações (`supabase db push`, com o Supabase CLI na versão fixa do `deploy.yml`);
    4. publica o Trabalhador e o Painel pelos webhooks do Easypanel; sem os webhooks, aparece o aviso "publique agora no Easypanel": clique em **Deploy** e depois **Stop** e **Start** nos dois apps;
-   5. espera o trabalhador novo responder 200 no `/saude` (se `TRABALHADOR_SAUDE_URL` e `SAUDE_TOKEN` estiverem cadastrados). Se em 30 minutos isso não acontecer, a publicação fica vermelha dizendo o último estado (por exemplo "ainda é o trabalhador antigo" ou "falhas: whatsapp"). As migrações já estão aplicadas: publique o Trabalhador e confira o `/saude`.
+   5. espera o trabalhador novo responder 200 no `/saude` (se `TRABALHADOR_SAUDE_URL` e `SAUDE_TOKEN` estiverem cadastrados). Um 503 só com alertas de negócio (`ia`, `envios_com_falha`, `conversas_atrasadas`, seção 2.6) e o build novo passa, com um aviso amarelo. Se em 30 minutos isso não acontecer, a publicação fica vermelha dizendo o último estado (por exemplo "ainda é o trabalhador antigo" ou "falhas: whatsapp"). As migrações já estão aplicadas: publique o Trabalhador e confira o `/saude`.
       Atenção: uma publicação sem mudança no código do trabalhador pode reaproveitar a imagem em cache do Easypanel, com a mesma data de build (`build_em`) de antes da migração. Nesse caso a espera não termina sozinha: confira o `/saude` à mão e, se estiver 200, ignore o vermelho (ou force um build novo no Easypanel).
+
+**Publicação feita à mão** (sem o GitHub, por exemplo com um guia de subida): antes do `supabase db push`, faça uma cópia. O mais simples é baixar a cópia diária do Supabase (Database → Backups → Download na mais recente). Para a cópia completa, com os arquivos, use `pnpm copia:fazer` com as mesmas variáveis da restauração (seção 5) apontando para a produção. Depois do push: carimbe o ambiente se o banco ainda não tiver (seção "Ambiente do banco"), implante **primeiro o Trabalhador e depois o Painel** (Deploy, depois Stop e Start) e confira nos logs que aparece um hostname só.
 
 ## 5. Segurança e LGPD
 
@@ -582,8 +621,18 @@ O menu de Configurações fica à esquerda, em grupos, com um resumo do que est�
   - Não saem: o cadastro (clientes, contatos, documentos da empresa), as orientações, os gastos com IA (sem texto da conversa), as demandas abertas e, no padrão, as concluídas.
   - O resultado de cada limpeza fica em **Alertas** ("Limpeza diária feita: ..."); uma falha avisa você uma vez por dia.
 - **Arquivos sem dono** (auditoria 6.4): todo **domingo às 04:00** o sistema procura, nos compartimentos de anexos, documentos e tarefas, arquivos que nenhuma conversa, documento ou tarefa aponta (por exemplo, sobra de uma exclusão que falhou). **Por enquanto ele só relata**: o total e até 20 exemplos (sem nome de arquivo) aparecem em Alertas e **nada é apagado**. Arquivo com menos de 7 dias nunca entra. Depois de conferir alguns relatórios, para ligar a remoção (até 500 arquivos por semana), um administrador roda no SQL do Supabase: `update configuracoes set varredura_orfaos_apagar = true where id = 1;` (para desligar, `false`). **Antes de ligar**, confirme que nenhuma parte nova do sistema guarda arquivos num compartimento sem estar na lista `caminhos_referenciados` do banco (o teste automático 132 cobra isso).
+  - **Como ler o relatório:** a linha em Alertas diz "Varredura semanal de arquivos sem dono (só relatório, nada foi apagado): …", com o total por compartimento (anexos, documentos, tarefas) e exemplos como `anexos:conversas/<id>/1700000000001…` (só a pasta e o começo do nome). Um total pequeno e parecido de uma semana para a outra é sobra antiga. Um salto grande é sinal de que alguma parte nova guarda arquivos fora da lista: **não ligue** a remoção e peça ajuda. Ligue só depois de 2 ou 3 relatórios tranquilos (e, de preferência, depois de conferir o primeiro relatório seguinte a cada subida grande, como a do catálogo). Ligada, a linha passa a dizer quantos foram apagados.
 - **Senhas de portais dos clientes** ficam cifradas com a chave ACESSOS_PORTAIS_CHAVE, que mora só no Easypanel (fora do banco; a da homologação também no arquivo de variáveis do painel de teste, no computador): nem uma cópia do banco nem a chave de serviço do Supabase abrem as senhas.
 - **Limite de tentativas no login** (auditoria 2.3): o painel conta, no banco, as tentativas de entrar (5 por minuto e 20 por hora do mesmo IP; 5 em 15 min do mesmo e-mail), de "Esqueci a senha" (3 por hora por e-mail; 10 por hora por IP) e do código do aplicativo (5 por minuto por pessoa). Acima disso aparece "Muitas tentativas. Espere alguns minutos e tente de novo." e o Supabase nem é chamado. **Senha ou código certo devolve a tentativa**: só os erros enchem o limite, então a equipe inteira saindo pelo mesmo IP entra normalmente. A contagem é por janela fixa (o minuto, a hora): bem na virada de uma janela para a outra cabem até 2 vezes o limite. Se o banco estiver fora, a contagem é pulada (o login segue com o limite do próprio Supabase) e o erro vai para o log.
+  - **Destravar alguém na hora** (SQL Editor do Supabase). O banco guarda o IP e o e-mail **embaralhados** (`tipo:sha256(valor)`), então procurar pelo texto do e-mail não acha nada. Para um e-mail, troque o endereço:
+
+    ```sql
+    with h as (select encode(sha256(convert_to(lower(trim('<email da pessoa>')), 'UTF8')), 'hex') as x)
+    delete from public.tentativas_login
+     where chave in (select 'login-email:' || x from h union all select 'esqueci-email:' || x from h);
+    ```
+
+    Se o bloqueio for do IP (o escritório inteiro travado), zere as contagens: `delete from public.tentativas_login;` (é seguro: só apaga contagens; sem isso, o bloqueio por IP some sozinho em até 1 hora).
 - **De onde vem o IP**: do cabeçalho `X-Forwarded-For`, contado **da direita** (o que o cliente manda fica à esquerda e é ignorado; o proxy do Easypanel acrescenta o IP real no fim). Com um CDN ou outro proxy na frente do Easypanel, ponha `PAINEL_PROXIES_CONFIAVEIS` = número de proxies (padrão 1). **O painel só pode ser aberto pelo domínio do Easypanel**, nunca com a porta 3000 exposta direto na internet. **Conferência do dono** (uma vez, depois de publicar): no navegador, com uma extensão que acrescenta cabeçalhos (por exemplo ModHeader), mande `X-Forwarded-For: 1.2.3.4` e erre a senha 6 vezes seguidas na tela de entrada; na 6ª aparece "Muitas tentativas" e, no log do app Painel no Easypanel, a linha `[entrar] muitas tentativas` mostra o seu IP, **nunca** `1.2.3.4`. Se aparecer `1.2.3.4`, o proxy está confiando no cabeçalho do cliente: ajuste `PAINEL_PROXIES_CONFIAVEIS` ou peça ajuda antes de seguir.
 - **Trocar a senha** (auditoria 2.6): pelo link do e-mail (convite ou "Esqueci a senha"), nos primeiros 15 minutos, troca direto; link mais velho mostra "O link venceu" e manda pedir outro em "Esqueci a senha"; logado normalmente, a tela pede a senha atual. Com "Secure password change" ligado no Supabase (seção 2.4), quem tenta trocar a senha direto pela API com uma sessão de mais de 24 h é recusado até entrar de novo.
 - **Downloads** (auditoria 2.10): todo download (anexo, documento, CSV, planilha, arquivo do Bling) é registrado antes de sair; se o registro falhar, a pessoa vê "Não deu para registrar o download agora" e tenta de novo. Nada de `/api/` fica guardado no navegador nem em proxy.
