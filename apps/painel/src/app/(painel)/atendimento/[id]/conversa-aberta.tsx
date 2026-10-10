@@ -12,7 +12,7 @@ import { Button, variantesBotao } from '@/components/ui/button';
 import type { StatusDemanda } from '@/components/patterns/status-badge';
 import { iniciais } from '@/lib/atendimento';
 import { consultaCaixa } from '@/lib/caixa';
-import { cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, turnoDaPassagem, documentosAbertos as documentosAbertosDe, type CartaoDecisao, type DecisaoBruta } from '@/lib/conversa-itens';
+import { ETAPAS_DE_PEDIDO, FILTRO_ETAPAS_DE_PEDIDO, juntarDecisoes, cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, turnoDaPassagem, documentosAbertos as documentosAbertosDe, type CartaoDecisao, type DecisaoBruta } from '@/lib/conversa-itens';
 import { cn } from '@/lib/cn';
 import { envioBloqueado } from '@/lib/envio-bloqueado';
 import { mascararTelefone } from '@/lib/formatos';
@@ -75,6 +75,8 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   mais?: number;
 }) {
   const sb = await supabaseServidor();
+  // "Pedidos de nota: Sem acesso" (P11): pedido, descrição, notas e textos livres da demanda de pedido ficam no servidor.
+  const verPedidos = temNivel(u, 'notas', 'ver');
   const { data: conversa } = await sb.from('conversas')
     .select('*, contatos(id, nome, agente_pausado), clientes:cliente_em_foco(id, razao_social, nome_fantasia, cnpj, agente_pausado, ativo)')
     .eq('id', id).maybeSingle();
@@ -88,15 +90,22 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   // de eventos, notas e transferências também (revisão da Task 16: nada fica sem limite; nada do que aparece some).
   const corteHistorico = leitura.anteriores;
   const desdeCorte = <Q extends { gte: (c: string, v: string) => Q }>(q: Q) => (corteHistorico ? q.gte('criado_em', corteHistorico) : q);
-  const [{ data: chamados }, { data: notas }, { data: decisoes }, { data: setores }, { data: respostas }, { data: vinculos }, { data: eventosConversa }, { data: todasDemandas }, { data: transferencias }] = await Promise.all([
+  const [{ data: chamados }, { data: notas }, { data: decisoesLidas }, { data: decisoesPedido }, { data: setores }, { data: respostas }, { data: vinculos }, { data: eventosConversa }, { data: todasDemandas }, { data: transferencias }] = await Promise.all([
     sb.from('chamados').select('*, setores(nome), usuarios(nome), chamado_eventos(tipo, texto, criado_em, usuarios(nome))')
       .eq('conversa_id', id).neq('status', 'concluido').order('numero').order('criado_em', { referencedTable: 'chamado_eventos' }),
     // Notas internas de todas as demandas da conversa (também as já concluídas) entram no histórico.
     desdeCorte(sb.from('chamado_eventos').select('id, texto, criado_em, usuario_id, usuarios(nome), chamados!inner(numero, conversa_id, titulo, pedido_venda)')
       .eq('chamados.conversa_id', id).eq('tipo', 'nota_interna')),
     // Auditoria 4.15: o registro do começo da vez (job e turno) é só rastreio, não decisão do agente.
-    sb.from('decisoes_agente').select('id, etapa, entrada, saida, justificativa, criado_em, turno').eq('conversa_id', id).neq('etapa', 'inicio_vez')
-      .order('criado_em', { ascending: false }).limit(300),
+    // Sem acesso a pedidos (P11), as etapas de pedido são lidas à parte, sem entrada/saida: o conteúdo nem sai do banco.
+    (verPedidos
+      ? sb.from('decisoes_agente').select('id, etapa, entrada, saida, justificativa, criado_em, turno').eq('conversa_id', id).neq('etapa', 'inicio_vez')
+      : sb.from('decisoes_agente').select('id, etapa, entrada, saida, justificativa, criado_em, turno').eq('conversa_id', id).neq('etapa', 'inicio_vez').not('etapa', 'in', FILTRO_ETAPAS_DE_PEDIDO)
+    ).order('criado_em', { ascending: false }).limit(300),
+    verPedidos
+      ? Promise.resolve({ data: [] as { id: string; etapa: string; justificativa: string | null; criado_em: string; turno: string | null }[] })
+      : sb.from('decisoes_agente').select('id, etapa, justificativa, criado_em, turno').eq('conversa_id', id).in('etapa', [...ETAPAS_DE_PEDIDO])
+        .order('criado_em', { ascending: false }).limit(300),
     sb.from('setores').select('id, nome').eq('ativo', true).order('nome'),
     sb.from('respostas_prontas').select('id, pergunta, resposta').eq('ativo', true).order('pergunta'),
     // Empresas ativas pelas quais o contato fala (a troca da empresa da conversa só vale entre elas).
@@ -110,8 +119,7 @@ export async function ConversaAberta({ id, u, filtroNaUrl, q, erro, pessoas, pau
   const minha = conversa.atendente_id === u.id;
   const nomeDe = new Map(pessoas.map((p) => [p.id, p.nome]));
   const abertas = chamados ?? [];
-  // "Pedidos de nota: Sem acesso" (P11): pedido, descrição, notas e textos livres da demanda de pedido ficam no servidor.
-  const verPedidos = temNivel(u, 'notas', 'ver');
+  const decisoes = juntarDecisoes((decisoesLidas ?? []) as DecisaoBruta[], decisoesPedido ?? [], 300);
   const oculto = (c: { titulo: string | null; pedido_venda: unknown } | null | undefined) => !verPedidos && Boolean(c) && ehPedidoDeNota(c!);
   // Sem acesso a pedidos, o conteúdo do pedido sai das decisões ANTES de virar "por quê?", cartão ou aba AGENTE (P11).
   const decisoesTela = ocultarPedidoDasDecisoes((decisoes ?? []).map((d) => ({ ...d, justificativa: d.justificativa ?? null })), verPedidos);

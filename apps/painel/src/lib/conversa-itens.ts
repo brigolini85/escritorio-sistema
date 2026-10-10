@@ -12,6 +12,18 @@ export const ETAPAS_DE_ACAO = new Set([
 /** Etapas cujo conteúdo é o pedido de nota (P11). */
 export const ETAPAS_DE_PEDIDO = new Set(['resumir_pedido_nota', 'abrir_pedido_nota']);
 
+/** Filtro PostgREST das etapas de pedido, para `.not('etapa', 'in', ...)`. */
+export const FILTRO_ETAPAS_DE_PEDIDO = `(${[...ETAPAS_DE_PEDIDO].join(',')})`;
+
+/**
+ * Sem acesso a pedidos as etapas de pedido são lidas SEM entrada/saida (o conteúdo nem sai do banco):
+ * junta as duas leituras (completas + só o rastro das de pedido), mais novas primeiro, no mesmo limite.
+ */
+export function juntarDecisoes<D extends { criado_em: string }>(completas: D[], semConteudo: Omit<D, 'entrada' | 'saida'>[], limite: number): D[] {
+  const todas = [...completas, ...semConteudo.map((x) => ({ ...x, entrada: null, saida: null }) as unknown as D)];
+  return todas.sort((a, b) => tempo(b.criado_em) - tempo(a.criado_em)).slice(0, limite);
+}
+
 export function ocultarPedidoDasDecisoes<D extends DecisaoBruta>(d: D[], verPedidos: boolean): D[] {
   if (verPedidos) return d;
   return d.map((x) => (ETAPAS_DE_PEDIDO.has(x.etapa) ? { ...x, entrada: null, saida: { aviso: AVISO_SEM_ACESSO_PEDIDO } } : x));

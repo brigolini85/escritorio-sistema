@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  agruparPorTurno, cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, porQueDasMensagens, resumoPorQue, turnoDaPassagem, documentosAbertos, type DecisaoBruta,
+  agruparPorTurno, cartoesDeDecisao, marcosDaConversa, ocultarPedidoDasDecisoes, juntarDecisoes, porQueDasMensagens, resumoPorQue, turnoDaPassagem, documentosAbertos, type DecisaoBruta,
 } from './conversa-itens';
 import { AVISO_SEM_ACESSO_PEDIDO } from './pedido-nota';
 
@@ -98,6 +98,17 @@ describe('Ver decisão da passagem', () => {
   it('turno sem ação (só consulta) não vira alvo; sem passagem, null', () => {
     expect(turnoDaPassagem(DECISOES.filter((x) => x.turno !== 'T2'), msgs, '2026-10-05T14:32:30Z')).toBeNull();
     expect(turnoDaPassagem(DECISOES, msgs, null)).toBeNull();
+  });
+});
+
+describe('juntarDecisoes (P11: pedido lido sem conteúdo)', () => {
+  it('junta as duas leituras, mais novas primeiro, no limite, e as de pedido ficam sem entrada/saida', () => {
+    const completas = [d('a', 'consultar', 'T1', '2026-10-05T10:00:03Z'), d('b', 'consultar', 'T1', '2026-10-05T10:00:01Z')];
+    const pedido = [{ id: 'p', etapa: 'abrir_pedido_nota', justificativa: null, criado_em: '2026-10-05T10:00:02Z', turno: 'T1' }];
+    const r = juntarDecisoes(completas, pedido, 2);
+    expect(r.map((x) => x.id)).toEqual(['a', 'p']);
+    expect(r[1]?.entrada).toBeNull();
+    expect(r[1]?.saida).toBeNull();
   });
 });
 
