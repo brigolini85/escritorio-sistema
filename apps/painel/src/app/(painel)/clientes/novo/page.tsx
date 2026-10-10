@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { textoDoErro } from '@/lib/erro-na-url-servidor';
 import { PageHeader } from '@/components/layout/page-header';
 import { temNivel } from '@/lib/permissoes';
 import { obterUsuario } from '@/lib/sessao';
@@ -11,7 +12,7 @@ const SEM_MIGRACAO = new Set(['42703', '42P01', 'PGRST204', 'PGRST205']);
 
 /** Novo cliente = a mesma ficha, vazia (spec 7D.1, D25). Sem a migração da Parte H1 no banco, o formulário de hoje (D23). */
 export default async function NovoCliente({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
-  const { erro } = await searchParams;
+  const erro = textoDoErro((await searchParams).erro);
   const u = await obterUsuario();
   if (!temNivel(u, 'clientes', 'editar')) redirect('/clientes');
   const sb = await supabaseServidor();

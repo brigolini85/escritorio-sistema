@@ -20,6 +20,9 @@ vi.mock('@/lib/sessao', () => ({
 }));
 
 import { alternarOrientacao, ensinarAgente, restaurarVersao } from './acoes';
+import { textoDoErro } from '@/lib/erro-na-url-servidor';
+
+process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'chave-de-teste';
 
 const EMPRESA = '11111111-1111-4111-8111-111111111111';
 const SETOR = '22222222-2222-4222-8222-222222222222';
@@ -128,7 +131,9 @@ describe('restaurarVersao', () => {
   async function erroDe(p: Promise<void>): Promise<string | null> {
     try { await p; return null; } catch (e) {
       const url = (e as { url?: string }).url ?? '';
-      return new URLSearchParams(url.split('?')[1] ?? '').get('erro');
+      // Revisão final (T11): o ?erro= leva o código assinado; a página o traduz de volta na frase.
+      const codigo = new URLSearchParams(url.split('?')[1] ?? '').get('erro');
+      return codigo === null ? null : textoDoErro(codigo) ?? null;
     }
   }
 

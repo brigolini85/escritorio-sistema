@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 import { AvisoErro } from '@/components/patterns/aviso-erro';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { variantesBotao } from '@/components/ui/button';
+import { textoDoErro } from '@/lib/erro-na-url-servidor';
 import { lerConversaAssistente } from '@/lib/conversas-assistente';
 import { usaAssistente } from '@/lib/permissoes';
 import { lerDadosNovaDemanda } from '@/lib/nova-demanda-dados';
@@ -69,7 +70,7 @@ export default async function Assistente({ searchParams }: { searchParams: Promi
         {conversaId && !aberta ? (
           <section aria-labelledby="titulo-assistente" className={COLUNA_CHAT}>
             {cabecalho}
-            <div className="px-4"><AvisoErro erro={sp.erro} limparDaUrl /></div>
+            <div className="px-4"><AvisoErro erro={textoDoErro(sp.erro)} limparDaUrl /></div>
             <EmptyState
               icone={SearchX}
               titulo="Conversa não encontrada"
@@ -80,7 +81,7 @@ export default async function Assistente({ searchParams }: { searchParams: Promi
           </section>
         ) : (
           <Suspense key={conversaId ?? 'geral'} fallback={<EsqueletoTela cabecalho={cabecalho} />}>
-            <ConversaComResultado usuario={u} conversaId={conversaId} chave={chave} cabecalho={cabecalho} erro={sp.erro} />
+            <ConversaComResultado usuario={u} conversaId={conversaId} chave={chave} cabecalho={cabecalho} erro={textoDoErro(sp.erro)} />
           </Suspense>
         )}
       </div>

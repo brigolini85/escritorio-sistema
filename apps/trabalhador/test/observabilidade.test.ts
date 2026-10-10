@@ -431,4 +431,28 @@ describe('mensagem incerta sem eco (Task 9, revisão desta task)', () => {
     await avisarIncertosAntigos({ repos, alertas: { alertar: async (a) => { avisos.push(a.mensagem); } } });
     expect(avisos).toEqual(['Mensagem para …0001 não confirmada há 10 min; confira no WhatsApp']);
   });
+
+  // Revisão final (T14): desfazer todas as incertas da conversa reabria também a já avisada numa rodada anterior.
+  it('o aviso falhou: só as marcas desta rodada são desfeitas; a incerta já avisada continua marcada', async () => {
+    const conversa = await repos.obterOuCriarConversa('5531999990002', null);
+    const { data: velha } = await db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'saida', autor: 'agente', tipo: 'texto',
+      conteudo: 'Antiga', status_envio: 'incerto', criado_em: minutosAtras(30) }).select('id').single();
+    const avisos: string[] = [];
+    await avisarIncertosAntigos({ repos, alertas: { alertar: async (a) => { avisos.push(a.mensagem); } } });
+    expect(avisos).toHaveLength(1);
+    const { data: nova } = await db.from('mensagens').insert({ conversa_id: conversa.id, direcao: 'saida', autor: 'agente', tipo: 'texto',
+      conteudo: 'Nova', status_envio: 'incerto', criado_em: minutosAtras(15) }).select('id').single();
+    const marcadas = await repos.marcarIncertosAntigos();
+    expect(marcadas).toEqual([{ conversaId: conversa.id, telefone: '5531999990002', mensagens: [nova!.id] }]);
+    await repos.desmarcarIncertos(marcadas[0]!.mensagens);
+    const chaves = async () => ((await db.from('avisos_unicos').select('chave')).data ?? []).map((l) => l.chave);
+    expect(await chaves()).toContain(`incerto:${velha!.id}`);
+    expect(await chaves()).not.toContain(`incerto:${nova!.id}`);
+
+    const erro = calar();
+    await expect(avisarIncertosAntigos({ repos, alertas: { alertar: async () => { throw new Error('painel fora'); } } })).rejects.toThrow('painel fora');
+    erro.mockRestore();
+    expect(await chaves()).toContain(`incerto:${velha!.id}`);
+    expect(await chaves()).not.toContain(`incerto:${nova!.id}`);
+  });
 });

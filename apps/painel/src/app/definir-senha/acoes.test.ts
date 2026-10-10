@@ -22,9 +22,9 @@ vi.mock('@/lib/supabase/servico', () => ({
         falso.contagem.set(a.p_chave, Math.max(n - 1, 0));
         return { data: null, error: null };
       }
-      if (n >= a.p_limite) return { data: false, error: null };
+      if (n >= a.p_limite) return { data: null, error: null };
       falso.contagem.set(a.p_chave, n + 1);
-      return { data: true, error: null };
+      return { data: '2026-10-09T12:00:00+00:00', error: null };
     },
   }),
 }));

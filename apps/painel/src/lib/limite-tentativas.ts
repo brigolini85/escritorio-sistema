@@ -50,8 +50,11 @@ function chave(regra: Regra, valor: string): string {
   return `${regra.tipo}:${createHash('sha256').update(valor.trim().toLowerCase()).digest('hex')}`;
 }
 
-/** Uma tentativa contada (para o acerto devolver). */
-export type Contada = { chave: string; janelaSegundos: number };
+/**
+ * Uma tentativa contada (para o acerto devolver). Revisão final (T12): `janela` é a da contagem, devolvida pelo banco; o
+ * acerto devolve nela, mesmo que a janela tenha virado no meio do login.
+ */
+export type Contada = { chave: string; janela: string };
 
 /**
  * Conta uma tentativa em cada regra, na ordem; para na primeira acima do limite (ok: false). Devolve as que contou: a
@@ -60,12 +63,13 @@ export type Contada = { chave: string; janelaSegundos: number };
 export async function dentroDosLimites(regras: [Regra, string][]): Promise<{ ok: boolean; contadas: Contada[] }> {
   const contadas: Contada[] = [];
   for (const [regra, valor] of regras) {
-    const c: Contada = { chave: chave(regra, valor), janelaSegundos: regra.janelaSegundos };
+    const k = chave(regra, valor);
     try {
-      const { data, error } = await supabaseServico().rpc('contar_tentativa', { p_chave: c.chave, p_limite: regra.limite, p_janela_segundos: c.janelaSegundos });
+      const { data, error } = await supabaseServico().rpc('contar_tentativa_janela', { p_chave: k, p_limite: regra.limite, p_janela_segundos: regra.janelaSegundos });
       if (error) throw new Error(error.message);
-      if (data === false) return { ok: false, contadas };
-      contadas.push(c);
+      // Nulo: passou do limite (não contou).
+      if (!data) return { ok: false, contadas };
+      contadas.push({ chave: k, janela: data });
     } catch (e) {
       console.error(`[limite] contagem de ${regra.tipo} indisponível; seguindo sem o limite`, e instanceof Error ? e.message : e);
     }
@@ -80,7 +84,7 @@ export async function dentroDosLimites(regras: [Regra, string][]): Promise<{ ok:
 export async function devolverTentativas(contadas: Contada[]): Promise<void> {
   for (const c of contadas) {
     try {
-      const { error } = await supabaseServico().rpc('devolver_tentativa', { p_chave: c.chave, p_janela_segundos: c.janelaSegundos });
+      const { error } = await supabaseServico().rpc('devolver_tentativa', { p_chave: c.chave, p_janela: c.janela });
       if (error) throw new Error(error.message);
     } catch (e) {
       console.error('[limite] tentativa não devolvida', e instanceof Error ? e.message : e);

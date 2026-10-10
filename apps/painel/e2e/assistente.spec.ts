@@ -64,7 +64,8 @@ test('caixa do assistente dentro do atendimento grava a pergunta com a conversa,
   await expect(page.getByText('Pensando…')).toBeVisible();
   const { data } = await db.from('assistente_mensagens').select('conversa_id, canal, papel').eq('usuario_id', usuarioId);
   expect(data).toEqual([{ conversa_id: conversaId, canal: 'site', papel: 'usuario' }]);
-  await page.goto(`/atendimento/${conversaId}?erro=${encodeURIComponent('Sem acesso a esta conversa.')}`);
+  // Revisão final (T11): o ?erro= leva um código (texto livre na URL não aparece).
+  await page.goto(`/atendimento/${conversaId}?erro=sem-acesso-conversa`);
   await expect(page.getByText('Sem acesso a esta conversa.')).toBeVisible();
 });
 

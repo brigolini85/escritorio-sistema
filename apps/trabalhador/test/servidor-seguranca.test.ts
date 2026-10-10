@@ -107,16 +107,40 @@ describe('origem do evento (3.1)', () => {
 });
 
 describe('limite de requisições', () => {
-  it('121ª no mesmo minuto no webhook recebe 429 e não grava', async () => {
+  // Revisão final (M3): antes, a 121ª da própria Z-API (segredo certo) recebia 429 e a mensagem se perdia num pico. Só a
+  // afirmação mudou: o limite conta só o segredo errado.
+  it('Z-API autenticada não é limitada: 130 no mesmo minuto, todas gravadas', async () => {
+    const { app, gravadas } = montar();
+    for (let i = 0; i < 130; i++) {
+      const r = await app.inject({ method: 'POST', url: URL_OK, payload: { ...doInstancia, messageId: `M-${i}` } });
+      expect(r.statusCode).toBe(200);
+    }
+    expect(gravadas).toHaveLength(130);
+  });
+  it('segredo errado: a 121ª no mesmo minuto recebe 429; o segredo certo do mesmo IP continua passando', async () => {
     const { app, gravadas } = montar();
     let ultimo = 0;
     for (let i = 0; i < 121; i++) {
-      const r = await app.inject({ method: 'POST', url: URL_OK, payload: { ...doInstancia, messageId: `M-${i}` } });
+      const r = await app.inject({ method: 'POST', url: `/webhook/zapi/errado-${i}-xxxxxxxxxxxx`, payload: doInstancia });
       ultimo = r.statusCode;
-      if (i < 120) expect(r.statusCode).toBe(200);
+      if (i < 120) expect(r.statusCode).toBe(401);
     }
     expect(ultimo).toBe(429);
-    expect(gravadas).toHaveLength(120);
+    expect((await app.inject({ method: 'POST', url: URL_OK, payload: { ...doInstancia, messageId: 'M-certa' } })).statusCode).toBe(200);
+    expect(gravadas).toHaveLength(1);
+  });
+  it('o IP do limite é o valor mais à direita do x-forwarded-for (o da esquerda é forjável)', async () => {
+    const { app } = montar();
+    for (let i = 0; i < 121; i++) {
+      await app.inject({ method: 'POST', url: '/webhook/zapi/errado-xxxxxxxxxxxxxxx', payload: doInstancia,
+        headers: { 'x-forwarded-for': `9.9.9.${i % 250}, 200.1.1.1` } });
+    }
+    const forjado = await app.inject({ method: 'POST', url: '/webhook/zapi/errado-xxxxxxxxxxxxxxx', payload: doInstancia,
+      headers: { 'x-forwarded-for': '1.2.3.4, 200.1.1.1' } });
+    expect(forjado.statusCode).toBe(429);
+    const outro = await app.inject({ method: 'POST', url: '/webhook/zapi/errado-xxxxxxxxxxxxxxx', payload: doInstancia,
+      headers: { 'x-forwarded-for': '200.1.1.1, 200.2.2.2' } });
+    expect(outro.statusCode).toBe(401);
   });
   it('31ª no /saude recebe 429; /vivo não é limitado', async () => {
     const { app } = montar();

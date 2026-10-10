@@ -186,7 +186,8 @@ set local role authenticated;
 select pg_temp.como('e1200000-0000-0000-0000-00000000000b', 'aal1');
 select is(public.registrar_fator_cadastrado(), 0, 'sem aplicativo cadastrado: nada a registrar');
 select pg_temp.como('e1200000-0000-0000-0000-00000000000a', 'aal2');
-select is(public.registrar_fator_cadastrado(), 1, 'registra o aplicativo da própria pessoa');
+-- Rodada final (2.5): o gatilho em auth.mfa_factors já avisou no cadastro; o painel não repete. Só a afirmação mudou.
+select is(public.registrar_fator_cadastrado(), 0, 'o cadastro já avisou (gatilho); o painel não repete');
 select is(public.registrar_fator_cadastrado(), 0, 'chamar de novo não repete');
 reset role;
 select is((select count(*)::int from public.auditoria_acessos

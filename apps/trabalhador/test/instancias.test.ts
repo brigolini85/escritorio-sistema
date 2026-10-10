@@ -12,7 +12,7 @@ import { ligarConsumidores } from '../src/consumidores';
 import { FILAS } from '../src/fila';
 import { iniciarConsumo } from '../src/iniciar';
 import {
-  batimentoInstancia, falhasDaInstancia, lerBuild, mensagemAmbienteErrado, novoEstadoInstancia, partida, situacaoDoProcesso, type Instancia,
+  BATIMENTOS_PARA_VOLTAR, batimentoInstancia, enderecoRemoto, falhasDaInstancia, lerBuild, mensagemAmbienteErrado, novoEstadoInstancia, partida, situacaoDoProcesso, type Instancia,
 } from '../src/instancia';
 import { criarServidor } from '../src/servidor';
 import { db, repos } from './apoio/cenario';
@@ -73,6 +73,49 @@ describe('partida: AMBIENTE do processo contra o do banco', () => {
     await partida({ repos, alertas, ambiente: 'homologacao', estado: novoEstadoInstancia(), ligar: async () => {} });
     erro.mockRestore();
     expect(lista).toHaveLength(1);
+  });
+
+  // Revisão final (Important 1): um trabalhador local apontado para a nuvem carimbaria "local" no banco da nuvem para sempre.
+  it('AMBIENTE=local com banco remoto: não carimba, não consome, loga o erro e o /saude falha com "ambiente"', async () => {
+    const boss = bossFalso();
+    const { alertas, lista } = alertasFalsos();
+    const estado = novoEstadoInstancia();
+    const r = { ambienteDoBanco: vi.fn(async () => 'local'), alertaRecente: vi.fn(async () => false) };
+    const erro = calar();
+    const ok = await partida({
+      repos: r, alertas, ambiente: 'local', estado, ligar: () => ligarConsumidores(boss as never, {} as never),
+      enderecosBanco: ['postgresql://postgres:x@db.abcdefgh.supabase.co:5432/postgres', 'http://127.0.0.1:54321'],
+    });
+    expect(ok).toBe(false);
+    expect(r.ambienteDoBanco).not.toHaveBeenCalled();
+    expect(boss.work).not.toHaveBeenCalled();
+    expect(lista).toEqual([]);
+    expect(falhasDaInstancia(estado)).toEqual(['ambiente']);
+    expect(erro.mock.calls.flat().join(' ')).toContain('AMBIENTE=local apontando para banco remoto');
+    erro.mockRestore();
+  });
+
+  it('AMBIENTE=local com banco desta máquina (localhost, 127.0.0.1, host.docker.internal): carimba e liga normalmente', async () => {
+    expect(enderecoRemoto('postgresql://postgres:postgres@127.0.0.1:54322/postgres')).toBe(false);
+    expect(enderecoRemoto('http://localhost:54321')).toBe(false);
+    expect(enderecoRemoto('postgres://u:p@host.docker.internal:54322/postgres')).toBe(false);
+    expect(enderecoRemoto('postgres://u:p@[::1]:54322/postgres')).toBe(false);
+    expect(enderecoRemoto('https://abcdefgh.supabase.co')).toBe(true);
+    expect(enderecoRemoto('não é endereço')).toBe(true);
+    const estado = novoEstadoInstancia();
+    const ok = await partida({ repos, alertas: alertasFalsos().alertas, ambiente: 'local', estado, ligar: async () => {},
+      enderecosBanco: ['postgresql://postgres:postgres@127.0.0.1:54322/postgres', 'http://127.0.0.1:54321'] });
+    expect(ok).toBe(true);
+    const { data } = await db.from('configuracoes').select('ambiente').eq('id', 1).single();
+    expect(data!.ambiente).toBe('local');
+  });
+
+  it('homologacao/producao com banco remoto: a regra não se aplica (só AMBIENTE=local é recusado)', async () => {
+    const estado = novoEstadoInstancia();
+    const ok = await partida({ repos, alertas: alertasFalsos().alertas, ambiente: 'homologacao', estado, ligar: async () => {},
+      enderecosBanco: ['https://abcdefgh.supabase.co'] });
+    expect(ok).toBe(true);
+    expect(falhasDaInstancia(estado)).toEqual([]);
   });
 });
 
@@ -263,6 +306,36 @@ describe('iniciarConsumo: a ligação de principal.ts', () => {
     await c.sair();
     expect(r.removerInstancia).toHaveBeenCalledTimes(1);
     expect(rel.chamadas).toHaveLength(0);
+    erro.mockRestore();
+    aviso.mockRestore();
+  });
+
+  // Revisão final (T8): um batimento lento e o seguinte se sobrepõem; os dois querem voltar a consumir.
+  it('dois batimentos sobrepostos voltando a consumir: os consumidores entram uma vez só', async () => {
+    // 1º (partida): segue; 2º: para; 3º, 4º e 5º (sobrepostos): sem motivo.
+    const r = reposFalsos('local', [false, true, false, false, false]);
+    const rel = relogioManual();
+    const estado = novoEstadoInstancia();
+    let soltar: () => void = () => {};
+    let ligacoes = 0;
+    const ligar = vi.fn(async () => {
+      ligacoes += 1;
+      // A partir da segunda ligação (a volta), demora até o teste soltar.
+      if (ligacoes > 1) await new Promise<void>((ok) => { soltar = ok; });
+    });
+    const erro = calar();
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const c = await iniciarConsumo({ repos: r, alertas: alertasMudos, ambiente: 'local', eu: instancia('x', 'v1'), estado,
+      criarBoss: async () => bossFalso(), preparar: async () => ({}) as never, ligar, repetir: rel.repetir });
+    await c.bater(); // para
+    await c.bater(); // 1 sem motivo
+    expect(estado.semMotivo).toBe(BATIMENTOS_PARA_VOLTAR - 1); // os dois próximos, juntos, querem voltar
+    const a = c.bater();
+    const b = c.bater();
+    await new Promise((ok) => setTimeout(ok, 10));
+    soltar();
+    await Promise.all([a, b]);
+    expect(ligar).toHaveBeenCalledTimes(2);
     erro.mockRestore();
     aviso.mockRestore();
   });

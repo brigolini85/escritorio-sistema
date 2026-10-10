@@ -1,4 +1,5 @@
 import { GraduationCap, LockKeyhole, SearchX } from 'lucide-react';
+import { textoDoErro } from '@/lib/erro-na-url-servidor';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -56,7 +57,7 @@ export async function TelaOrientacoes({ params, base, agenteId, comSimulador, ag
   /** I3b (D11): agente de setor com Conversa: o simulador roda ele. semI3b: o banco ainda não tem a I3b. */
   agenteSetor?: { slug: string; modoPadrao: ModoContato } | null; semI3b?: boolean;
 }) {
-  const erro = valorParam(params, 'erro');
+  const erro = textoDoErro(valorParam(params, 'erro'));
   const f = lerFiltrosOrientacoes(params);
   const pedido = valorParam(params, 'orientacao');
   const aberta = pedido === 'nova' ? 'nova' : ehUuid(pedido) ? pedido : null;

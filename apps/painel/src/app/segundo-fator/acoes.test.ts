@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const falso = vi.hoisted(() => ({ challengeAndVerify: vi.fn(), listFactors: vi.fn(), rpc: vi.fn(), usuario: 'u1', contagem: new Map<string, number>() }));
 vi.mock('server-only', () => ({}));
 vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
-// Dublê de contar_tentativa: a mesma regra do banco, em memória.
+// Dublê de contar_tentativa_janela: a mesma regra do banco, em memória (devolve a janela; nulo acima do limite).
 vi.mock('@/lib/supabase/servico', () => ({
   supabaseServico: () => ({
     rpc: async (nome: string, a: { p_chave: string; p_limite: number }) => {
@@ -13,9 +13,9 @@ vi.mock('@/lib/supabase/servico', () => ({
         falso.contagem.set(a.p_chave, Math.max(n - 1, 0));
         return { data: null, error: null };
       }
-      if (n >= a.p_limite) return { data: false, error: null };
+      if (n >= a.p_limite) return { data: null, error: null };
       falso.contagem.set(a.p_chave, n + 1);
-      return { data: true, error: null };
+      return { data: '2026-10-09T12:00:00+00:00', error: null };
     },
   }),
 }));

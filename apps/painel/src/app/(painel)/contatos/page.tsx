@@ -1,4 +1,5 @@
 import type { Perfil } from '@escritorio/core';
+import { textoDoErro } from '@/lib/erro-na-url-servidor';
 import { FilterX, UserPlus, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -120,7 +121,7 @@ export default async function Contatos({ searchParams }: { searchParams: Promise
             <CardDescription>Com ou sem empresa. Para ligar a uma empresa, abra o contato na lista e use &quot;Vincular empresa&quot;.</CardDescription>
           </CardHeader>
           {/* Recusa do banco no cadastro (ex.: corrida com o mesmo número): a frase volta em ?erro=. */}
-          <div className="px-6 empty:hidden"><AvisoErro erro={valorParam(params, 'erro')} limparDaUrl /></div>
+          <div className="px-6 empty:hidden"><AvisoErro erro={textoDoErro(valorParam(params, 'erro'))} limparDaUrl /></div>
           <FormCadastroContato action={cadastrarContato}>
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Input name="nome" required placeholder="Nome" aria-label="Nome do contato" autoComplete="off" className="sm:w-56" />

@@ -380,10 +380,15 @@ export function criarRepos(db: Db) {
       return { interrompidas: r?.interrompidas ?? [], respondeu: r?.respondeu === true };
     },
 
-    /** Revisão da Task 7: alguma resposta deste turno do agente já foi gravada (e, portanto, enviada ou na fila de envio). */
+    /**
+     * Revisão da Task 7: alguma resposta deste turno do agente já foi gravada (e, portanto, enviada ou na fila de envio).
+     * Revisão final (M1): a que falhou de certo (status 'falhou' sem id do provedor) não conta; o cliente não recebeu nada e
+     * o aviso "IA indisponível" sai. A mesma regra de pegar_lote_do_turno.
+     */
     async respondeuNoTurno(conversaId: string, turno: string): Promise<boolean> {
       const r = await db.from('mensagens').select('id', { count: 'exact', head: true })
-        .eq('conversa_id', conversaId).eq('direcao', 'saida').eq('turno_agente', turno);
+        .eq('conversa_id', conversaId).eq('direcao', 'saida').eq('turno_agente', turno)
+        .or('status_envio.is.null,status_envio.neq.falhou,id_provedor.not.is.null');
       if (r.error) throw new Error(`respondeuNoTurno: ${r.error.message}`);
       return (r.count ?? 0) > 0;
     },
@@ -495,17 +500,23 @@ export function criarRepos(db: Db) {
       checar(await db.from('avisos_unicos').delete().eq('chave', chave), 'desmarcarAvisoUnico');
     },
 
-    /** Revisão da Task 14: o aviso das incertas desta conversa não saiu; as marcas delas somem (o próximo batimento avisa). */
-    async desmarcarIncertosDaConversa(conversaId: string): Promise<void> {
-      const ids = checar(await db.from('mensagens').select('id').eq('conversa_id', conversaId).eq('direcao', 'saida')
-        .eq('status_envio', 'incerto'), 'desmarcarIncertosDaConversa').map((m) => `incerto:${m.id}`);
-      if (ids.length) checar(await db.from('avisos_unicos').delete().in('chave', ids), 'desmarcarIncertosDaConversa');
+    /**
+     * Revisão da Task 14: o aviso das incertas de uma conversa não saiu; as marcas delas somem (o próximo batimento avisa).
+     * Revisão final (T14): só as marcadas nesta rodada (ids de marcarIncertosAntigos). Uma incerta já avisada numa rodada
+     * anterior continua marcada e não avisa de novo.
+     */
+    async desmarcarIncertos(mensagemIds: string[]): Promise<void> {
+      const chaves = mensagemIds.map((id) => `incerto:${id}`);
+      if (chaves.length) checar(await db.from('avisos_unicos').delete().in('chave', chaves), 'desmarcarIncertos');
     },
 
-    /** Revisão da Task 9: conversas com mensagem do agente ou do sistema "incerto" há mais de 10 min, cada uma avisada uma vez. */
-    async marcarIncertosAntigos(): Promise<{ conversaId: string; telefone: string }[]> {
+    /**
+     * Revisão da Task 9: conversas com mensagem do agente ou do sistema "incerto" há mais de 10 min, cada uma avisada uma vez.
+     * `mensagens`: os ids marcados nesta rodada (o aviso que falhar desfaz só esses).
+     */
+    async marcarIncertosAntigos(): Promise<{ conversaId: string; telefone: string; mensagens: string[] }[]> {
       const linhas = checar(await db.rpc('marcar_incertos_antigos'), 'marcarIncertosAntigos') ?? [];
-      return linhas.map((l) => ({ conversaId: l.conversa_id, telefone: l.telefone }));
+      return linhas.map((l) => ({ conversaId: l.conversa_id, telefone: l.telefone, mensagens: l.mensagens ?? [] }));
     },
 
     async obterMensagem(id: string): Promise<Mensagem> {

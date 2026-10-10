@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { AvisoErro } from '@/components/patterns/aviso-erro';
+import { textoDoErro } from '@/lib/erro-na-url-servidor';
 import { ExcluirCadastro } from '@/components/patterns/excluir-cadastro';
 import { AvisoArquivado } from '@/components/patterns/lista-arquivados';
 import { nomeDaPessoa } from '@/lib/arquivados';
@@ -25,7 +26,9 @@ export default async function FichaClientePagina({ params, searchParams }: {
   params: Promise<{ id: string }>; searchParams: Promise<{ aba?: string; historico?: string; erro?: string; contato?: string }>;
 }) {
   const { id } = await params;
-  const { aba: pedida, historico, erro, contato } = await searchParams;
+  const { aba: pedida, historico, erro: erroNaUrl, contato } = await searchParams;
+  // Revisão final (T11): só código conhecido ou assinado vira texto.
+  const erro = textoDoErro(erroNaUrl);
   const aba: Aba = ABAS.some((a) => a.valor === pedida) ? (pedida as Aba) : 'dados';
   const u = await obterUsuario();
   const pode = temNivel(u, 'clientes', 'editar');

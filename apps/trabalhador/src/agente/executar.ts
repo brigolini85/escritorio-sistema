@@ -4,7 +4,7 @@ import { calcularCustoUsd, usoDaResposta, type ModoContato } from '@escritorio/c
 import type { AgenteSetor } from '@escritorio/db';
 import { enviarDoSistema } from '../envio';
 import { FERRAMENTA_CHAMAR_AGENTE } from './agentes-setor';
-import type { ParametrosIa } from './cliente-ia';
+import { limiteDaChamada, type ParametrosIa } from './cliente-ia';
 import type { ContextoAgente } from './contexto';
 import { ferramentasDoAgenteSetor, montarBlocosEspecialista } from './especialista';
 import {
@@ -175,8 +175,13 @@ export async function executarAgente(
     // Auditoria 4.11: o limite era conferido só na entrada; agora também antes de cada rodada (do Thiago e do agente do setor).
     if (passouDoOrcamento(d.orcamento)) return { status: 'escalar', motivo: 'limite de custo', respondeu: estado.respondeu };
     // A cada rodada: selecionar_empresa pode ter trocado a empresa em foco (e com ela as orientações da empresa).
+    // Auditoria 4.16 (M8): a chamada cabe no que falta da vez; sem tempo para uma chamada, para como no prazo vencido.
+    const limite = limiteDaChamada(d.prazoVez);
+    if (limite === null) {
+      return estado.respondeu ? terminou() ?? okFinal() : { status: 'escalar', motivo: 'tempo esgotado', respondeu: false };
+    }
     const { pedido, cortadas } = montarPedido(ctx, messages, papel);
-    const r = await d.ia.criar(pedido);
+    const r = await d.ia.criar(pedido, ...(limite ? [{ limite }] : []));
     d.aoResponderModelo?.();
     await registrarUso(d, ctx, r, papel, estado.turno);
     // Só depois de a IA responder: o registro não pode contar como "o agente já agiu" numa falha temporária antes disso.

@@ -313,6 +313,26 @@ describe('revisão da Task 7', () => {
     expect(await repos.mensagensNaoProcessadas(conversa.id)).toHaveLength(0);
   });
 
+  // Revisão final (M1): a resposta gravada que falhou de certo não chegou ao cliente; sem o aviso, ele ficaria sem nada.
+  it('a resposta falhou de certo e a IA quebra: passa à equipe com o aviso "IA indisponível"', async () => {
+    const conversa = await conversaPronta();
+    await receber(conversa.id, 'M1', 'oi');
+    const original = canal.enviarTexto.bind(canal);
+    let primeira = true;
+    canal.enviarTexto = async (t, x) => {
+      if (primeira) { primeira = false; throw new Error('conexão recusada'); }
+      return original(t, x);
+    };
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const ia = new IaRoteirizada([usarFerramentas({ nome: 'responder', entrada: { texto: 'Olá!' } }), new Error('quebrou')]);
+    expect(await processarConversa(deps(ia), conversa.id, false)).toBe('escalado');
+    erro.mockRestore();
+    const { data: saidas } = await db.from('mensagens').select('conteudo, status_envio').eq('conversa_id', conversa.id).eq('direcao', 'saida')
+      .order('criado_em');
+    expect(saidas).toContainEqual({ conteudo: 'Olá!', status_envio: 'falhou' });
+    expect(canal.enviados.map((e) => e.texto)).toEqual([AVISO_IA]);
+  });
+
   it('executarAgente com a IA roteirizada: sinal abortado entre as rodadas para depois da primeira', async () => {
     const ctx = CASOS_RETRATO['contato-uma-empresa']!();
     const reposFalso = { registrarUsoIa: async () => {}, ultimasOrientacoesCortadas: async () => null, obterConversa: async () => ctx.conversa,

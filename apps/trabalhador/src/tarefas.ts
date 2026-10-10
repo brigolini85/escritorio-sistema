@@ -96,6 +96,7 @@ export async function alertaEntradasEsquecidas(d: Pick<DepsTarefas, 'repos' | 'a
  * Revisão da Task 9 (auditoria 3.2): mensagem do agente ou do sistema "incerto" (a Z-API pode ter entregado) que nenhum
  * eco confirmou em 10 min: a equipe confere no WhatsApp. Uma vez por mensagem (marca no banco); só os 4 últimos dígitos.
  * Revisão da Task 14: aviso que não saiu desfaz as marcas daquela conversa (o próximo batimento avisa); as outras seguem.
+ * Revisão final (T14): só as marcas desta rodada; uma incerta já avisada antes não avisa de novo.
  */
 export async function avisarIncertosAntigos(d: Pick<DepsTarefas, 'repos' | 'alertas'>): Promise<void> {
   let erro: unknown;
@@ -104,7 +105,7 @@ export async function avisarIncertosAntigos(d: Pick<DepsTarefas, 'repos' | 'aler
       await d.alertas.alertar({ nivel: 'aviso', mensagem: `Mensagem para …${c.telefone.slice(-4)} não confirmada há 10 min; confira no WhatsApp` });
     } catch (e) {
       erro ??= e;
-      await d.repos.desmarcarIncertosDaConversa(c.conversaId).catch((e2) => console.error('[incerto] marca não desfeita', c.conversaId, e2));
+      await d.repos.desmarcarIncertos(c.mensagens).catch((e2) => console.error('[incerto] marca não desfeita', c.conversaId, e2));
     }
   }
   if (erro) throw erro;

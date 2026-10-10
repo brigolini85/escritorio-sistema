@@ -2347,6 +2347,9 @@ isOneToOne: false
 "contar_tentativa":
 { Args: { "p_chave": string,"p_janela_segundos": number,"p_limite": number }; Returns: boolean
                            },
+"contar_tentativa_janela":
+{ Args: { "p_chave": string,"p_janela_segundos": number,"p_limite": number }; Returns: string
+                           },
 "contato_arquivado_do_telefone":
 { Args: { "p_telefone": string }; Returns: Json
                            },
@@ -2507,6 +2510,8 @@ isOneToOne: false
 { Args: { "p_conversa": string }; Returns: undefined
                            },
 "devolver_tentativa":
+{ Args: { "p_chave": string,"p_janela": string }; Returns: undefined
+                           } |
 { Args: { "p_chave": string,"p_janela_segundos": number }; Returns: undefined
                            },
 "dia_util_anterior":
@@ -2721,7 +2726,7 @@ isOneToOne: false
                            },
 "marcar_incertos_antigos":
 { Args: Record<PropertyKey, never>; Returns: {
-              "conversa_id": string,"telefone": string
+              "conversa_id": string,"mensagens": (string)[],"telefone": string
             }[]
                            },
 "marcar_pendencia_enviada":

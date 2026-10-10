@@ -49,7 +49,7 @@ async function principal() {
   const estado = novoEstadoInstancia();
   const eu: Instancia = { id: randomUUID(), hostname: hostname(), ambiente: cfg.AMBIENTE, ...lerBuild(process.cwd()) };
   const inicio = await iniciarConsumo({
-    repos, alertas, ambiente: cfg.AMBIENTE, eu, estado,
+    repos, alertas, ambiente: cfg.AMBIENTE, eu, estado, enderecosBanco: [cfg.DATABASE_URL, cfg.SUPABASE_URL],
     criarBoss: () => criarBoss(cfg.DATABASE_URL),
     preparar: async (boss) => {
       await anunciarSituacaoDrive(repos, drive);

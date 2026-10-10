@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { textoDoErro } from '@/lib/erro-na-url-servidor';
 import { Suspense } from 'react';
 import { lerFiltroCaixa, lerPaginasCaixa } from '@/lib/caixa';
 import { lerAgentePausado } from '@/lib/leituras-admin';
@@ -54,7 +55,7 @@ export default async function Conversa({ params, searchParams }: {
         className="hidden w-lista-conversas shrink-0 border-r border-border xl:flex"
       />
       <Suspense fallback={<EsqueletoConversa />}>
-        <ConversaAberta id={id} u={u} filtroNaUrl={sp.filtro ?? null} q={q} erro={sp.erro} pessoas={pessoas} pausaGeral={pausaGeral} dataAlvo={lerDataAlvo(sp.data)} anteriores={lerCursorAnteriores(sp.anteriores)} mais={lerPaginasCaixa(sp.mais)} />
+        <ConversaAberta id={id} u={u} filtroNaUrl={sp.filtro ?? null} q={q} erro={textoDoErro(sp.erro)} pessoas={pessoas} pausaGeral={pausaGeral} dataAlvo={lerDataAlvo(sp.data)} anteriores={lerCursorAnteriores(sp.anteriores)} mais={lerPaginasCaixa(sp.mais)} />
       </Suspense>
     </div>
   );

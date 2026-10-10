@@ -81,6 +81,29 @@ function segredoConfere(recebido: string, esperado: string): boolean {
   return timingSafeEqual(a, b);
 }
 
+/** O segredo de `/webhook/zapi/<segredo>` (como o Fastify decodifica o parâmetro); null se o caminho não é esse. */
+function segredoDoCaminho(caminho: string): string | null {
+  const m = /^\/webhook\/zapi\/([^/]+)$/.exec(caminho);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]!);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Revisão final (M3), a mesma regra do painel (Task 12): o IP de quem pede é o valor mais à direita do x-forwarded-for,
+ * o que o proxy do Easypanel acrescenta. Os da esquerda vêm do cliente e são forjáveis (trocar a cada pedido fugiria do
+ * limite). Sem o cabeçalho, o endereço da conexão.
+ */
+export function ipDoPedido(req: Pick<FastifyRequest, 'headers' | 'socket'>): string {
+  const bruto = req.headers['x-forwarded-for'];
+  const texto = Array.isArray(bruto) ? bruto.join(',') : bruto ?? '';
+  const valores = texto.split(',').map((v) => v.trim()).filter(Boolean);
+  return valores[valores.length - 1] ?? req.socket?.remoteAddress ?? 'sem-ip';
+}
+
 export function criarServidor(d: DepsServidor): FastifyInstance {
   const app = Fastify({
     bodyLimit: 1_000_000,
@@ -92,6 +115,7 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
       ...(d.logStream ? { stream: d.logStream } : {}),
     },
     // Atrás do proxy do Easypanel, o IP de verdade vem no X-Forwarded-For (senão todos dividiriam o mesmo limite).
+    // Revisão final (M3): o limite usa ipDoPedido (o valor mais à direita); o req.ip do trustProxy é o primeiro, forjável.
     trustProxy: true,
     // Segredo comprido demais (maxParamLength) ou URL malformada: o padrão devolve o caminho na resposta.
     frameworkErrors: (err: FastifyError, req: FastifyRequest, rep: FastifyReply) => {
@@ -116,12 +140,19 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
     const caminho = req.url.split('?')[0]!;
     const balde = caminho.startsWith('/webhook/') ? 'webhook' : caminho === '/saude' ? 'saude' : null;
     if (!balde) return;
+    // Revisão final (M3): a Z-API autenticada não é limitada (um pico de mensagens não pode virar 429 e perda); o limite
+    // do webhook freia só quem tenta adivinhar o segredo.
+    if (balde === 'webhook') {
+      const segredo = segredoDoCaminho(caminho);
+      if (segredo !== null && segredoConfere(segredo, d.segredo)) return;
+    }
     const agora = d.relogio().getTime();
     if (agora - inicioJanela >= JANELA_LIMITE_MS) { contagens.webhook.clear(); contagens.saude.clear(); inicioJanela = agora; }
-    const n = (contagens[balde].get(req.ip) ?? 0) + 1;
-    contagens[balde].set(req.ip, n);
+    const ip = ipDoPedido(req);
+    const n = (contagens[balde].get(ip) ?? 0) + 1;
+    contagens[balde].set(ip, n);
     if (n > limites[balde]) {
-      if (n === limites[balde] + 1) req.log.warn({ balde, ip: req.ip }, 'limite_de_requisicoes');
+      if (n === limites[balde] + 1) req.log.warn({ balde, ip }, 'limite_de_requisicoes');
       return rep.code(429).send({ erro: 'muitas requisições' });
     }
   });

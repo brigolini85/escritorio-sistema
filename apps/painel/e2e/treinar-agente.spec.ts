@@ -129,7 +129,8 @@ test('erro do banco volta na tela: ligar orientação de empresa inativa mostra 
   expect((await orientacao('Boleto'))?.ativo).toBe(false);
 
   // Formulário: a mensagem do banco aparece no painel (?erro=).
-  await page.goto(`/treinar-agente?orientacao=nova&erro=${encodeURIComponent('Setor não encontrado.')}`);
+  // Revisão final (T11): o ?erro= leva um código (texto livre na URL não aparece).
+  await page.goto('/treinar-agente?orientacao=nova&erro=setor-nao-encontrado');
   await esperarTreinar(page);
   await expect(painel(page).getByRole('alert')).toHaveText('Setor não encontrado.');
 });

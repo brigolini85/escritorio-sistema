@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { redirect, unstable_rethrow } from 'next/navigation';
 import { ZodError } from 'zod';
+import { urlComErro } from './erro-na-url-servidor';
 
 /** Texto para a pessoa: as mensagens de validação ou a mensagem do erro. */
 export function mensagemDeErro(e: unknown): string {
@@ -26,7 +27,8 @@ export async function comAvisoDeErro(destino: string, acao: () => Promise<void>)
     unstable_rethrow(e);   // redirect() de sucesso da própria ação continua valendo
     erro = mensagemDeErro(e);
   }
-  if (erro) redirect(`${destino}${destino.includes('?') ? '&' : '?'}erro=${encodeURIComponent(erro)}`);
+  // Revisão final (T11): só o código (assinado) vai na URL; a página não mostra frase vinda de fora.
+  if (erro) redirect(urlComErro(destino, erro));
   revalidatePath(destino.split('?')[0]!);
   const telaAtual = (await headers()).get('referer') ?? '';
   if (/[?&]erro=/.test(telaAtual)) redirect(destino);

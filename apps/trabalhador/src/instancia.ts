@@ -75,14 +75,42 @@ async function alertarUmaVezPorHora(repos: Pick<Repos, 'alertaRecente'>, alertas
   }
 }
 
+/** Hosts que contam como "esta máquina" (ou o Docker dela) para um processo com AMBIENTE=local. */
+const HOSTS_LOCAIS = new Set(['localhost', '127.0.0.1', '[::1]', 'host.docker.internal']);
+
+/** Revisão final (Important 1): endereço de banco fora desta máquina. Um que nem se lê conta como remoto (na dúvida, não carimba). */
+export function enderecoRemoto(url: string): boolean {
+  try {
+    return !HOSTS_LOCAIS.has(new URL(url).hostname.toLowerCase());
+  } catch {
+    return true;
+  }
+}
+
+/** O "ambiente do banco" que o /saude mostra quando um processo local aponta para um banco remoto (a falha "ambiente"). */
+export const BANCO_REMOTO = 'remoto';
+
+export const MENSAGEM_LOCAL_REMOTO =
+  'AMBIENTE=local apontando para banco remoto (DATABASE_URL ou SUPABASE_URL fora desta máquina): o ambiente do banco não ' +
+  'foi gravado e o trabalhador não vai atender. Use o AMBIENTE do banco (producao ou homologacao) ou aponte para o banco local.';
+
 /**
  * Partida: banco sem ambiente grava o do processo (a primeira partida define). Ambiente diferente: o processo não liga
  * nenhum consumidor, loga, alerta o dono e o /saude falha com "ambiente" (o servidor continua de pé para dizer isso).
+ * Revisão final (Important 1): AMBIENTE=local com um endereço de banco remoto nem pergunta ao banco: a primeira partida
+ * carimbaria "local" na nuvem para sempre. Só loga (o alerta escreveria no banco remoto) e segue como ambiente errado.
  */
 export async function partida(d: {
   repos: Pick<Repos, 'ambienteDoBanco' | 'alertaRecente'>; alertas: Alertas; ambiente: Ambiente; estado: EstadoInstancia;
   ligar: () => Promise<void>;
+  /** Endereços do banco que o processo usa (DATABASE_URL, SUPABASE_URL). */
+  enderecosBanco?: string[];
 }): Promise<boolean> {
+  if (d.ambiente === 'local' && (d.enderecosBanco ?? []).some(enderecoRemoto)) {
+    d.estado.ambienteDoBanco = BANCO_REMOTO;
+    console.error(`[instancia] ${MENSAGEM_LOCAL_REMOTO} Nenhuma fila será consumida.`);
+    return false;
+  }
   const banco = await d.repos.ambienteDoBanco(d.ambiente);
   if (banco !== d.ambiente) {
     d.estado.ambienteDoBanco = banco;

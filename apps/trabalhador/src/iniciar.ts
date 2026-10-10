@@ -26,6 +26,8 @@ export async function iniciarConsumo<B extends BossMinimo>(d: {
   preparar: (boss: B) => Promise<ContextoConsumidores>;
   ligar?: (boss: B, c: ContextoConsumidores) => Promise<void>;
   intervaloMs?: number;
+  /** Endereços do banco (DATABASE_URL, SUPABASE_URL): com AMBIENTE=local, um remoto não carimba nem consome. */
+  enderecosBanco?: string[];
   repetir?: (f: () => void, ms: number) => { parar(): void };
 }): Promise<{ consome: boolean; boss: B | null; bater: () => Promise<void>; sair: () => Promise<void> }> {
   const ligar = d.ligar ?? ((boss: B, c: ContextoConsumidores) => ligarConsumidores(boss, c));
@@ -34,18 +36,29 @@ export async function iniciarConsumo<B extends BossMinimo>(d: {
   let contexto: ContextoConsumidores | null = null;
   let ligado = false;
   // Idempotentes: ligar duas vezes não registra consumidor em dobro; parar sem estar ligado não faz nada.
-  const ligarConsumo = async () => {
+  // Revisão final (T8): dois batimentos sobrepostos (um lento e o seguinte) esperam a mesma ligação em andamento, em vez
+  // de os dois verem `ligado = false` e registrarem os consumidores em dobro.
+  let ligando: Promise<void> | null = null;
+  const ligarConsumo = async (): Promise<void> => {
+    if (ligando) return ligando;
     if (ligado || !boss || !contexto) return;
-    try {
-      await ligar(boss, contexto);
-      ligado = true;
-    } catch (e) {
-      // Ligou só uma parte: desliga o que entrou, para a próxima tentativa começar do zero.
-      await pararDeConsumir(boss);
-      throw e;
-    }
+    const b = boss;
+    const c = contexto;
+    ligando = (async () => {
+      try {
+        await ligar(b, c);
+        ligado = true;
+      } catch (e) {
+        // Ligou só uma parte: desliga o que entrou, para a próxima tentativa começar do zero.
+        await pararDeConsumir(b);
+        throw e;
+      }
+    })().finally(() => { ligando = null; });
+    return ligando;
   };
   const pararConsumo = async () => {
+    // Uma ligação em andamento termina antes (senão ela marcaria `ligado` depois da parada).
+    if (ligando) await ligando.catch(() => {});
     if (!ligado || !boss) return;
     ligado = false;
     await pararDeConsumir(boss);

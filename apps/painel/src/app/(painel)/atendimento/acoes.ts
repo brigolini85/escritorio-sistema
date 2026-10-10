@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prepararAnexoResposta } from '@/lib/arquivo-envio';
 import { comAvisoNaUrl } from '@/lib/avisos';
+import { urlComErro } from '@/lib/erro-na-url-servidor';
 import { cadastrarContatoPeloTelefone, lerManter } from '@/lib/cadastro-contato';
 import { enfileirarEnvio, enfileirarSugestao } from '@/lib/fila';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
@@ -144,7 +145,7 @@ export async function cadastrarContatoDaConversa(conversaId: string, formData: F
     nome, telefone: conversa.telefone, clienteId, agentePausado: formData.get('agente_atende') !== 'on', manter: lerManter(formData),
   });
   // Recusa do banco: o aviso vermelho da conversa (?erro=), que a página já mostra.
-  if ('erro' in r) redirect(`/atendimento/${conversaId}?erro=${encodeURIComponent(r.erro)}`);
+  if ('erro' in r) redirect(urlComErro(`/atendimento/${conversaId}`, r.erro));
   const { id: contatoId, aviso } = r;
   if (clienteId) {
     const { error } = await sb.from('contato_clientes').upsert({ contato_id: contatoId, cliente_id: clienteId, pode_pedir_nota: formData.get('pode_pedir_nota') === 'on' });

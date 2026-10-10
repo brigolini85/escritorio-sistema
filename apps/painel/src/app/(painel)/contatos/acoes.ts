@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { normalizarTelefone } from '@escritorio/core';
 import { comAvisoNaUrl } from '@/lib/avisos';
+import { urlComErro } from '@/lib/erro-na-url-servidor';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { cadastrarContatoPeloTelefone, lerManter } from '@/lib/cadastro-contato';
 import { temNivel } from '@/lib/permissoes';
@@ -21,7 +22,7 @@ export async function cadastrarContato(formData: FormData) {
   // Telefone de contato arquivado traz o contato de volta só com as empresas de antes escolhidas na pergunta.
   const r = await cadastrarContatoPeloTelefone(sb, { nome, telefone, agentePausado: formData.get('agente_atende') !== 'on', manter: lerManter(formData) });
   // Recusa do banco (ex.: corrida com o mesmo número): o aviso vermelho da página, como nas outras telas.
-  if ('erro' in r) redirect(`/contatos?erro=${encodeURIComponent(r.erro)}`);
+  if ('erro' in r) redirect(urlComErro('/contatos', r.erro));
   revalidatePath('/contatos');
   if (r.aviso) redirect(comAvisoNaUrl('/contatos', r.aviso));
 }

@@ -2,14 +2,51 @@ import Anthropic from '@anthropic-ai/sdk';
 
 export type ParametrosIa = Anthropic.MessageCreateParamsNonStreaming;
 
+/** Limite de uma chamada: tempo de cada tentativa e quantas tentativas extras o SDK faz. */
+export type LimiteChamada = { timeoutMs: number; maxRetries: number };
+
 export interface ClienteIa {
-  /** `signal`: cancela a chamada (usado pelo prazo da simulação do Treinar o agente). */
-  criar(p: ParametrosIa, opcoes?: { signal?: AbortSignal }): Promise<Anthropic.Message>;
+  /**
+   * `signal`: cancela a chamada (usado pelo prazo da simulação do Treinar o agente). `limite`: tempo e tentativas desta
+   * chamada (o prazo da vez, ver limiteDaChamada); sem ele, os padrões do cliente.
+   */
+  criar(p: ParametrosIa, opcoes?: { signal?: AbortSignal; limite?: LimiteChamada }): Promise<Anthropic.Message>;
 }
 
+/**
+ * Auditoria 4.16 (M8, rodada final): 60 s cortava respostas longas do modelo. Cada tentativa vai até 150 s; com as 2
+ * tentativas extras do SDK, uma chamada pode levar até 7,5 min. Na vez da conversa, limiteDaChamada encurta a chamada
+ * para caber no que falta do prazo.
+ */
+export const TIMEOUT_IA_MS = 150_000;
+export const TENTATIVAS_EXTRAS_IA = 2;
+
 export function criarClienteIa(apiKey: string): ClienteIa {
-  const cliente = new Anthropic({ apiKey, maxRetries: 2, timeout: 60_000 });
-  return { criar: (p, opcoes) => cliente.messages.create(p, opcoes?.signal ? { signal: opcoes.signal } : undefined) };
+  const cliente = new Anthropic({ apiKey, maxRetries: TENTATIVAS_EXTRAS_IA, timeout: TIMEOUT_IA_MS });
+  return {
+    criar: (p, opcoes) => {
+      const o = {
+        ...(opcoes?.signal ? { signal: opcoes.signal } : {}),
+        ...(opcoes?.limite ? { timeout: opcoes.limite.timeoutMs, maxRetries: opcoes.limite.maxRetries } : {}),
+      };
+      return cliente.messages.create(p, Object.keys(o).length ? o : undefined);
+    },
+  };
+}
+
+/**
+ * Auditoria 4.16 (M8): a chamada da vez nunca passa do prazo da vez (senão uma rodada lenta empurraria a vez para além
+ * de PRAZO_VEZ_CONVERSA_MS e a fila repetiria o job com ela rodando). Sem prazo, ou com tempo para a chamada inteira:
+ * os padrões (undefined). Prazo vencido: null, a rodada não começa. No meio: cada tentativa até o que falta, e só as tentativas
+ * extras que cabem nele.
+ */
+export function limiteDaChamada(prazo: number | undefined, agora: number = Date.now()): LimiteChamada | null | undefined {
+  if (prazo === undefined) return undefined;
+  const restante = prazo - agora;
+  if (restante <= 0) return null;
+  if (restante >= TIMEOUT_IA_MS * (TENTATIVAS_EXTRAS_IA + 1)) return undefined;
+  const timeoutMs = Math.min(TIMEOUT_IA_MS, restante);
+  return { timeoutMs, maxRetries: Math.max(0, Math.min(TENTATIVAS_EXTRAS_IA, Math.floor(restante / timeoutMs) - 1)) };
 }
 
 /** Auditoria 4.8: o erro veio da chamada à IA (resposta da API ou rede), e não de uma ferramenta ou do banco. */
