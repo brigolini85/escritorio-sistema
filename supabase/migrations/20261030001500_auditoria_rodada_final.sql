@@ -231,5 +231,16 @@ begin
   return null;
 end $$;
 revoke execute on function public.aviso_fator_cadastrado() from public, anon, authenticated;
-create trigger aviso_fator_cadastrado after insert or update of status on auth.mfa_factors
-  for each row when (new.status = 'verified') execute function public.aviso_fator_cadastrado();
+-- O Supabase hospedado pode recusar gatilho no schema auth: a migração nunca falha por isso (o painel continua avisando
+-- pelo registrar_fator_cadastrado). Conferir depois do push:
+--   select tgname from pg_trigger where tgrelid = 'auth.mfa_factors'::regclass;
+do $$
+begin
+  create trigger aviso_fator_cadastrado after insert or update of status on auth.mfa_factors
+    for each row when (new.status = 'verified') execute function public.aviso_fator_cadastrado();
+exception
+  when insufficient_privilege then
+    raise notice 'gatilho do aviso de fator não criado; o caminho do painel continua avisando (%)', sqlerrm;
+  when others then
+    raise notice 'gatilho do aviso de fator não criado; o caminho do painel continua avisando (%)', sqlerrm;
+end $$;

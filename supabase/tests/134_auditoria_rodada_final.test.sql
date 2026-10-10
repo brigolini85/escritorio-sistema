@@ -94,7 +94,11 @@ select is((select pedido from public.agente_tarefas where id = 'e1340000-0000-00
 -- 23–34 (item 11, auditoria 2.5): aplicativo de código cadastrado pelo Auth (sem o painel) avisa o dono, uma vez só
 insert into auth.users (id, email) values ('e1340000-0000-0000-0000-00000000000b', 'ana134@pgtap.local');
 insert into public.usuarios (id, nome, email, papel) values ('e1340000-0000-0000-0000-00000000000b', 'Ana 134', 'ana134@pgtap.local', 'atendente');
-select has_trigger('auth', 'mfa_factors', 'aviso_fator_cadastrado', 'gatilho no cadastro do fator');
+-- Vale nos dois casos: o gatilho existe, ou a migração não pôde criá-lo (sem permissão no schema auth: o aviso de NOTICE)
+-- e o caminho do painel continua avisando. No banco local ele existe (os testes seguintes dependem dele).
+select ok(exists (select 1 from pg_trigger where tgrelid = 'auth.mfa_factors'::regclass and tgname = 'aviso_fator_cadastrado')
+  or not has_table_privilege('auth.mfa_factors', 'trigger'),
+  'gatilho no cadastro do fator (ou, sem permissão no auth, o caminho do painel)');
 select ok(not has_function_privilege('authenticated', 'public.aviso_fator_cadastrado()', 'execute')
   and not has_function_privilege('anon', 'public.aviso_fator_cadastrado()', 'execute'), 'ninguém chama o gatilho direto');
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret) values
