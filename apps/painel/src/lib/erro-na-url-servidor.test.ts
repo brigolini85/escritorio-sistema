@@ -38,6 +38,24 @@ describe('textoDoErro', () => {
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'k2');
     expect(textoDoErro(c)).toBe(ERRO_GENERICO);
   });
+  // Revisão da rodada final: o código assinado vale 1 hora (um link guardado não serve para sempre).
+  it('código assinado há mais de 1 hora: mensagem genérica; dentro da hora: o texto', () => {
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'k1');
+    const agora = Date.UTC(2026, 9, 9, 12, 0, 0);
+    const c = codigoDoErro('CNPJ já cadastrado em outra empresa.', agora);
+    expect(textoDoErro(c, agora + 59 * 60_000)).toBe('CNPJ já cadastrado em outra empresa.');
+    expect(textoDoErro(c, agora + 61 * 60_000)).toBe(ERRO_GENERICO);
+    // Data no futuro (relógio adiantado de propósito): também não.
+    expect(textoDoErro(c, agora - 10 * 60_000)).toBe(ERRO_GENERICO);
+  });
+  it('frase longa com emoji no corte: não quebra o par substituto', () => {
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'k1');
+    const texto = `${'a'.repeat(299)}😀😀`;
+    const volta = textoDoErro(codigoDoErro(texto))!;
+    expect(Array.from(volta)).toHaveLength(300);
+    expect(volta.endsWith('😀')).toBe(true);
+    expect(volta).not.toContain('�');
+  });
   it('frase do mapa vira o código fixo; sem a chave de serviço, frase dinâmica vira "falha"', () => {
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'k1');
     expect(codigoDoErro('Setor não encontrado.')).toBe('setor-nao-encontrado');

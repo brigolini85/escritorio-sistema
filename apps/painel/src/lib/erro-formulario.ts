@@ -3,13 +3,24 @@ import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { redirect, unstable_rethrow } from 'next/navigation';
 import { ZodError } from 'zod';
+import { AvisoUsuario } from './aviso-usuario';
+import { ERRO_GENERICO } from './erro-na-url';
 import { urlComErro } from './erro-na-url-servidor';
+import { mensagemDoBanco } from './mensagem-banco';
 
-/** Texto para a pessoa: as mensagens de validação ou a mensagem do erro. */
+/**
+ * Texto para a pessoa. Revisão da rodada final: só texto nosso vai assinado para a tela: as mensagens de validação
+ * (zod), um AvisoUsuario ou um erro do banco com P0001 (raise exception das nossas funções). Qualquer outro erro (a
+ * mensagem crua do Postgres repete o que a pessoa digitou) vira a mensagem genérica e vai só para o log.
+ */
 export function mensagemDeErro(e: unknown): string {
   if (e instanceof ZodError) return [...new Set(e.issues.map((i) => i.message))].join('; ');
-  if (e instanceof Error) return e.message;
-  return 'Não foi possível salvar.';
+  if (e instanceof AvisoUsuario) return e.message;
+  if (e && typeof e === 'object' && (e as { code?: unknown }).code === 'P0001' && typeof (e as { message?: unknown }).message === 'string') {
+    return mensagemDoBanco((e as { message: string }).message);
+  }
+  console.error('[formulário] erro sem texto para a pessoa', e instanceof Error ? e.message : e);
+  return ERRO_GENERICO;
 }
 
 /**

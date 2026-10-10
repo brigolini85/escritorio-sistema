@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect, unstable_rethrow } from 'next/navigation';
 import { SLUG_ATENDIMENTO } from '@escritorio/core';
+import { AvisoUsuario } from '@/lib/aviso-usuario';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
 import { enfileirarSimulacao } from '@/lib/fila';
 import { mensagemDoBanco } from '@/lib/mensagem-banco';
@@ -24,7 +25,8 @@ const FALHA_RESTAURAR = 'Não foi possível restaurar a versão. Tente de novo e
 const AVISO_SEGUNDO_FATOR = 'Confirme o código do aplicativo autenticador para continuar.';
 
 /** Erro com texto já pensado para a pessoa (permissão, validação do banco). Os outros viram uma mensagem padrão. */
-class AvisoTreinar extends Error {}
+// Revisão da rodada final: texto nosso para a pessoa (vai assinado ao ?erro=).
+class AvisoTreinar extends AvisoUsuario {}
 
 /**
  * Erro de uma função do banco: P0001 (raise exception) traz mensagem em português escrita para a pessoa; o resto vai

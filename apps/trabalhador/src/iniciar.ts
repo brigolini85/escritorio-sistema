@@ -65,7 +65,7 @@ export async function iniciarConsumo<B extends BossMinimo>(d: {
   };
 
   const consome = await partida({
-    repos: d.repos, alertas: d.alertas, ambiente: d.ambiente, estado: d.estado,
+    repos: d.repos, alertas: d.alertas, ambiente: d.ambiente, estado: d.estado, enderecosBanco: d.enderecosBanco,
     ligar: async () => {
       boss = await d.criarBoss();
       contexto = await d.preparar(boss);

@@ -310,6 +310,27 @@ describe('iniciarConsumo: a ligação de principal.ts', () => {
     aviso.mockRestore();
   });
 
+  // Revisão da rodada final: a guarda do item 1 precisa chegar à partida pelo caminho de principal.ts.
+  it('AMBIENTE=local com DATABASE_URL remoto: ambienteDoBanco nunca é chamado, nada consome e o /saude falha com "ambiente"', async () => {
+    const r = reposFalsos('local');
+    const criarBoss = vi.fn(async () => bossFalso());
+    const preparar = vi.fn(async () => ({}) as never);
+    const rel = relogioManual();
+    const estado = novoEstadoInstancia();
+    const erro = calar();
+    const c = await iniciarConsumo({ repos: r, alertas: alertasMudos, ambiente: 'local', eu: instancia('x', 'v1'), estado,
+      criarBoss, preparar, repetir: rel.repetir,
+      enderecosBanco: ['postgresql://postgres:x@db.abcdefgh.supabase.co:5432/postgres', 'http://127.0.0.1:54321'] });
+    erro.mockRestore();
+    expect(c.consome).toBe(false);
+    expect(r.ambienteDoBanco).not.toHaveBeenCalled();
+    expect(criarBoss).not.toHaveBeenCalled();
+    expect(preparar).not.toHaveBeenCalled();
+    expect(r.registrarInstancia).not.toHaveBeenCalled();
+    expect(rel.chamadas).toHaveLength(0);
+    expect(falhasDaInstancia(estado)).toEqual(['ambiente']);
+  });
+
   // Revisão final (T8): um batimento lento e o seguinte se sobrepõem; os dois querem voltar a consumir.
   it('dois batimentos sobrepostos voltando a consumir: os consumidores entram uma vez só', async () => {
     // 1º (partida): segue; 2º: para; 3º, 4º e 5º (sobrepostos): sem motivo.

@@ -3,7 +3,9 @@ import { revalidatePath } from 'next/cache';
 import { caminhoDaEmpresa } from '@escritorio/core';
 import { temNivel } from '@/lib/permissoes';
 import { exigirAdmin, obterUsuario } from '@/lib/sessao';
+import { AvisoUsuario, erroDoBanco } from '@/lib/aviso-usuario';
 import { comAvisoDeErro } from '@/lib/erro-formulario';
+import { mensagemDoBanco } from '@/lib/mensagem-banco';
 import { supabaseServidor } from '@/lib/supabase/servidor';
 import { supabaseServico } from '@/lib/supabase/servico';
 import { prepararDocumentoEmpresa } from '@/lib/arquivo-envio';
@@ -12,12 +14,12 @@ import { lerSetorDoDocumento, lerSetoresDeDocumento, setoresEscolhiveis } from '
 
 async function exigirEdicao() {
   const u = await obterUsuario();
-  if (!temNivel(u, 'clientes', 'editar')) throw new Error('Você não tem permissão para editar cadastros.');
+  if (!temNivel(u, 'clientes', 'editar')) throw new AvisoUsuario('Você não tem permissão para editar cadastros.');
   return { u, sb: await supabaseServidor() };
 }
 const campos = (f: FormData) => Object.fromEntries(f.entries());
 function checar(r: { error: { message: string } | null }) {
-  if (r.error) throw new Error(r.error.message.includes('duplicate') ? 'Já existe um cadastro igual (nome, CNPJ ou código repetido). Confira também os arquivados.' : r.error.message);
+  if (r.error) throw r.error.message.includes('duplicate') ? new AvisoUsuario('Já existe um cadastro igual (nome, CNPJ ou código repetido). Confira também os arquivados.') : erroDoBanco(r.error, mensagemDoBanco);
 }
 
 const aba = (clienteId: string, nome: string) => `/clientes/${clienteId}?aba=${nome}`;
@@ -60,11 +62,11 @@ export async function salvarProduto(clienteId: string, produtoId: string | null,
 export async function definirPreco(clienteId: string, grupoId: string, produtoId: string, formData: FormData) {
   await comAvisoDeErro(aba(clienteId, 'precos'), async () => {
     const u = await obterUsuario();
-    if (!temNivel(u, 'precos', 'mudar')) throw new Error('Você não tem permissão para editar preços.');
+    if (!temNivel(u, 'precos', 'mudar')) throw new AvisoUsuario('Você não tem permissão para editar preços.');
     const { valor } = PrecoForm.parse(campos(formData));
     const sb = await supabaseServidor();
     const { error } = await sb.rpc('definir_preco', { p_grupo: grupoId, p_produto: produtoId, p_valor: valor });
-    if (error) throw new Error(error.message);
+    if (error) throw erroDoBanco(error, mensagemDoBanco);
   });
   revalidatePath(`/clientes/${clienteId}`);
 }
@@ -74,18 +76,21 @@ export async function enviarDocumento(clienteId: string, formData: FormData) {
     const { u, sb } = await exigirEdicao();
     const nome = String(formData.get('nome') ?? '').trim();
     const arquivo = formData.get('arquivo');
-    if (!nome || !(arquivo instanceof File) || arquivo.size === 0) throw new Error('Informe o nome e escolha o arquivo.');
+    if (!nome || !(arquivo instanceof File) || arquivo.size === 0) throw new AvisoUsuario('Informe o nome e escolha o arquivo.');
     // Setor e "Tem valores" (H2, D11) só vêm quando o banco tem a migração (o formulário mostra o campo).
     const extra = lerSetorDoDocumento(formData, await setoresDeDocumento(sb, formData));
-    if (extra && 'erro' in extra) throw new Error(extra.erro);
+    if (extra && 'erro' in extra) throw new AvisoUsuario(extra.erro);
     // Auditoria 1.3 e 6.9 (revisão da Task 10): confere nome, caminho, tipo e tamanho antes de subir, para a linha
     // recusada não deixar arquivo sem dono no Storage.
     const doc = prepararDocumentoEmpresa(clienteId, arquivo.name, arquivo.type, arquivo.size);
-    if ('erro' in doc) throw new Error(doc.erro);
+    if ('erro' in doc) throw new AvisoUsuario(doc.erro);
     const { path, arquivoNome, mime } = doc;
     // Os bytes, não o File: com File o Storage usa o tipo do navegador e ignora o contentType.
     const up = await sb.storage.from('documentos').upload(path, await arquivo.arrayBuffer(), { contentType: mime });
-    if (up.error) throw new Error(`Falha ao enviar o arquivo: ${up.error.message}`);
+    if (up.error) {
+      console.error('[documentos] envio do arquivo falhou', up.error.message);
+      throw new AvisoUsuario('Falha ao enviar o arquivo. Tente de novo.');
+    }
     const ins = await sb.from('documentos_empresa').insert({ cliente_id: clienteId, nome, arquivo_path: path, arquivo_nome: arquivoNome, arquivo_mime: mime, enviado_por: u.id, ...(extra ?? {}) });
     if (ins.error) {
       // A exclusão no compartimento é só do administrador: a limpeza do arquivo que esta ação acabou de subir usa o serviço.
@@ -109,11 +114,11 @@ export async function definirSetorDocumento(clienteId: string, documentoId: stri
     const { sb } = await exigirEdicao();
     // O setor que o documento já tem pode ficar, mesmo desativado (nunca vira "da empresa" sem alguém escolher).
     const { data: doc, error } = await sb.from('documentos_empresa').select('setor_id').eq('id', documentoId).eq('cliente_id', clienteId).maybeSingle();
-    if (error) throw new Error('Não foi possível ler o documento agora. Tente de novo.');
-    if (!doc) throw new Error('Documento não encontrado.');
+    if (error) throw new AvisoUsuario('Não foi possível ler o documento agora. Tente de novo.');
+    if (!doc) throw new AvisoUsuario('Documento não encontrado.');
     const extra = lerSetorDoDocumento(formData, await setoresDeDocumento(sb, formData), doc.setor_id);
     if (!extra) return;
-    if ('erro' in extra) throw new Error(extra.erro);
+    if ('erro' in extra) throw new AvisoUsuario(extra.erro);
     checar(await sb.from('documentos_empresa').update(extra).eq('id', documentoId).eq('cliente_id', clienteId));
   });
   revalidatePath(`/clientes/${clienteId}`);
