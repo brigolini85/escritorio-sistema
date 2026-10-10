@@ -161,6 +161,21 @@ describe('descartes (3.7)', () => {
     expect(gravadas).toHaveLength(1);
     expect(linhas.join('')).toContain('"motivo":"edicao"');
   });
+  it('auditoria 3.7 (revisão 2): edição do escritório (fromMe) não grava, não vai para a verificação nem gera alerta', async () => {
+    const { app, linhas, gravadas, alertas, fila } = montar();
+    await app.inject({ method: 'POST', url: URL_OK, payload: { ...doInstancia, fromMe: true, isEdit: true, momment: 5, text: { message: 'corrigido' } } });
+    expect(gravadas).toHaveLength(0);
+    expect(fila.enviados).toHaveLength(0);
+    expect(alertas).toHaveLength(0);
+    expect(linhas.join('')).toContain('"motivo":"edicao"');
+  });
+  it('auditoria 3.7 (revisão 2): edição vazia só fica no log (edicao), sem gravar nem contar para o alerta', async () => {
+    const { app, linhas, gravadas, alertas } = montar();
+    for (let i = 0; i < 25; i++) await app.inject({ method: 'POST', url: URL_OK, payload: { ...doInstancia, isEdit: true, momment: i, text: { message: '' } } });
+    expect(gravadas).toHaveLength(0);
+    expect(alertas).toHaveLength(0);
+    expect(linhas.join('')).toContain('"motivo":"edicao"');
+  });
   it('messageId vazio não grava', async () => {
     const { app, gravadas } = montar();
     await app.inject({ method: 'POST', url: URL_OK, payload: { ...doInstancia, messageId: '' } });

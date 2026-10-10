@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { EnvioIncerto, type CanalWhatsApp, type MensagemRecebida } from './tipos';
 
@@ -94,9 +95,15 @@ export function criarCanalZapi(
         // Auditoria 3.7 (revisão): a edição é a correção do cliente (ex.: "março" no lugar de "fevereiro"): chega como mensagem
         // de texto nova, com prefixo, para o agente e a equipe verem. O id leva o momento da edição: a mensagem original e
         // cada edição gravam uma vez cada; a mesma edição entregue de novo é descartada pela deduplicação do id.
-        const novo = c.text?.message ?? c.image?.caption ?? c.document?.caption ?? '';
-        const momento = typeof e.momment === 'number' || typeof e.momment === 'string' ? String(e.momment) : 'sem-momento';
-        return { ...comum, idProvedor: `${c.messageId}:edit:${momento}`, tipo: 'texto', texto: `(mensagem editada) ${novo}`.trim(), midia: null };
+        // Revisão 2: a edição feita pelo escritório (fromMe) não é do cliente; iria para a verificação "enviada por mim" com
+        // um id que nunca bate e tiraria o agente da conversa à toa. Edição sem texto não tem o que mostrar. As duas só
+        // ficam no log (motivo edicao, no servidor).
+        const novo = (c.text?.message ?? c.image?.caption ?? c.document?.caption ?? '').trim();
+        if (c.fromMe || !novo) return null;
+        // Sem o momento, o id vem do texto: edições diferentes gravam cada uma; a mesma, entregue de novo, é deduplicada.
+        const momento = typeof e.momment === 'number' || typeof e.momment === 'string' ? String(e.momment)
+          : `t${createHash('sha1').update(novo).digest('hex').slice(0, 12)}`;
+        return { ...comum, idProvedor: `${c.messageId}:edit:${momento}`, tipo: 'texto', texto: `(mensagem editada) ${novo}`, midia: null };
       }
       if (c.text) return { ...comum, tipo: 'texto', texto: c.text.message, midia: null };
       if (c.audio) return { ...comum, tipo: 'audio', texto: null, midia: { url: c.audio.audioUrl, mime: c.audio.mimeType ?? null, nomeArquivo: null } };

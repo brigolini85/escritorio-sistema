@@ -155,9 +155,11 @@ export function criarServidor(d: DepsServidor): FastifyInstance {
       // Auditoria 3.7: o descarte deixa rastro (só o type, nunca o conteúdo). Aviso/reação são esperados e não contam.
       const c = (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>;
       const type = typeof c.type === 'string' ? c.type.slice(0, 40) : null;
-      // Status, lista de transmissão e canal (3.7, resto) também são esperados.
+      // Status, lista de transmissão e canal (3.7, resto) também são esperados, e a edição que não vira mensagem (feita pelo
+      // escritório ou sem texto; revisão 2).
       const motivo = c.notification || c.reaction ? 'aviso_ou_reacao'
-        : c.broadcast === true || c.isNewsletter === true || c.isStatusReply === true ? 'status_ou_canal' : 'esquema';
+        : c.broadcast === true || c.isNewsletter === true || c.isStatusReply === true ? 'status_ou_canal'
+          : c.isEdit === true ? 'edicao' : 'esquema';
       const esperado = motivo !== 'esquema';
       req.log.info({ type, motivo }, 'webhook_descartado');
       if (!esperado) await contarDescarte(req);

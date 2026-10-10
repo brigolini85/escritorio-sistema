@@ -59,6 +59,19 @@ describe('interpretarWebhook', () => {
     // A mesma edição entregue de novo tem o mesmo id (a deduplicação do banco descarta a repetição).
     expect(canal.interpretarWebhook(corpo)!.idProvedor).toBe(m.idProvedor);
   });
+  it('auditoria 3.7 (revisão 2): edição feita pelo escritório (fromMe) e edição vazia não viram mensagem', () => {
+    expect(canal.interpretarWebhook({ ...f.texto, fromMe: true, isEdit: true, momment: 7, text: { message: 'corrigido' } })).toBeNull();
+    expect(canal.interpretarWebhook({ ...f.texto, isEdit: true, momment: 7, text: { message: '   ' } })).toBeNull();
+    expect(canal.interpretarWebhook({ ...f.texto, isEdit: true, momment: 7, text: undefined })).toBeNull();
+  });
+  it('auditoria 3.7 (revisão 2): sem momment, o id da edição vem do texto (duas edições diferentes gravam as duas)', () => {
+    const a = canal.interpretarWebhook({ ...f.texto, momment: undefined, isEdit: true, text: { message: 'março' } })!;
+    const b = canal.interpretarWebhook({ ...f.texto, momment: undefined, isEdit: true, text: { message: 'abril' } })!;
+    expect(a.idProvedor).toMatch(/^MSG-TEXTO-1:edit:t[0-9a-f]{12}$/);
+    expect(b.idProvedor).toMatch(/^MSG-TEXTO-1:edit:t[0-9a-f]{12}$/);
+    expect(a.idProvedor).not.toBe(b.idProvedor);
+    expect(canal.interpretarWebhook({ ...f.texto, momment: undefined, isEdit: true, text: { message: 'março' } })!.idProvedor).toBe(a.idProvedor);
+  });
   it('os mesmos campos falsos (como nas capturas reais) não mudam nada', () => {
     expect(canal.interpretarWebhook({ ...f.texto, broadcast: false, isNewsletter: false, isStatusReply: false, isEdit: false, waitingMessage: false })!.tipo).toBe('texto');
   });
